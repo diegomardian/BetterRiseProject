@@ -1,0 +1,31 @@
+# Who gets auto-requested for review.
+#
+# SETUP: replace the placeholder handles below with real GitHub usernames, then
+# turn on branch protection for `main` (Settings > Branches):
+#   - require a pull request before merging
+#   - require review from Code Owners
+#   - require the CI status check
+# Until the handles are real, GitHub silently ignores the unmatched lines — so
+# this file does nothing until someone finishes it. That someone is W2.
+
+# Default: the repo owner sees everything.
+*                       @diegomardian
+
+# ---------------------------------------------------------------------------
+# Frozen. Two approvals and a written reason (CLAUDE.md invariant 3).
+# Two owners listed here means GitHub requires both.
+# ---------------------------------------------------------------------------
+/src/schema.py          @diegomardian
+/config/panel.yaml      @diegomardian
+/config/labeling_axes.yaml  @diegomardian
+/tests/test_freeze.py   @diegomardian
+/CLAUDE.md              @diegomardian
+
+# ---------------------------------------------------------------------------
+# Workstreams. Uncomment and fill in as handles are confirmed.
+# ---------------------------------------------------------------------------
+# /src/reference/       @w1-handle
+# /src/harness/         @w2-handle
+# /src/bulk/            @w3-handle
+# /src/estimator/       @w4-handle
+# /src/common/          @diegomardian @w2-handle

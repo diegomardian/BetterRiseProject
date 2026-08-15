@@ -1,0 +1,10 @@
+# Keep line endings sane across the Windows/macOS/Linux mix on this team.
+* text=auto eol=lf
+
+*.parquet binary
+*.png binary
+*.pdf binary
+*.h5ad binary
+
+# Notebooks diff badly. Review the .py export, not the JSON.
+*.ipynb -diff linguist-vendored

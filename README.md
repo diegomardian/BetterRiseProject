@@ -262,3 +262,21 @@ The unit of inference is the patient. The primary paired analysis is adequately 
 | [README.md](README.md) | This document — what the project is and why it is designed this way |
 | [execution_plan.md](execution_plan.md) | Four-person parallel execution: workstreams W1–W4, week-5 gate, frozen schema and repo contract |
 | [CLAUDE.md](CLAUDE.md) | Invariants that must not be violated by any code change |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | **Start here.** Setup, branch naming, what you own, what you must not edit |
+| [docs/open_decisions.md](docs/open_decisions.md) | Decisions that block code, and who closes them by when |
+
+**Code**
+
+| Path | Owner | Contents |
+|---|---|---|
+| [src/schema.py](src/schema.py) | shared · frozen | The output contract and the results writer. `None` is not `0.0`, enforced here. |
+| [src/common/](src/common/) | shared | Paths, provenance stamping, loaders for the frozen panel and axes |
+| [src/reference/](src/reference/README.md) | **W1** | GSE178341, QC, ambient correction, labels, S matrices |
+| [src/harness/](src/harness/README.md) | **W2** | Simulation harness, deconvolution bake-off, calibrated cutpoints |
+| [src/bulk/](src/bulk/README.md) | **W3** | TCGA-COAD/READ, purity, clinical table, survival |
+| [src/estimator/](src/estimator/README.md) | **W4** | Kitagawa decomposition, bootstrap, Lee-cohort replication |
+| [config/](config/) | shared · frozen | `panel.yaml`, `labeling_axes.yaml`, the fixed gene index |
+| [tests/](tests/) | shared | The invariants, asserted. A red build means a frozen contract moved. |
+| [data/](data/README.md) | — | Gitignored. Only [`manifest.csv`](data/manifest.csv) travels. |
+| [results/](results/README.md) | — | Versioned parquet, one directory per date + git sha |
+| [env/](env/README.md) | — | One pinned conda env per workstream |

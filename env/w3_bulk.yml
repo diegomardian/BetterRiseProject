@@ -1,0 +1,27 @@
+# W3 — Bulk & clinical. TCGA-COAD/READ, purity, survival. Laptop-fine.
+name: brp-w3
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - numpy=1.26.4
+  - pandas=2.2.2
+  - pyarrow=16.1.0
+  - pyyaml=6.0.1
+  - scipy=1.13.1
+  - statsmodels=0.14.2
+  - scikit-learn=1.5.1
+  - lifelines=0.29.0        # DSS / PFI models
+  - matplotlib=3.8.4
+  - seaborn=0.13.2
+  - openpyxl=3.1.5          # TCGA-CDR ships as xlsx
+  - jupyterlab=4.2.3
+  - requests=2.32.3         # GDC API
+  - diptest=0.7.0           # Hartigan dip test for the week-2 bimodality check
+  # ESTIMATE is an R package
+  - r-base=4.3.3
+  - r-estimate=1.0.13
+  - pip
+  - pip:
+      - -e ..

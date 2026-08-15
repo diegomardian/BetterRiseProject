@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "betterrise"
+version = "0.1.0"
+description = "Compositional vs. cell-intrinsic decomposition of differentiation-marker loss in colorectal cancer"
+requires-python = ">=3.10"
+
+# Deliberately thin. Everything here is needed by the SHARED code in src/schema.py
+# and src/common/. Workstream-specific heavy dependencies (scanpy, CellBender,
+# inferCNV, lifelines, ...) live in the per-workstream conda envs under env/.
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "pyarrow>=14",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "ruff>=0.4"]
+
+[tool.setuptools.packages.find]
+# The frozen repo contract puts everything under src/ with that exact name,
+# so `src` is the package root: `from src.schema import ...`.
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error::FutureWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

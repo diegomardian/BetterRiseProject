@@ -1,0 +1,69 @@
+# =============================================================================
+# FROZEN — execution_plan.md §3.2. PR + two approvals + a written reason.
+# Mirrored by an exact-value assertion in tests/test_freeze.py.
+#
+# SEQUENCING CONSTRAINT: labels were frozen FIRST, in week 0, before the panel
+# expanded. Tier E consumes genes (SPIB, BEST4, KRT20, CA1, VIL1, SATB2) that
+# would otherwise be candidate labels. Expand the panel first and there is
+# nothing left to label with. This ordering is the whole reason the file exists.
+#
+# The claim is AGREEMENT ACROSS STRUCTURALLY DIFFERENT AXES, not independence.
+# Fully panel-independent labels probably do not exist — differentiation state
+# in colonic epithelium largely *is* this program.
+# =============================================================================
+
+version: "1.0.0"
+frozen_on: "week-0"
+
+axes:
+  stem_pole:
+    number: 1
+    basis: "Distance from the stem pole"
+    transcript_based: true
+    genes: [LGR5, ASCL2, MKI67, OLFM4, SMOC2]
+    caveat: >
+      Overlaps the Wnt-target score (§2.3). When this axis is in play, drop
+      ASCL2 and LGR5 from the Wnt score and report the Wnt/stem correlation.
+
+  opposite_lineage:
+    number: 2
+    basis: "The opposite lineage — goblet program, orthogonal to absorptive"
+    transcript_based: true
+    genes: [MUC2, TFF3, SPDEF, ITLN1]
+    caveat: >
+      MUC2 and TFF3 are also tier-E panel genes. A run testing either of those
+      targets may not use this axis. See docs/open_decisions.md #1.
+
+  chromatin:
+    number: 3
+    basis: "A different measurement — chromatin accessibility"
+    transcript_based: false
+    source: "Becker/Chang multiome"
+    genes: []
+    caveat: >
+      Not transcript-based, and therefore the strongest defence against label
+      leakage. Week 13+. May end up spatial-only — W4 checks CRC overlap.
+
+  spatial:
+    number: 3
+    basis: "A different measurement — crypt position"
+    transcript_based: false
+    source: "Visium HD / Xenium"
+    genes: []
+    caveat: "Not transcript-based. Week 13+. Also tests the CDX2 tumour-bud prediction."
+
+# -----------------------------------------------------------------------------
+# Granularity rungs. The split is annotation-relative by construction: a
+# compositional change becomes an expression change purely by redrawing cluster
+# boundaries. Report the split as a CURVE across all four rungs. A single point
+# estimate would present a modelling choice as a measurement.
+# -----------------------------------------------------------------------------
+granularity_rungs:
+  - name: epithelial
+    description: "Coarsest — all epithelium as one compartment"
+  - name: lineage
+    description: "Absorptive / secretory / stem"
+  - name: crypt_position
+    description: "Crypt-bottom to crypt-top ordering"
+  - name: best4
+    description: "Finest — BEST4+ cells as their own population"

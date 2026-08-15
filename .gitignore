@@ -1,0 +1,67 @@
+# ---------------------------------------------------------------------------
+# Data — never committed. The manifest is the only record that travels.
+# ---------------------------------------------------------------------------
+data/*
+!data/README.md
+!data/manifest.csv
+# Keep the three subdirectory names in git so everyone has the same tree.
+!data/raw/
+!data/interim/
+!data/processed/
+data/raw/*
+data/interim/*
+data/processed/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+
+# Large artifacts that occasionally land outside data/ by accident
+*.h5ad
+*.h5
+*.loom
+*.mtx
+*.mtx.gz
+*.rds
+*.RData
+
+# ---------------------------------------------------------------------------
+# Results — parquet IS committed (they are small, versioned, and the record of
+# what we found). Scratch plots and caches are not.
+# ---------------------------------------------------------------------------
+results/**/scratch/
+results/**/*.tmp
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/**/.conda-lock*
+
+# ---------------------------------------------------------------------------
+# R (W1/W4 may use inferCNV, CopyKAT, SoupX)
+# ---------------------------------------------------------------------------
+.Rhistory
+.RData
+.Rproj.user/
+
+# ---------------------------------------------------------------------------
+# Editors / OS
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

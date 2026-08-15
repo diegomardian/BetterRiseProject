@@ -1,0 +1,77 @@
+# =============================================================================
+# FROZEN — execution_plan.md §3.1. Changing this file needs a PR, two approvals
+# and a written reason. It is mirrored by an exact-value assertion in
+# tests/test_freeze.py; edit one without the other and CI goes red on purpose.
+#
+# The panel is a CONTROL SET, not a survey of interesting genes. Each tier has a
+# written-down expectation so the estimator can fail visibly.
+#
+# FALSIFICATION RULE: if tiers A, B and D all return the same answer, the
+# estimator is broken and no biological claim may be made.
+# =============================================================================
+
+version: "1.0.0"
+frozen_on: "week-0"
+
+tiers:
+  A:
+    name: compositional_control
+    expectation: compositional
+    role: "BEST4+ program; under 5% of epithelium even in healthy colon"
+    genes: [GUCA2A, GUCA2B, OTOP2, CA7]
+
+  B:
+    name: intrinsic_control
+    expectation: intrinsic
+    role: >
+      Methylation-silenced in CIMP/MSI, in cells that stay epithelial. MLH1 is
+      broadly expressed across colonic epithelium, so its compositional term
+      should be structurally near zero. Tier B is load-bearing: a compositional
+      control alone validates only the half nobody doubted.
+    genes: [MLH1, SFRP1, SFRP2]
+
+  C:
+    name: hypothesis
+    expectation: mixed
+    role: "Loss varies within tumours, concentrated at buds"
+    genes: [CDX2]
+
+  D:
+    name: retained_control
+    expectation: neither
+    role: "Colonocyte-restricted yet frequently maintained"
+    genes: [MS4A12]
+
+  E:
+    name: exploratory
+    expectation: unspecified
+    role: "No pre-registered expectation. Excluded from the falsification rule."
+    genes:
+      [AQP8, CA1, CA2, CA4, CEACAM7, SLC26A3, FABP1, PIGR, KRT20, LGALS4,
+       VIL1, SATB2, MUC2, TFF3]
+
+# -----------------------------------------------------------------------------
+# Wnt-target signature. CLAUDE.md invariant 8: CTNNB1 / TCF7L2 transcript level
+# is NOT Wnt activity — activation is post-translational. Use targets.
+#
+# `core` is the set to use whenever the stem axis is in play; ASCL2 and LGR5 are
+# held separately because they ARE the stem axis (execution_plan.md §2.3) and
+# including them makes "high mature fraction + high Wnt" near-contradictory.
+# Whichever set is used, report the correlation between Wnt score and stem
+# fraction explicitly.
+# -----------------------------------------------------------------------------
+wnt_targets:
+  core: [AXIN2, NKD1, RNF43, NOTUM, TCF7]
+  stem_overlapping: [ASCL2, LGR5]
+
+# -----------------------------------------------------------------------------
+# OPEN COLLISION — flagged at scaffold time, needs a week-0 decision.
+#
+# MUC2 and TFF3 appear in tier E (targets) AND in labelling axis 2 (labels).
+# Invariant 2 says target genes never appear in labels or the reference matrix.
+# Taken literally across the whole panel, axis 2 loses half its markers.
+#
+# The scaffold resolves this the narrow way: build_signature() excludes the
+# target set FOR THE RUN IN QUESTION, not the whole panel. So a run testing MUC2
+# may not use axis 2. Recorded, not decided — see docs/open_decisions.md #1.
+# -----------------------------------------------------------------------------
