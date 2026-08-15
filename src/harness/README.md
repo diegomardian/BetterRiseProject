@@ -24,7 +24,45 @@ term) and within-patient label permutation (should destroy both).
 
 The design spec comes first and all four people review it. It defines what
 "known ground truth" means here — which is the load-bearing assumption of the
-entire gate. Put it in [`docs/`](../../docs/) and link it from the PR.
+entire gate. It is at
+[docs/harness_design_spec.md](../../docs/harness_design_spec.md) and is **draft
+for review**: §7 lists what still needs W1/W3/W4 sign-off, and §4 pre-registers
+the three numbers the week-5 cutpoints are derived from.
+
+## What is built
+
+| File | State |
+|---|---|
+| [truth.py](truth.py) | **done** — analytic Kitagawa terms, parametric and realised truth, identity assertion |
+| [pseudobulk.py](pseudobulk.py) | **done** — patient holdout, composition draw, multiplicative shift on integer counts |
+| [controls.py](controls.py) | **done** — within-patient permutation, housekeeping negatives |
+| [positivity.py](positivity.py) | **done**, provisional cutpoints pending week-5 calibration |
+| [results.py](results.py) | **done** — four harness table shapes, written via `src.common.io` |
+| [deconvolve/](deconvolve/) | protocol + NNLS baseline done; ν-SVR, MuSiC wk 3–4; CIBERSORTx, BayesPrism staged |
+| `bakeoff.py` | wk 3–4 |
+| `attenuation.py` | wk 4–5 |
+| `calibration.py` | wk 5 |
+| `ingest.py` | wk 1–2, pending the cohort decision (open_decisions #6) |
+
+```python
+from src.harness import generate_pseudobulk, patient_holdout
+
+train, held = patient_holdout(patient_ids, n_held_out=5, seed=1)
+sample = generate_pseudobulk(
+    counts, cell_type, patient_id, genes,
+    composition_normal={"mature_colonocyte": 0.4, ...},
+    composition_tumour={"mature_colonocyte": 0.02, ...},   # sweep this to zero
+    shift={"GUCA2A": 0.5},                                  # 1.0 is the exact null
+    held_out_patients=held, n_cells=5000, seed=1,
+)
+sample.truth.parametric["GUCA2A"]["normal"]["intrinsic"]
+sample.truth.realised["GUCA2A"]["normal"]["intrinsic"]
+```
+
+**Both truths are recorded on every sample.** Parametric is what we asked for;
+realised is what the drawn cells actually have. Recovery against realised
+isolates estimator bias, recovery against parametric also carries sampling
+noise. Report one and a sampling artefact reads as estimator bias.
 
 ## The cutpoints are yours, and W4 imports them
 
