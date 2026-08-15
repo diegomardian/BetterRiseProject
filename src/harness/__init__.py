@@ -18,11 +18,38 @@ Blocked by: W1's five-patient pilot, end of week 2. Nothing else.
 rather than reimplementing the thresholds.
 """
 
+from src.harness.controls import (
+    HOUSEKEEPING_GENES,
+    housekeeping_panel,
+    permute_labels_within_patient,
+)
 from src.harness.positivity import (
     CUTPOINTS,
     Cutpoints,
     classify_estimability,
     gate_g4_verdict,
 )
+from src.harness.pseudobulk import (
+    PseudobulkSample,
+    generate_pseudobulk,
+    patient_holdout,
+)
+from src.harness.results import write_harness_table
+from src.harness.truth import GroundTruth, analytic_terms, assert_identity_closes
 
-__all__ = ["CUTPOINTS", "Cutpoints", "classify_estimability", "gate_g4_verdict"]
+__all__ = [
+    "CUTPOINTS",
+    "HOUSEKEEPING_GENES",
+    "Cutpoints",
+    "GroundTruth",
+    "PseudobulkSample",
+    "analytic_terms",
+    "assert_identity_closes",
+    "classify_estimability",
+    "gate_g4_verdict",
+    "generate_pseudobulk",
+    "housekeeping_panel",
+    "patient_holdout",
+    "permute_labels_within_patient",
+    "write_harness_table",
+]

@@ -20,11 +20,21 @@ dependencies:
   - pytest=8.2.2
   - ruff=0.5.0
   # Bake-off contenders. MuSiC and BayesPrism are R.
+  #
+  # The adapters call R via an Rscript SUBPROCESS with parquet in and parquet
+  # out, deliberately not rpy2. rpy2 is pleasanter to write and breaks on
+  # version drift between the conda R and the linked libR; the bake-off runs a
+  # handful of times, not in a loop, so a fragile in-process binding sitting on
+  # the critical path to the week-5 gate is not worth the ergonomics.
   - r-base=4.3.3
   - bioconductor-music=1.0.0
+  - r-arrow=16.1.0          # parquet bridge for the Rscript adapters
   - r-devtools=2.4.5        # BayesPrism installs from GitHub
   - pip
   - pip:
       - -e ..
 # CIBERSORTx runs as a Docker container with a registered token, not a package.
 # Record the container digest in the bake-off notes so the comparison is pinned.
+# Request the token in week 1 — it is the only external dependency that can put
+# the bake-off on the critical path, and the staged plan exists so that a
+# missing token costs two methods rather than the gate.

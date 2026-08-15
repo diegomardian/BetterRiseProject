@@ -91,6 +91,57 @@ protection for `main`.
 
 ---
 
+## 6 · Which cohort W2 ingests — OPEN
+
+**Raised:** W2 planning, 2026-08-15 · **Owner:** W2 + W4 · **Needed by:** week 1,
+before anyone downloads anything
+
+W2 needs real cells in week 1 so the harness is never queued behind W1's
+five-patient pilot. W4 owns both Lee cohorts (GSE132465 SMC, GSE144735 KUL3) and
+does its own ingest and ambient correction in weeks 1–2. If W2 ingests Lee too,
+two people run the same QC in the same fortnight.
+
+**Proposal: split the pair rather than duplicate it.**
+
+| | Cohort | Does |
+|---|---|---|
+| W4 | GSE132465 (SMC) | ingest, QC, ambient correction, labels — as planned |
+| W2 | GSE144735 (KUL3) | same pipeline *shape*, then hands the cleaned object to W4 |
+
+W4 needs both cohorts eventually and gets one for free. W2 gets real cells in
+week 1 without a redundant fortnight. Pipeline shape is coordinated; code is not
+shared yet — the same rule W4 already has with W1.
+
+**Fallback if W4 objects:** W2 waits for W4's SMC object and spends week 1 on the
+design spec and the data-free plumbing (`common/io.py`, `harness/results.py`,
+the deconvolution adapter protocol, the NNLS baseline) — all of which are
+already done, so the cost of the fallback is low.
+
+**Note on independence:** sharing a cohort between W2 and W4 does not compromise
+the harness. The harness needs cells with labels, not a dataset nobody else has
+touched. What it does require is that the patients held out for a pseudobulk
+sample are held out — which is enforced in `generate_pseudobulk`, not assumed.
+
+---
+
+## 7 · Detectable effect for cutpoint calibration — OPEN
+
+**Raised:** W2 design spec, 2026-08-15 · **Owner:** W2 + W4 · **Needed by:** week 4,
+before the attenuation sweep runs
+
+The cutpoints are derived from the smallest mature-cell count at which the
+estimator can still discriminate a pre-registered effect. The spec pre-registers
+`s = 0.5` — a halving of per-cell output — because it sits mid-band in the
+published attenuation range (×0.6–0.8).
+
+If W4 expects MLH1 silencing to be closer to complete (`s` near 0), a smaller
+effect is easier to detect, the cutpoints get looser and G4 gets easier to pass.
+If the realistic effect is milder, the reverse. **This number must be fixed
+before the sweep is looked at**, which is what makes the cutpoints derived rather
+than chosen. See [harness_design_spec.md §4](harness_design_spec.md).
+
+---
+
 ## Closed
 
 *(none yet — move entries here with the date and the decision, do not delete them)*
