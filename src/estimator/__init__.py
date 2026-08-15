@@ -14,6 +14,18 @@ Takes its estimability rule from ``src.harness.classify_estimability`` rather
 than reimplementing thresholds — W2 recalibrates those at week 5.
 """
 
-from src.estimator.kitagawa import Decomposition, decompose
+from src.estimator.kitagawa import (
+    Decomposition,
+    attach_intrinsic_ci,
+    bootstrap_over_patients,
+    decompose,
+    decompose_cohort,
+)
 
-__all__ = ["Decomposition", "decompose"]
+__all__ = [
+    "Decomposition",
+    "attach_intrinsic_ci",
+    "bootstrap_over_patients",
+    "decompose",
+    "decompose_cohort",
+]
