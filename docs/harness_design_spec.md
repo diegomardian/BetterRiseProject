@@ -135,6 +135,26 @@ Cutpoints follow mechanically:
 `calibrate_cutpoints()` returns a `Cutpoints` whose `source` field names the
 sweep that produced it, so the number in the code traces back to a run.
 
+### Which interval, and against which truth
+
+Two details that were not obvious until the calibration was run.
+
+**The interval must be per-patient.** W4's `attach_intrinsic_ci` broadcasts a
+*cohort-level* band onto every patient row, so a patient with 800 mature cells
+and one with 21 receive the same interval and the coverage curve is flat. A
+cutpoint on cell count needs an interval that responds to cell count.
+`harness/interval.py` supplies one by resampling the patient's own mature cells;
+[open_decisions #10](open_decisions.md) sets out why that is not a violation of
+invariant 5, which governs *population* inference.
+
+**Coverage is scored against the parametric truth, not the realised truth.** The
+oracle estimate reproduces the realised truth exactly — same arithmetic, same
+cells — so scoring against it asks whether a percentile interval contains its
+own centre. It does, and coverage comes back at a flat 1.0 that measures
+nothing. The parametric truth is the parameter the sample does *not* exactly
+reproduce, so covering it is a real question. This is not a stricter version of
+the same test; the other one is vacuous.
+
 **Both the provisional (50 / 20) and the calibrated values go in the gate memo.**
 If they differ substantially, that is a finding about the provisional numbers.
 
