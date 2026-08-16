@@ -38,11 +38,42 @@ the three numbers the week-5 cutpoints are derived from.
 | [controls.py](controls.py) | **done** — within-patient permutation, housekeeping negatives |
 | [positivity.py](positivity.py) | **done**, provisional cutpoints pending week-5 calibration |
 | [results.py](results.py) | **done** — four harness table shapes, written via `src.common.io` |
-| [deconvolve/](deconvolve/) | protocol + NNLS baseline done; ν-SVR, MuSiC wk 3–4; CIBERSORTx, BayesPrism staged |
+| [deconvolve/](deconvolve/) | protocol, NNLS baseline and ν-SVR **done**; MuSiC wk 3–4; CIBERSORTx, BayesPrism staged |
+| [attenuation.py](attenuation.py) | **done** — the §2.2 sweep, oracle + bulk arms |
+| [bulk_recovery.py](bulk_recovery.py) | **done** — the thing invariant 6 forbids, measured rather than used |
+| [calibration.py](calibration.py) | **done** — cutpoints derived from pre-registered criteria; needs CIs attached |
 | `bakeoff.py` | wk 3–4 |
-| `attenuation.py` | wk 4–5 |
-| `calibration.py` | wk 5 |
-| `ingest.py` | wk 1–2, pending the cohort decision (open_decisions #6) |
+| `ingest.py` | blocked — needs raw counts from `lee_io` (open_decisions #8) |
+
+## The two arms, and why both
+
+```python
+from src.harness.attenuation import SweepConfig, SweepGrid, run_sweep, summarise_sweep
+sweep = run_sweep(SweepConfig(counts, cell_type, patient_id, genes, "GUCA2A"),
+                  SweepGrid(), seed=20260815)
+summarise_sweep(sweep)
+```
+
+**oracle** runs W4's `decompose()` on cell-level summary statistics — the
+reliable half, and G3. **bulk** deconvolves, backs the mature mean out of bulk,
+then decomposes — the half invariant 6 forbids using for results, run only to
+measure how far it can be pushed. That measurement *is* §2.2.
+
+Reporting bulk without oracle beside it confounds estimator error with bulk
+attenuation, and those have opposite consequences: fix the estimator, or don't
+use bulk for this.
+
+Read `null_arm_recovers_zero()` before any other number in a sweep. It checks
+the **parametric** null is exactly zero. The **realised** null is not zero and
+must not be asserted to be — normal and tumour are different draws of cells, so
+their empirical means differ even when nothing was silenced. Use
+`null_arm_noise_ratio()` for that, which is the meaningful version of the
+question.
+
+`bulk_overconfidence()` counts rows where bulk returned a number and the truth
+was "not estimable". On the first synthetic run that was 41 of 80. See
+[the design spec §7](../../docs/harness_design_spec.md) for the validation run
+and — importantly — what it does not show.
 
 ```python
 from src.harness import generate_pseudobulk, patient_holdout
