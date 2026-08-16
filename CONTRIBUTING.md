@@ -115,6 +115,24 @@ pytest
 ruff check src tests
 ```
 
+**Your local env is not CI's env.** CI installs only `pip install -e ".[dev]"` —
+the four thin shared deps plus the test tooling — not your workstream's conda
+env. So a module that imports `scipy`, `statsmodels` or `scikit-learn` will
+import fine on your machine and kill the CI run at *collection*, taking the whole
+suite with it.
+
+If you add such an import and a test touches that module, add the package to
+`[project.optional-dependencies] dev` in `pyproject.toml` when it is light and
+pip-installable. Do not add the heavy ones (CellBender, inferCNV, anything from
+`r-base`) and do not reach for `pytest.importorskip` — that converts a missing
+dependency into silently untested code, which is worse than a red build.
+
+To check the way CI will see it:
+
+```bash
+python -m venv /tmp/ci && /tmp/ci/bin/pip install -e ".[dev]" && /tmp/ci/bin/pytest -q
+```
+
 - [ ] Tests pass, including `tests/test_freeze.py`
 - [ ] No `intrinsic = 0.0` where the honest answer is `None` (invariant 1)
 - [ ] Any new result written through `write_results()`, so it carries a sha
