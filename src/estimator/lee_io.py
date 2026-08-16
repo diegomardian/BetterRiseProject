@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import gzip
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Literal
@@ -221,6 +222,26 @@ class LeeCohort:
     axis_gene_coverage: dict[str, list[str]]
     excluded_patients: list[str] = field(default_factory=list)
     n_border_cells: int = 0
+    #: The same cells and genes as ``expression``, but **raw integer counts** —
+    #: what came off the matrix before the CP10K step.
+    #:
+    #: ``expression`` is the right scale for ``decompose_cohort``: the Kitagawa
+    #: identity is additive and needs a linear, depth-normalised value. It is
+    #: the wrong input for W2's pseudobulk generator, which realises a
+    #: multiplicative shift by binomial thinning and Poisson augmentation —
+    #: both defined on counts. Handing it CP10K used to truncate every value
+    #: below 1.0 to zero silently, destroying exactly the low-expressing cells
+    #: the near-zero mature-cell edge cases are made of; the generator now
+    #: refuses a non-integer matrix outright, which is safe but leaves the
+    #: harness with nothing to run on.
+    #:
+    #: Empty by default. Pass ``keep_raw_counts=True`` to populate it.
+    #:
+    #: NOTE for callers building a reference matrix: this frame contains the
+    #: target genes, because the generator needs them to apply the shift.
+    #: Exclude them before deconvolution (CLAUDE.md invariant 2) — W2's
+    #: ``bulk_recovery.reference_profiles(..., exclude_genes=[target])`` does.
+    raw_counts: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 
 _FILES: Final[dict[str, dict[str, str]]] = {
@@ -242,6 +263,8 @@ def load_lee_cohort(
     axes: tuple[str, ...] = ("stem_pole", "opposite_lineage"),
     rungs: tuple[str, ...] | None = None,
     raw_dir: Path | None = None,
+    extra_genes: Sequence[str] = (),
+    keep_raw_counts: bool = False,
 ) -> LeeCohort:
     """Load, QC, normalise and label one real Lee cohort end to end.
 
@@ -254,6 +277,18 @@ def load_lee_cohort(
     identity outright) -> exclude tumor-only patients, logged -> label with
     ``labels.label_cohort`` (unmodified, leakage-guarded against
     ``target_genes``) -> assemble.
+
+    ``extra_genes`` widens the set collected off the matrix beyond
+    ``target_genes | axis markers``. Deconvolution needs 500-2000 genes for
+    nu-SVR to be robust (execution_plan.md §2.1 error #4), and the default set
+    is roughly twenty — so W2's harness passes a marker panel here rather than
+    re-parsing the matrix itself. Streaming cost is unchanged; only the number
+    of rows retained grows.
+
+    ``keep_raw_counts`` additionally populates ``LeeCohort.raw_counts`` with
+    the pre-CP10K integer counts. See the field's docstring for why the
+    generator cannot use the normalised frame. Off by default so existing
+    callers pay nothing.
 
     ``target_genes`` are the panel genes under test — passed straight through
     to ``label_cohort``'s leakage guard, so a run testing MUC2/TFF3 correctly
@@ -273,7 +308,7 @@ def load_lee_cohort(
     from src.common.panel import axis_genes
 
     axis_marker_genes = {g for axis in axes for g in axis_genes(axis)}
-    genes_of_interest = sorted(set(target_genes) | axis_marker_genes)
+    genes_of_interest = sorted(set(target_genes) | axis_marker_genes | set(extra_genes))
 
     metrics, raw_expression, coverage = stream_matrix_stats(
         raw_dir / files["matrix"],
@@ -339,6 +374,14 @@ def load_lee_cohort(
         axis_gene_coverage=coverage,
         excluded_patients=excluded_patients,
         n_border_cells=n_border_cells,
+        # Same rows and columns as `expression`, one step earlier in the
+        # pipeline. Cast to a nullable integer dtype so a caller can tell at a
+        # glance that these are counts and not a normalised scale.
+        raw_counts=(
+            expression_counts.astype("Int64")
+            if keep_raw_counts
+            else pd.DataFrame(index=expression.index)
+        ),
     )
 
 
