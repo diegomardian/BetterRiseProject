@@ -14,10 +14,48 @@ Date: 2026-08-16 · Owner: W2 · Reads against
 
 | Gate | Status | Basis |
 |---|---|---|
-| **G1** ambient correction | **not W2's** | W1's retention-vs-abundance statistic. The harness starts from corrected cells and cannot test the correction. |
+| **G1** ambient correction | **premise has changed — see below** | W1's retention-vs-abundance statistic. The harness starts from corrected cells and cannot test the correction. |
 | **G3** estimator recovers known ground truth | **preliminary PASS**, synthetic | Oracle arm recovers the known split within 1% wherever the mature compartment is non-empty; interval coverage 0.90–1.00 above 20 mature cells |
 | **G4** <50% of patients below threshold | **cannot answer yet** | Needs real patient-level mature-cell counts. `gate_g4_verdict()` is implemented and waiting on data. |
 | **G2** control tiers separate | **not yet run** | Needs W1's pilot |
+
+---
+
+## 0 · G1's premise changed on 2026-08-16 — W1's finding
+
+Not W2's criterion, but it reshapes what the gate is deciding, so it belongs at
+the top rather than in a footnote.
+
+W1 established ([open_decisions #11](open_decisions.md)) that **GSE178341 ships
+no unfiltered droplets** — the deposit is post-`dropletUtils`, all 181 GSM
+records carry no per-sample supplementary files, and the one unlinked
+Broad-hosted lead turned out to have exactly 371,223 rows, the published post-QC
+count. There are no empty droplets in any public source.
+
+Consequences, in the order they bite:
+
+- **CellBender cannot run at all.** It models every barcode including cell-free
+  ones. Without empty droplets there is nothing for it to learn from.
+- **SoupX runs only in degraded mode**, and DecontX replaces CellBender as the
+  second method since it infers contamination from cluster structure instead.
+- **G1 as written is no longer quite the question.** It asks whether ambient
+  correction eliminates the intrinsic signal. We can no longer run the
+  correction the criterion assumed, so the gate is choosing between *degraded
+  correction* and *no correction*, not between two good methods.
+
+That does not obviously fail G1 — the plate-based subset in the ICBI atlas has
+essentially no soup, so an intrinsic signal surviving there remains strong
+evidence it is not contamination, and that route is untouched by this. But the
+pre-committed consequence for a G1 failure (pivot to snRNA-seq and spatial) is
+now closer than it was on the 15th, and the gate should be told so rather than
+discovering it in the room.
+
+**W2's position:** the harness cannot adjudicate this. It starts from corrected
+cells and has no view on whether the correction worked. What it *can* do is
+quantify how much intrinsic signal survives a given level of simulated ambient
+contamination, which would turn "degraded correction" into a number. That is not
+built and is not in the week-5 scope; flagging it as the obvious next harness
+job if the gate wants it.
 
 ---
 
