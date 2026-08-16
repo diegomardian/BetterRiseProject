@@ -27,9 +27,24 @@ from src.common.paths import REPO_ROOT
 
 SRC = REPO_ROOT / "src"
 
-#: Optional by design — guarded by try/except and not required to be present.
-#: ``provenance.set_global_seeds`` seeds torch if it happens to be installed.
-INTENTIONALLY_OPTIONAL = {"torch"}
+#: Optional by design. Every entry needs a reason, and the reason has to be one
+#: of the two the docstring below allows: guarded by try/except, or reached only
+#: by a code path no test exercises.
+INTENTIONALLY_OPTIONAL = {
+    # try/except in provenance.set_global_seeds — seeds torch if present.
+    "torch",
+    # src/reference/ingest.py:read_10x_mtx, a thin wrapper around
+    # sc.read_10x_mtx. Lazily imported, no test covers it (the parsing it wraps
+    # is dataset-specific and lands in W1's ingest script), and scanpy pulls
+    # numba and llvmlite, which is too much to compile on every CI run. It is
+    # pinned in env/w1_reference.yml, where a heavy single-workstream
+    # dependency belongs.
+    #
+    # If a test ever does exercise read_10x_mtx, delete this entry and add
+    # scanpy to the dev extra instead — at that point the compile cost buys
+    # something.
+    "scanpy",
+}
 
 
 def _top_level(name: str) -> str:
