@@ -42,8 +42,9 @@ the three numbers the week-5 cutpoints are derived from.
 | [attenuation.py](attenuation.py) | **done** — the §2.2 sweep, oracle + bulk arms |
 | [bulk_recovery.py](bulk_recovery.py) | **done** — the thing invariant 6 forbids, measured rather than used |
 | [calibration.py](calibration.py) | **done** — cutpoints derived from pre-registered criteria; needs CIs attached |
-| `bakeoff.py` | wk 3–4 |
-| `ingest.py` | blocked — needs raw counts from `lee_io` (open_decisions #8) |
+| [bakeoff.py](bakeoff.py) | **done** — ranking, plus the signature-width comparison |
+| [interval.py](interval.py) | **done** — per-patient CI; read its docstring on invariant 5 |
+| `ingest.py` | unblocked once W4 merges `w2/lee-raw-counts` (open_decisions #8) |
 
 ## The two arms, and why both
 

@@ -33,7 +33,7 @@ patient outside the requested set.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -48,6 +48,24 @@ class PseudobulkSample:
     bulk_tumour: np.ndarray  # (n_genes,)
     genes: tuple[str, ...]
     truth: GroundTruth
+    #: gene -> {"normal": values, "tumour": values} for EVERY drawn cell.
+    #:
+    #: Kept because the summed bulk is not enough for two downstream jobs: the
+    #: per-patient interval in ``harness.interval`` needs individual cells (an
+    #: interval that responds to mature-cell count is the only kind a positivity
+    #: cutpoint can be calibrated on), and the permutation control needs to
+    #: re-estimate the same sample under a shuffled mature mask.
+    drawn_expression: dict[str, dict[str, np.ndarray]] = field(default_factory=dict)
+    #: Which drawn cells are mature, per arm. Aligned with ``drawn_expression``.
+    drawn_is_mature: dict[str, np.ndarray] = field(default_factory=dict)
+
+    @property
+    def mature_expression(self) -> dict[str, dict[str, np.ndarray]]:
+        """``drawn_expression`` restricted to the mature cells."""
+        return {
+            gene: {arm: values[self.drawn_is_mature[arm]] for arm, values in arms.items()}
+            for gene, arms in self.drawn_expression.items()
+        }
 
     @property
     def depth_normal(self) -> int:
@@ -283,4 +301,12 @@ def generate_pseudobulk(
         bulk_tumour=cells_t.sum(axis=0),
         genes=tuple(genes),
         truth=truth,
+        drawn_expression={
+            g: {
+                "normal": cells_n[:, gene_idx[g]].astype(float),
+                "tumour": cells_t[:, gene_idx[g]].astype(float),
+            }
+            for g in shifted_genes
+        },
+        drawn_is_mature={"normal": mature_n, "tumour": mature_t},
     )
