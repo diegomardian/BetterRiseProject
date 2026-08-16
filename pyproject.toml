@@ -38,6 +38,7 @@ dev = [
     "ruff>=0.4",
     "scipy>=1.11",  # src/harness/deconvolve/nnls.py
     "statsmodels>=0.14",  # src/estimator/hierarchical.py (lazy import, still needed)
+    "scikit-learn>=1.3",  # src/harness/deconvolve/nusvr.py (lazy import, still needed)
 ]
 
 [tool.setuptools.packages.find]
