@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -251,3 +252,70 @@ def test_label_agreement_computes_a_rate_per_axis_rung():
         mature_subtype_allowlist=["Mature Enterocytes type 1", "Mature Enterocytes type 2"],
     )
     assert (out["agreement"].between(0, 1)).all()
+
+
+# ---------------------------------------------------------------------------
+# raw_counts / extra_genes — the W2 harness path
+# ---------------------------------------------------------------------------
+
+
+def test_raw_counts_is_empty_unless_asked_for():
+    """Off by default, so existing callers pay no memory for it."""
+    cohort = load_lee_cohort("smc", target_genes=PANEL_AB, raw_dir=FIXTURES)
+    assert cohort.raw_counts.empty
+
+
+def test_raw_counts_are_integers_not_cp10k():
+    """The generator thins counts binomially; a normalised frame would be
+    truncated to zero silently. See LeeCohort.raw_counts."""
+    cohort = load_lee_cohort(
+        "smc", target_genes=PANEL_AB, raw_dir=FIXTURES, keep_raw_counts=True
+    )
+    assert not cohort.raw_counts.empty
+    assert pd.api.types.is_integer_dtype(cohort.raw_counts.dtypes.iloc[0])
+    values = cohort.raw_counts.to_numpy(dtype="float64")
+    assert ((values == np.floor(values)) | np.isnan(values)).all()
+
+
+def test_raw_counts_align_with_the_normalised_frame():
+    cohort = load_lee_cohort(
+        "smc", target_genes=PANEL_AB, raw_dir=FIXTURES, keep_raw_counts=True
+    )
+    assert list(cohort.raw_counts.index) == list(cohort.expression.index)
+    assert list(cohort.raw_counts.columns) == list(cohort.expression.columns)
+
+
+def test_raw_counts_and_cp10k_agree_up_to_library_size():
+    """Same numbers, different scale — CP10K is counts / library_size * 1e4, so
+    the two frames must be proportional within a cell."""
+    cohort = load_lee_cohort(
+        "smc", target_genes=PANEL_AB, raw_dir=FIXTURES, keep_raw_counts=True
+    )
+    raw = cohort.raw_counts.to_numpy(dtype="float64")
+    cp10k = cohort.expression.to_numpy(dtype="float64")
+    rows = np.flatnonzero((raw.sum(axis=1) > 0) & (cp10k.sum(axis=1) > 0))
+    assert rows.size, "fixture has no cell with any expression"
+    for i in rows[:5]:
+        ratio = cp10k[i][raw[i] > 0] / raw[i][raw[i] > 0]
+        assert np.allclose(ratio, ratio[0])  # one scale factor per cell
+
+
+def test_extra_genes_widens_the_collected_set():
+    """nu-SVR needs 500-2000 genes; the default set is roughly twenty, so the
+    harness passes a marker panel rather than re-parsing the matrix."""
+    narrow = load_lee_cohort("smc", target_genes=PANEL_AB, raw_dir=FIXTURES)
+    wide = load_lee_cohort(
+        "smc", target_genes=PANEL_AB, raw_dir=FIXTURES, extra_genes=["EPCAM", "PTPRC", "COL1A1"]
+    )
+    assert set(wide.axis_gene_coverage["requested"]) > set(
+        narrow.axis_gene_coverage["requested"]
+    )
+    assert {"EPCAM", "PTPRC", "COL1A1"} <= set(wide.axis_gene_coverage["requested"])
+
+
+def test_extra_genes_does_not_disturb_the_leakage_guard():
+    """Widening the collected set must not put a target gene into the labels."""
+    wide = load_lee_cohort(
+        "smc", target_genes=PANEL_AB, raw_dir=FIXTURES, extra_genes=["EPCAM", "PTPRC"]
+    )
+    assert not set(PANEL_AB) & set(wide.labels.columns)
