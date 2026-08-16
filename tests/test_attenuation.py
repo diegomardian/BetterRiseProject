@@ -335,10 +335,14 @@ def test_criteria_are_recorded_with_the_result():
 
 def test_nusvr_recovers_fractions_from_a_clean_mixture():
     rng = np.random.default_rng(3)
+    # 300 genes: above the 500-gene floor is what the real bake-off uses, but
+    # this only needs to show the adapter inverts a clean mixture, and linear
+    # NuSVR is superlinear in rows.
+    n_genes = 300
     sig = pd.DataFrame(
-        rng.gamma(2.0, 5.0, size=(800, 4)),
+        rng.gamma(2.0, 5.0, size=(n_genes, 4)),
         columns=TYPES,
-        index=[f"G{i:04d}" for i in range(800)],
+        index=[f"G{i:04d}" for i in range(n_genes)],
     )
     true = np.array([0.4, 0.3, 0.2, 0.1])
     bulk = sig.to_numpy() @ true
