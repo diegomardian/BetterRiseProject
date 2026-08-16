@@ -6,14 +6,22 @@ analytically known answers. This is the scalar floor of that; W4 extends it.
 
 from __future__ import annotations
 
+import numpy as np
+import pandas as pd
 import pytest
 
-from src.estimator.kitagawa import decompose
+from src.estimator.kitagawa import (
+    attach_intrinsic_ci,
+    bootstrap_over_patients,
+    decompose,
+    decompose_cohort,
+)
 from src.harness.positivity import (
     CUTPOINTS,
     classify_estimability,
     gate_g4_verdict,
 )
+from src.schema import WEIGHTINGS, coerce_results, validate_results
 
 # A tumour that lost half its mature cells AND silenced the survivors.
 CASE = dict(
@@ -72,9 +80,47 @@ def test_neither_case_is_flat():
     assert (d.compositional, d.intrinsic, d.interaction) == pytest.approx((0.0, 0.0, 0.0))
 
 
-def test_doubly_robust_is_not_silently_the_plain_version():
-    with pytest.raises(NotImplementedError):
-        decompose(**CASE, n_cells_mature=200, weighting="doubly_robust")
+def test_doubly_robust_identity_holds_with_zero_interaction():
+    """Pooled-reference weighting (Kline 2011) sums to total exactly, with the
+    interaction term at zero by construction — see kitagawa._doubly_robust_split."""
+    d = decompose(**CASE, n_cells_mature=200, weighting="doubly_robust")
+    total = (
+        CASE["frac_mature_tumour"] * CASE["mean_tumour"]
+        - CASE["frac_mature_normal"] * CASE["mean_normal"]
+    )
+    assert d.compositional + d.intrinsic + d.interaction == pytest.approx(total)
+    assert d.interaction == pytest.approx(0.0)
+
+
+def test_doubly_robust_is_not_silently_either_plain_version():
+    """The whole point of the third weighting: it disagrees with both."""
+    n = decompose(**CASE, n_cells_mature=200, weighting="normal")
+    t = decompose(**CASE, n_cells_mature=200, weighting="tumour")
+    dr = decompose(**CASE, n_cells_mature=200, weighting="doubly_robust")
+    assert dr.compositional != pytest.approx(n.compositional)
+    assert dr.compositional != pytest.approx(t.compositional)
+    assert dr.intrinsic != pytest.approx(n.intrinsic)
+    assert dr.intrinsic != pytest.approx(t.intrinsic)
+
+
+def test_doubly_robust_agrees_with_both_plain_versions_in_degenerate_cases():
+    """Tier A/B-style cases (only one side moves) collapse the reference
+    choice, so all three weightings should agree."""
+    pure_compositional = dict(
+        frac_mature_normal=0.40, frac_mature_tumour=0.10, mean_normal=10.0, mean_tumour=10.0
+    )
+    for weighting in WEIGHTINGS:
+        d = decompose(**pure_compositional, n_cells_mature=200, weighting=weighting)
+        assert d.intrinsic == pytest.approx(0.0)
+        assert d.interaction == pytest.approx(0.0)
+
+    pure_intrinsic = dict(
+        frac_mature_normal=0.40, frac_mature_tumour=0.40, mean_normal=10.0, mean_tumour=4.0
+    )
+    for weighting in WEIGHTINGS:
+        d = decompose(**pure_intrinsic, n_cells_mature=200, weighting=weighting)
+        assert d.compositional == pytest.approx(0.0)
+        assert d.interaction == pytest.approx(0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -120,3 +166,154 @@ def test_gate_g4_fails_and_names_the_pre_committed_consequence():
 def test_gate_g4_needs_patients():
     with pytest.raises(ValueError):
         gate_g4_verdict([])
+
+
+# ---------------------------------------------------------------------------
+# decompose_cohort — per-patient wrapper, schema-shaped
+# ---------------------------------------------------------------------------
+
+
+def _summary_frame():
+    """Three synthetic patients spanning the positivity rule: comfortably
+    estimable, wide-interval, and below the not-estimable cutpoint."""
+    return pd.DataFrame(
+        [
+            dict(
+                patient_id="P1", study_id="LEE_SMC", gene="GUCA2A",
+                granularity_rung="lineage", labeling_axis="stem_pole",
+                frac_mature_normal=0.40, frac_mature_tumour=0.10,
+                mean_normal=10.0, mean_tumour=10.0, n_cells_mature=200,
+            ),
+            dict(
+                patient_id="P2", study_id="LEE_SMC", gene="GUCA2A",
+                granularity_rung="lineage", labeling_axis="stem_pole",
+                frac_mature_normal=0.40, frac_mature_tumour=0.15,
+                mean_normal=9.0, mean_tumour=9.0, n_cells_mature=30,
+            ),
+            dict(
+                patient_id="P3", study_id="LEE_SMC", gene="GUCA2A",
+                granularity_rung="lineage", labeling_axis="stem_pole",
+                frac_mature_normal=0.40, frac_mature_tumour=0.05,
+                mean_normal=11.0, mean_tumour=11.0, n_cells_mature=5,
+            ),
+        ]
+    )  # fmt: skip
+
+
+def test_decompose_cohort_fans_out_three_weightings_per_patient():
+    out = decompose_cohort(_summary_frame())
+    assert set(out["weighting"]) == set(WEIGHTINGS)
+    assert len(out) == 3 * len(WEIGHTINGS)
+
+
+def test_decompose_cohort_nulls_intrinsic_below_the_wide_cutpoint():
+    """P3 has 5 mature cells -- below the wide-interval floor. Intrinsic is
+    None, not zero; compositional stays estimable (README §Positivity)."""
+    out = decompose_cohort(_summary_frame())
+    p3 = out[out["patient_id"] == "P3"]
+    assert (p3["estimability"] == "not_estimable").all()
+    assert p3["intrinsic"].isna().all()
+    assert p3["compositional"].notna().all()
+
+
+def test_decompose_cohort_flags_wide_interval_without_dropping_the_estimate():
+    out = decompose_cohort(_summary_frame())
+    p2 = out[out["patient_id"] == "P2"]
+    assert (p2["estimability"] == "wide_interval").all()
+    assert p2["intrinsic"].notna().all()
+
+
+def test_decompose_cohort_estimability_does_not_vary_by_weighting():
+    """The mature-cell count, and therefore the verdict, doesn't depend on
+    which weighting is used to report the split."""
+    out = decompose_cohort(_summary_frame())
+    for _patient_id, group in out.groupby("patient_id"):
+        assert group["estimability"].nunique() == 1
+
+
+def test_decompose_cohort_output_validates_against_the_frozen_schema():
+    out = decompose_cohort(_summary_frame())
+    validate_results(coerce_results(out))
+
+
+def test_decompose_cohort_rejects_a_summary_missing_columns():
+    bad = _summary_frame().drop(columns=["mean_tumour"])
+    with pytest.raises(ValueError, match="missing column"):
+        decompose_cohort(bad)
+
+
+# ---------------------------------------------------------------------------
+# bootstrap_over_patients / attach_intrinsic_ci
+# ---------------------------------------------------------------------------
+
+
+def _bootstrap_cohort(n_patients=8, seed=0):
+    """Patients with heterogeneous but comfortably-estimable mature counts, so
+    the bootstrap has something to resample without hitting NaNs."""
+    rng = np.random.default_rng(seed)
+    rows = [
+        dict(
+            patient_id=f"P{i}", study_id="LEE_SMC", gene="MLH1",
+            granularity_rung="lineage", labeling_axis="stem_pole",
+            frac_mature_normal=0.40, frac_mature_tumour=0.40,
+            mean_normal=10.0, mean_tumour=float(rng.normal(4.0, 0.5)),
+            n_cells_mature=int(rng.integers(80, 200)),
+        )
+        for i in range(n_patients)
+    ]  # fmt: skip
+    return pd.DataFrame(rows)
+
+
+def test_bootstrap_ci_is_bounded_by_the_observed_patients_estimates():
+    """Resampling patients can only reweight the observed set, never invent a
+    value outside it -- the defining difference from resampling cells."""
+    summary = _bootstrap_cohort()
+    point = decompose_cohort(summary)
+    ci = bootstrap_over_patients(summary, n_boot=200, seed=0)
+
+    observed = point.loc[point["weighting"] == "normal", "intrinsic"]
+    band = ci[(ci["weighting"] == "normal") & (ci["term"] == "intrinsic")].iloc[0]
+    assert observed.min() - 1e-9 <= band["ci_low"] <= band["ci_high"] <= observed.max() + 1e-9
+
+
+def test_bootstrap_requires_an_explicit_seed():
+    with pytest.raises(TypeError):
+        bootstrap_over_patients(_bootstrap_cohort(), n_boot=10)  # type: ignore[call-arg]
+
+
+def test_bootstrap_rejects_non_positive_n_boot():
+    with pytest.raises(ValueError, match="n_boot"):
+        bootstrap_over_patients(_bootstrap_cohort(), n_boot=0, seed=0)
+
+
+def test_bootstrap_is_reproducible_given_the_same_seed():
+    summary = _bootstrap_cohort()
+    a = bootstrap_over_patients(summary, n_boot=50, seed=42)
+    b = bootstrap_over_patients(summary, n_boot=50, seed=42)
+    pd.testing.assert_frame_equal(a, b)
+
+
+def test_bootstrap_returns_one_row_per_group_weighting_term():
+    summary = _bootstrap_cohort()  # one (study, gene, rung, axis) key
+    ci = bootstrap_over_patients(summary, n_boot=20, seed=0)
+    assert len(ci) == len(WEIGHTINGS) * 3
+
+
+def test_attach_intrinsic_ci_broadcasts_the_cohort_band_to_every_patient():
+    summary = _bootstrap_cohort()
+    point = decompose_cohort(summary)
+    ci = bootstrap_over_patients(summary, n_boot=50, seed=0)
+    merged = attach_intrinsic_ci(point, ci)
+
+    band = ci[(ci["weighting"] == "normal") & (ci["term"] == "intrinsic")].iloc[0]
+    normal_rows = merged[merged["weighting"] == "normal"]
+    assert np.allclose(normal_rows["ci_low"].to_numpy(dtype=float), float(band["ci_low"]))
+    assert np.allclose(normal_rows["ci_high"].to_numpy(dtype=float), float(band["ci_high"]))
+
+
+def test_attach_intrinsic_ci_output_validates_against_the_frozen_schema():
+    summary = _bootstrap_cohort()
+    point = decompose_cohort(summary)
+    ci = bootstrap_over_patients(summary, n_boot=30, seed=0)
+    merged = attach_intrinsic_ci(point, ci)
+    validate_results(coerce_results(merged))
