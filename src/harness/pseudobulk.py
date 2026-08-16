@@ -33,7 +33,7 @@ patient outside the requested set.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -48,6 +48,14 @@ class PseudobulkSample:
     bulk_tumour: np.ndarray  # (n_genes,)
     genes: tuple[str, ...]
     truth: GroundTruth
+    #: gene -> {"normal": values, "tumour": values} for the MATURE cells only.
+    #:
+    #: Kept because the per-patient interval in ``harness.interval`` needs the
+    #: individual cells, not the summed bulk — an interval that responds to
+    #: mature-cell count is the only kind a positivity cutpoint can be
+    #: calibrated on. One vector per gene per arm, so the cost is small and the
+    #: sample stays self-contained.
+    mature_expression: dict[str, dict[str, np.ndarray]] = field(default_factory=dict)
 
     @property
     def depth_normal(self) -> int:
@@ -283,4 +291,11 @@ def generate_pseudobulk(
         bulk_tumour=cells_t.sum(axis=0),
         genes=tuple(genes),
         truth=truth,
+        mature_expression={
+            g: {
+                "normal": cells_n[mature_n, gene_idx[g]].astype(float),
+                "tumour": cells_t[mature_t, gene_idx[g]].astype(float),
+            }
+            for g in shifted_genes
+        },
     )

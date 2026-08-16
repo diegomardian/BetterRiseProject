@@ -108,7 +108,18 @@ def coverage_and_discrimination(
     edges = _bin_edges(rows["n_cells_mature"], n_bins)
     rows["bin"] = pd.cut(rows["n_cells_mature"], bins=edges, include_lowest=True)
 
-    truth = rows["intrinsic_true_realised"]
+    # Coverage is measured against the PARAMETRIC truth, and the choice is
+    # load-bearing. The oracle estimate reproduces the realised truth exactly —
+    # that is asserted in tests, since both are the same arithmetic on the same
+    # cells — so a bootstrap centred on the estimate would be asked whether a
+    # percentile interval contains its own centre. It does, essentially always,
+    # and coverage comes back at a flat 1.0 that measures nothing.
+    #
+    # The parametric truth is the parameter we set and the sample does not
+    # exactly reproduce, so covering it is a real question. Coverage against
+    # realised truth is not a weaker version of this test; it is a different
+    # and vacuous one.
+    truth = rows["intrinsic_true_parametric"]
     covered = (rows["ci_low"] <= truth) & (truth <= rows["ci_high"])
     excludes_zero = (rows["ci_low"] > 0) | (rows["ci_high"] < 0)
     rows = rows.assign(

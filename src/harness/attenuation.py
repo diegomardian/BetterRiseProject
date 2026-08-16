@@ -47,6 +47,7 @@ from src.harness.bulk_recovery import (
 )
 from src.harness.deconvolve.base import Deconvolver
 from src.harness.deconvolve.nnls import NNLSDeconvolver
+from src.harness.interval import within_patient_intrinsic_ci
 from src.harness.positivity import classify_estimability
 from src.harness.pseudobulk import generate_pseudobulk, patient_holdout
 
@@ -69,6 +70,11 @@ class SweepGrid:
     n_cells: int = 2000
     frac_mature_normal: float = 0.40
     n_held_out: int = 2
+    #: Resamples per replicate for the per-patient interval. Lower than
+    #: ``interval.DEFAULT_N_BOOT`` because a sweep runs this thousands of times
+    #: and the calibration reads coverage across replicates, not the precision
+    #: of any single interval.
+    n_boot: int = 200
 
     def points(self) -> list[tuple[int, float, float]]:
         """``(grid_id, mature_fraction, shift)`` for every cell of the grid."""
@@ -106,6 +112,30 @@ def _composition(mature_frac: float, types: list[str], mature_label: str) -> dic
     others = [t for t in types if t != mature_label]
     rest = (1.0 - mature_frac) / len(others) if others else 0.0
     return {mature_label: mature_frac} | {t: rest for t in others}
+
+
+def _oracle_interval(sample, target_gene: str, weighting: str, n_boot: int, seed: int):
+    """Per-patient interval for the oracle arm. See ``harness.interval``.
+
+    Only the oracle arm gets one, and that asymmetry is a finding rather than
+    an omission: a per-patient interval is built from the patient's own mature
+    cells, and the bulk arm has no cells. It cannot count them, cannot apply
+    the positivity rule, and cannot form this interval either — three faces of
+    the same structural limit.
+    """
+    stats = sample.truth.realised_stats[target_gene]
+    cells = sample.mature_expression.get(target_gene)
+    if cells is None:
+        return None, None
+    return within_patient_intrinsic_ci(
+        cells["normal"],
+        cells["tumour"],
+        frac_mature_normal=stats["frac_mature_normal"],
+        frac_mature_tumour=stats["frac_mature_tumour"],
+        n_boot=n_boot,
+        seed=seed,
+        weighting=weighting,
+    )
 
 
 def _oracle_arm(sample, target_gene: str, weighting: str) -> dict[str, float]:
@@ -193,10 +223,11 @@ def run_sweep(
                 "intrinsic_true_parametric": truth_p["intrinsic"],
                 "compositional_true_realised": truth_r["compositional"],
                 "intrinsic_true_realised": truth_r["intrinsic"],
-                "ci_low": None,
-                "ci_high": None,
                 "seed": rep_seed,
             }
+            ci_low, ci_high = _oracle_interval(
+                sample, target, weighting, grid.n_boot, rep_seed
+            )
 
             # Both arms are scored against the PARAMETRIC truth — the known
             # split we asked for, which is what §2.2's question is about. The
@@ -213,7 +244,10 @@ def run_sweep(
                     | {
                         "attenuation_ratio": attenuation_ratio(
                             terms["intrinsic_hat"], truth_p["intrinsic"]
-                        )
+                        ),
+                        # Bulk has no cells, so it gets no per-patient interval.
+                        "ci_low": ci_low if arm == "oracle" else None,
+                        "ci_high": ci_high if arm == "oracle" else None,
                     }
                 )
 

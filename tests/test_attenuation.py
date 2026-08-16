@@ -283,11 +283,35 @@ def _sweep_with_cis(n_per_bin=40, seed=0):
     return pd.DataFrame(rows)
 
 
-def test_calibration_needs_confidence_intervals(small_sweep):
-    """run_sweep leaves CIs null — attaching them is what turns a sweep into a
-    calibration, and doing it silently would be worse than refusing."""
+def test_sweep_now_carries_per_patient_intervals(small_sweep):
+    """The oracle arm gets a within-patient interval; the bulk arm does not.
+
+    That asymmetry is the point, not an omission — a per-patient interval is
+    built from the patient's own mature cells and bulk has none.
+    """
+    oracle = small_sweep[small_sweep["arm"] == "oracle"]
+    bulk = small_sweep[small_sweep["arm"] == "bulk"]
+    estimable = oracle[oracle["n_cells_mature"] > 0]
+    assert estimable["ci_low"].notna().all()
+    assert estimable["ci_high"].notna().all()
+    assert bulk["ci_low"].isna().all()
+
+
+def test_interval_is_undefined_where_there_are_no_mature_cells(small_sweep):
+    """Undefined, not zero-width. Invariant 1 reaches the interval too."""
+    gone = small_sweep[
+        (small_sweep["arm"] == "oracle") & (small_sweep["n_cells_mature"] == 0)
+    ]
+    assert len(gone) > 0
+    assert gone["ci_low"].isna().all()
+
+
+def test_calibration_still_refuses_a_sweep_with_no_intervals(small_sweep):
+    """The guard has to survive now that run_sweep fills them in — a sweep from
+    somewhere else, or an older parquet, must still be rejected."""
+    stripped = small_sweep.assign(ci_low=None, ci_high=None)
     with pytest.raises(ValueError, match="no confidence intervals"):
-        calibrate_cutpoints(small_sweep)
+        calibrate_cutpoints(stripped)
 
 
 def test_calibration_refuses_a_shift_other_than_the_registered_one():
@@ -295,6 +319,21 @@ def test_calibration_refuses_a_shift_other_than_the_registered_one():
     criteria = CalibrationCriteria(detectable_shift=0.25)
     with pytest.raises(ValueError, match="pre-registered"):
         calibrate_cutpoints(sweep, criteria)
+
+
+def test_coverage_is_measured_against_parametric_not_realised_truth():
+    """Guards a circularity that produced a flat coverage of 1.0.
+
+    The oracle estimate reproduces the realised truth exactly, so a bootstrap
+    centred on the estimate trivially covers it. Coverage must be scored
+    against the parametric truth — the parameter the sample does not exactly
+    reproduce. Here the two are pushed far apart, and coverage against
+    parametric must fall well below 1.0.
+    """
+    sweep = _sweep_with_cis()
+    sweep["intrinsic_true_parametric"] = sweep["intrinsic_hat"] + 50.0  # way outside
+    table = coverage_and_discrimination(sweep)
+    assert (table["coverage"] == 0.0).all()
 
 
 def test_coverage_and_discrimination_are_computed_per_bin():

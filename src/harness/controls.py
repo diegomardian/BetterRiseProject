@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import numpy as np
+import pandas as pd
 
 #: Stably expressed across colonic compartments. Neither term should appear.
 #: Deliberately excludes anything on the panel or on a labelling axis — check
@@ -88,6 +89,111 @@ def permute_labels_within_patient(
         rows = np.flatnonzero(patient_id == patient)
         out[rows] = rng.permutation(cell_type[rows])
     return out
+
+
+def run_negative_controls(
+    counts: np.ndarray,
+    cell_type: Sequence[str],
+    patient_id: Sequence[str],
+    genes: Sequence[str],
+    *,
+    target_gene: str,
+    housekeeping: Sequence[str],
+    composition_normal: dict[str, float],
+    composition_tumour: dict[str, float],
+    n_cells: int = 2000,
+    n_replicates: int = 20,
+    seed: int,
+    weighting: str = "normal",
+    mature_label: str = "mature_colonocyte",
+) -> pd.DataFrame:
+    """Run both negative controls end to end. Emits ``CONTROLS_COLUMNS``.
+
+    Three arms, and the contrast between them is the whole value:
+
+    ``target``
+        The real gene, genuinely shifted. The positive reference — if this does
+        not show an intrinsic term, the other two prove nothing.
+    ``housekeeping``
+        Unshifted, and flat across cell types. Both terms should be ~0. Signal
+        here is a bug in the harness or the estimator, never biology.
+    ``permuted``
+        Cell-type labels shuffled **within patient**, so composition and every
+        batch effect stay intact while the label-expression association is
+        destroyed. Both terms must collapse. If either survives, the estimator
+        is reading something other than the labels.
+
+    A control that has never been run is not a control, which is why this
+    returns a table rather than an assertion — the numbers go in the gate memo.
+    """
+    from src.harness.pseudobulk import generate_pseudobulk, patient_holdout
+
+    cell_type = np.asarray(cell_type)
+    patient_id = np.asarray(patient_id)
+    genes = list(genes)
+
+    rows: list[dict] = []
+    for rep in range(n_replicates):
+        rep_seed = seed + rep
+        _, held = patient_holdout(patient_id, n_held_out=2, seed=rep_seed)
+
+        arms = {
+            "target": (cell_type, {target_gene: 0.5}),
+            "housekeeping": (cell_type, {g: 1.0 for g in housekeeping if g in genes}),
+            "permuted": (
+                permute_labels_within_patient(cell_type, patient_id, seed=rep_seed),
+                {target_gene: 0.5},
+            ),
+        }
+        for control, (labels, shift) in arms.items():
+            if not shift:
+                continue
+            sample = generate_pseudobulk(
+                counts, labels, patient_id, genes,
+                composition_normal=composition_normal,
+                composition_tumour=composition_tumour,
+                shift=shift, held_out_patients=held, n_cells=n_cells,
+                seed=rep_seed, mature_label=mature_label,
+            )
+            for gene, terms in sample.truth.realised.items():
+                for term, value in terms[weighting].items():
+                    if term == "total":
+                        continue
+                    rows.append(
+                        {
+                            "control": control,
+                            "gene": gene,
+                            "term": term,
+                            "weighting": weighting,
+                            "value": value,
+                            "ci_low": None,
+                            "ci_high": None,
+                            "seed": rep_seed,
+                        }
+                    )
+    return pd.DataFrame(rows)
+
+
+def summarise_negative_controls(controls: pd.DataFrame) -> pd.DataFrame:
+    """Median absolute term per (control, term), scaled by the target arm.
+
+    ``relative_to_target`` is the number to read: the housekeeping and permuted
+    arms should be a small fraction of the target arm. An arm that comes back
+    near 1.0 has not been controlled at all.
+    """
+    summary = (
+        controls.assign(abs_value=controls["value"].abs())
+        .groupby(["control", "term"])["abs_value"]
+        .median()
+        .reset_index()
+        .rename(columns={"abs_value": "median_abs"})
+    )
+    target = summary[summary["control"] == "target"].set_index("term")["median_abs"]
+    summary["relative_to_target"] = [
+        row.median_abs / target[row.term] if target.get(row.term) else float("nan")
+        for row in summary.itertuples()
+    ]
+    return pd.DataFrame(summary)
 
 
 def permutation_preserved_counts(
