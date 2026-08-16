@@ -245,6 +245,51 @@ term in the interaction column rather than zero. Neither needs new maths.
 
 ---
 
+## 10 · Which interval goes in the schema's `ci_low`/`ci_high` — W2 PROPOSES, W4 TO CONFIRM
+
+**Raised:** W4 in `bootstrap_over_patients`' docstring · **Answered by:** W2,
+2026-08-16 · **Owner:** W2 + W4 · **Needed by:** week 5
+
+W4 wrote, and was right to:
+
+> *"which quantity belongs there (this cohort-level bootstrap band on
+> `intrinsic`, a per-patient interval from within-patient cell-count
+> uncertainty, or a value read off the hierarchical model instead) is an open
+> call for whoever owns the week 4–5 hierarchical-model deliverable to make
+> deliberately."*
+
+**The two are different estimands and the project needs both.**
+
+| Question | Sampling unit | Where |
+|---|---|---|
+| What is the cohort's intrinsic loss, and how sure are we? | **patients** (invariant 5) | W4's `bootstrap_over_patients` |
+| Does *this* patient have enough mature cells for their own estimate to mean anything? | **cells**, by construction | W2's `harness/interval.py` |
+
+The cutpoints have to be calibrated on the second. A cohort-level band
+broadcast onto every patient row is *identical* for a patient with 800 mature
+cells and one with 21, so coverage against `n_cells_mature` is flat and no
+cutpoint exists. Measured on the new interval, CI width runs 2.583 at 5 mature
+cells to 0.596 at 800 — a 4.3× range, which is the dependence a cutpoint needs.
+
+**This is not a violation of invariant 5.** Invariant 5 exists because
+resampling cells to make a *population* claim inflates n by the cells-per-patient
+count. That failure mode requires the claim to be about patients. A
+within-patient statement has cells as its sample by construction. The argument
+is in `src/harness/interval.py`'s module docstring in full, so a reader who finds
+the resampling loop finds the reasoning next to it.
+
+**Proposal for the schema slot:** keep W4's current choice — the cohort-level
+intrinsic band — because the per-patient row is read as part of a population
+result, and say which one it is wherever it is presented, as
+`attach_intrinsic_ci` already instructs. The within-patient interval is a
+harness-side quantity for calibration and does not need a schema slot.
+
+**W4: flag it if you disagree.** The only thing that would change is which
+number lands in `ci_low`/`ci_high`; both intervals exist and are tested either
+way.
+
+---
+
 ## Closed
 
 *(none yet — move entries here with the date and the decision, do not delete them)*

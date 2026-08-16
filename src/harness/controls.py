@@ -118,59 +118,135 @@ def run_negative_controls(
         Unshifted, and flat across cell types. Both terms should be ~0. Signal
         here is a bug in the harness or the estimator, never biology.
     ``permuted``
-        Cell-type labels shuffled **within patient**, so composition and every
-        batch effect stay intact while the label-expression association is
-        destroyed. Both terms must collapse. If either survives, the estimator
-        is reading something other than the labels.
+        The **same sample** as ``target`` — signal genuinely placed in the true
+        mature cells — re-estimated under a shuffled mature mask.
+    ``label_blind``
+        What an estimator that ignores labels entirely would report: the same
+        arithmetic with each arm's mean taken over *all* drawn cells. This is
+        the reference the ``permuted`` arm is read against.
+
+    HOW TO READ THE PERMUTED ARM — IT DOES NOT GO TO ZERO
+    -----------------------------------------------------
+    "Permutation destroys both terms" is the usual shorthand and it is wrong
+    here, for a reason worth stating rather than tuning around.
+
+    Silencing 40% of the cells moves the mean of *any* random subset, so after
+    shuffling, ``Δ(per-cell mean)`` is not zero — it is the whole-sample
+    difference, diluted. Analytically the permuted intrinsic term converges on
+    ``f · (mean over all tumour cells − mean over all normal cells)``, which is
+    exactly the ``label_blind`` arm. On this cohort that lands near 0.6 of the
+    target arm, and a test asserting "≈ 0" would fail against correct code.
+
+    So the control is **permuted ≈ label_blind**: under shuffled labels the
+    estimator extracts nothing the labels were carrying, and returns precisely
+    what a label-blind estimator returns. That is a sharper statement than
+    "small", and it is the one that would actually catch an estimator reading
+    batch, depth or patient identity instead of the labels — any of those would
+    push the permuted arm *away* from label-blind.
+
+    WHY THE PERMUTATION IS APPLIED AT ESTIMATION, NOT AT GENERATION
+    ---------------------------------------------------------------
+    Shuffling before generating would apply the silencing to whichever cells the
+    shuffle called mature — a real effect on a random subset, not a null. The
+    first version did that and came back at 23% of target, which read as a
+    partial estimator failure and was a mis-specified control.
+
+    WHAT THIS CONTROL CANNOT TEST
+    -----------------------------
+    The **compositional** term. The generator *imposes* the mature fraction when
+    it draws cells, so a within-sample shuffle preserves the count by
+    construction and Δ(mature fraction) is unchanged. Its survival is a property
+    of the harness, not a finding about the estimator.
 
     A control that has never been run is not a control, which is why this
     returns a table rather than an assertion — the numbers go in the gate memo.
     """
+    from src.estimator.kitagawa import decompose
     from src.harness.pseudobulk import generate_pseudobulk, patient_holdout
 
     cell_type = np.asarray(cell_type)
     patient_id = np.asarray(patient_id)
     genes = list(genes)
 
+    def _emit(rows, control, gene, terms, rep_seed):
+        for term, value in terms.items():
+            if term == "total":
+                continue
+            rows.append(
+                {
+                    "control": control, "gene": gene, "term": term,
+                    "weighting": weighting, "value": value,
+                    "ci_low": None, "ci_high": None, "seed": rep_seed,
+                }
+            )
+
     rows: list[dict] = []
     for rep in range(n_replicates):
         rep_seed = seed + rep
         _, held = patient_holdout(patient_id, n_held_out=2, seed=rep_seed)
+        shared = dict(
+            composition_normal=composition_normal,
+            composition_tumour=composition_tumour,
+            held_out_patients=held, n_cells=n_cells,
+            seed=rep_seed, mature_label=mature_label,
+        )
 
-        arms = {
-            "target": (cell_type, {target_gene: 0.5}),
-            "housekeeping": (cell_type, {g: 1.0 for g in housekeeping if g in genes}),
-            "permuted": (
-                permute_labels_within_patient(cell_type, patient_id, seed=rep_seed),
-                {target_gene: 0.5},
-            ),
-        }
-        for control, (labels, shift) in arms.items():
-            if not shift:
-                continue
-            sample = generate_pseudobulk(
-                counts, labels, patient_id, genes,
-                composition_normal=composition_normal,
-                composition_tumour=composition_tumour,
-                shift=shift, held_out_patients=held, n_cells=n_cells,
-                seed=rep_seed, mature_label=mature_label,
+        target_sample = generate_pseudobulk(
+            counts, cell_type, patient_id, genes, shift={target_gene: 0.5}, **shared
+        )
+        for gene, terms in target_sample.truth.realised.items():
+            _emit(rows, "target", gene, terms[weighting], rep_seed)
+
+        hk_shift = {g: 1.0 for g in housekeeping if g in genes}
+        if hk_shift:
+            hk_sample = generate_pseudobulk(
+                counts, cell_type, patient_id, genes, shift=hk_shift, **shared
             )
-            for gene, terms in sample.truth.realised.items():
-                for term, value in terms[weighting].items():
-                    if term == "total":
-                        continue
-                    rows.append(
-                        {
-                            "control": control,
-                            "gene": gene,
-                            "term": term,
-                            "weighting": weighting,
-                            "value": value,
-                            "ci_low": None,
-                            "ci_high": None,
-                            "seed": rep_seed,
-                        }
-                    )
+            for gene, terms in hk_sample.truth.realised.items():
+                _emit(rows, "housekeeping", gene, terms[weighting], rep_seed)
+
+        # Re-estimate the TARGET sample under a shuffled mature mask.
+        rng = np.random.default_rng(rep_seed)
+        for gene, arms in target_sample.drawn_expression.items():
+            masks = {
+                arm: rng.permutation(target_sample.drawn_is_mature[arm])
+                for arm in ("normal", "tumour")
+            }
+            f_n = float(masks["normal"].mean())
+            f_t = float(masks["tumour"].mean())
+            m_n = float(arms["normal"][masks["normal"]].mean()) if masks["normal"].any() else 0.0
+            m_t = float(arms["tumour"][masks["tumour"]].mean()) if masks["tumour"].any() else 0.0
+            d = decompose(
+                f_n, f_t, m_n, m_t,
+                n_cells_mature=int(masks["tumour"].sum()), weighting=weighting,
+            )
+            _emit(
+                rows, "permuted", gene,
+                {
+                    "compositional": d.compositional,
+                    "intrinsic": d.intrinsic,
+                    "interaction": d.interaction,
+                },
+                rep_seed,
+            )
+
+            # The reference the permuted arm is read against: every cell
+            # counted, labels ignored entirely.
+            blind = decompose(
+                f_n, f_t,
+                float(arms["normal"].mean()),
+                float(arms["tumour"].mean()),
+                n_cells_mature=int(masks["tumour"].sum()), weighting=weighting,
+            )
+            _emit(
+                rows, "label_blind", gene,
+                {
+                    "compositional": blind.compositional,
+                    "intrinsic": blind.intrinsic,
+                    "interaction": blind.interaction,
+                },
+                rep_seed,
+            )
     return pd.DataFrame(rows)
 
 

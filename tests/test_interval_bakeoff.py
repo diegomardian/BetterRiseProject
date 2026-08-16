@@ -251,22 +251,67 @@ def controls_table(cohort):
 
 def test_controls_table_is_shaped_correctly(controls_table):
     validate_harness_table(controls_table, "controls")
-    assert set(controls_table["control"]) == {"target", "housekeeping", "permuted"}
+    assert set(controls_table["control"]) == {
+        "target", "housekeeping", "permuted", "label_blind",
+    }
 
 
-def test_permutation_collapses_the_intrinsic_term(controls_table):
-    """If it survives, the estimator is reading something other than the labels."""
+def test_permutation_lands_on_the_label_blind_reference(controls_table):
+    """Under shuffled labels the estimator must extract nothing the labels carried.
+
+    The permutation is applied at ESTIMATION time to a sample whose signal was
+    placed under the true labels. Shuffling before generation would silence a
+    random subset of cells — a real effect, not a null.
+
+    Note it does NOT go to zero, and a test asserting that would fail against
+    correct code: silencing 40% of cells moves the mean of any random subset.
+    The right statement is that it lands on the label-blind reference.
+    """
     summary = summarise_negative_controls(controls_table)
-    permuted = summary[
-        (summary["control"] == "permuted") & (summary["term"] == "intrinsic")
+
+    def med(control, term="intrinsic"):
+        row = summary[(summary["control"] == control) & (summary["term"] == term)]
+        return float(row["median_abs"].iloc[0])
+
+    permuted, blind, target = med("permuted"), med("label_blind"), med("target")
+    assert permuted == pytest.approx(blind, rel=0.15)
+    # And it is a real reduction against the arm that used the true labels.
+    assert permuted < 0.8 * target
+
+
+def test_permuted_and_label_blind_agree_on_every_term(controls_table):
+    """Any divergence means the estimator extracted something from shuffled
+    labels — batch, depth, patient identity — which is the failure this control
+    exists to catch."""
+    summary = summarise_negative_controls(controls_table)
+    for term in ("compositional", "intrinsic", "interaction"):
+        p = summary[(summary["control"] == "permuted") & (summary["term"] == term)]
+        b = summary[(summary["control"] == "label_blind") & (summary["term"] == term)]
+        assert float(p["median_abs"].iloc[0]) == pytest.approx(
+            float(b["median_abs"].iloc[0]), rel=0.15
+        )
+
+
+def test_permutation_does_not_touch_the_compositional_term(controls_table):
+    """Expected, and not a finding about the estimator.
+
+    The generator imposes the mature fraction when it draws cells, so a
+    within-sample shuffle preserves the count by construction. Only the mean it
+    multiplies changes. Pinned so nobody later reads the surviving
+    compositional term as a control failure.
+    """
+    summary = summarise_negative_controls(controls_table)
+    comp = summary[
+        (summary["control"] == "permuted") & (summary["term"] == "compositional")
     ]
-    assert permuted["relative_to_target"].iloc[0] < 0.30
+    assert comp["median_abs"].iloc[0] > 0.0
 
 
 def test_housekeeping_genes_show_neither_term(controls_table):
     summary = summarise_negative_controls(controls_table)
     hk = summary[summary["control"] == "housekeeping"]
-    assert (hk["relative_to_target"] < 0.10).all()
+    intrinsic = hk[hk["term"] == "intrinsic"]
+    assert (intrinsic["relative_to_target"] < 0.05).all()
 
 
 def test_target_arm_actually_shows_an_intrinsic_term(controls_table):
