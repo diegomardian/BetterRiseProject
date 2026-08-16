@@ -19,7 +19,20 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.4", "ruff>=0.4"]
+# What CI installs. It must be able to IMPORT every module under src/, or the
+# test run dies at collection rather than failing a test.
+#
+# So the rule is: if your workstream's module is imported by a test and needs a
+# package that is not in `dependencies` above, add it here when it is light and
+# pip-installable (scipy, statsmodels, scikit-learn). Do NOT add the heavy or
+# non-pip ones — CellBender, inferCNV, r-base — and do NOT paper over the gap
+# with pytest.importorskip, which turns a missing dependency into silently
+# untested code.
+dev = [
+    "pytest>=7.4",
+    "ruff>=0.4",
+    "scipy>=1.11",  # src/harness/deconvolve/nnls.py
+]
 
 [tool.setuptools.packages.find]
 # The frozen repo contract puts everything under src/ with that exact name,
