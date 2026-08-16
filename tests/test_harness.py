@@ -244,6 +244,31 @@ def test_zero_mature_cells_is_not_estimable_and_does_not_crash(cohort):
     assert s.truth.parametric[TARGET]["normal"]["compositional"] != 0.0
 
 
+def test_generator_rejects_a_depth_normalised_matrix(cohort):
+    """W4's LeeCohort.expression is CP10K. Handed to the generator, binomial
+    thinning would truncate every sub-1.0 value to zero without complaining."""
+    counts, ctypes, patients = cohort
+    cp10k = counts / counts.sum(axis=1, keepdims=True) * 1e4
+    with pytest.raises(ValueError, match="depth-normalised"):
+        generate_pseudobulk(
+            cp10k, ctypes, patients, GENES,
+            composition_normal=_comp(0.4), composition_tumour=_comp(0.1),
+            shift={TARGET: 0.5}, held_out_patients=["P00"], n_cells=100, seed=1,
+        )
+
+
+def test_generator_accepts_float_typed_whole_numbers(cohort):
+    """A float dtype is fine as long as the values really are counts — some
+    loaders hand back float64 without normalising."""
+    counts, ctypes, patients = cohort
+    sample = generate_pseudobulk(
+        counts.astype(float), ctypes, patients, GENES,
+        composition_normal=_comp(0.4), composition_tumour=_comp(0.1),
+        shift={TARGET: 0.5}, held_out_patients=["P00"], n_cells=100, seed=1,
+    )
+    assert sample.truth.n_cells_mature >= 0
+
+
 def test_shift_naming_a_missing_gene_is_an_error(cohort):
     counts, ctypes, patients = cohort
     with pytest.raises(KeyError, match="not in the matrix"):

@@ -28,10 +28,16 @@ dependencies = [
 # non-pip ones — CellBender, inferCNV, r-base — and do NOT paper over the gap
 # with pytest.importorskip, which turns a missing dependency into silently
 # untested code.
+#
+# A LAZY import does not exempt you. src/estimator/hierarchical.py imports
+# statsmodels inside the function, so collection succeeds and the failure moves
+# from "1 error" to "4 failed" — quieter, equally red. If a test executes the
+# path, the package belongs here.
 dev = [
     "pytest>=7.4",
     "ruff>=0.4",
     "scipy>=1.11",  # src/harness/deconvolve/nnls.py
+    "statsmodels>=0.14",  # src/estimator/hierarchical.py (lazy import, still needed)
 ]
 
 [tool.setuptools.packages.find]

@@ -91,10 +91,18 @@ protection for `main`.
 
 ---
 
-## 6 · Which cohort W2 ingests — OPEN
+## 6 · Which cohort W2 ingests — OVERTAKEN BY EVENTS, see §8
 
-**Raised:** W2 planning, 2026-08-15 · **Owner:** W2 + W4 · **Needed by:** week 1,
-before anyone downloads anything
+**Raised:** W2 planning, 2026-08-15 · **Resolved:** 2026-08-15 by W4 shipping
+`src/estimator/lee_io.py`, which loads **both** cohorts (SMC and KUL3) behind one
+`load_lee_cohort(which=...)`. The split proposed below did not happen and no
+longer needs to — nobody duplicated anything, because W4 got there first.
+
+What replaces it is a narrower question about the *shape* of the artifact rather
+than who downloads it. See **§8** below.
+
+<details>
+<summary>Original proposal, kept for the record</summary>
 
 W2 needs real cells in week 1 so the harness is never queued behind W1's
 five-patient pilot. W4 owns both Lee cohorts (GSE132465 SMC, GSE144735 KUL3) and
@@ -122,6 +130,8 @@ the harness. The harness needs cells with labels, not a dataset nobody else has
 touched. What it does require is that the patients held out for a pseudobulk
 sample are held out — which is enforced in `generate_pseudobulk`, not assumed.
 
+</details>
+
 ---
 
 ## 7 · Detectable effect for cutpoint calibration — OPEN
@@ -139,6 +149,99 @@ effect is easier to detect, the cutpoints get looser and G4 gets easier to pass.
 If the realistic effect is milder, the reverse. **This number must be fixed
 before the sweep is looked at**, which is what makes the cutpoints derived rather
 than chosen. See [harness_design_spec.md §4](harness_design_spec.md).
+
+---
+
+## 8 · The harness needs raw counts; `lee_io` emits CP10K — OPEN
+
+**Raised:** W2, 2026-08-15, reviewing `w4/estimator-core` · **Owner:** W2 + W4 ·
+**Needed by:** week 2, before the harness runs on real cells
+
+`LeeCohort.expression` is **CP10K-normalised** and restricted to
+genes-of-interest. That is exactly right for `decompose_cohort`, which consumes
+per-patient summary means and needs a linear depth-normalised scale for the
+Kitagawa identity to be additive. It is the wrong artifact for the harness,
+which needs:
+
+| | `lee_io` gives | harness needs |
+|---|---|---|
+| scale | CP10K floats | **raw integer counts** — binomial thinning is defined on counts |
+| gene width | genes-of-interest | **the full index** — deconvolution wants 500–2000 markers |
+
+Handing the CP10K frame to `generate_pseudobulk` used to truncate silently:
+`astype(int64)` turns every value below 1.0 into 0, destroying exactly the
+low-expressing cells the near-zero mature-cell edge cases are made of. **The
+generator now refuses a non-integer matrix** with a message naming CP10K, so this
+can no longer happen quietly — but refusing is not the same as being unblocked.
+
+Options:
+
+| | Approach | Cost |
+|---|---|---|
+| a | `lee_io` grows a `return_raw_counts=True` / second accessor on `LeeCohort` | Small, and W4 already streams the raw matrix — the counts exist before the CP10K step at `lee_io.py:322` |
+| b | W2 writes its own reader against the same manifest files | Duplicates the parsing and the QC that `ingest.qc_flags` already does |
+| c | `lee_io` caches a raw-count parquet next to the CP10K frame | Both arms served, one parse, costs disk |
+
+**Recommendation: (a).** It is a keyword argument on code W4 has already
+written, and the raw counts are in hand at the point of normalisation. Needs
+W4's agreement since it is their module.
+
+**Until it lands**, the harness runs on synthetic fixtures. That is not a block
+on the week-5 gate — G3 is a statement about the estimator's algebra and
+synthetic cells test it fine — but the attenuation curve wants real
+expression distributions, so this should not drift past week 3.
+
+---
+
+## 9 · `doubly_robust` folds the interaction into both arms — OPEN
+
+**Raised:** W2, 2026-08-15, reviewing `d9c08c0` · **Owner:** W4 + W2 ·
+**Needed by:** before any decomposition result is written with
+`weighting="doubly_robust"`
+
+CLAUDE.md invariant 7: *the interaction term is reported separately, never
+folded into either arm.* The pooled-reference split in
+`kitagawa._doubly_robust_split` reports `interaction = 0.0` — but the cross term
+has not vanished, it has been distributed **50/50 into the other two arms**:
+
+```
+comp_pooled = Δf·(m_n+m_t)/2 = Δf·m_n + Δf·Δm/2 = comp_normal + interaction/2
+intr_pooled = (f_n+f_t)/2·Δm = f_n·Δm + Δf·Δm/2 = intr_normal + interaction/2
+```
+
+Verified numerically on `f_n=0.40, f_t=0.10, m_n=10.0, m_t=4.0`:
+
+| weighting | compositional | intrinsic | interaction |
+|---|---|---|---|
+| normal | −3.0000 | −2.4000 | **+1.8000** |
+| tumour | −1.2000 | −0.6000 | −1.8000 |
+| doubly_robust | −2.1000 | −1.5000 | **0.0000** |
+
+`−2.1 = −3.0 + 0.9` and `−1.5 = −2.4 + 0.9`, and `0.9` is exactly half the
+interaction term. Here that shrinks the intrinsic term by **37.5%, toward
+zero** — the direction of our prior hypothesis, which README calls out as the
+worst way for a result to move.
+
+This is not a claim that W4 is wrong. Kline (2011) is a real citation, the
+pooled reference is a real estimator, and W4's docstring is explicit that it is
+a first cut pending cell-level AIPW. The problem is narrower:
+
+1. It is what invariant 7 was written to forbid, and invariants change by PR
+   with two approvals and a written reason — not by implementation.
+2. Writing `0.0` into the schema's `interaction` column reads as "no interaction
+   here" when the honest statement is "interaction distributed into the arms."
+   That is the invariant-1 failure mode wearing a different hat.
+
+Options:
+
+| | Approach | Cost |
+|---|---|---|
+| a | Amend invariant 7 to "never folded silently" and require the pooled split to record what it absorbed | Frozen-doc PR, 2 approvals. Keeps a citable estimator. |
+| b | Keep `doubly_robust` but report the normal-weighting interaction alongside, not `0.0` | Schema already has the column; the value stops being a lie |
+| c | Rename it — it is a pooled-reference split, not AIPW — and defer true doubly-robust to cell-level data | Cheapest, most honest about what it is; W4's docstring already says this |
+
+**Recommendation: (c) plus (b).** Call it what it is, and put the real cross
+term in the interaction column rather than zero. Neither needs new maths.
 
 ---
 
