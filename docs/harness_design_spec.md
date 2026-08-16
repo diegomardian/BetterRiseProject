@@ -178,7 +178,64 @@ requires the harness to reject it.
 
 ---
 
-## 7 · Open for review
+## 7 · Harness self-validation, 2026-08-15
+
+First end-to-end run. **Synthetic cells** — 12 patients, 5 cell types, 4200
+cells, 601 genes, GUCA2A mature-restricted, patient-level scaling so patients
+are not interchangeable draws. 28 grid points × 20 replicates × 2 arms.
+
+```
+null parametric intrinsic exactly zero : True
+null sampling noise / real effect      : 0.020
+
+median recovered / true intrinsic
+                     bulk                 oracle
+shift                0.25   0.50   0.80   0.25   0.50   0.80
+frac_mature_tumour
+0.01                1.085  1.091  0.856  0.995  0.999  1.024
+0.02                1.042  1.037  1.210  1.004  1.009  0.989
+0.05                1.034  1.034  1.125  1.003  0.995  1.003
+0.10                1.001  1.036  1.075  1.001  1.003  1.007
+0.20                1.008  1.021  1.076  1.001  1.001  1.002
+0.40                1.000  1.002  0.987  1.000  1.001  0.986
+```
+
+**What this does support.** The pipeline runs end to end and the oracle arm
+recovers the known split to within 1% wherever the mature compartment is not
+empty. That is a preliminary **G3 pass on synthetic data**: W4's `decompose()`
+is arithmetically sound and the harness can measure it. The null behaves — the
+parametric intrinsic is exactly zero and sampling noise is 2% of a real effect.
+
+**What this does NOT support.** The bulk arm also came back near 1.0, and that
+must not be read as "bulk recovers the intrinsic term fine." The synthetic
+cohort has no ambient contamination, no batch or platform effects, clean
+cell-type separation, and — decisively — **the reference is built from the same
+generative process that made the data**. Published attenuation comes almost
+entirely from reference mismatch, which this setup does not have. The bulk
+numbers here say the algebra is right, not that the method is usable. The real
+attenuation curve needs real cells; expect it to look nothing like this.
+
+**The finding that does survive the caveat**, because it is structural rather
+than a matter of reference quality:
+
+```
+bulk over-reporting: 41/80 not-estimable rows got a confident number
+median |intrinsic_hat| where the truth is UNDEFINED: 103.50
+```
+
+At zero mature cells the intrinsic term is undefined. The oracle arm knows,
+because it counts cells. Deconvolution assigns a non-zero mature fraction to a
+sample containing no mature cells, the division goes through, and bulk returns
+a large confident number — on **half** the rows where the honest answer is
+"not estimable". No amount of reference quality fixes this: bulk cannot count
+cells, so it cannot apply a positivity rule at all.
+
+This is the thesis in one table, and it is why the third segment needs
+single-cell data to exist. `attenuation.bulk_overconfidence()` computes it.
+
+---
+
+## 8 · Open for review
 
 1. **Is `s = 0.5` the right detectable effect?** It is defensible from the
    attenuation literature, but if W4 expects MLH1 silencing to be closer to

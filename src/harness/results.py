@@ -20,10 +20,14 @@ import pandas as pd
 
 from src.common.io import write_versioned_table
 
-#: One row per (grid point, replicate). The attenuation sweep's raw output.
+#: One row per (grid point, replicate, arm). The attenuation sweep's raw output.
+#: ``arm`` is "oracle" (estimator on cell-level summaries — the reliable half)
+#: or "bulk" (recovered through deconvolution — the attenuated half that
+#: invariant 6 forbids using for results and that §2.2 exists to measure).
 ATTENUATION_COLUMNS: Final = (
     "grid_id",
     "replicate",
+    "arm",
     "gene",
     "weighting",
     "frac_mature_tumour",
@@ -37,6 +41,7 @@ ATTENUATION_COLUMNS: Final = (
     "compositional_hat",
     "intrinsic_hat",
     "interaction_hat",
+    "attenuation_ratio",
     "ci_low",
     "ci_high",
     "seed",

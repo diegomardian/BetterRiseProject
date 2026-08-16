@@ -82,6 +82,40 @@ def patient_holdout(
     return train, held
 
 
+def _assert_raw_counts(counts: np.ndarray) -> None:
+    """Refuse anything that is not raw integer counts.
+
+    The binomial thinning in :func:`_apply_shift` casts with ``astype(int64)``,
+    which truncates rather than raising. Hand it a depth-normalised matrix and
+    every value below 1.0 silently becomes 0 — no error, no warning, and the
+    low-expressing cells that the near-zero mature-cell edge cases are made of
+    are exactly the ones destroyed.
+
+    This is a live hazard, not a hypothetical: ``LeeCohort.expression`` from
+    ``src/estimator/lee_io.py`` is CP10K, and it is the most natural thing in
+    the repo to reach for when wiring real cells into the harness.
+    """
+    if counts.size == 0:
+        return
+    if np.issubdtype(counts.dtype, np.integer):
+        return
+    if not np.isfinite(counts).all():
+        raise ValueError("counts contains NaN or inf")
+    if np.any(counts < 0):
+        raise ValueError("counts contains negative values; these are not counts")
+    if not np.all(counts == np.floor(counts)):
+        sub_one = int(np.sum((counts > 0) & (counts < 1)))
+        raise ValueError(
+            f"counts must be raw integer counts, got dtype {counts.dtype} with "
+            f"non-integer values ({sub_one} entries strictly between 0 and 1). "
+            f"This looks like a depth-normalised matrix — CP10K, CPM or "
+            f"log1p. The generator thins counts binomially, so a normalised "
+            f"matrix would be truncated to zero silently. Pass the raw counts "
+            f"and normalise downstream, or round explicitly if you have "
+            f"genuinely decided that is what you want."
+        )
+
+
 def _draw_cells(
     rng: np.random.Generator,
     cell_type: np.ndarray,
@@ -195,6 +229,7 @@ def generate_pseudobulk(
         raise ValueError(f"counts has {counts.shape[1]} genes but {len(genes)} names given")
     if n_cells < 1:
         raise ValueError(f"n_cells={n_cells} must be positive")
+    _assert_raw_counts(counts)
 
     held = set(held_out_patients)
     unknown = held - set(patient_id.tolist())
@@ -237,13 +272,11 @@ def generate_pseudobulk(
     # realised_truth works on a matrix whose columns ARE the genes it is asked
     # about, so slice down to the shifted set rather than passing the full width.
     cols = [gene_idx[g] for g in shifted_genes]
-    object.__setattr__(
-        truth,
-        "realised",
-        realised_truth(
-            cells_n[:, cols], cells_t[:, cols], mature_n, mature_t, shifted_genes
-        ),
+    realised_terms, realised_stats = realised_truth(
+        cells_n[:, cols], cells_t[:, cols], mature_n, mature_t, shifted_genes
     )
+    object.__setattr__(truth, "realised", realised_terms)
+    object.__setattr__(truth, "realised_stats", realised_stats)
 
     return PseudobulkSample(
         bulk_normal=cells_n.sum(axis=0),
