@@ -272,13 +272,11 @@ def generate_pseudobulk(
     # realised_truth works on a matrix whose columns ARE the genes it is asked
     # about, so slice down to the shifted set rather than passing the full width.
     cols = [gene_idx[g] for g in shifted_genes]
-    object.__setattr__(
-        truth,
-        "realised",
-        realised_truth(
-            cells_n[:, cols], cells_t[:, cols], mature_n, mature_t, shifted_genes
-        ),
+    realised_terms, realised_stats = realised_truth(
+        cells_n[:, cols], cells_t[:, cols], mature_n, mature_t, shifted_genes
     )
+    object.__setattr__(truth, "realised", realised_terms)
+    object.__setattr__(truth, "realised_stats", realised_stats)
 
     return PseudobulkSample(
         bulk_normal=cells_n.sum(axis=0),
