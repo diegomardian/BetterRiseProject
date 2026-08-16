@@ -1,5 +1,10 @@
 # W1 — Reference. GSE178341, QC, ambient correction, inferCNV, S matrices.
-# Needs 32-64 GB RAM and GPU access. See env/README.md.
+# Needs 32-64 GB RAM. See env/README.md.
+#
+# GPU is NO LONGER required for the ambient step: GSE178341 ships no empty
+# droplets, so CellBender cannot run at all (docs/open_decisions.md #8). The
+# ambient arm is SoupX in degraded mode + DecontX, both CPU. GPU still helps
+# nothing here; inferCNV is CPU-parallel across patients.
 name: brp-w1
 channels:
   - conda-forge
@@ -19,14 +24,24 @@ dependencies:
   - matplotlib=3.8.4
   - seaborn=0.13.2
   - jupyterlab=4.2.3
-  # R side: SoupX, inferCNV, CopyKAT, scDblFinder
+  # R side: SoupX, DecontX, inferCNV, scDblFinder
   - r-base=4.3.3
   - r-soupx=1.6.2
+  # DecontX (in celda) replaces CellBender as the second ambient method: it
+  # infers contamination from cluster structure and needs no empty droplets.
+  - bioconductor-celda=1.18.1
   - bioconductor-infercnv=1.18.0
   - bioconductor-scdblfinder=1.16.0
   - r-seurat=5.0.3
+  # CopyKAT is the inferCNV cross-check (weeks 2-3) and is NOT on bioconda.
+  # After creating the env, install it once:
+  #   R -e 'remotes::install_github("navinlabcode/copykat")'
+  - r-remotes=2.5.0
   - pip
   - pip:
-      # CellBender wants a GPU. CPU-only means overnight runs per sample batch.
+      # CellBender is retained but CURRENTLY UNUSABLE — it models all barcodes
+      # including cell-free ones, and GSE178341 has none. Keep it pinned in case
+      # the dbGaP route (open decision #8, option d) is ever taken; drop it if
+      # the solve time becomes annoying, since it pulls torch.
       - cellbender==0.3.0
       - -e ..
