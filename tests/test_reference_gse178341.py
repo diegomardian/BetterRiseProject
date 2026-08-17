@@ -45,7 +45,10 @@ def deposit(tmp_path):
     """A miniature GSE178341: returns (path, dense_genes_by_cells)."""
     barcodes = _barcodes()
     n_cells = len(barcodes)
-    dense = (RNG.poisson(6.0, size=(N_GENES, n_cells))).astype(np.float64)
+    # Lambda chosen so each cell clears EMPTY_DROPLET_UMI_THRESHOLD (100 UMI)
+    # comfortably. A shallower fixture makes every synthetic cell register as an
+    # empty droplet, which silently inverts the cell_filtered assertion below.
+    dense = (RNG.poisson(25.0, size=(N_GENES, n_cells))).astype(np.float64)
     csc = sparse.csc_matrix(dense)
 
     path = tmp_path / "GSE178341_crc10x_full_c295v4_submit.h5"
@@ -167,6 +170,27 @@ class TestIndex:
         report = matched_normal_report(obs["patient_id"], obs["tissue"])
         assert bool(report.loc["C1", "matched"])
         assert not bool(report.loc["C2", "matched"])  # tumour only
+
+
+def test_fixture_cells_look_like_cells_not_empty_droplets(deposit):
+    """Guards the fixture itself, and runs without anndata.
+
+    The droplet-profile assertion in TestFullLoad depends on synthetic cells
+    clearing the 100-UMI floor. Those tests skip wherever anndata is absent, so
+    without this the fixture can drift shallow and the failure only appears on
+    the cluster — which is exactly how it was first found.
+    """
+    from src.reference.ingest import EMPTY_DROPLET_UMI_THRESHOLD, droplet_profile
+
+    _, dense = deposit
+    per_cell = dense.sum(axis=0)
+    assert per_cell.min() > EMPTY_DROPLET_UMI_THRESHOLD, (
+        f"fixture cells carry {per_cell.min():.0f} UMI, below the "
+        f"{EMPTY_DROPLET_UMI_THRESHOLD} floor — raise the Poisson lambda"
+    )
+    profile = droplet_profile(dense.T)
+    assert profile.empty_fraction == 0.0
+    assert not profile.looks_unfiltered
 
 
 class TestColumnReader:
