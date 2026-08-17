@@ -60,6 +60,9 @@ PILOT = ["C122", "C165", "C107", "C138", "C162"]
 #: mask was effectively all cells and the estimator degenerated.
 EPITHELIAL_COMPARTMENT = "Epi"
 
+#: Below this many epithelial cells a per-sample contamination estimate is noise.
+MIN_CELLS_FOR_CONTAMINATION = 20
+
 
 def main() -> int:
     set_global_seeds(DEFAULT_SEED)
@@ -131,10 +134,58 @@ def main() -> int:
             adata.X, symbols,
             sample_id=adata.obs["sample_id"], cell_mask=epithelial,
         )
+        # Sorting matters here: in a CD45-enriched sample the few epithelial
+        # cells sit in immune-dominated soup, so a high estimate is expected
+        # rather than a failure. And an estimate from <20 cells is noise.
+        sorting = (
+            adata.obs.groupby("sample_id", observed=True)["PROCESSING_TYPE"]
+            .agg(lambda s: s.astype(str).mode().iat[0] if len(s) else "")
+        )
+        contamination["processing_type"] = (
+            contamination["sample_id"].map(sorting).fillna("")
+        )
+        contamination["reliable"] = contamination["n_cells"] >= MIN_CELLS_FOR_CONTAMINATION
         print(contamination.to_string(index=False))
+
+        usable = contamination[
+            contamination["reliable"] & (contamination["processing_type"] == "unsorted")
+        ]
+        if len(usable):
+            print(
+                f"\nunsorted samples with >={MIN_CELLS_FOR_CONTAMINATION} epithelial "
+                f"cells (n={len(usable)}): median contamination "
+                f"{usable['contamination'].median():.1%}, "
+                f"max {usable['contamination'].max():.1%}"
+            )
+
         soup = soup_profile_from_cells(adata.X, symbols).sort_values(ascending=False)
         print("\ntop 10 soup genes (pooled across the pilot):")
         print(soup.head(10).to_string())
+
+    print("\n--- pct_mito distribution, for open decision #12 ---")
+    print("Pick the cap from this, not from convention. 20% is a lymphocyte number;")
+    print("colonic epithelium runs higher, and much of it here is ambient.")
+    if "clTopLevel" in adata.obs.columns:
+        mito = metrics.copy()
+        mito["compartment"] = adata.obs["clTopLevel"].astype(str).to_numpy()
+        table = mito.groupby(["compartment", "tissue"], observed=True)["pct_mito"].describe(
+            percentiles=[0.5, 0.75, 0.9, 0.95]
+        )
+        print(table[["count", "50%", "75%", "90%", "95%", "max"]].to_string())
+        epi = mito[mito["compartment"] == EPITHELIAL_COMPARTMENT]
+        for cap in (20, 30, 40, 50):
+            kept = (epi["pct_mito"] <= cap).mean()
+            by_tissue = epi.groupby("tissue", observed=True)["pct_mito"].apply(
+                lambda s, c=cap: (s <= c).mean()
+            )
+            gap = abs(by_tissue.get("tumour", np.nan) - by_tissue.get("normal", np.nan))
+            print(f"  cap {cap:>3}%: epithelium kept {kept:.1%}, tumour/normal gap {gap:.1%}")
+
+    print("\n--- compartments available for the S matrix ---")
+    print("§2.1 error 3 requires stromal, immune AND endothelial columns.")
+    if "clMidwayPr" in locals().get("clusters", pd.DataFrame()).columns:
+        midway = clusters["clMidwayPr"].reindex(adata.obs.index)
+        print(midway.value_counts().to_string())
 
     print("\n--- what is in the cluster file (for the real labels) ---")
     if cluster_csv.exists():
