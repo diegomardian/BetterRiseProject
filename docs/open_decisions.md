@@ -320,6 +320,97 @@ on the downloaded `.h5` to confirm on our own bytes rather than on the metadata.
 
 ---
 
+## 9 · Only 36 of 62 patients have matched normal — OPEN
+
+**Raised:** W1, 2026-08-17 · **Owner:** W1 + W4 · **Needed by:** week 3
+
+Measured from the deposit, not assumed. `patient_cohort_table()` over all
+370,115 cells:
+
+| | matched | unmatched | total |
+|---|---|---|---|
+| MMRd | 21 | 13 | 34 |
+| MMRp | 15 | 13 | 28 |
+| **All** | **36** | **26** | **62** |
+
+The compositional term is Δ(mature fraction) against the patient's **own**
+normal, so an unmatched patient contributes to neither arm — not partially, not
+with a wide interval. Absent.
+
+execution_plan.md §8.2 listed exactly this as a week-1 check that could
+invalidate the plan, and §8.4 states "n≈60 supports the primary paired
+analysis". **The real figure is n=36.** Consequences:
+
+- The primary paired analysis is powered by 36, not 62.
+- The pre-registered MMR subgroup contrast is **21 vs 15**. §8.4 says interaction
+  contrasts need roughly 4x the primary; at n=36 that would want ~144. This
+  supports the existing commitment to report MMR as an estimate with an interval
+  rather than as a test — it does not rescue it.
+- Matching is not differential by MMR status (62% of MMRd, 54% of MMRp), so the
+  cohort is not distorted in that dimension.
+
+**The decision: what happens to the other 26?**
+
+| | Approach | Cost |
+|---|---|---|
+| a | Drop them from the decomposition entirely. | Cleanest. n=36 everywhere. Discards 42% of the cohort, including their tumour cells. |
+| b | Include them against a **pooled** normal reference, reported separately and flagged. | Uses all 62 for a weaker, clearly-labelled secondary analysis. Breaks the within-patient design, so the pooled estimate is not comparable to the paired one and must never be merged with it. |
+| c | Treat them as `estimability="not_estimable"` rows and emit them. | Fits the frozen schema and the project's own three-way framing: the honest answer for these patients is that the split is not identifiable. Makes the 26 visible in the output rather than absent from it. |
+
+**Recommendation: (c) as the default, with (b) as a pre-specified sensitivity
+analysis if anyone wants it.** (c) costs nothing, is what the schema was designed
+to express, and means a reader can see that 42% of the cohort could not be
+decomposed instead of wondering where they went. Note that (c) needs a sign-off
+that "no matched normal" is a legitimate `not_estimable` reason — the frozen
+schema ties `estimability` to the intrinsic term and mature-cell counts, and
+this is a different cause with the same consequence.
+
+---
+
+## 10 · Pre-register the refined tier-B (MLH1) test — OPEN
+
+**Raised:** W1, 2026-08-17 · **Owner:** W1 + W2 + W4 · **Needed by:** before any
+expression is examined — the value is entirely in committing first
+
+GSE178341's metadata carries per-patient `MLH1Status` and free-text `MMR_IHC`.
+Together they turn tier B from "does MLH1 come out intrinsic on average" into a
+directional, mechanism-specific prediction with MMR status held fixed.
+
+`assign_mlh1_strata()` in [src/reference/ingest.py](../src/reference/ingest.py):
+
+| Stratum | n | matched | Predicted MLH1 intrinsic loss |
+|---|---|---|---|
+| `mlh1_methylated` | 22 | **12** | **High** — transcriptionally silenced |
+| `mlh1_intact_mmrd` | 10 | **7** | **Near zero** — MMRd via MSH2/MSH6/PMS2 |
+| `mlh1_deficient_unmethylated` | 2 | 2 | Ambiguous — report separately |
+| `mmr_proficient` | 28 | 15 | Near zero |
+
+Three things make this stronger than it looks:
+
+1. **The contrast is within MMRd.** `MLH1Meth` is strictly nested in MMRd (22 of
+   22, zero MMRp), but the 12-vs-7 comparison holds MMR status constant, so it
+   is not a restatement of the pre-registered MMR contrast.
+2. **The negative control is mechanistic.** Those 7 are MMR-deficient by the
+   same MSI-H phenotype but through other genes, leaving MLH1 transcription
+   untouched. Same disease biology, MLH1 specifically spared.
+3. **C115 and C132 are excluded from it.** Their IHC reads "MLH1 and PMS2
+   deficient" — MLH1 protein lost *without* methylation, so probably a germline
+   MLH1 variant whose transcript may or may not survive NMD. They are
+   indistinguishable from the negative-control group on `MMRStatus` and
+   `MLH1Status` alone, and would have diluted the arm where near-zero loss is
+   predicted.
+
+**The decision: adopt this as supporting evidence for G2, not as its primary
+basis.** 12 vs 7 is the ceiling and positivity (n≥50 mature cells) will reduce
+both arms — possibly to 6 vs 3, which carries no weight. G2's primary test stays
+tier separation (A compositional, B intrinsic, D neither) across all matched
+patients. This is a second, mechanistically sharper line of evidence that costs
+nothing to commit to now and is worthless if committed to later.
+
+G2 is a pre-committed gate criterion, so **this needs the team, not just W1.**
+
+---
+
 ## Closed
 
 *(none yet — move entries here with the date and the decision, do not delete them)*
