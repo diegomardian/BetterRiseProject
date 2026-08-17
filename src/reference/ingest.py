@@ -588,6 +588,101 @@ def patient_cohort_table(obs: Any, metadata: Any = None) -> Any:
     return table.sort_index()
 
 
+#: Strata for the tier-B (MLH1) control, in order of what they predict.
+#:
+#: Tier B expects MLH1 loss to be almost entirely intrinsic *because* MLH1 is
+#: methylation-silenced in CIMP/MSI while the cell stays epithelial. GSE178341's
+#: metadata lets that be a directional prediction rather than an average:
+#:
+#:   mlh1_methylated              transcriptionally silenced -> intrinsic loss HIGH
+#:   mlh1_intact_mmrd             MMRd via MSH2/MSH6/PMS2; MLH1 transcription
+#:                                untouched -> intrinsic loss NEAR ZERO. The
+#:                                negative control, with MMR status held fixed.
+#:   mlh1_deficient_unmethylated  MLH1 protein lost without methylation, i.e.
+#:                                likely germline MLH1 variant. Transcript status
+#:                                depends on the mutation (nonsense -> NMD ->
+#:                                transcript gone; missense -> transcript intact),
+#:                                so the prediction is genuinely ambiguous.
+#:                                REPORT SEPARATELY; including these in the
+#:                                negative control would dilute it.
+#:   mmr_proficient               MLH1 intact
+#:   unclassified                 IHC text absent or unrecognised — never guessed
+MLH1_STRATA: tuple[str, ...] = (
+    "mlh1_methylated",
+    "mlh1_intact_mmrd",
+    "mlh1_deficient_unmethylated",
+    "mmr_proficient",
+    "unclassified",
+)
+
+
+def mlh1_stratum(mmr_status: Any, mlh1_status: Any, mmr_ihc: Any) -> str:
+    """Classify one patient into an :data:`MLH1_STRATA` group.
+
+    ``MMR_IHC`` is free text. The exact strings present in GSE178341 are::
+
+        "MLH1 and PMS2 deficient"
+        "Isolated PMS2 deficiency; confirmed germline PMS2 variant"
+        "Isolated PMS2 deficiency"
+        "MSH2 and MSH6 deficient"
+        "Isolated MSH6 deficiency"
+        "Intact nuclear staining of MLH1, MSH2, MSH6 and PMS2. MSI-H by PCR-MSI testing."
+
+    The rule: if the text says "intact" and names MLH1, MLH1 is intact. Otherwise
+    if it names MLH1 at all it is being named as deficient. If MLH1 is not
+    mentioned, only other proteins are deficient, so MLH1 is intact. Anything
+    unrecognised becomes ``unclassified`` rather than being guessed into a group
+    the falsification rule depends on.
+    """
+    mmr = str(mmr_status or "").strip()
+    mlh1 = str(mlh1_status or "").strip()
+
+    if mmr == "MMRp":
+        return "mmr_proficient"
+    if mmr != "MMRd":
+        return "unclassified"
+    if mlh1 == "MLH1Meth":
+        return "mlh1_methylated"
+    if mlh1 != "MLH1NoMeth":
+        return "unclassified"
+
+    text = str(mmr_ihc or "").strip().lower()
+    if not text or text in {"nan", "none"}:
+        return "unclassified"
+    if "intact" in text and "mlh1" in text:
+        return "mlh1_intact_mmrd"
+    if "mlh1" in text:
+        return "mlh1_deficient_unmethylated"
+    return "mlh1_intact_mmrd"
+
+
+def assign_mlh1_strata(patient_table: Any, metadata: Any = None) -> Any:
+    """Add an ``mlh1_stratum`` column to a per-patient table.
+
+    `patient_table` is :func:`patient_cohort_table`'s output. If it lacks the
+    IHC column, pass `metadata` and it will be summarised per patient.
+    """
+    import pandas as pd
+
+    table = patient_table.copy()
+    if "MMR_IHC" not in table.columns:
+        if metadata is None:
+            raise IngestError(
+                "patient_table has no MMR_IHC column; pass metadata= so it can "
+                "be joined, or include MMR_IHC in patient_cohort_table"
+            )
+        key = "PID" if "PID" in metadata.columns else None
+        if key is None:
+            raise IngestError("metadata has no PID column to group by")
+        table["MMR_IHC"] = metadata.groupby(key, observed=True)["MMR_IHC"].first()
+
+    table["mlh1_stratum"] = [
+        mlh1_stratum(row.get("MMRStatus"), row.get("MLH1Status"), row.get("MMR_IHC"))
+        for _, row in table.iterrows()
+    ]
+    return pd.DataFrame(table)
+
+
 def read_gse178341(
     path: str | Path,
     *,

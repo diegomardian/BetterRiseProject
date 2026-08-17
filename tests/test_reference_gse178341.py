@@ -16,8 +16,11 @@ import pytest
 from scipy import sparse
 
 from src.reference.ingest import (
+    MLH1_STRATA,
     IngestError,
+    assign_mlh1_strata,
     check_chemistry_agreement,
+    mlh1_stratum,
     normalise_feature_id,
     parse_barcode,
     patient_cohort_table,
@@ -267,6 +270,84 @@ class TestCohortTable:
         assert table.loc["C1", "MMRStatus"] == "MMRp"
         assert table.loc["C1", "MLH1Status"] == "MLH1NoMeth"
         assert table.loc["C130", "MLH1Status"] == "MLH1Meth"
+
+
+class TestMLH1Strata:
+    """Tier B's directional control, built from the real IHC strings.
+
+    The two MLH1-protein-deficient-but-unmethylated patients (C115, C132) are
+    the point of this: they look identical to the negative-control group on
+    MMRStatus and MLH1Status alone, and including them would dilute the arm
+    where near-zero intrinsic loss is predicted.
+    """
+
+    @pytest.mark.parametrize(
+        "ihc,expected",
+        [
+            # The real strings from GSE178341's MMR_IHC column.
+            ("MLH1 and PMS2 deficient", "mlh1_deficient_unmethylated"),
+            ("Isolated PMS2 deficiency; confirmed germline PMS2 variant", "mlh1_intact_mmrd"),
+            ("Isolated PMS2 deficiency", "mlh1_intact_mmrd"),
+            ("MSH2 and MSH6 deficient", "mlh1_intact_mmrd"),
+            ("Isolated MSH6 deficiency", "mlh1_intact_mmrd"),
+            (
+                "Intact nuclear staining of MLH1, MSH2, MSH6 and PMS2. "
+                "MSI-H by PCR-MSI testing.",
+                "mlh1_intact_mmrd",
+            ),
+        ],
+    )
+    def test_real_ihc_strings(self, ihc, expected):
+        assert mlh1_stratum("MMRd", "MLH1NoMeth", ihc) == expected
+
+    def test_methylated_patients_are_the_positive_arm(self):
+        assert mlh1_stratum("MMRd", "MLH1Meth", "MLH1 and PMS2 deficient") == "mlh1_methylated"
+
+    def test_mmr_proficient_is_its_own_group(self):
+        assert mlh1_stratum("MMRp", "MLH1NoMeth", "") == "mmr_proficient"
+
+    @pytest.mark.parametrize("ihc", ["", None, "nan", float("nan")])
+    def test_missing_ihc_is_unclassified_never_guessed(self, ihc):
+        """The falsification rule depends on these groups. Guessing is worse
+        than admitting the patient cannot be placed."""
+        assert mlh1_stratum("MMRd", "MLH1NoMeth", ihc) == "unclassified"
+
+    def test_unknown_mmr_status_is_unclassified(self):
+        assert mlh1_stratum("", "MLH1Meth", "x") == "unclassified"
+        assert mlh1_stratum("MMRd", "", "x") == "unclassified"
+
+    def test_every_result_is_a_declared_stratum(self):
+        for args in [("MMRd", "MLH1Meth", "x"), ("MMRp", "", ""), ("MMRd", "MLH1NoMeth", "")]:
+            assert mlh1_stratum(*args) in MLH1_STRATA
+
+    def test_assign_over_a_cohort_table(self):
+        import pandas as pd
+
+        table = pd.DataFrame(
+            {
+                "MMRStatus": ["MMRd", "MMRd", "MMRd", "MMRp"],
+                "MLH1Status": ["MLH1Meth", "MLH1NoMeth", "MLH1NoMeth", "MLH1NoMeth"],
+                "MMR_IHC": [
+                    "MLH1 and PMS2 deficient",
+                    "MSH2 and MSH6 deficient",
+                    "MLH1 and PMS2 deficient",
+                    "",
+                ],
+            },
+            index=["C1", "C138", "C115", "C103"],
+        )
+        out = assign_mlh1_strata(table)
+        assert out.loc["C1", "mlh1_stratum"] == "mlh1_methylated"
+        assert out.loc["C138", "mlh1_stratum"] == "mlh1_intact_mmrd"
+        assert out.loc["C115", "mlh1_stratum"] == "mlh1_deficient_unmethylated"
+        assert out.loc["C103", "mlh1_stratum"] == "mmr_proficient"
+
+    def test_missing_ihc_column_raises_rather_than_silently_skipping(self):
+        import pandas as pd
+
+        table = pd.DataFrame({"MMRStatus": ["MMRd"], "MLH1Status": ["MLH1Meth"]}, index=["C1"])
+        with pytest.raises(IngestError, match="MMR_IHC"):
+            assign_mlh1_strata(table)
 
 
 class TestChemistryCrossCheck:
