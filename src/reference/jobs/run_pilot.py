@@ -137,12 +137,16 @@ def main() -> int:
         # Sorting matters here: in a CD45-enriched sample the few epithelial
         # cells sit in immune-dominated soup, so a high estimate is expected
         # rather than a failure. And an estimate from <20 cells is noise.
+        # .astype(str) before the map: PROCESSING_TYPE is categorical, and
+        # filling a category column with "" raises rather than adding a level.
         sorting = (
-            adata.obs.groupby("sample_id", observed=True)["PROCESSING_TYPE"]
-            .agg(lambda s: s.astype(str).mode().iat[0] if len(s) else "")
+            adata.obs.assign(_pt=adata.obs["PROCESSING_TYPE"].astype(str))
+            .groupby("sample_id", observed=True)["_pt"]
+            .agg(lambda s: s.mode().iat[0] if len(s) else "")
+            .astype(str)
         )
         contamination["processing_type"] = (
-            contamination["sample_id"].map(sorting).fillna("")
+            contamination["sample_id"].map(sorting).astype(object).fillna("")
         )
         contamination["reliable"] = contamination["n_cells"] >= MIN_CELLS_FOR_CONTAMINATION
         print(contamination.to_string(index=False))
