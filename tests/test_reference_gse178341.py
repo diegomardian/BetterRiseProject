@@ -12,12 +12,15 @@ The fixture reproduces that layout in miniature so the loader is tested without
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 import pytest
 from scipy import sparse
 
 from src.reference.ingest import (
     MLH1_STRATA,
+    S_MATRIX_COMPARTMENTS,
     IngestError,
+    assign_compartments,
     assign_mlh1_strata,
     check_chemistry_agreement,
     mlh1_stratum,
@@ -529,3 +532,47 @@ class TestFullLoad:
         path, _ = deposit
         with pytest.raises(IngestError, match="not in the file"):
             read_gse178341(path, patients=["C1", "NOPE"])
+
+
+class TestCompartments:
+    """§2.1 error 3: the S matrix needs stromal, immune AND endothelial columns."""
+
+    def _clusters(self, labels):
+        import pandas as pd
+
+        return pd.DataFrame(
+            {"clMidwayPr": pd.Categorical(labels)},
+            index=[f"bc{i}" for i in range(len(labels))],
+        )
+
+    def test_all_pilot_labels_are_mapped(self):
+        """Every clMidwayPr value observed in the pilot must map somewhere."""
+        observed = [
+            "Epi", "B", "TCD4", "Plasma", "Macro", "Mono", "TCD8", "Endo", "Fibro",
+            "Tgd", "DC", "NK", "Mast", "Peri", "SmoothMuscle", "TZBTB16", "ILC",
+            "Granulo", "Schwann",
+        ]
+        out = assign_compartments(self._clusters(observed))
+        assert not out.isna().any()
+        assert set(out) == set(S_MATRIX_COMPARTMENTS)
+
+    def test_endothelium_is_its_own_compartment(self):
+        """clTopLevel lumps Endo into Strom; clMidwayPr does not. This is the
+        whole reason the mapping reads the midway level."""
+        out = assign_compartments(self._clusters(["Endo", "Fibro"]))
+        assert list(out) == ["endothelial", "stromal"]
+
+    def test_unmapped_label_raises_rather_than_vanishing(self):
+        with pytest.raises(IngestError, match="unmapped clMidwayPr"):
+            assign_compartments(self._clusters(["Epi", "Neuroendocrine"]))
+
+    def test_unmapped_can_be_tolerated_explicitly(self):
+        out = assign_compartments(self._clusters(["Epi", "Xyz"]), strict=False)
+        assert out.iloc[0] == "epithelial"
+        assert pd.isna(out.iloc[1])
+
+    def test_names_satisfy_build_signature_substring_check(self):
+        from src.reference.signature import REQUIRED_NON_EPITHELIAL
+
+        for required in REQUIRED_NON_EPITHELIAL:
+            assert any(required in c for c in S_MATRIX_COMPARTMENTS)

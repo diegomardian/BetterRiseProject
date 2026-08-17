@@ -44,11 +44,36 @@ from src.reference.signature import assert_no_target_leakage
 #:
 #: None of these may be panel genes; asserted at call time (CLAUDE.md invariant
 #: 2). Using a target gene to measure contamination would be circular.
+#: The epithelial set is deliberately broad. On the pilot, the original six
+#: (haemoglobin, PTPRC, IGKC, IGHG1) held under 0.2% of the soup in 10 of 23
+#: samples, because their share is dominated by how many erythrocytes and plasma
+#: cells that particular dissociation happened to contain — so those samples came
+#: back unestimable. The pan-leukocyte transcripts below are present in every
+#: sample and abundant, which stabilises the denominator.
+#:
+#: Chosen for being **constitutively** haematopoietic. Deliberately excluded:
+#: CD74 and HLA-DRA (interferon-inducible in epithelium), and the fibroblast
+#: collagens (COL1A1/COL1A2/COL3A1), which are abundant and tempting but can be
+#: switched on in partial-EMT tumour cells — exactly the state this project
+#: studies, so using them would put the measurement inside the phenomenon.
 IMPOSSIBLE_GENES: Final[dict[str, frozenset[str]]] = {
-    "epithelial": frozenset({"HBB", "HBA1", "HBA2", "PTPRC", "IGKC", "IGHG1"}),
-    "immune": frozenset({"HBB", "HBA1", "HBA2", "EPCAM", "KRT8", "KRT18"}),
-    "stromal": frozenset({"HBB", "HBA1", "HBA2", "EPCAM", "PTPRC"}),
-    "endothelial": frozenset({"HBB", "HBA1", "HBA2", "EPCAM", "PTPRC"}),
+    "epithelial": frozenset(
+        {
+            # erythroid
+            "HBB", "HBA1", "HBA2",
+            # plasma / B
+            "IGKC", "IGHG1", "MS4A1",
+            # pan-leukocyte, constitutive and highly expressed
+            "PTPRC", "SRGN", "LAPTM5", "CORO1A", "CD52", "ARHGDIB",
+            # T
+            "CD3D", "CD3E", "CD2",
+            # myeloid
+            "TYROBP", "FCER1G", "AIF1",
+        }
+    ),
+    "immune": frozenset({"HBB", "HBA1", "HBA2", "EPCAM", "KRT8", "KRT18", "KRT19"}),
+    "stromal": frozenset({"HBB", "HBA1", "HBA2", "EPCAM", "PTPRC", "KRT8"}),
+    "endothelial": frozenset({"HBB", "HBA1", "HBA2", "EPCAM", "PTPRC", "KRT8"}),
 }
 
 

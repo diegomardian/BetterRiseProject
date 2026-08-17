@@ -551,6 +551,70 @@ def read_gse178341_clusters(path: str | Path) -> Any:
     return frame
 
 
+#: `clMidwayPr` -> the compartments the S matrix must carry.
+#:
+#: execution_plan.md §2.1 error 3: bulk CRC is 30-60% non-epithelial, and a
+#: reference without stromal, immune and endothelial columns absorbs that signal
+#: arbitrarily into the epithelial ones — the CMS4 failure mode. `clTopLevel` is
+#: not sufficient because it has no endothelial category; `clMidwayPr` separates
+#: `Endo` (1,196 cells in the pilot) from the fibroblast/pericyte stroma.
+#:
+#: Compartment assignment only. Which epithelial cells are *mature* comes from
+#: the frozen axes, never from these labels (CLAUDE.md invariant 2).
+COMPARTMENT_MAP: dict[str, str] = {
+    "Epi": "epithelial",
+    "Endo": "endothelial",
+    # stroma: fibroblasts, pericytes, smooth muscle, glia
+    "Fibro": "stromal",
+    "Peri": "stromal",
+    "SmoothMuscle": "stromal",
+    "Schwann": "stromal",
+    # immune: lymphoid then myeloid
+    "B": "immune",
+    "Plasma": "immune",
+    "TCD4": "immune",
+    "TCD8": "immune",
+    "Tgd": "immune",
+    "TZBTB16": "immune",
+    "ILC": "immune",
+    "NK": "immune",
+    "Macro": "immune",
+    "Mono": "immune",
+    "DC": "immune",
+    "Mast": "immune",
+    "Granulo": "immune",
+}
+
+#: The four columns build_signature() requires. `require_non_epithelial` checks
+#: for the last three by substring, so these names must contain them.
+S_MATRIX_COMPARTMENTS: tuple[str, ...] = (
+    "epithelial", "stromal", "immune", "endothelial",
+)
+
+
+def assign_compartments(clusters: Any, *, strict: bool = True) -> Any:
+    """Map `clMidwayPr` onto the four S-matrix compartments.
+
+    Returns a Series aligned to `clusters`. With `strict`, an unmapped label
+    raises rather than becoming NaN — a silently dropped population is a column
+    of the reference matrix quietly going missing.
+    """
+    import pandas as pd
+
+    if "clMidwayPr" not in clusters.columns:
+        raise IngestError("clusters has no clMidwayPr column")
+    labels = clusters["clMidwayPr"].astype(str)
+    unmapped = sorted(set(labels.unique()) - set(COMPARTMENT_MAP) - {"nan"})
+    if unmapped and strict:
+        raise IngestError(
+            f"unmapped clMidwayPr labels: {unmapped}. Add them to COMPARTMENT_MAP "
+            f"rather than letting a population vanish from the reference matrix."
+        )
+    return pd.Series(
+        labels.map(COMPARTMENT_MAP).to_numpy(), index=clusters.index, name="compartment"
+    )
+
+
 def check_chemistry_agreement(obs: Any, metadata: Any) -> Any:
     """Cross-check chemistry parsed from barcodes against ``SINGLECELL_TYPE``.
 
