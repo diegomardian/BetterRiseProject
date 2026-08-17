@@ -32,12 +32,19 @@ import numpy as np
 import pandas as pd
 
 from src.common.io import write_versioned_table
+from src.common.panel import tier_genes
 from src.common.provenance import DEFAULT_SEED, set_global_seeds
 from src.reference.ambient import contamination_by_sample, soup_profile_from_cells
 from src.reference.ingest import (
+    assign_compartments,
     read_gse178341,
     read_gse178341_clusters,
     read_gse178341_metadata,
+)
+from src.reference.labels import (
+    assign_labels,
+    describe_labels,
+    mature_cell_counts,
 )
 from src.reference.qc import (
     apply_qc,
@@ -166,6 +173,45 @@ def main() -> int:
         print("\ntop 10 soup genes (pooled across the pilot):")
         print(soup.head(10).to_string())
 
+    print("\n--- labels: 2 axes x 4 rungs ---")
+    labels = pd.DataFrame()
+    counts = pd.DataFrame()
+    if not cluster_csv.exists():
+        print("!! no cluster file; cannot assign compartments, so no labels")
+    else:
+        compartment = assign_compartments(clusters).reindex(adata.obs.index)
+        adata.obs["compartment"] = compartment
+        print(compartment.value_counts().to_string())
+
+        # Target set for this pilot run: tier A, the compositional control. Tier A
+        # does not collide with either axis, so both are usable. A run testing
+        # MUC2 or TFF3 would have to pass axes=["stem_pole"] (open decision #1).
+        targets = tier_genes("A")
+        print(f"\ntarget set for this run: {targets}")
+
+        keep = np.asarray(passes, dtype=bool)
+        labels = assign_labels(
+            adata.X[keep],
+            adata.var["gene_symbol"],
+            compartment=compartment.to_numpy()[keep],
+            sample_id=adata.obs["sample_id"].to_numpy()[keep],
+            target_genes=targets,
+            index=adata.obs.index[keep],
+        )
+        print(f"\nlabelled {len(labels):,} QC-passing cells, "
+              f"{len(labels.columns)} columns")
+        print(describe_labels(labels).to_string(index=False))
+
+        counts = mature_cell_counts(
+            labels,
+            patient_id=adata.obs["patient_id"].to_numpy()[keep],
+            tissue=adata.obs["tissue"].to_numpy()[keep],
+        )
+        print("\nmature-cell counts (n_cells_mature drives positivity; W2 owns the"
+              " thresholds):")
+        print(counts.sort_values(["granularity_rung", "patient_id", "tissue"])
+              .to_string(index=False))
+
     print("\n--- pct_mito distribution, for open decision #12 ---")
     print("Pick the cap from this, not from convention. 20% is a lymphocyte number;")
     print("colonic epithelium runs higher, and much of it here is ambient.")
@@ -205,6 +251,8 @@ def main() -> int:
         (summary, "pilot_qc_summary"),
         (retention, "pilot_differential_retention"),
         (contamination, "pilot_contamination"),
+        (describe_labels(labels) if len(labels) else labels, "pilot_label_summary"),
+        (counts, "pilot_mature_cell_counts"),
     ):
         if len(frame):
             path = write_versioned_table(

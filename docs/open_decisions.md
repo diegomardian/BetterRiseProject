@@ -564,6 +564,60 @@ or GSE178341 and the Lee cohorts are not comparable at the gate.
 
 ---
 
+## 13 · W1 and W4 label cells differently — OPEN, BLOCKS COMPARABILITY
+
+**Raised:** W1, 2026-08-17 · **Owner:** W1 + W4 (+ W2 consumes both) ·
+**Needed by:** before either cohort's decomposition is compared
+
+Both workstreams now have label code, which §4 sanctions ("same pipeline shape as
+W1 — coordinate, do not share code prematurely"). But the *definitions* diverge,
+and the mature fraction is the compositional term, so divergence is not cosmetic.
+
+| | W4 `src/estimator/labels.py` | W1 `src/reference/labels.py` |
+|---|---|---|
+| Column | `mature__{axis}__{rung}`, boolean | `label_{axis}_{rung}`, categorical |
+| epithelial rung | top 50% of score | **all epithelium** |
+| lineage | top 35% | top 50% (median split) |
+| crypt_position | top 15% | top 33% (tertiles) |
+| best4 | top 5% | top 5% (marker-gated, not score-binned) |
+| Scoring | mean raw expression | depth-normalised, z-scored per gene |
+| Quantiles computed | over the whole input | **within each sample** |
+| Non-epithelial cells | caller must pre-filter | labelled `non_epithelial` explicitly |
+
+Three of these matter:
+
+1. **The rung schedule.** Different mature fractions per rung mean
+   Δ(mature fraction) is not measuring the same thing in the two cohorts, so the
+   granularity curve (§6.2) would not be comparable and the week-5 gate would be
+   comparing incomparable numbers.
+2. **Depth normalisation.** GSE178341 mixes v2 and v3 chemistry, which differ in
+   capture efficiency, so a raw-mean score ranks deep cells as more mature for
+   technical reasons. W1 normalises for this. Lee may not need it; the two should
+   still agree on whether it is done.
+3. **Per-sample vs pooled quantiles.** Pooling lets one sample's depth and
+   composition decide another's labels.
+
+W4's own docstring defers on the numbers — *"Swap them for whatever W1/W2 lands on
+once real cells are in hand; this file's job is the plumbing... not the final
+number."* So this is a handoff waiting to happen rather than a disagreement.
+
+**Recommendation: adopt W1's definitions, now that they have been run on real
+cells.** Specifically: all-epithelium at the coarsest rung (it is the lower bound
+of the granularity curve and is *supposed* to look degenerate), per-sample
+quantiles, depth-normalised z-scored input, and marker-gating rather than
+score-binning for BEST4+ since that population is discrete. W1 keeps the
+categorical bin names — they carry which bin, not merely mature-or-not, which the
+granularity curve needs.
+
+**Interop already exists**, so nothing is blocked while this is decided:
+`cell_type_vector()` emits the `cell_type` array W2's `generate_pseudobulk`
+consumes (renaming whichever bin is mature to `mature_colonocyte`), and
+`maturity_summary()` emits every column `decompose_cohort` requires except
+`gene`, `mean_normal` and `mean_tumour`, which need the target gene's expression.
+Both are covered by tests that call W2's and W4's real functions rather than mocks.
+
+---
+
 ## Closed
 
 *(none yet — move entries here with the date and the decision, do not delete them)*

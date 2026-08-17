@@ -67,3 +67,50 @@ the docstring.
 - Use backed AnnData for anything that does not need the full matrix in memory.
 - Matched normals: if they are sparse, the compositional term loses its
   reference. Check completeness in week 1, not week 4.
+
+## For W2 — consuming W1's labels
+
+`src/reference/labels.py` emits eight `label_{axis}_{rung}` columns (2 axes × 4
+rungs), one row per cell, categorical, none overwriting another.
+
+```python
+from src.reference.ingest import assign_compartments, read_gse178341, read_gse178341_clusters
+from src.reference.labels import assign_labels, cell_type_vector, maturity_summary
+from src.common.panel import tier_genes
+
+adata    = read_gse178341(h5, patients=["C122", "C165", "C107", "C138", "C162"])
+clusters = read_gse178341_clusters(cluster_csv)
+
+labels = assign_labels(
+    adata.X, adata.var["gene_symbol"],
+    compartment=assign_compartments(clusters).reindex(adata.obs.index).to_numpy(),
+    sample_id=adata.obs["sample_id"].to_numpy(),
+    target_genes=tier_genes("A"),          # REQUIRED — see below
+    index=adata.obs.index,
+)
+
+# -> the cell_type array generate_pseudobulk() expects
+cell_type = cell_type_vector(labels, "stem_pole", "lineage")   # mature -> "mature_colonocyte"
+
+# -> everything decompose_cohort() needs except gene / mean_normal / mean_tumour
+summary = maturity_summary(labels, patient_id=..., tissue=..., study_id="GSE178341")
+```
+
+**`target_genes` is required and has no default.** Which genes count as targets
+for a run is [open decision #1](../../docs/open_decisions.md), and a default would
+bury it: passing the whole panel makes axis 2 unusable, while a permissive default
+silently disables invariant 2. Consequence you will hit — **a run testing MUC2 or
+TFF3 cannot use axis 2**, because those two genes are simultaneously tier-E targets
+and axis-2 markers. Pass `axes=["stem_pole"]` for those runs.
+
+**Which bin is mature** is `RUNG_SPECS[rung].mature`, and `mature_mask()` /
+`cell_type_vector()` both read it from there. Do not hard-code a bin name — the
+rung partitions are W1's proposal, not frozen, and they will change.
+
+**The rungs are meant to disagree.** The coarsest calls all epithelium mature; the
+finest calls ~5%. That spread *is* the granularity curve (§6.2) — a single point
+estimate would present a modelling choice as a measurement.
+
+**W1 and W4 currently define the rungs differently** — see
+[open decision #13](../../docs/open_decisions.md). The interop functions above work
+regardless, but the two cohorts are not comparable until that is settled.
