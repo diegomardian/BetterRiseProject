@@ -411,6 +411,72 @@ G2 is a pre-committed gate criterion, so **this needs the team, not just W1.**
 
 ---
 
+## 11 · Half the cells come from sorted samples — OPEN, AFFECTS THE COMPOSITIONAL ARM
+
+**Raised:** W1, 2026-08-17 · **Owner:** W1 + W4 · **Needed by:** before the pilot
+
+`PROCESSING_TYPE` in the metatables takes four values, and only one leaves
+cell-type composition untouched:
+
+| PROCESSING_TYPE | What it is | normal | tumour |
+|---|---|---|---|
+| `unsorted` | untouched | 67,125 | 164,612 |
+| `CD45pMACS` | **CD45+ magnetic sorting — immune enrichment** | 38,726 | 84,040 |
+| `mixUnsortCD45MACS` | deliberate mixture | 6,782 | 3,888 |
+| `LiveMACS` | viability selection | 231 | 4,711 |
+
+The compositional term is Δ(mature epithelial fraction). A CD45-enriched sample
+has had its epithelial fraction driven down **by the protocol**, so comparing it
+against an unsorted sample measures the sort, not the tumour.
+
+**Pairing does not absorb this.** Unlike chemistry, which is constant within 61
+of 62 patients, `PROCESSING_TYPE` is mixed within **45 of 62**. A patient with an
+unsorted normal and a CD45-sorted tumour would show a large apparent loss of
+epithelium that is entirely artefact — and in the direction of the prior
+hypothesis.
+
+### What it costs
+
+`PROCESSING_TYPE` is a **per-sample** property and patients have several
+samples, so this filters samples rather than dropping patients:
+
+- 36 patients matched
+- **32 have unsorted cells in both arms**
+- **30 also clear 500 tumour / 300 normal unsorted cells**
+
+So the compositional arm is **n≈30**, down from 36. Smaller than feared.
+
+### It broke the first pilot selection
+
+The original five were chosen on total counts, before this was checked:
+
+| | unsorted normal | unsorted tumour | verdict |
+|---|---|---|---|
+| C114 | **0** (all mixUnsortCD45MACS) | 1,390 | unusable — **and it was the only `mlh1_methylated` patient**, i.e. tier B's positive control |
+| C115 | **0** | **0** | unusable in both arms |
+| C140 | 1,677 | 2,417 | fine |
+| C142 | 2,038 | 2,042 | fine |
+| C162 | 6,726 | 8,103 | fine |
+
+`select_pilot.py` now computes eligibility on unsorted cells only.
+
+### The decision
+
+| | Approach | Cost |
+|---|---|---|
+| a | **Compositional estimates from `unsorted` samples only.** Sorted samples excluded from that arm. | n≈30. Clean, and the exclusion is principled rather than empirical. Recommended. |
+| b | Also allow `mixUnsortCD45MACS` if the mixing ratio is documented. | Recovers a few patients, but the ratio is not in the metadata and would have to be assumed. |
+| c | Model sorting as a covariate and keep everything. | Keeps all cells, but requires believing a linear adjustment can undo a physical enrichment. It cannot for a fraction. |
+
+**Recommendation: (a).** Also worth stating explicitly that the *intrinsic* arm
+is far less affected — per-cell expression among surviving epithelial cells does
+not depend on the mixture the way a fraction does — so sorted samples may still
+contribute there, flagged, if the extra cells are wanted. **That asymmetry needs
+W4's sign-off**, since it means the two arms of the same decomposition run on
+different cell sets.
+
+---
+
 ## Closed
 
 *(none yet — move entries here with the date and the decision, do not delete them)*

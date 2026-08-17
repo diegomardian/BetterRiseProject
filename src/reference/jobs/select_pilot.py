@@ -19,8 +19,14 @@ Criteria, applied in order and all recorded in the output:
 
   - matched tumour AND normal (an unmatched patient cannot exercise the
     decomposition at all)
-  - at least MIN_TUMOUR / MIN_NORMAL cells in each arm, so positivity is not
-    the thing being tested at this stage
+  - **unsorted cells in both arms.** PROCESSING_TYPE is per-sample, and
+    CD45pMACS / LiveMACS / mixUnsortCD45MACS samples have had their cell-type
+    composition deliberately altered. The compositional term is
+    Delta(mature epithelial fraction), so comparing a sorted sample against an
+    unsorted one measures the sort, not the tumour. Counts below are therefore
+    computed on unsorted cells only.
+  - at least MIN_TUMOUR / MIN_NORMAL unsorted cells in each arm, so positivity
+    is not the thing being tested at this stage
   - spans the tier-B strata: at least one mlh1_methylated, one
     mlh1_intact_mmrd, one mmr_proficient, so G2's controls are exercised early
   - spans cohort depth: smallest, median and largest eligible tumours, so the
@@ -51,6 +57,12 @@ N_PILOT = 5
 
 BATCH_VARIABLES = ("SOURCE_HOSPITAL", "TISSUE_PROCESSING_TEAM", "PROCESSING_TYPE")
 
+#: The only PROCESSING_TYPE whose cell-type composition is unmanipulated.
+#: CD45pMACS is immune enrichment, LiveMACS is viability selection, and
+#: mixUnsortCD45MACS is a deliberate mixture — none can carry a compositional
+#: estimate. See docs/open_decisions.md #11.
+UNSORTED = "unsorted"
+
 
 def batch_confounding(obs: pd.DataFrame, metadata: pd.DataFrame) -> None:
     """Report each batch variable against tissue, and within-patient consistency."""
@@ -79,17 +91,24 @@ def select(table: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
 
     eligible = table[
         table["matched"]
-        & (table["n_tumour"] >= MIN_TUMOUR)
-        & (table["n_normal"] >= MIN_NORMAL)
+        & (table["n_tumour_unsorted"] >= MIN_TUMOUR)
+        & (table["n_normal_unsorted"] >= MIN_NORMAL)
     ].copy()
     notes.append(
-        f"{len(eligible)} of {len(table)} patients are matched with >={MIN_TUMOUR} "
-        f"tumour and >={MIN_NORMAL} normal cells."
+        f"{int(table['matched'].sum())} of {len(table)} patients are matched; "
+        f"{int(table['compositionally_usable'].sum())} of those have UNSORTED cells "
+        f"in both arms; {len(eligible)} also clear >={MIN_TUMOUR} tumour and "
+        f">={MIN_NORMAL} normal unsorted cells."
+    )
+    notes.append(
+        "Sorted samples (CD45pMACS, LiveMACS, mixUnsortCD45MACS) are excluded from "
+        "the counts: their cell-type composition is manipulated, so they cannot "
+        "carry a compositional estimate (open decision #11)."
     )
     if len(eligible) < N_PILOT:
         raise SystemExit(f"only {len(eligible)} eligible patients; loosen the thresholds")
 
-    eligible = eligible.sort_values("n_tumour")
+    eligible = eligible.sort_values("n_tumour_unsorted")
     chosen: list[str] = []
 
     # One from each stratum first, so tier B's controls are present from day one.
@@ -141,6 +160,31 @@ def main() -> int:
 
     table = assign_mlh1_strata(patient_cohort_table(obs, metadata), metadata)
 
+    # Compositional counts must come from unsorted samples only. PROCESSING_TYPE
+    # is per-sample, so this filters cells rather than dropping patients — a
+    # patient with both a CD45-sorted and an unsorted tumour keeps the latter.
+    joined = obs.join(metadata, how="left")
+    unsorted = patient_cohort_table(joined[joined["PROCESSING_TYPE"] == UNSORTED])
+    for arm in ("n_tumour", "n_normal"):
+        table[f"{arm}_unsorted"] = (
+            unsorted[arm].reindex(table.index).fillna(0).astype(int)
+        )
+    table["compositionally_usable"] = (table["n_tumour_unsorted"] > 0) & (
+        table["n_normal_unsorted"] > 0
+    )
+
+    print("\n" + "=" * 70)
+    print("COMPOSITIONAL COHORT — unsorted samples only")
+    print("=" * 70)
+    print(f"matched:                       {int(table['matched'].sum())} of {len(table)}")
+    print(f"unsorted in both arms:         {int(table['compositionally_usable'].sum())}")
+    deep = (table["n_tumour_unsorted"] >= MIN_TUMOUR) & (
+        table["n_normal_unsorted"] >= MIN_NORMAL
+    )
+    print(f"  of those, adequate depth:    {int(deep.sum())}")
+    print("\nby tier-B stratum (unsorted in both arms):")
+    print(table[table["compositionally_usable"]]["mlh1_stratum"].value_counts().to_string())
+
     print("\n" + "=" * 70)
     print("PILOT SELECTION")
     print("=" * 70)
@@ -150,8 +194,8 @@ def main() -> int:
     print()
     columns = [
         c
-        for c in ("n_tumour", "n_normal", "n_samples", "chemistry",
-                  "MMRStatus", "MLH1Status", "mlh1_stratum")
+        for c in ("n_tumour", "n_normal", "n_tumour_unsorted", "n_normal_unsorted",
+                  "n_samples", "chemistry", "MMRStatus", "MLH1Status", "mlh1_stratum")
         if c in selection.columns
     ]
     print(selection[columns].to_string())
@@ -163,8 +207,9 @@ def main() -> int:
     (out / "pilot_selection_rationale.txt").write_text(
         "Five-patient pilot selection — chosen before any expression was examined.\n\n"
         + "\n".join(f"- {n}" for n in notes)
-        + f"\n\ncriteria: matched, n_tumour>={MIN_TUMOUR}, n_normal>={MIN_NORMAL}, "
-        f"strata spanned, depth range spanned\n"
+        + f"\n\ncriteria: matched, UNSORTED n_tumour>={MIN_TUMOUR} and "
+        f"n_normal>={MIN_NORMAL}, strata spanned, depth range spanned. "
+        f"Sorted samples excluded from all counts — open decision #11.\n"
         f"git_sha: {provenance['git_sha']}\nseed: {DEFAULT_SEED}\n",
         encoding="utf-8",
     )
