@@ -43,7 +43,25 @@ DEFAULT_N_MADS: Final[float] = 5.0
 
 #: Hard cap, not per-batch. A dying cell's mitochondrial fraction is not
 #: expected to be protocol-relative the way library size is.
-DEFAULT_MAX_PCT_MITO: Final[float] = 20.0
+#:
+#: **50, not the conventional 20.** Measured on the pilot (results/, 2026-08-17):
+#: colonic epithelium runs at a median of 29.8% in normal tissue and 21.1% in
+#: tumour, against 4-11% for every immune and stromal compartment. A 20% cap
+#: therefore sits *below the median for normal epithelium*: it removes 59% of
+#: all epithelial cells and opens a 22.7-point tumour/normal retention gap, which
+#: lands directly on Delta(mature fraction) and inflates apparent compositional
+#: loss — a bias pointing at the prior hypothesis.
+#:
+#: Two further facts settle the value. GSE178341 is **already filtered at 50%**
+#: upstream (observed max 49.976 normal / 49.988 tumour), so a 50 cap is a no-op
+#: rather than an opinion, and double-filtering would only compound the first
+#: cut. And the mitochondrial content is genuine, not ambient: contamination is
+#: ~2.7% of counts and MT genes are ~18% of the soup, so ambient contributes
+#: about 0.5% of a cell's counts — nowhere near a 30% observed fraction.
+#:
+#: W4 uses 20 on the Lee cohorts. **They must match or justify diverging**, or
+#: the two cohorts are not comparable at the gate — see docs/open_decisions.md #12.
+DEFAULT_MAX_PCT_MITO: Final[float] = 50.0
 
 #: Absolute floors, applied on top of the per-batch MAD rule. A batch that is
 #: uniformly poor has a low median, and the MAD rule alone would happily keep

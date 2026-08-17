@@ -477,7 +477,35 @@ different cell sets.
 
 ---
 
-## 12 · The 20% mitochondrial cap cuts normal harder than tumour — OPEN, URGENT
+## 12 · The 20% mitochondrial cap cuts normal harder than tumour — ANSWERED BY DATA
+
+> **Resolved 2026-08-17 from the pilot.** The `pct_mito` distribution settles it.
+> Colonic epithelium runs at a **median of 29.8% in normal** and 21.1% in tumour,
+> against 4–11% for every immune and stromal compartment — so a 20% cap sits
+> *below the median for normal epithelium*.
+>
+> | cap | epithelium kept | tumour/normal gap |
+> |---|---|---|
+> | 20% | 40.7% | **22.7 pts** |
+> | 30% | 66.1% | 21.7 pts |
+> | 40% | 85.9% | 11.4 pts |
+> | **50%** | **100%** | **0.0 pts** |
+>
+> And the deposit is **already filtered at 50%** upstream — observed max 49.976
+> (normal) / 49.988 (tumour) — so a 50 cap is a no-op rather than an opinion, and
+> anything lower double-filters on top of the authors' cut.
+>
+> **`DEFAULT_MAX_PCT_MITO` is now 50.0.** W4 uses 20 on the Lee cohorts and
+> **must match or justify diverging**, or the cohorts are not comparable at the
+> gate. That is the part still open.
+>
+> One correction to the original reasoning below: the mitochondrial content is
+> **not** mostly ambient. Contamination is ~2.7% of counts and MT genes are ~18%
+> of the soup, so ambient contributes roughly 0.5% of a cell's counts — nowhere
+> near a 30% observed fraction. Colonocytes are simply metabolically active,
+> which strengthens the case for the high cap rather than weakening it.
+
+
 
 **Raised:** W1, 2026-08-17 (from the pilot run) · **Owner:** W1 + W4 ·
 **Needed by:** before any compositional estimate
