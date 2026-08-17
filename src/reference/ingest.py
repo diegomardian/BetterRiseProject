@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import re
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -38,6 +39,43 @@ from typing import Any
 import numpy as np
 
 from src.common.paths import MANIFEST_PATH
+
+# ---------------------------------------------------------------------------
+# GSE178341 file facts, established by inspecting the deposited .h5 on
+# 2026-08-17. Recorded here because they are not documented anywhere upstream.
+#
+#   format      10x CellRanger HDF5 v2 (root attrs: filetype=matrix, version=2)
+#   matrix      /matrix, CSC, shape [43113 genes, 370115 barcodes]
+#   data        float64 but integral; 764,460,511 nonzeros
+#   features    /matrix/features/{id,name}; id like "ENSG00000243485.5_4"
+#   genome      GRCh37_liftover_v28  <-- hg19, NOT GRCh38
+#   barcodes    "C103_T_1_1_0_c1_v2_id-AAACCTGCATGCTAGT"
+#
+# Two consequences worth carrying:
+#
+# 1. 370,115 barcodes, against a published 371,223 cells. Reconcile against the
+#    cluster/metatables CSVs before quoting a cohort size.
+# 2. The genome is an hg19 liftover of GENCODE v28, while TCGA STAR counts are
+#    GRCh38. Ensembl IDs are mostly stable across builds so the join still
+#    works, but it is not a clean match — W3 needs to know (open decision #3).
+# ---------------------------------------------------------------------------
+
+#: Strips the Ensembl version and CellRanger's duplicate-resolution suffix:
+#: "ENSG00000243485.5_4" -> "ENSG00000243485". Unversioned IDs pass through.
+_FEATURE_SUFFIX = re.compile(r"\.\d+(?:_\d+)?$")
+
+#: "C103_T_1_1_0_c1_v2_id-AAACCTGCATGCTAGT". The prefix before "_id-" is the
+#: sample, and it starts with patient then tissue.
+_BARCODE = re.compile(
+    r"^(?P<sample_id>(?P<patient_id>[^_]+)_(?P<tissue_code>[^_]+)_.*?)"
+    r"_id-(?P<cell_barcode>[ACGTN]+)(?:-\d+)?$"
+)
+
+_CHEMISTRY = re.compile(r"^v\d+$")
+
+#: Tissue codes in the barcode prefix. Validate against the metatables CSV
+#: rather than trusting this — it is inferred from the naming scheme.
+TISSUE_CODES: dict[str, str] = {"T": "tumour", "N": "normal"}
 
 #: Barcodes below this many UMIs are treated as empty droplets. 100 is the
 #: conventional soup-profile floor: high enough to exclude real cells, low
@@ -330,10 +368,8 @@ def verify_ingest(
 def read_10x_mtx(directory: str | Path, *, prefix: str = "", verify: bool = True) -> Any:
     """Read a 10x mtx triplet into AnnData (cells x genes) and verify it.
 
-    Kept thin on purpose: GSE178341's supplementary layout is awkward and the
-    exact filenames are not known until the download lands, so the parsing that
-    is genuinely dataset-specific belongs in the ingest script, not here. What
-    this guarantees is that nothing skips the guards.
+    For datasets that ship the mtx triplet. GSE178341 ships a 10x HDF5 instead —
+    use :func:`read_gse178341`.
     """
     import scanpy as sc
 
@@ -341,3 +377,190 @@ def read_10x_mtx(directory: str | Path, *, prefix: str = "", verify: bool = True
     if verify:
         verify_ingest(adata.X, context=str(directory))
     return adata
+
+
+# ---------------------------------------------------------------------------
+# GSE178341
+# ---------------------------------------------------------------------------
+
+
+def normalise_feature_id(feature_id: Any) -> str:
+    """``ENSG00000243485.5_4`` -> ``ENSG00000243485``.
+
+    Strips the Ensembl version and CellRanger's duplicate-resolution suffix.
+    This is the key the shared gene index is built on (open decision #3): TCGA
+    STAR counts arrive versioned, this deposit arrives versioned *and* suffixed,
+    and the unversioned ID is the only common form.
+    """
+    text = feature_id.decode() if isinstance(feature_id, bytes) else str(feature_id)
+    return _FEATURE_SUFFIX.sub("", text)
+
+
+def parse_barcode(barcode: Any) -> dict[str, str]:
+    """Split a GSE178341 barcode into its sample metadata.
+
+    ``C103_T_1_1_0_c1_v2_id-AAACCTGCATGCTAGT`` becomes patient ``C103``, tissue
+    ``tumour``, sample ``C103_T_1_1_0_c1_v2``, chemistry ``v2``.
+
+    The sample prefix is what QC thresholds are computed within — it identifies
+    one dissociation and one chemistry, which is the unit whose depth
+    distribution differs. Note that the file's root attribute claims
+    ``Single Cell 3' v3`` for everything while individual barcodes carry ``v2``,
+    so **chemistry is mixed** and the per-barcode tag is the one to trust.
+
+    Raises ValueError on anything that does not match, rather than silently
+    producing a cell with no patient.
+    """
+    text = barcode.decode() if isinstance(barcode, bytes) else str(barcode)
+    match = _BARCODE.match(text)
+    if not match:
+        raise ValueError(
+            f"barcode {text!r} does not match the GSE178341 scheme "
+            f"'<patient>_<tissue>_..._id-<ACGT>'. If the deposit changed, fix "
+            f"_BARCODE rather than skipping the cell."
+        )
+    fields = match.groupdict()
+    tail = fields["sample_id"].split("_")[-1]
+    return {
+        "sample_id": fields["sample_id"],
+        "patient_id": fields["patient_id"],
+        "tissue": TISSUE_CODES.get(fields["tissue_code"], fields["tissue_code"]),
+        "tissue_code": fields["tissue_code"],
+        "cell_barcode": fields["cell_barcode"],
+        "chemistry": tail if _CHEMISTRY.match(tail) else "",
+    }
+
+
+def read_gse178341_index(path: str | Path) -> tuple[Any, Any]:
+    """Read barcodes and features **without loading the 9 GB matrix**.
+
+    Returns ``(obs, var)`` DataFrames — per-cell sample metadata parsed from the
+    barcodes, and per-gene identifiers with the normalised Ensembl key.
+
+    This is the cheap entry point, and it is enough for the whole week-1
+    tabulation: cell counts by patient and tissue, matched-normal completeness,
+    the batch key QC needs, and the gene index W3 is waiting on. Seconds, not
+    minutes.
+    """
+    import h5py
+    import pandas as pd
+
+    with h5py.File(Path(path), "r") as handle:
+        group = handle["matrix"]
+        barcodes = [b.decode() for b in group["barcodes"][:]]
+        features = group["features"]
+        obs = pd.DataFrame([parse_barcode(b) for b in barcodes], index=barcodes)
+        obs.index.name = "barcode"
+        var = pd.DataFrame(
+            {
+                "feature_id": [x.decode() for x in features["id"][:]],
+                "gene_symbol": [x.decode() for x in features["name"][:]],
+                "genome": [x.decode() for x in features["genome"][:]],
+                "feature_type": [x.decode() for x in features["feature_type"][:]],
+            }
+        )
+        var["ensembl_id"] = [normalise_feature_id(x) for x in var["feature_id"]]
+        var = var.set_index("ensembl_id", drop=False)
+    return obs, var
+
+
+def read_gse178341(
+    path: str | Path,
+    *,
+    patients: Any = None,
+    verify: bool = True,
+    dtype: str = "float32",
+) -> Any:
+    """Load GSE178341 as AnnData, cells x genes, optionally a patient subset.
+
+    Parameters
+    ----------
+    patients:
+        Patient IDs to keep, e.g. the five-patient pilot. Only those columns are
+        read off disk, which is what makes the pilot tractable — the full matrix
+        is 764M nonzeros and roughly 9 GB in memory as deposited. `None` loads
+        everything and wants a big machine.
+    dtype:
+        The deposit stores integral counts as float64, which doubles memory for
+        nothing. float32 is the sane default; counts here are far below its
+        integer-exact limit.
+
+    Note on verification: :func:`assert_raw_counts` runs, but the unfiltered
+    droplet check does **not**. This deposit is cell-filtered — dropletUtils
+    removed the empty droplets before submission — which is settled in
+    docs/open_decisions.md #8. The droplet profile is still attached to
+    ``adata.uns`` so the fact travels with the object.
+    """
+    import anndata as ad
+    import h5py
+    import scipy.sparse as sp
+
+    obs, var = read_gse178341_index(path)
+
+    with h5py.File(Path(path), "r") as handle:
+        group = handle["matrix"]
+        n_genes, n_cells = (int(x) for x in group["shape"][:])
+        indptr = group["indptr"][:]
+
+        if patients is None:
+            columns = np.arange(n_cells)
+        else:
+            wanted = set(map(str, patients))
+            columns = np.flatnonzero(obs["patient_id"].isin(wanted).to_numpy())
+            missing = wanted - set(obs["patient_id"].unique())
+            if missing:
+                raise IngestError(f"patients not in the file: {sorted(missing)}")
+            if columns.size == 0:
+                raise IngestError(f"no cells for patients {sorted(wanted)}")
+
+        data, indices, new_indptr = _read_csc_columns(group, indptr, columns, dtype=dtype)
+
+    matrix = sp.csc_matrix(
+        (data, indices, new_indptr), shape=(n_genes, columns.size)
+    ).T.tocsr()
+
+    adata = ad.AnnData(X=matrix, obs=obs.iloc[columns].copy(), var=var.copy())
+    if verify:
+        profile = verify_ingest(adata.X, context=str(path), require_unfiltered=False)
+        adata.uns["droplet_profile"] = {
+            "n_barcodes": profile.n_barcodes,
+            "n_empty": profile.n_empty,
+            "empty_fraction": profile.empty_fraction,
+            "median_umi": profile.median_umi,
+            "cell_filtered": not profile.looks_unfiltered,
+            "note": "empty droplets removed upstream by dropletUtils; see open_decisions #8",
+        }
+    return adata
+
+
+def _read_csc_columns(
+    group: Any, indptr: np.ndarray, columns: np.ndarray, *, dtype: str
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Read selected CSC columns, coalescing contiguous runs into single reads.
+
+    Barcodes are grouped by sample in this file, so a patient's cells are
+    essentially one contiguous block. Reading run-by-run turns thousands of
+    scattered HDF5 reads into a handful of big ones.
+    """
+    lengths = (indptr[columns + 1] - indptr[columns]).astype(np.int64)
+    new_indptr = np.zeros(columns.size + 1, dtype=np.int64)
+    np.cumsum(lengths, out=new_indptr[1:])
+
+    data = np.empty(int(new_indptr[-1]), dtype=dtype)
+    indices = np.empty(int(new_indptr[-1]), dtype=np.int32)
+
+    # Split `columns` into maximal runs of consecutive indices.
+    breaks = np.flatnonzero(np.diff(columns) != 1) + 1
+    for run in np.split(columns, breaks):
+        if run.size == 0:
+            continue
+        start, stop = int(indptr[run[0]]), int(indptr[run[-1] + 1])
+        if stop == start:
+            continue
+        first = int(np.searchsorted(columns, run[0]))
+        out_start = int(new_indptr[first])
+        out_stop = out_start + (stop - start)
+        data[out_start:out_stop] = group["data"][start:stop]
+        indices[out_start:out_stop] = group["indices"][start:stop]
+
+    return data, indices, new_indptr

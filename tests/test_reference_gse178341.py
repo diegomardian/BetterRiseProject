@@ -1,0 +1,284 @@
+"""The GSE178341 loader. W1.
+
+Built against the real deposited file's structure, recorded in
+src/reference/ingest.py: 10x CellRanger HDF5 v2, CSC, genes x barcodes, float64
+integral counts, feature ids like "ENSG00000243485.5_4", and barcodes like
+"C103_T_1_1_0_c1_v2_id-AAACCTGCATGCTAGT".
+
+The fixture reproduces that layout in miniature so the loader is tested without
+1.1 GB of download.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+from scipy import sparse
+
+from src.reference.ingest import (
+    IngestError,
+    normalise_feature_id,
+    parse_barcode,
+    read_gse178341,
+    read_gse178341_index,
+)
+
+h5py = pytest.importorskip("h5py")
+
+#: (patient, tissue, n_cells) — mirrors the real file's grouping by sample.
+SAMPLES = [("C1", "T", 5), ("C1", "N", 4), ("C2", "T", 6), ("C3", "T", 3), ("C3", "N", 3)]
+N_GENES = 12
+RNG = np.random.default_rng(20260817)
+
+
+def _barcodes() -> list[str]:
+    out = []
+    for patient, tissue, n in SAMPLES:
+        for _ in range(n):
+            tag = "".join(RNG.choice(list("ACGT"), size=16))
+            out.append(f"{patient}_{tissue}_1_1_0_c1_v2_id-{tag}")
+    return out
+
+
+@pytest.fixture
+def deposit(tmp_path):
+    """A miniature GSE178341: returns (path, dense_genes_by_cells)."""
+    barcodes = _barcodes()
+    n_cells = len(barcodes)
+    dense = (RNG.poisson(6.0, size=(N_GENES, n_cells))).astype(np.float64)
+    csc = sparse.csc_matrix(dense)
+
+    path = tmp_path / "GSE178341_crc10x_full_c295v4_submit.h5"
+    with h5py.File(path, "w") as handle:
+        handle.attrs["filetype"] = np.array([b"matrix"])
+        handle.attrs["version"] = np.array([2], dtype=np.int32)
+        handle.attrs["chemistry_description"] = np.array([b"Single Cell 3' v3"])
+        group = handle.create_group("matrix")
+        group.create_dataset("barcodes", data=np.array(barcodes, dtype="S48"))
+        group.create_dataset("data", data=csc.data.astype(np.float64))
+        group.create_dataset("indices", data=csc.indices.astype(np.int32))
+        group.create_dataset("indptr", data=csc.indptr.astype(np.int32))
+        group.create_dataset("shape", data=np.array([N_GENES, n_cells], dtype=np.int32))
+        features = group.create_group("features")
+        features.create_dataset("_all_tag_keys", data=np.array([b"genome"]))
+        features.create_dataset(
+            "id",
+            data=np.array([f"ENSG{i:011d}.{i % 9 + 1}_{i % 4 + 1}" for i in range(N_GENES)],
+                          dtype="S32"),
+        )
+        features.create_dataset(
+            "name", data=np.array([f"GENE{i}" for i in range(N_GENES)], dtype="S16")
+        )
+        features.create_dataset(
+            "genome", data=np.array([b"GRCh37_liftover_v28"] * N_GENES)
+        )
+        features.create_dataset(
+            "feature_type", data=np.array([b"Gene Expression"] * N_GENES)
+        )
+    return path, dense
+
+
+class TestFeatureIds:
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("ENSG00000243485.5_4", "ENSG00000243485"),
+            ("ENSG00000237613.2_2", "ENSG00000237613"),
+            ("ENSG00000141510.16", "ENSG00000141510"),
+            ("ENSG00000141510", "ENSG00000141510"),
+            (b"ENSG00000186092.6_4", "ENSG00000186092"),
+        ],
+    )
+    def test_version_and_dedup_suffix_are_stripped(self, raw, expected):
+        assert normalise_feature_id(raw) == expected
+
+    def test_a_symbol_is_left_alone(self):
+        """Gene symbols must survive unharmed — GUCA2A has no version suffix."""
+        assert normalise_feature_id("GUCA2A") == "GUCA2A"
+        assert normalise_feature_id("MS4A12") == "MS4A12"
+
+
+class TestBarcodeParsing:
+    def test_real_barcode_from_the_deposit(self):
+        fields = parse_barcode("C103_T_1_1_0_c1_v2_id-AAACCTGCATGCTAGT")
+        assert fields["patient_id"] == "C103"
+        assert fields["tissue"] == "tumour"
+        assert fields["sample_id"] == "C103_T_1_1_0_c1_v2"
+        assert fields["cell_barcode"] == "AAACCTGCATGCTAGT"
+        assert fields["chemistry"] == "v2"
+
+    def test_normal_tissue_code(self):
+        assert parse_barcode("C103_N_1_1_0_c1_v2_id-AAACCTGCATGCTAGT")["tissue"] == "normal"
+
+    def test_unknown_tissue_code_passes_through(self):
+        """Better an unmapped code than a silently wrong label."""
+        assert parse_barcode("C1_X_1_1_0_c1_v2_id-ACGT")["tissue"] == "X"
+
+    def test_trailing_lane_suffix_is_tolerated(self):
+        assert parse_barcode("C1_T_1_1_0_c1_v2_id-ACGTACGT-1")["cell_barcode"] == "ACGTACGT"
+
+    def test_bytes_input_works(self):
+        assert parse_barcode(b"C1_T_1_1_0_c1_v2_id-ACGT")["patient_id"] == "C1"
+
+    def test_unparseable_barcode_raises(self):
+        """A cell with no patient must never enter the cohort silently."""
+        with pytest.raises(ValueError, match="does not match the GSE178341 scheme"):
+            parse_barcode("AAACCTGCATGCTAGT-1")
+
+
+class TestIndex:
+    def test_obs_and_var_shapes(self, deposit):
+        path, dense = deposit
+        obs, var = read_gse178341_index(path)
+        assert len(obs) == dense.shape[1]
+        assert len(var) == N_GENES
+
+    def test_obs_carries_the_sample_metadata(self, deposit):
+        path, _ = deposit
+        obs, _ = read_gse178341_index(path)
+        assert set(obs["patient_id"]) == {"C1", "C2", "C3"}
+        assert set(obs["tissue"]) == {"tumour", "normal"}
+        assert (obs["chemistry"] == "v2").all()
+
+    def test_var_is_keyed_on_the_normalised_ensembl_id(self, deposit):
+        path, _ = deposit
+        _, var = read_gse178341_index(path)
+        assert all(i.startswith("ENSG") and "." not in i and "_" not in i for i in var.index)
+        assert "gene_symbol" in var.columns
+        assert (var["genome"] == "GRCh37_liftover_v28").all()
+
+    def test_index_does_not_read_the_matrix(self, deposit):
+        """The cheap path: week-1 tables without loading 9 GB."""
+        path, _ = deposit
+        obs, _ = read_gse178341_index(path)
+        counts = obs.groupby(["patient_id", "tissue"], observed=True).size()
+        assert counts[("C1", "tumour")] == 5
+        assert counts[("C1", "normal")] == 4
+        assert counts[("C2", "tumour")] == 6
+
+    def test_feeds_the_week_one_tables(self, deposit):
+        from src.reference.ingest import cells_by_patient_and_tissue, matched_normal_report
+
+        path, _ = deposit
+        obs, _ = read_gse178341_index(path)
+        table = cells_by_patient_and_tissue(obs["patient_id"], obs["tissue"])
+        assert table.loc["C1", "normal"] == 4
+
+        report = matched_normal_report(obs["patient_id"], obs["tissue"])
+        assert bool(report.loc["C1", "matched"])
+        assert not bool(report.loc["C2", "matched"])  # tumour only
+
+
+class TestColumnReader:
+    """The run-coalescing CSC reader, tested without anndata.
+
+    This is where a subtle bug would live: the loader turns a scattered column
+    selection into a handful of contiguous HDF5 reads, and getting the output
+    offsets wrong would silently misplace counts rather than crash.
+    """
+
+    def _read(self, path, columns):
+        from src.reference.ingest import _read_csc_columns
+
+        with h5py.File(path, "r") as handle:
+            group = handle["matrix"]
+            n_genes = int(group["shape"][0])
+            indptr = group["indptr"][:]
+            data, indices, new_indptr = _read_csc_columns(
+                group, indptr, np.asarray(columns), dtype="float64"
+            )
+        return sparse.csc_matrix(
+            (data, indices, new_indptr), shape=(n_genes, len(columns))
+        ).toarray()
+
+    @pytest.mark.parametrize(
+        "columns",
+        [
+            [0],                       # single column
+            [0, 1, 2, 3, 4],           # one contiguous run
+            [0, 5, 10],                # three isolated columns
+            list(range(9)) + list(range(15, 21)),  # two runs, gap between
+            [18, 19, 20],              # the final run, at the array's edge
+            list(range(21)),           # everything
+        ],
+    )
+    def test_matches_a_direct_dense_slice(self, deposit, columns):
+        path, dense = deposit
+        columns = sorted(columns)
+        np.testing.assert_allclose(self._read(path, columns), dense[:, columns])
+
+    def test_empty_column_is_handled(self, deposit):
+        """A barcode with zero counts must not corrupt neighbouring offsets."""
+        path, dense = deposit
+        with h5py.File(path, "r+") as handle:
+            # Blank column 3 by rewriting the matrix with it zeroed.
+            csc = sparse.csc_matrix(
+                (handle["matrix/data"][:], handle["matrix/indices"][:],
+                 handle["matrix/indptr"][:]),
+                shape=tuple(int(x) for x in handle["matrix/shape"][:]),
+            ).toarray()
+            csc[:, 3] = 0
+            new = sparse.csc_matrix(csc)
+            del handle["matrix/data"], handle["matrix/indices"], handle["matrix/indptr"]
+            handle["matrix"].create_dataset("data", data=new.data.astype(np.float64))
+            handle["matrix"].create_dataset("indices", data=new.indices.astype(np.int32))
+            handle["matrix"].create_dataset("indptr", data=new.indptr.astype(np.int32))
+            dense = csc
+
+        got = self._read(path, [2, 3, 4])
+        np.testing.assert_allclose(got, dense[:, [2, 3, 4]])
+        assert got[:, 1].sum() == 0
+
+
+class TestFullLoad:
+    def test_matrix_is_cells_by_genes_and_values_match(self, deposit):
+        pytest.importorskip("anndata")
+        path, dense = deposit
+        adata = read_gse178341(path)
+        assert adata.shape == (dense.shape[1], N_GENES)
+        np.testing.assert_allclose(adata.X.toarray(), dense.T)
+
+    def test_patient_subset_reads_only_those_cells(self, deposit):
+        pytest.importorskip("anndata")
+        path, dense = deposit
+        adata = read_gse178341(path, patients=["C1"])
+        assert adata.shape == (9, N_GENES)          # 5 tumour + 4 normal
+        assert set(adata.obs["patient_id"]) == {"C1"}
+        np.testing.assert_allclose(adata.X.toarray(), dense.T[:9])
+
+    def test_noncontiguous_subset_is_correct(self, deposit):
+        """C1 and C3 are separated by C2 — the run-coalescing path."""
+        pytest.importorskip("anndata")
+        path, dense = deposit
+        adata = read_gse178341(path, patients=["C1", "C3"])
+        assert adata.shape == (15, N_GENES)         # 9 + 6
+        expected = np.vstack([dense.T[:9], dense.T[15:]])
+        np.testing.assert_allclose(adata.X.toarray(), expected)
+
+    def test_dtype_is_float32_by_default(self, deposit):
+        pytest.importorskip("anndata")
+        path, _ = deposit
+        assert read_gse178341(path).X.dtype == np.float32
+
+    def test_droplet_profile_records_that_it_is_cell_filtered(self, deposit):
+        """Decision #8 travels with the object rather than living in someone's head."""
+        pytest.importorskip("anndata")
+        path, _ = deposit
+        adata = read_gse178341(path)
+        assert adata.uns["droplet_profile"]["cell_filtered"] is True
+        assert "open_decisions #8" in adata.uns["droplet_profile"]["note"]
+
+    def test_raw_count_guard_still_runs(self, deposit):
+        """Filtered droplets are tolerated; non-integer values are not."""
+        pytest.importorskip("anndata")
+        path, _ = deposit
+        with h5py.File(path, "r+") as handle:
+            handle["matrix/data"][:] = np.log1p(handle["matrix/data"][:])
+        with pytest.raises(IngestError, match="non-integer"):
+            read_gse178341(path)
+
+    def test_unknown_patient_raises(self, deposit):
+        pytest.importorskip("anndata")
+        path, _ = deposit
+        with pytest.raises(IngestError, match="not in the file"):
+            read_gse178341(path, patients=["C1", "NOPE"])
