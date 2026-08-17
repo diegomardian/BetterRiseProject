@@ -477,6 +477,65 @@ different cell sets.
 
 ---
 
+## 12 · The 20% mitochondrial cap cuts normal harder than tumour — OPEN, URGENT
+
+**Raised:** W1, 2026-08-17 (from the pilot run) · **Owner:** W1 + W4 ·
+**Needed by:** before any compositional estimate
+
+The pilot retained **61.5% of 44,794 cells**, and `pct_mito > 20%` is doing
+almost all of the cutting — over half the cells in several samples
+(C107_N 1,022/1,814; C122_N_1_1_1 1,078/2,155; C162_T_c1_v3 2,343/4,128), while
+the MAD-based count and gene bounds cut very few.
+
+**It is not cutting the two arms equally.** Retention by tissue:
+
+| patient | normal | tumour | gap |
+|---|---|---|---|
+| C107 | 42.8% | 68.2% | **-25.4** |
+| C122 | 49.4% | 65.2% | **-15.8** |
+| C165 | 52.2% | 60.4% | -8.2 |
+| C138 | 69.9% | 79.3% | -9.4 |
+| C162 | 71.3% | 57.4% | +13.9 |
+
+Four of five patients lose substantially more of their **normal** than their
+tumour.
+
+### Why this is not an ordinary QC quibble
+
+The compositional term is Δ(mature fraction) between a patient's tumour and
+their own normal. Mature colonocytes are metabolically active, fragile, and
+carry high mitochondrial content — they are exactly what a mitochondrial cap
+removes first. Cutting normal harder than tumour **understates the normal mature
+fraction**, which **inflates the apparent compositional loss**.
+
+That is a bias in the direction of the prior hypothesis, which README's opening
+identifies as the worst kind of result. It would be produced by a QC parameter,
+not by biology.
+
+The soup profile makes the mechanism plain: **eight of the ten most abundant
+ambient genes are mitochondrial** (MT-CO2, MT-CO3, MT-CO1, MT-ATP6, MT-ND4,
+MT-RNR2, MT-CYB, MT-ND3). Much of the measured mitochondrial fraction is ambient
+contamination from lysed cells, not cell-intrinsic stress — so the cap is partly
+filtering on soup, and soup load differs by sample.
+
+### Options
+
+| | Approach | Cost |
+|---|---|---|
+| a | **Raise the cap for epithelium** to 30-50%. Colonic epithelium routinely exceeds 20% in published work; 20% is a lymphocyte-appropriate number. | Keeps more real cells. Needs a value chosen from the data rather than convention — plot the per-compartment distribution first. |
+| b | **Per-batch MAD on pct_mito**, like the count and gene bounds, instead of a hard cap. | Adapts to differing soup load. Departs from W4's hard cap, so the two cohorts diverge unless W4 follows. |
+| c | Apply the cap **after** ambient correction, so it filters on cell-intrinsic mitochondrial content rather than on soup. | Most defensible; the soup profile says the cap is partly measuring contamination. Reorders the pipeline. |
+| d | Keep 20% and carry differential retention as a stated limitation. | Cheapest, and wrong — the bias points at the conclusion. |
+
+**Recommendation: (c) then (a).** Filter mitochondria after ambient correction,
+and set the threshold from the observed per-compartment distribution rather than
+from convention. Whatever is chosen, `differential_retention()` in
+[src/reference/qc.py](../src/reference/qc.py) must show no systematic tumour /
+normal gap before any compositional number is believed. **W4 needs to match**,
+or GSE178341 and the Lee cohorts are not comparable at the gate.
+
+---
+
 ## Closed
 
 *(none yet — move entries here with the date and the decision, do not delete them)*

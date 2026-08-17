@@ -521,6 +521,36 @@ def read_gse178341_metadata(
     return frame
 
 
+def read_gse178341_clusters(path: str | Path) -> Any:
+    """Read the authors' cluster annotations, indexed by barcode.
+
+    Columns are ``sampleID``, ``batchID``, ``clTopLevel`` (compartment, e.g.
+    ``Epi``), ``clMidwayPr``, ``cl295v11SubShort`` (e.g. ``cE01``) and
+    ``cl295v11SubFull`` (e.g. ``cE01 (Stem/TA-like)``).
+
+    **What these may and may not be used for.** They are the authors'
+    transcriptional clustering, so using their *within-epithelium* subsets as
+    our differentiation labels would import whatever markers they clustered on —
+    including, potentially, panel genes. That is the leakage invariant 2 exists
+    to prevent, and W1 builds its own labels from the frozen axes in weeks 3-4.
+
+    The **compartment** level (``clTopLevel``) is a different matter and is safe:
+    telling epithelium from immune from stromal does not depend on the
+    differentiation markers under test, and the S matrix is required to carry
+    stromal, immune and endothelial columns anyway (§2.1 error 3). Use it for
+    compartment assignment and for the ambient contamination mask; do not use it
+    to decide which epithelial cells are mature.
+    """
+    import pandas as pd
+
+    frame = pd.read_csv(Path(path), index_col=0, low_memory=False)
+    frame.index.name = "barcode"
+    for column in frame.columns:
+        if frame[column].dtype == object:
+            frame[column] = frame[column].astype("category")
+    return frame
+
+
 def check_chemistry_agreement(obs: Any, metadata: Any) -> Any:
     """Cross-check chemistry parsed from barcodes against ``SINGLECELL_TYPE``.
 

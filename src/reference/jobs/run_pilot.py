@@ -36,19 +36,29 @@ from src.common.provenance import DEFAULT_SEED, set_global_seeds
 from src.reference.ambient import contamination_by_sample, soup_profile_from_cells
 from src.reference.ingest import (
     read_gse178341,
+    read_gse178341_clusters,
     read_gse178341_metadata,
 )
-from src.reference.qc import apply_qc, cell_qc_metrics, qc_summary, qc_thresholds
+from src.reference.qc import (
+    apply_qc,
+    cell_qc_metrics,
+    differential_retention,
+    qc_summary,
+    qc_thresholds,
+)
 
 PILOT = ["C122", "C165", "C107", "C138", "C162"]
 
-#: Provisional epithelial call for the contamination estimate only. Real labels
-#: are weeks 3-4 and must come from the frozen axes; this is a crude EPCAM+
-#: gate so the ambient measurement can run on the pilot at all. EPCAM is not a
-#: panel gene, so it does not violate invariant 2 — but nothing downstream may
-#: use this mask.
-EPITHELIAL_MARKER = "EPCAM"
-EPITHELIAL_MIN_COUNTS = 1
+#: Compartment label from the authors' cluster file. Safe to use for the
+#: contamination mask and for the S matrix's non-epithelial columns —
+#: distinguishing epithelium from immune from stroma does not depend on the
+#: differentiation markers under test. NOT safe for deciding which epithelial
+#: cells are mature; W1 builds those labels from the frozen axes in weeks 3-4.
+#:
+#: The first run used an EPCAM>=1 gate instead and returned contamination of
+#: exactly 1.0 on eight samples: ambient EPCAM is everywhere, so the "epithelial"
+#: mask was effectively all cells and the estimator degenerated.
+EPITHELIAL_COMPARTMENT = "Epi"
 
 
 def main() -> int:
@@ -92,19 +102,31 @@ def main() -> int:
     print(thresholds[["batch", "metric", "lower", "upper", "n_cells", "n_failed"]]
           .to_string(index=False))
 
+    print("\n--- differential retention: does QC cut the two arms unequally? ---")
+    retention = differential_retention(metrics, passes)
+    print(retention.to_string(index=False))
+    if retention["flagged"].any():
+        print(
+            "\n!! QC removes cells at materially different rates between tumour and\n"
+            "   normal in the flagged patients. The compositional term is the\n"
+            "   difference between those two arms, so this biases it directly.\n"
+            "   See docs/open_decisions.md #12 before trusting any composition."
+        )
+
     print("\n--- ambient contamination (impossible genes) ---")
     symbols = list(adata.var["gene_symbol"])
-    if EPITHELIAL_MARKER not in symbols:
-        print(f"!! {EPITHELIAL_MARKER} not in the matrix; skipping contamination")
-        contamination = pd.DataFrame()
+    contamination = pd.DataFrame()
+    if not cluster_csv.exists():
+        print(f"!! missing {cluster_csv}; cannot build the epithelial mask")
     else:
-        column = symbols.index(EPITHELIAL_MARKER)
-        epithelial = np.asarray(
-            adata.X[:, column].todense()
-        ).ravel() >= EPITHELIAL_MIN_COUNTS
-        epithelial &= np.asarray(passes, dtype=bool)
-        print(f"provisional EPCAM+ epithelial cells: {int(epithelial.sum()):,} "
-              f"(crude gate, for this measurement only)")
+        clusters = read_gse178341_clusters(cluster_csv)
+        adata.obs["clTopLevel"] = clusters["clTopLevel"].reindex(adata.obs.index)
+        print("compartments present:")
+        print(adata.obs["clTopLevel"].value_counts().to_string())
+        epithelial = (
+            adata.obs["clTopLevel"].astype(str) == EPITHELIAL_COMPARTMENT
+        ).to_numpy() & np.asarray(passes, dtype=bool)
+        print(f"\nepithelial cells passing QC: {int(epithelial.sum()):,}")
         contamination = contamination_by_sample(
             adata.X, symbols,
             sample_id=adata.obs["sample_id"], cell_mask=epithelial,
@@ -126,6 +148,7 @@ def main() -> int:
     for frame, name in (
         (thresholds, "pilot_qc_thresholds"),
         (summary, "pilot_qc_summary"),
+        (retention, "pilot_differential_retention"),
         (contamination, "pilot_contamination"),
     ):
         if len(frame):

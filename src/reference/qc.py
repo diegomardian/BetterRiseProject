@@ -273,6 +273,48 @@ def qc_summary(metrics: pd.DataFrame, passes: pd.Series) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
+def differential_retention(
+    metrics: pd.DataFrame, passes: pd.Series, *, warn_at: float = 0.10
+) -> pd.DataFrame:
+    """Per-patient QC retention in tumour vs normal. **Read this before filtering.**
+
+    QC is not neutral in this project. The compositional term is
+    Delta(mature fraction) between a patient's tumour and their own normal, so if
+    QC removes cells at different rates in the two arms, it moves that difference
+    directly — and mature colonocytes are exactly the fragile, high-mitochondrial
+    population a mitochondrial cap removes first.
+
+    A patient whose normal loses 20 points more than their tumour has had their
+    normal mature fraction understated, which inflates the apparent compositional
+    loss. That is a bias in the direction of the prior hypothesis, which is the
+    worst kind (README, "the bias points the wrong way").
+
+    Returns one row per patient with both retentions, their difference, and a
+    ``flagged`` column for gaps beyond `warn_at`.
+    """
+    if len(passes) != len(metrics):
+        raise QCError(f"passes has {len(passes)} entries for {len(metrics)} cells")
+    if "tissue" not in metrics.columns or "patient_id" not in metrics.columns:
+        raise QCError("metrics needs patient_id and tissue columns")
+
+    frame = metrics.loc[:, ["patient_id", "tissue"]].copy()
+    frame["passed"] = np.asarray(passes, dtype=bool)
+    wide = (
+        frame.groupby(["patient_id", "tissue"], observed=True)["passed"]
+        .mean()
+        .unstack("tissue")
+    )
+    for column in ("tumour", "normal"):
+        if column not in wide.columns:
+            wide[column] = np.nan
+
+    out = wide.loc[:, ["tumour", "normal"]].copy()
+    out.columns = ["retained_tumour", "retained_normal"]
+    out["difference"] = out["retained_tumour"] - out["retained_normal"]
+    out["flagged"] = out["difference"].abs() > warn_at
+    return out.reset_index()
+
+
 def flag_doublets(*args: Any, **kwargs: Any) -> Any:
     """scDblFinder against real GSE178341 count matrices. W1, week 1.
 
