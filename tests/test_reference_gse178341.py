@@ -17,10 +17,13 @@ from scipy import sparse
 
 from src.reference.ingest import (
     IngestError,
+    check_chemistry_agreement,
     normalise_feature_id,
     parse_barcode,
+    patient_cohort_table,
     read_gse178341,
     read_gse178341_index,
+    read_gse178341_metadata,
 )
 
 h5py = pytest.importorskip("h5py")
@@ -113,6 +116,26 @@ class TestBarcodeParsing:
     def test_normal_tissue_code(self):
         assert parse_barcode("C103_N_1_1_0_c1_v2_id-AAACCTGCATGCTAGT")["tissue"] == "normal"
 
+    @pytest.mark.parametrize("code,region", [("TA", "A"), ("TB", "B")])
+    def test_two_region_tumours_count_as_tumour(self, code, region):
+        """C130_TA and C130_TB are two tumour regions from one patient. If these
+        do not map to 'tumour', the patient's tumour arm reads as empty and the
+        matched-normal count silently undercounts."""
+        fields = parse_barcode(f"C130_{code}_1_1_0_c1_v2_id-AAACCTGAGAGGACGG")
+        assert fields["tissue"] == "tumour"
+        assert fields["tumour_region"] == region
+        assert fields["sample_id"] == f"C130_{code}_1_1_0_c1_v2"
+
+    def test_plain_tumour_has_no_region(self):
+        assert parse_barcode("C103_T_1_1_0_c1_v2_id-ACGT")["tumour_region"] == ""
+
+    def test_regions_stay_distinct_samples(self):
+        """Both are tumour, but TA and TB must not merge into one sample."""
+        a = parse_barcode("C130_TA_1_1_0_c1_v2_id-ACGT")
+        b = parse_barcode("C130_TB_1_1_0_c1_v2_id-ACGT")
+        assert a["tissue"] == b["tissue"] == "tumour"
+        assert a["sample_id"] != b["sample_id"]
+
     def test_unknown_tissue_code_passes_through(self):
         """Better an unmapped code than a silently wrong label."""
         assert parse_barcode("C1_X_1_1_0_c1_v2_id-ACGT")["tissue"] == "X"
@@ -170,6 +193,125 @@ class TestIndex:
         report = matched_normal_report(obs["patient_id"], obs["tissue"])
         assert bool(report.loc["C1", "matched"])
         assert not bool(report.loc["C2", "matched"])  # tumour only
+
+
+#: Barcodes covering the cases the real cohort contains: a matched patient, a
+#: tumour-only patient, and a two-region patient with a normal.
+COHORT_BARCODES = (
+    ["C1_T_1_1_0_c1_v2_id-" + "A" * 16] * 5
+    + ["C1_N_1_1_0_c1_v2_id-" + "C" * 16] * 4
+    + ["C2_T_1_1_0_c1_v3_id-" + "G" * 16] * 6
+    + ["C130_TA_1_1_0_c1_v2_id-" + "T" * 16] * 3
+    + ["C130_TB_1_1_0_c1_v2_id-" + "AC" * 8] * 2
+    + ["C130_N_1_1_0_c1_v2_id-" + "AG" * 8] * 4
+)
+
+
+def _cohort_obs():
+    import pandas as pd
+
+    return pd.DataFrame([parse_barcode(b) for b in COHORT_BARCODES])
+
+
+def _cohort_metadata(obs, *, break_chemistry: bool = False):
+    import pandas as pd
+
+    rows = []
+    for _, cell in obs.iterrows():
+        rows.append(
+            {
+                "PID": cell["patient_id"],
+                "PatientTypeID": f"{cell['patient_id']}_{cell['tissue_code']}",
+                "SPECIMEN_TYPE": cell["tissue_code"],
+                "SINGLECELL_TYPE": "SC3P" + cell["chemistry"],
+                "MMRStatus": "MMRp" if cell["patient_id"] == "C1" else "MMRd",
+                "MLH1Status": "MLH1NoMeth" if cell["patient_id"] == "C1" else "MLH1Meth",
+                "Sex": "M",
+                "SOURCE_HOSPITAL": "MGH",
+            }
+        )
+    frame = pd.DataFrame(rows, index=obs.index)
+    if break_chemistry:
+        frame.loc[frame.index[0], "SINGLECELL_TYPE"] = "SC3Pv3"
+    return frame
+
+
+class TestCohortTable:
+    """The week-1 cohort deliverable, including the TA/TB correction."""
+
+    def test_two_region_patient_counts_as_matched(self):
+        """C130 has TA + TB + normal. Before the TISSUE_CODES fix its tumour arm
+        read as empty and it was scored unmatched."""
+        table = patient_cohort_table(_cohort_obs())
+        assert table.loc["C130", "n_tumour"] == 5      # 3 TA + 2 TB
+        assert table.loc["C130", "n_normal"] == 4
+        assert bool(table.loc["C130", "matched"])
+        assert table.loc["C130", "tumour_regions"] == "A,B"
+
+    def test_tumour_only_patient_is_unmatched(self):
+        table = patient_cohort_table(_cohort_obs())
+        assert table.loc["C2", "n_normal"] == 0
+        assert not bool(table.loc["C2", "matched"])
+
+    def test_matched_count_is_the_real_power(self):
+        table = patient_cohort_table(_cohort_obs())
+        assert int(table["matched"].sum()) == 2       # C1 and C130, not C2
+
+    def test_regions_are_separate_samples(self):
+        table = patient_cohort_table(_cohort_obs())
+        assert table.loc["C130", "n_samples"] == 3    # TA, TB, N
+
+    def test_clinical_variables_join_per_patient(self):
+        obs = _cohort_obs()
+        table = patient_cohort_table(obs, _cohort_metadata(obs))
+        assert table.loc["C1", "MMRStatus"] == "MMRp"
+        assert table.loc["C1", "MLH1Status"] == "MLH1NoMeth"
+        assert table.loc["C130", "MLH1Status"] == "MLH1Meth"
+
+
+class TestChemistryCrossCheck:
+    def test_agreement_returns_nothing(self):
+        obs = _cohort_obs()
+        assert len(check_chemistry_agreement(obs, _cohort_metadata(obs))) == 0
+
+    def test_disagreement_is_reported(self):
+        """If the barcode parse and the metatables disagree, every per-batch
+        threshold built on the parse is suspect."""
+        obs = _cohort_obs()
+        bad = check_chemistry_agreement(obs, _cohort_metadata(obs, break_chemistry=True))
+        assert len(bad) == 1
+        assert bad.iloc[0]["from_barcode"] == "v2"
+        assert bad.iloc[0]["from_metadata"] == "v3"
+
+    def test_missing_column_raises(self):
+        obs = _cohort_obs()
+        meta = _cohort_metadata(obs).drop(columns=["SINGLECELL_TYPE"])
+        with pytest.raises(IngestError, match="SINGLECELL_TYPE"):
+            check_chemistry_agreement(obs, meta)
+
+
+class TestMetadataLoader:
+    def test_reads_and_categorises(self, tmp_path):
+        obs = _cohort_obs()
+        path = tmp_path / "meta.csv.gz"
+        meta = _cohort_metadata(obs)
+        meta.insert(0, "cellID", [f"cell{i}" for i in range(len(meta))])
+        meta.to_csv(path, index=False)
+
+        loaded = read_gse178341_metadata(path)
+        assert loaded.index.name == "barcode"
+        assert "MLH1Status" in loaded.columns
+        assert str(loaded["MMRStatus"].dtype) == "category"
+
+    def test_all_columns_keeps_everything(self, tmp_path):
+        obs = _cohort_obs()
+        path = tmp_path / "meta.csv.gz"
+        meta = _cohort_metadata(obs)
+        meta.insert(0, "cellID", [f"cell{i}" for i in range(len(meta))])
+        meta["UnlistedExtra"] = 1
+        meta.to_csv(path, index=False)
+        assert "UnlistedExtra" in read_gse178341_metadata(path, all_columns=True).columns
+        assert "UnlistedExtra" not in read_gse178341_metadata(path).columns
 
 
 def test_fixture_cells_look_like_cells_not_empty_droplets(deposit):

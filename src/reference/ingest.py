@@ -73,9 +73,31 @@ _BARCODE = re.compile(
 
 _CHEMISTRY = re.compile(r"^v\d+$")
 
-#: Tissue codes in the barcode prefix. Validate against the metatables CSV
-#: rather than trusting this — it is inferred from the naming scheme.
-TISSUE_CODES: dict[str, str] = {"T": "tumour", "N": "normal"}
+#: Tissue codes in the barcode prefix, confirmed against the metatables CSV.
+#:
+#: TA and TB are two tumour regions from the same patient (e.g. C130_TA and
+#: C130_TB) — both tumour, distinct samples. They must map to "tumour" or the
+#: patient's tumour arm reads as empty; the region is preserved separately in
+#: ``tumour_region`` so the two are not silently merged.
+TISSUE_CODES: dict[str, str] = {
+    "T": "tumour",
+    "TA": "tumour",
+    "TB": "tumour",
+    "N": "normal",
+}
+
+#: Columns worth carrying from the metatables CSV. MLH1Status is the one to
+#: notice: tier B expects MLH1 loss to be intrinsic *because* it is
+#: methylation-silenced, so per-patient methylation status turns G2 from "does
+#: MLH1 come out intrinsic on average" into a directional prediction.
+METADATA_COLUMNS: tuple[str, ...] = (
+    "PID", "PatientTypeID", "SPECIMEN_TYPE", "SINGLECELL_TYPE",
+    "MMRStatus", "MMR_IHC", "MLH1Status", "MMRMLH1Tumor",
+    "HistologicTypeSimple", "HistologicGradeSimple", "TumorStage",
+    "NodeStatusSimple", "MetastasisStatus", "TissueSiteSimple",
+    "SOURCE_HOSPITAL", "TISSUE_PROCESSING_TEAM", "PROCESSING_TYPE",
+    "Sex", "Age",
+)
 
 #: Barcodes below this many UMIs are treated as empty droplets. 100 is the
 #: conventional soup-profile floor: high enough to exclude real cells, low
@@ -421,11 +443,15 @@ def parse_barcode(barcode: Any) -> dict[str, str]:
         )
     fields = match.groupdict()
     tail = fields["sample_id"].split("_")[-1]
+    code = fields["tissue_code"]
     return {
         "sample_id": fields["sample_id"],
         "patient_id": fields["patient_id"],
-        "tissue": TISSUE_CODES.get(fields["tissue_code"], fields["tissue_code"]),
-        "tissue_code": fields["tissue_code"],
+        "tissue": TISSUE_CODES.get(code, code),
+        "tissue_code": code,
+        # "A"/"B" for the two-region patients, "" otherwise. Kept separate so
+        # TA and TB count as tumour without being merged into one sample.
+        "tumour_region": code[1:] if code.startswith("T") and len(code) > 1 else "",
         "cell_barcode": fields["cell_barcode"],
         "chemistry": tail if _CHEMISTRY.match(tail) else "",
     }
@@ -462,6 +488,104 @@ def read_gse178341_index(path: str | Path) -> tuple[Any, Any]:
         var["ensembl_id"] = [normalise_feature_id(x) for x in var["feature_id"]]
         var = var.set_index("ensembl_id", drop=False)
     return obs, var
+
+
+def read_gse178341_metadata(
+    path: str | Path, *, columns: Any = METADATA_COLUMNS, all_columns: bool = False
+) -> Any:
+    """Read the metatables CSV, indexed by cellID so it joins onto ``obs``.
+
+    Far richer than the barcode string, and the authoritative source for the
+    clinical variables the project needs: ``MMRStatus`` is the pre-registered
+    subgroup contrast, ``MLH1Status`` carries per-patient methylation status, and
+    ``SOURCE_HOSPITAL`` / ``TISSUE_PROCESSING_TEAM`` / ``PROCESSING_TYPE`` are
+    batch variables beyond chemistry that should be checked for confounding.
+
+    Everything is read as categorical — 370k rows of repeated short strings, so
+    this costs tens of MB rather than hundreds.
+    """
+    import pandas as pd
+
+    frame = pd.read_csv(Path(path), index_col=0, low_memory=False)
+    frame.index.name = "barcode"
+    if not all_columns:
+        keep = [c for c in columns if c in frame.columns]
+        missing = [c for c in columns if c not in frame.columns]
+        if missing:
+            # Not fatal — the deposit may be revised — but never silent.
+            print(f"note: metatables lacks {missing}")
+        frame = frame.loc[:, keep]
+    for column in frame.columns:
+        if frame[column].dtype == object:
+            frame[column] = frame[column].astype("category")
+    return frame
+
+
+def check_chemistry_agreement(obs: Any, metadata: Any) -> Any:
+    """Cross-check chemistry parsed from barcodes against ``SINGLECELL_TYPE``.
+
+    The barcode carries ``v2``/``v3`` and the metatables carry ``SC3Pv2``/
+    ``SC3Pv3``. They should agree on every cell; if they do not, the barcode
+    parse is wrong and every per-batch threshold built on it is wrong too.
+    Returns the disagreeing rows — empty is the passing result.
+    """
+    import pandas as pd
+
+    if "SINGLECELL_TYPE" not in metadata.columns:
+        raise IngestError("metadata has no SINGLECELL_TYPE column to check against")
+    joined = pd.DataFrame(
+        {
+            "from_barcode": obs["chemistry"],
+            "from_metadata": metadata["SINGLECELL_TYPE"]
+            .astype(str)
+            .str.replace("SC3P", "", regex=False)
+            .str.lower(),
+        }
+    ).dropna()
+    return joined.loc[joined["from_barcode"] != joined["from_metadata"]]
+
+
+def patient_cohort_table(obs: Any, metadata: Any = None) -> Any:
+    """One row per patient: cell counts, matched status, chemistry, clinical vars.
+
+    The week-1 cohort deliverable. ``matched`` is the column that matters — the
+    compositional term is Delta(mature fraction) against the patient's own
+    normal, so an unmatched patient contributes to no compositional estimate and
+    the paired analysis is powered by this count, not by 62.
+    """
+    import pandas as pd
+
+    frame = obs.copy()
+    table = pd.DataFrame(
+        {
+            "n_cells": frame.groupby("patient_id", observed=True).size(),
+            "n_tumour": frame[frame["tissue"] == "tumour"]
+            .groupby("patient_id", observed=True)
+            .size(),
+            "n_normal": frame[frame["tissue"] == "normal"]
+            .groupby("patient_id", observed=True)
+            .size(),
+            "n_samples": frame.groupby("patient_id", observed=True)["sample_id"].nunique(),
+            "chemistry": frame.groupby("patient_id", observed=True)["chemistry"].agg(
+                lambda s: ",".join(sorted(set(s)))
+            ),
+            "tumour_regions": frame.groupby("patient_id", observed=True)[
+                "tumour_region"
+            ].agg(lambda s: ",".join(sorted({x for x in s if x}))),
+        }
+    )
+    table[["n_tumour", "n_normal"]] = table[["n_tumour", "n_normal"]].fillna(0).astype(int)
+    table["matched"] = (table["n_tumour"] > 0) & (table["n_normal"] > 0)
+
+    if metadata is not None:
+        joined = frame.join(metadata, how="left")
+        for column in ("MMRStatus", "MLH1Status", "Sex", "Age", "TissueSiteSimple",
+                       "TumorStage", "SOURCE_HOSPITAL", "PROCESSING_TYPE"):
+            if column in joined.columns:
+                table[column] = joined.groupby("patient_id", observed=True)[column].agg(
+                    lambda s: ",".join(sorted({str(x) for x in s.dropna()})) or ""
+                )
+    return table.sort_index()
 
 
 def read_gse178341(
