@@ -16,17 +16,25 @@ from src.common.paths import gene_index_path
 index = gene_index_path("1.0.0").read_text().split()
 ```
 
-## Not yet produced
+## What exists: `0.9.0`, provisional, built by W3
 
-Two things must be settled in **week 1**, before either arm builds a matrix —
-they are tracked as [open decisions #2 and #3](../../docs/open_decisions.md):
+W1's week-1 work landed without the index, so the fallback written into
+[open decision #2](../../docs/open_decisions.md) fired and W3 built one from the
+GDC gene model:
 
-1. **Who emits it.** Recommendation: W1, from the GSE178341 feature table. W3
-   conforms. Whoever it is, only one of them builds it.
-2. **Symbols or Ensembl IDs.** Recommendation: unversioned Ensembl IDs as the
-   index with symbols as a mapped column — TCGA STAR counts are versioned
-   Ensembl, the panel and both axes are symbols, and an unmanaged mapping is the
-   usual way a join silently loses ~8% of genes.
+```bash
+python -m src.bulk.ingest gene-index
+```
+
+[`src/bulk/gene_index.py`](../../src/bulk/gene_index.py) emits both files. The
+version is **0.9.0 and not 1.0.0 on purpose** — provisional, superseded the
+moment W1 emits theirs. Whether W1 conforms to it or replaces it is a weekly
+decision; what must not happen is two indexes existing.
+
+**Key:** unversioned Ensembl ID, per [decision #3](../../docs/open_decisions.md).
+The version suffix lives in its own column, because the same gene carries a
+different suffix in a different GENCODE release and a versioned key drops those
+genes silently. Symbols are mapped, never a key.
 
 ## Versioning
 
@@ -37,6 +45,22 @@ in-place edit makes every earlier result unreproducible without saying so.
 ## One rule that is not negotiable
 
 **Target genes must not be in the index used to build the reference matrix.**
-`build_signature()` asserts this and will refuse to run. The index itself may
-contain them for other purposes, but the call that builds an S matrix passes the
-target set and gets checked. See CLAUDE.md invariant 2.
+`build_signature()` asserts this and will refuse to run. See CLAUDE.md
+invariant 2.
+
+**The committed index does contain them, and must.** W3's bulk matrix carries
+GUCA2A and CDX2 as *outcome* variables — the week-2 premise check is about their
+distribution. So the rule binds on the argument passed to `build_signature()`,
+not on the file:
+
+```python
+from src.bulk.gene_index import load_gene_index, load_gene_index_map, target_free_index
+
+ids = load_gene_index("0.9.0")
+build_signature(..., gene_index=target_free_index(ids, load_gene_index_map("0.9.0"), targets))
+```
+
+Note that `signature.py:96` currently asserts against the *whole* index, so
+passing `ids` directly raises. That mismatch is
+[open decision #12](../../docs/open_decisions.md) — the wrapper above is the
+holding position.
