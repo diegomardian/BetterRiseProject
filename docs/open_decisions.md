@@ -711,3 +711,40 @@ way; what must not happen is a DSS-led headline result that does not mention the
 approximation.
 
 See [the note](../results/notes/w3.5_clinical_table.md).
+
+---
+
+## 17 · W3.6 covariate set — PROPOSED, awaiting confirmation
+
+**Raised:** W3, 2026-08-18 · **Owner:** W3 (owner confirms) · **Needed by:** week 5,
+before W3.7 runs
+
+[`config/covariate_set.yaml`](../config/covariate_set.yaml) is committed with
+`status: proposed`. `src/bulk/covariates.py:require_locked` refuses to let any
+survival model run against it until that flips to `locked` in its own commit.
+
+The proposal carries answers to three decisions that are formally the team's,
+because leaving them open blocks W3.7 and each now has evidence:
+
+- **#4 (pool or stratify)** → COAD/READ as **strata**, not a covariate. Rectal
+  cancer usually gets neoadjuvant chemoradiation, so a shared baseline hazard
+  with a proportional shift is not credible. Costs zero degrees of freedom, and
+  since TSS is confounded with project at V = 0.971 (#15) it absorbs the
+  institution effect too.
+- **#14 (does plate join the set)** → **no** for the clinical baseline, **yes,
+  required** for expression models. Plate affects expression *measurement*, and
+  the clinical baseline contains no expression, so it is not a confounder there.
+- **#16 (which endpoint leads)** → invariant 9 unchanged; PFI carries
+  `lead: true`.
+
+**The driving constraint:** the six covariates cost **ten** degrees of freedom,
+not six. Applying all of them to DSS gives 59 events over 10 df. Excluding
+purity from the clinical baseline — where it is not a confounder — and dropping
+site from DSS gets every endpoint over the floor:
+
+| Context | PFI | DSS | OS |
+|---|---|---|---|
+| clinical baseline | 15.8 ✅ | 11.2 ✅ | 12.2 ✅ |
+| expression models | 12.4 ✅ | 8.1 ❌ | 9.7 ❌ |
+
+Reasoning in full: [the note](../results/notes/w3.6_covariate_lock.md).
