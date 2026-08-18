@@ -626,3 +626,69 @@ class TestZeroEpitheliumGroup:
         populated = counts[counts["n_cells_epithelial"] > 0]
         assert populated["mature_fraction"].notna().all()
         assert populated["mature_fraction"].between(0, 1).all()
+
+
+class TestNonRangeIndex:
+    """Labels carry barcodes as their index in real use. The counting code must
+    not align on it.
+
+    Missed on the first pass: the fixture never passed `index=`, so `labels` and
+    the internal keys frame both had RangeIndexes and aligned by accident. On the
+    real pilot, labels were barcode-indexed, the epithelial column aligned to
+    nothing, and every n_cells_epithelial came back 0 with every mature_fraction
+    NaN — silently, because 0 is a legal count.
+    """
+
+    def _barcoded(self, cohort):
+        matrix, compartment, sample_id, _ = cohort
+        barcodes = [f"C1_T_1_1_0_c1_v2_id-{i:016d}" for i in range(matrix.shape[0])]
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=sample_id,
+            target_genes=TARGETS, index=barcodes,
+        )
+        patient = np.full(matrix.shape[0], "P1")
+        tissue = np.where(sample_id == "s1", "tumour", "normal")
+        return labels, patient, tissue, compartment
+
+    def test_epithelial_counts_are_not_zero(self, cohort):
+        labels, patient, tissue, compartment = self._barcoded(cohort)
+        counts = mature_cell_counts(labels, patient_id=patient, tissue=tissue)
+        assert (counts["n_cells_epithelial"] > 0).all()
+        assert int(counts[counts["granularity_rung"] == "epithelial"]
+                   ["n_cells_epithelial"].sum()) == int(
+            (compartment == "epithelial").sum()) * len(TRANSCRIPT_AXES)
+
+    def test_mature_fraction_is_computed(self, cohort):
+        labels, patient, tissue, _ = self._barcoded(cohort)
+        counts = mature_cell_counts(labels, patient_id=patient, tissue=tissue)
+        assert counts["mature_fraction"].notna().all()
+        assert counts["mature_fraction"].between(0, 1).all()
+
+    def test_the_epithelial_rung_is_a_fraction_of_one(self, cohort):
+        """Coarsest rung calls all epithelium mature, so the fraction is exactly 1."""
+        labels, patient, tissue, _ = self._barcoded(cohort)
+        counts = mature_cell_counts(labels, patient_id=patient, tissue=tissue)
+        coarsest = counts[counts["granularity_rung"] == "epithelial"]
+        assert (coarsest["mature_fraction"] == 1.0).all()
+
+    def test_matches_the_rangeindex_result(self, cohort):
+        """Index must not change any number."""
+        matrix, compartment, sample_id, _ = cohort
+        patient = np.full(matrix.shape[0], "P1")
+        tissue = np.where(sample_id == "s1", "tumour", "normal")
+        plain = assign_labels(matrix, GENES, compartment=compartment,
+                              sample_id=sample_id, target_genes=TARGETS)
+        barcoded, _, _, _ = self._barcoded(cohort)
+        pd.testing.assert_frame_equal(
+            mature_cell_counts(plain, patient_id=patient, tissue=tissue),
+            mature_cell_counts(barcoded, patient_id=patient, tissue=tissue),
+        )
+
+    def test_maturity_summary_also_survives_it(self, cohort):
+        labels, patient, tissue, _ = self._barcoded(cohort)
+        summary = maturity_summary(
+            labels, patient_id=patient, tissue=tissue, study_id="GSE178341"
+        )
+        assert len(summary) > 0
+        assert summary["frac_mature_normal"].notna().all()
+        assert summary["frac_mature_tumour"].notna().all()

@@ -451,10 +451,14 @@ def mature_cell_counts(
     for axis in axes:
         for rung in rungs:
             mature = mature_mask(labels, axis, rung)
+            # .to_numpy() on BOTH: `keys` has a RangeIndex while `labels` is
+            # indexed by barcode, so assigning a Series here aligns on index,
+            # matches nothing, and silently yields an all-NaN column.
+            epithelial = (
+                labels[label_column(axis, rung)].astype(str).ne(NON_EPITHELIAL).to_numpy()
+            )
             grouped = (
-                keys.assign(mature=mature, epithelial=labels[label_column(axis, rung)]
-                            .astype(str)
-                            .ne(NON_EPITHELIAL))
+                keys.assign(mature=mature, epithelial=epithelial)
                 .groupby(["patient_id", "tissue"], observed=True)
                 .agg(n_cells_mature=("mature", "sum"), n_cells_epithelial=("epithelial", "sum"))
                 .reset_index()
