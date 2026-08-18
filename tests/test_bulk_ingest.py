@@ -23,6 +23,7 @@ from src.bulk.gdc import (
     build_sample_manifest,
     deduplicate_aliquots,
     parse_barcode,
+    read_manifest,
     reconcile_counts,
 )
 from src.bulk.gene_index import (
@@ -352,6 +353,43 @@ def test_reconciliation_counts_samples_and_patients_separately():
     coad_tumour = table.query("project == 'TCGA-COAD' and sample_type_name == 'primary_tumour'")
     assert coad_tumour["n_samples"].item() == 1
     assert table["n_samples"].sum() == 3
+
+
+def test_sample_type_survives_a_csv_round_trip(tmp_path):
+    """The leading zero on "01" is load-bearing and CSV eats it.
+
+    Read back with a bare pd.read_csv, sample_type becomes the integer 1, every
+    `sample_type == "01"` test evaluates False, and the tumour arm of an
+    analysis silently becomes empty instead of raising. Found by spot-checking
+    tumour-vs-normal medians and getting NaN for every tumour.
+    """
+    files = pd.DataFrame(
+        {
+            "file_id": ["f1", "f2"],
+            "barcode": ["TCGA-A6-2670-01A-01R-1410-07", "TCGA-A6-2670-11A-01R-0821-07"],
+            "project": ["TCGA-COAD"] * 2,
+        }
+    )
+    path = tmp_path / "files.tsv"
+    build_sample_manifest(files).to_csv(path, sep="\t", index=False)
+
+    naive = pd.read_csv(path, sep="\t")
+    assert (naive["sample_type"] == "01").sum() == 0, "fixture no longer reproduces the bug"
+
+    safe = read_manifest(path)
+    assert (safe["sample_type"] == "01").sum() == 1
+    assert (safe["sample_type"] == "11").sum() == 1
+    assert safe["centre"].tolist() == ["07", "07"]
+    assert safe["plate"].tolist() == ["1410", "0821"]
+
+
+def test_read_manifest_catches_a_lost_leading_zero(tmp_path):
+    path = tmp_path / "broken.tsv"
+    pd.DataFrame({"barcode": ["TCGA-A6-2670-01A-01R-1410-07"], "sample_type": [1]}).to_csv(
+        path, sep="\t", index=False
+    )
+    with pytest.raises(GDCError, match="leading zero"):
+        read_manifest(path)
 
 
 def test_build_sample_manifest_refuses_a_file_with_no_barcode():

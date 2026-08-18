@@ -1,0 +1,23 @@
+{
+  "date": "2026-08-17",
+  "utc_timestamp": "2026-08-18T02:03:55+00:00",
+  "git_sha": "29e8a04ed2a8276babcce514be7058286dbedbbc",
+  "git_sha_short": "29e8a04",
+  "git_branch": "w3/tcga-gdc-ingest",
+  "git_dirty": false,
+  "seed": 20260817,
+  "python": "3.11.15",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "notes": "provisional index 0.9.0 from gene-model: GENCODE v36",
+  "name": "tcga_gene_index_filtering",
+  "n_rows": 2,
+  "columns": [
+    "step",
+    "n_before",
+    "n_after",
+    "n_lost"
+  ],
+  "table_kind": "harness"
+}

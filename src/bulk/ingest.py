@@ -39,6 +39,7 @@ from src.bulk.gdc import (
     deduplicate_aliquots,
     download_file,
     query_star_files,
+    read_manifest,
     reconcile_counts,
 )
 from src.bulk.gene_index import (
@@ -102,7 +103,7 @@ def step_download(limit: int | None = None) -> list[Path]:
     """Fetch the STAR-counts files listed by ``query``. Resumable."""
     if not FILES_TABLE.exists():
         raise SystemExit(f"{FILES_TABLE} missing — run `query` first.")
-    files = pd.read_csv(FILES_TABLE, sep="\t")
+    files = read_manifest(FILES_TABLE)
     if limit:
         files = files.head(limit)
 
@@ -169,7 +170,7 @@ def step_build(version: str = PROVISIONAL_VERSION) -> None:
     """Assemble both matrices on the shared index and write the sample manifest."""
     if not FILES_TABLE.exists():
         raise SystemExit(f"{FILES_TABLE} missing — run `query` first.")
-    manifest = pd.read_csv(FILES_TABLE, sep="\t")
+    manifest = read_manifest(FILES_TABLE)
     index_ids = load_gene_index(version)
 
     counts, tpm = _read_all(manifest)

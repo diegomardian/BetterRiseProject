@@ -18,6 +18,7 @@ would look exactly like "plate is not confounded with stage".
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,27 @@ SAMPLE_TYPES = {
     "11": "normal_adjacent",
 }
 DEFAULT_SAMPLE_TYPES = ("01", "11")
+
+#: Every barcode field is a zero-padded CODE, not a number. Written to TSV and
+#: read back without this, "01" becomes the integer 1 and every
+#: ``sample_type == "01"`` test silently evaluates False — the tumour arm of an
+#: analysis quietly becomes empty rather than failing. Pass this as ``dtype=``
+#: to every read of the files table or the sample manifest.
+BARCODE_STR_COLUMNS: dict[str, str] = {
+    "barcode": "string",
+    "patient_id": "string",
+    "tss": "string",
+    "participant": "string",
+    "sample_type": "string",
+    "sample_type_name": "string",
+    "vial": "string",
+    "portion": "string",
+    "analyte": "string",
+    "plate": "string",
+    "centre": "string",
+    "project": "string",
+    "file_id": "string",
+}
 
 #: TCGA-A6-2670-01A-01R-1410-07
 BARCODE_RE = re.compile(
@@ -248,22 +270,64 @@ def _flatten_hit(hit: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def download_file(file_id: str, destination: str | Path, *, chunk_bytes: int = 1 << 20) -> Path:
-    """Fetch one file from the GDC data endpoint. Idempotent — skips if present."""
+#: The GDC returns a transient 500 often enough that a 675-file download will
+#: hit one. Retrying is not optional politeness — without it the ingest is not
+#: idempotent in any useful sense, and the alternative (skip and continue) would
+#: silently shrink the cohort, which is the failure the portal reconciliation
+#: exists to catch.
+DOWNLOAD_ATTEMPTS = 5
+RETRY_BACKOFF_SECONDS = 2.0
+RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
+
+
+def download_file(
+    file_id: str,
+    destination: str | Path,
+    *,
+    chunk_bytes: int = 1 << 20,
+    attempts: int = DOWNLOAD_ATTEMPTS,
+) -> Path:
+    """Fetch one file from the GDC data endpoint. Idempotent — skips if present.
+
+    Retries transient failures with exponential backoff, then raises naming the
+    file. Never returns a partial file: the download lands on a ``.partial``
+    path and is renamed only once complete, so an interrupted run resumes
+    cleanly rather than leaving a truncated matrix column behind.
+    """
     import requests
 
     destination = Path(destination)
     if destination.exists() and destination.stat().st_size > 0:
         return destination
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with requests.get(f"{GDC_API}/data/{file_id}", stream=True, timeout=300) as response:
-        response.raise_for_status()
-        tmp = destination.with_suffix(destination.suffix + ".partial")
-        with open(tmp, "wb") as handle:
-            for chunk in response.iter_content(chunk_size=chunk_bytes):
-                handle.write(chunk)
-        tmp.replace(destination)
-    return destination
+    tmp = destination.with_suffix(destination.suffix + ".partial")
+
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with requests.get(f"{GDC_API}/data/{file_id}", stream=True, timeout=300) as response:
+                if response.status_code in RETRY_STATUS:
+                    response.raise_for_status()
+                response.raise_for_status()
+                with open(tmp, "wb") as handle:
+                    for chunk in response.iter_content(chunk_size=chunk_bytes):
+                        handle.write(chunk)
+            tmp.replace(destination)
+            return destination
+        except (requests.HTTPError, requests.ConnectionError, requests.Timeout) as exc:
+            last_error = exc
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status is not None and status not in RETRY_STATUS:
+                raise  # 404 and friends are not going to fix themselves
+            if attempt < attempts:
+                time.sleep(RETRY_BACKOFF_SECONDS * 2 ** (attempt - 1))
+
+    tmp.unlink(missing_ok=True)
+    raise GDCError(
+        f"giving up on {file_id} after {attempts} attempts ({last_error}). Do not "
+        f"work around this by skipping the file — a cohort quietly short by one "
+        f"sample is exactly what the portal reconciliation is meant to catch."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -287,6 +351,25 @@ def build_sample_manifest(files: pd.DataFrame) -> pd.DataFrame:
     parsed = barcode_frame(files["barcode"].tolist())
     manifest = files.reset_index(drop=True).join(parsed.drop(columns=["barcode"]))
     return manifest.sort_values(["patient_id", "sample_type", "barcode"]).reset_index(drop=True)
+
+
+def read_manifest(path: str | Path) -> pd.DataFrame:
+    """Read a files table or sample manifest with the code columns kept as strings.
+
+    Always use this rather than a bare ``pd.read_csv``. See
+    :data:`BARCODE_STR_COLUMNS` for why — the failure mode is silent and it
+    empties the tumour arm rather than raising.
+    """
+    df = pd.read_csv(path, sep="\t", dtype=BARCODE_STR_COLUMNS)
+    if "sample_type" in df.columns:
+        bad = df["sample_type"].str.len() != 2
+        if bad.any():
+            raise GDCError(
+                f"{path}: {int(bad.sum())} row(s) have a sample_type that is not two "
+                f"characters (e.g. {sorted(df.loc[bad, 'sample_type'].unique())[:3]}). "
+                f"A leading zero has been lost somewhere upstream."
+            )
+    return df
 
 
 def reconcile_counts(manifest: pd.DataFrame) -> pd.DataFrame:
