@@ -1,0 +1,41 @@
+{
+  "date": "2026-08-17",
+  "utc_timestamp": "2026-08-18T03:51:18+00:00",
+  "git_sha": "cc0698124d80ff674814473f0a071d1e86ca1458",
+  "git_sha_short": "cc06981",
+  "git_branch": "w3/premise-check",
+  "git_dirty": false,
+  "seed": 20260817,
+  "python": "3.11.15",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "notes": "W3.2 premise check. PROVISIONAL \u2014 not adjusted for purity (W3.3).",
+  "name": "tcga_premise_bimodality",
+  "n_rows": 20,
+  "columns": [
+    "gene",
+    "stratum",
+    "n",
+    "zero_fraction",
+    "median",
+    "iqr",
+    "dip_statistic",
+    "dip_pvalue",
+    "bic_1",
+    "bic_2",
+    "bic_delta",
+    "gmm_weights",
+    "gmm_means",
+    "verdict",
+    "purity_adjusted"
+  ],
+  "table_kind": "harness",
+  "genes": [
+    "GUCA2A",
+    "CDX2"
+  ],
+  "scale": "log2(CPM+1)",
+  "gene_index_version": "0.9.0",
+  "purity_adjusted": false
+}

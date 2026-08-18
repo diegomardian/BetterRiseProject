@@ -572,3 +572,35 @@ completeness. (a) is what is in place today and is a fine holding position.
 ## Closed
 
 *(none yet — move entries here with the date and the decision, do not delete them)*
+
+---
+
+## 13 · Bulk GUCA2A is continuous, not bimodal — CLASSIFICATION FRAMING NEEDS A DECISION
+
+**Raised:** W3, 2026-08-17, from the W3.2 premise check · **Owner:** all four ·
+**Needed by:** week 2 standing meeting, and before W2 calibrates cutpoints (#7)
+
+The premise check ran. **Hartigan's dip test finds no multimodality in GUCA2A in
+any stratum** — p = 0.851 in COAD tumours (n=458), 0.919 in READ (n=166), 0.982
+pooled. The loss is large (median 2.8 vs 9.0 log2CPM, ~64-fold) and entirely
+graded. Zero inflation is ruled out at 0.2%. CDX2 is unimodal *and* barely lost
+at the median (8.08 vs 8.31).
+
+BIC prefers two components in most strata. That is the skew artifact the brief
+warned about, not evidence of two groups — see
+[the note](../results/notes/w3.2_premise_check.md).
+
+execution_plan.md §8.2 pre-registered the consequence: *"if continuous, the
+two-type classification dissolves into a regression."* So:
+
+1. **Does the bulk arm become explicitly a regression?** There is no natural cut
+   point, so any threshold is a modelling choice and should be reported as one.
+2. **Does this change what W2 calibrates against (#7)?** Cutpoints for the
+   *positivity* threshold are about mature-cell counts and are unaffected. But
+   anything calibrating a bulk-phenotype cut is calibrating against a continuum.
+3. **It does not touch G1–G4.** This is a statement about bulk GUCA2A, not about
+   whether the decomposition separates compositional from intrinsic.
+
+**Provisional until W3.3.** Not purity-adjusted. Purity would have to manufacture
+a continuum out of two separated groups to explain this away, which is the harder
+direction for a confounder — but that is an argument, not a measurement.
