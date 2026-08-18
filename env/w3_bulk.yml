@@ -18,10 +18,21 @@ dependencies:
   - openpyxl=3.1.5          # TCGA-CDR ships as xlsx
   - jupyterlab=4.2.3
   - requests=2.32.3         # GDC API
-  - diptest=0.7.0           # Hartigan dip test for the week-2 bimodality check
-  # ESTIMATE is an R package
+  - diptest=0.10.0          # Hartigan dip test for the week-2 bimodality check
+  # ---------------------------------------------------------------------------
+  # ESTIMATE (W3.3) is an R package and is NOT installable from conda. It lives
+  # on R-Forge, not CRAN, so there is no conda-forge or bioconda build — the
+  # previous `r-estimate=1.0.13` pin here resolved to nothing and made this file
+  # unbuildable. r-base stays because W3.3 still needs an interpreter; install
+  # the package itself, once, into this env:
+  #
+  #   conda activate brp-w3
+  #   R -e 'install.packages("estimate", repos="http://r-forge.r-project.org")'
+  #
+  # Record the version you get in results/notes/ when W3.3 runs — it is not
+  # pinned here and therefore not reproducible from this file alone.
+  # ---------------------------------------------------------------------------
   - r-base=4.3.3
-  - r-estimate=1.0.13
   - pip
   - pip:
       - -e ..
