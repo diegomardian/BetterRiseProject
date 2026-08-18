@@ -612,3 +612,62 @@ ABSOLUTE purity at r=-0.139 (purer tumour, less GUCA2A — the direction the
 compositional hypothesis predicts) but at r=+0.064 against ESTIMATE, which is
 near zero and the wrong sign. See the addendum in
 [the note](../results/notes/w3.2_premise_check.md).
+
+---
+
+## 14 · Plate explains more expression variance than any biological variable — OPEN
+
+**Raised:** W3, 2026-08-18, from W3.4 · **Owner:** W3 + W2 · **Needed by:** week 4–5,
+before the covariate set is locked (W3.6)
+
+PVCA-style variance analysis over 624 TCGA tumours, permutation-nulled:
+
+| Factor | Excess variance over null | p |
+|---|---|---|
+| **plate** | **0.132** | 0.010 |
+| **TSS** | **0.084** | 0.010 |
+| msi_status | 0.042 | 0.010 |
+| site | 0.023 | 0.010 |
+| stage | 0.007 | 0.010 |
+| vial (negative control) | −0.001 | 0.683 |
+
+**Plate is associated with three times more expression variance than MSI status
+and twenty times more than stage.** And plate is confounded with MSI
+(Cramér's V = 0.21, permutation p = 0.006), which is the project's single
+pre-registered subgroup variable.
+
+Two decisions follow, neither taken here:
+
+1. **Does plate join the locked covariate set?** It is not on the current list
+   (stage, age, sex, MMR/MSI, purity, site) and on this evidence has a stronger
+   claim than stage. But 29 levels against 624 samples is a lot of degrees of
+   freedom — a random effect or a coarser grouping is probably wanted rather
+   than 28 fixed-effect dummies.
+2. **How is the MSI subgroup contrast reported?** With 76 MSI patients, a plate
+   confound and no batch correction, an unqualified MSI contrast overstates the
+   evidence. Minimum: report the plate association alongside it.
+
+**Invariant 4 is not in question.** The response to a measured confound is to
+carry it into the model, not to remove it from the data.
+
+See [the note](../results/notes/w3.4_batch_structure.md).
+
+---
+
+## 15 · TSS and COAD/READ are nearly the same variable — bears on #4
+
+**Raised:** W3, 2026-08-18, from W3.4 · **Owner:** W3 · **Needed by:** week 3,
+alongside decision #4
+
+Tissue source site against project: **Cramér's V = 0.971, permutation p = 0.001.**
+A hospital submits colon cases or rectal cases, essentially never both.
+
+So **a COAD-vs-READ contrast is also an institution contrast**, and adding a
+project covariate does not adjust for site because the two are nearly the same
+column. This does not by itself settle [#4](#4--coad-and-read-pool-or-stratify--open),
+but whichever way it goes should be decided knowing the two cannot be separated
+in this cohort.
+
+MSI coverage, also from W3.4, resolves the brief's other escalation: **98.6%
+annotated** (523 MSS, 76 MSI, 16 conflicting, 9 missing). Coverage was never the
+binding constraint — the 76-patient subgroup size is.
