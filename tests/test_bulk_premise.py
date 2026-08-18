@@ -18,6 +18,10 @@ from src.bulk.premise import (
     DIP_ALPHA,
     MIN_N_FOR_TESTS,
     assess,
+    purity_association,
+    purity_conditioned_check,
+    purity_tertiles,
+    residualise_on_purity,
     run_premise_check,
     strata,
 )
@@ -179,3 +183,111 @@ def test_run_premise_check_fails_loudly_on_a_missing_gene():
     expr = pd.DataFrame({"ENSG1": [1.0, 8.0, 2.0, 9.0]}, index=idx)
     with pytest.raises(KeyError, match="not in the expression matrix"):
         run_premise_check(expr, _manifest(), {"GUCA2A": "ENSG_absent"}, seed=SEED)
+
+
+# ---------------------------------------------------------------------------
+# The purity-conditioned re-run (W3.2 second pass, after W3.3)
+# ---------------------------------------------------------------------------
+
+
+def _purity_manifest(barcodes):
+    return pd.DataFrame(
+        {
+            "barcode": barcodes,
+            "sample_type": ["01"] * len(barcodes),
+            "project": ["TCGA-COAD"] * len(barcodes),
+        }
+    ).set_index("barcode")
+
+
+def test_residualising_removes_the_purity_relationship():
+    purity = pd.Series(RNG.uniform(0.2, 0.95, 300))
+    values = 3.0 + 5.0 * purity + RNG.normal(0, 0.4, 300)
+    resid = residualise_on_purity(values, purity)
+    assert abs(float(resid.corr(purity))) < 0.05
+    # Recentred, not zero-centred, so the axis stays readable.
+    assert float(resid.mean()) == pytest.approx(float(values.mean()), abs=1e-9)
+
+
+def test_samples_without_a_purity_call_are_dropped_not_imputed():
+    """An imputed covariate turns a coverage gap into an invisible assumption."""
+    purity = pd.Series([0.5, 0.6, np.nan, 0.8, 0.9, np.nan])
+    values = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+    resid = residualise_on_purity(values, purity)
+    assert len(resid) == 4
+    assert list(resid.index) == [0, 1, 3, 4]
+
+
+def test_purity_driven_bimodality_is_removed_by_conditioning():
+    """THE positive control for this pass.
+
+    The brief's worry was that apparent bimodality could be a purity artifact.
+    Build exactly that — two purity regimes, one underlying biology — confirm
+    both tests call it bimodal, then confirm residualising collapses it. If this
+    fails, the re-run cannot detect the artifact it exists to rule out.
+    """
+    half = 200
+    purity = pd.Series(np.r_[RNG.normal(0.30, 0.04, half), RNG.normal(0.85, 0.04, half)])
+    values = 1.0 + 9.0 * purity + RNG.normal(0, 0.25, 2 * half)
+
+    before = _full(assess(values, gene="X", stratum="s", seed=SEED))
+    assert before.dip_pvalue < DIP_ALPHA, "fixture no longer reproduces the artifact"
+
+    after = _full(
+        assess(residualise_on_purity(values, purity), gene="X", stratum="s", seed=SEED)
+    )
+    assert after.dip_pvalue > DIP_ALPHA
+    assert after.verdict in {"continuous", "two_gaussians_fit_better_but_dip_says_unimodal"}
+
+
+def test_genuine_bimodality_survives_conditioning():
+    """The converse, and just as necessary: conditioning must not erase real
+    structure that has nothing to do with purity."""
+    purity = pd.Series(RNG.uniform(0.3, 0.9, 400))
+    values = _bimodal(400).to_numpy() + 0.5 * purity
+    values = pd.Series(values)
+    after = _full(
+        assess(residualise_on_purity(values, purity), gene="X", stratum="s", seed=SEED)
+    )
+    assert after.dip_pvalue < DIP_ALPHA
+    assert after.verdict == "bimodal"
+
+
+def test_purity_tertiles_split_roughly_evenly():
+    purity = pd.Series(RNG.uniform(0, 1, 300))
+    masks = purity_tertiles(purity)
+    assert set(masks) == {"purity_low", "purity_mid", "purity_high"}
+    sizes = [int(m.sum()) for m in masks.values()]
+    assert sum(sizes) == 300
+    assert max(sizes) - min(sizes) <= 2
+
+
+def test_purity_tertiles_refuse_a_tiny_sample():
+    assert purity_tertiles(pd.Series(RNG.uniform(0, 1, 10))) == {}
+
+
+def test_conditioned_rows_are_marked_purity_adjusted():
+    """The base Assessment defaults purity_adjusted=False. These rows are the
+    exception and must say so, or the two passes are indistinguishable in the
+    parquet."""
+    barcodes = [f"TCGA-AA-{i:04d}-01A-01R-1410-07" for i in range(120)]
+    expr = pd.DataFrame({"ENSG1": RNG.normal(8, 1, 120)}, index=barcodes)
+    purity = pd.Series(RNG.uniform(0.3, 0.9, 120), index=barcodes)
+    out = purity_conditioned_check(
+        expr, _purity_manifest(barcodes), {"GUCA2A": "ENSG1"}, purity,
+        method="absolute", seed=SEED,
+    )
+    assert out["purity_adjusted"].all()
+    assert (out["purity_method"] == "absolute").all()
+    assert "tumour|purity_residual" in set(out["stratum"])
+
+
+def test_purity_association_reports_variance_explained():
+    barcodes = [f"TCGA-AA-{i:04d}-01A-01R-1410-07" for i in range(200)]
+    purity = pd.Series(RNG.uniform(0.2, 0.95, 200), index=barcodes)
+    expr = pd.DataFrame({"ENSG1": 2.0 + 4.0 * purity.to_numpy()}, index=barcodes)
+    out = purity_association(
+        expr, _purity_manifest(barcodes), {"GUCA2A": "ENSG1"}, purity, method="absolute"
+    )
+    assert out.loc[0, "r_squared"] == pytest.approx(1.0, abs=1e-6)
+    assert out.loc[0, "n"] == 200

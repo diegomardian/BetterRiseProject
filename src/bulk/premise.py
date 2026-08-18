@@ -313,3 +313,128 @@ def plot_distributions(
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
     return out_path
+
+
+# ---------------------------------------------------------------------------
+# W3.2 re-run, conditioned on purity — the scheduled follow-up
+# ---------------------------------------------------------------------------
+#
+# The first pass was marked provisional because bulk expression is diluted by
+# stromal and immune content, and two apparent groups could be two purity
+# regimes. The finding was "no groups", so the question inverts: could purity
+# be *masking* structure rather than creating it? Adjusting for it is how you
+# find out, and it is cheap now that W3.3 exists.
+#
+# ABSOLUTE is the primary covariate — it is called from copy number, not
+# expression, so it is not circular with the outcome. ESTIMATE is the
+# sensitivity analysis, and it covers the 18% of samples ABSOLUTE misses.
+
+
+def residualise_on_purity(values: pd.Series, purity: pd.Series) -> pd.Series:
+    """Residuals of ``values`` regressed on ``purity``, recentred on the mean.
+
+    Samples without a purity call are dropped rather than imputed — imputing a
+    covariate to preserve n is how a coverage gap becomes an invisible
+    assumption.
+
+    Recentring changes nothing statistically (the dip statistic is invariant to
+    location and scale) and keeps the residuals on a readable expression-like
+    axis, so the same histogram code works on both.
+    """
+    joined = pd.concat([values.rename("y"), purity.rename("p")], axis=1).dropna()
+    if len(joined) < 3 or joined["p"].nunique() < 2:
+        return pd.Series(dtype=float)
+    slope, intercept = np.polyfit(joined["p"], joined["y"], 1)
+    resid = joined["y"] - (intercept + slope * joined["p"])
+    return resid + joined["y"].mean()
+
+
+def purity_tertiles(purity: pd.Series) -> dict[str, np.ndarray]:
+    """Low/mid/high purity masks, as a non-parametric alternative to regressing.
+
+    Residualising assumes the expression/purity relationship is linear.
+    Stratifying assumes nothing about its shape. If the two disagree, the
+    linearity assumption is doing work and should be looked at.
+    """
+    clean = purity.dropna()
+    if len(clean) < 30:
+        return {}
+    lo, hi = clean.quantile([1 / 3, 2 / 3])
+    return {
+        "purity_low": (purity <= lo).to_numpy(),
+        "purity_mid": ((purity > lo) & (purity <= hi)).to_numpy(),
+        "purity_high": (purity > hi).to_numpy(),
+    }
+
+
+def purity_conditioned_check(
+    expression: pd.DataFrame,
+    manifest: pd.DataFrame,
+    gene_ids: dict[str, str],
+    purity: pd.Series,
+    *,
+    method: str,
+    seed: int,
+) -> pd.DataFrame:
+    """Re-run both tests on purity-residualised expression, and within tertiles.
+
+    ``purity`` is indexed by barcode. ``method`` is recorded on every row so an
+    ABSOLUTE-based result is never mistaken for an ESTIMATE-based one.
+    """
+    tumour = manifest.reindex(expression.index)["sample_type"] == "01"
+    rows: list[dict] = []
+
+    for symbol, ensembl_id in gene_ids.items():
+        if ensembl_id not in expression.columns:
+            raise KeyError(f"{symbol} ({ensembl_id}) is not in the expression matrix")
+        values = expression.loc[tumour.to_numpy(), ensembl_id]
+        aligned = purity.reindex(values.index)
+
+        resid = residualise_on_purity(values, aligned)
+        for a in assess(resid, gene=symbol, stratum="tumour|purity_residual", seed=seed):
+            rows.append({**a.to_row(), "purity_method": method})
+
+        sub_purity = aligned.loc[values.index]
+        for name, mask in purity_tertiles(sub_purity).items():
+            for a in assess(
+                values.loc[mask], gene=symbol, stratum=f"tumour|{name}", seed=seed
+            ):
+                rows.append({**a.to_row(), "purity_method": method})
+
+    out = pd.DataFrame(rows)
+    # These rows ARE purity-adjusted; the base Assessment default says otherwise.
+    out["purity_adjusted"] = True
+    return out
+
+
+def purity_association(
+    expression: pd.DataFrame,
+    manifest: pd.DataFrame,
+    gene_ids: dict[str, str],
+    purity: pd.Series,
+    *,
+    method: str,
+) -> pd.DataFrame:
+    """How much of each gene's variance purity explains. The number that says
+    whether conditioning on it was ever going to matter."""
+    tumour = manifest.reindex(expression.index)["sample_type"] == "01"
+    rows = []
+    for symbol, ensembl_id in gene_ids.items():
+        values = expression.loc[tumour.to_numpy(), ensembl_id]
+        joined = pd.concat(
+            [values.rename("y"), purity.reindex(values.index).rename("p")], axis=1
+        ).dropna()
+        r = float(joined["y"].corr(joined["p"])) if len(joined) >= 3 else float("nan")
+        rows.append(
+            {
+                "gene": symbol,
+                "purity_method": method,
+                "n": int(len(joined)),
+                "pearson_r": round(r, 4),
+                "r_squared": round(r * r, 4),
+                "spearman_rho": round(float(joined["y"].corr(joined["p"], method="spearman")), 4)
+                if len(joined) >= 3
+                else float("nan"),
+            }
+        )
+    return pd.DataFrame(rows)

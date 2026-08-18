@@ -575,9 +575,9 @@ completeness. (a) is what is in place today and is a fine holding position.
 
 ---
 
-## 13 · Bulk GUCA2A is continuous, not bimodal — CLASSIFICATION FRAMING NEEDS A DECISION
+## 13 · Bulk GUCA2A is continuous, not bimodal — CONFIRMED AFTER PURITY ADJUSTMENT
 
-**Raised:** W3, 2026-08-17, from the W3.2 premise check · **Owner:** all four ·
+**Raised:** W3, 2026-08-17 · **Confirmed:** W3, 2026-08-18, purity-conditioned re-run · **Owner:** all four ·
 **Needed by:** week 2 standing meeting, and before W2 calibrates cutpoints (#7)
 
 The premise check ran. **Hartigan's dip test finds no multimodality in GUCA2A in
@@ -601,6 +601,14 @@ two-type classification dissolves into a regression."* So:
 3. **It does not touch G1–G4.** This is a statement about bulk GUCA2A, not about
    whether the decomposition separates compositional from intrinsic.
 
-**Provisional until W3.3.** Not purity-adjusted. Purity would have to manufacture
-a continuum out of two separated groups to explain this away, which is the harder
-direction for a confounder — but that is an argument, not a measurement.
+**CONFIRMED 2026-08-18 — no longer provisional.** The re-run conditioned on
+W3.3 purity is done and the finding is unchanged. Purity explains **1.9%** of
+GUCA2A variance (ABSOLUTE, n=556). The smallest dip p-value across every
+adjustment — residualised on ABSOLUTE, residualised on ESTIMATE, and within
+each purity tertile — is **0.332**. Nothing approaches significance.
+
+A further reason to prefer ABSOLUTE in the W3.6 lock: GUCA2A correlates with
+ABSOLUTE purity at r=-0.139 (purer tumour, less GUCA2A — the direction the
+compositional hypothesis predicts) but at r=+0.064 against ESTIMATE, which is
+near zero and the wrong sign. See the addendum in
+[the note](../results/notes/w3.2_premise_check.md).
