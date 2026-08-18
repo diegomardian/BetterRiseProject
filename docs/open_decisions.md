@@ -748,3 +748,38 @@ site from DSS gets every endpoint over the floor:
 | expression models | 12.4 ✅ | 8.1 ❌ | 9.7 ❌ |
 
 Reasoning in full: [the note](../results/notes/w3.6_covariate_lock.md).
+
+---
+
+## 18 · The premise-check finding replicates independently — CLOSES the artifact worry on #13
+
+**Raised:** W3, 2026-08-18, from W3.8 · **Owner:** all four · **Status:** informational
+
+[Decision #13](#13--bulk-guca2a-is-continuous-not-bimodal--confirmed-after-purity-adjustment)
+rests on a finding from one cohort. It has now been replicated in **GSE39582**
+(Marisa et al., 566 tumours) on **Affymetrix microarray** rather than Illumina
+RNA-seq:
+
+| Gene | TCGA dip p | GSE39582 dip p | TCGA % of normal | GSE39582 % of normal |
+|---|---|---|---|---|
+| GUCA2A | 0.982 | 0.997 | 1.40% | 1.72% |
+| CDX2 | 0.969 | 0.987 | 94.7% | 84.8% |
+| MS4A12 | — | 0.992 | 0.82% | 0.35% |
+
+Different patients, different country, different measurement technology — and
+the effect sizes land within a factor of two on all three genes.
+
+**The CIMP+ test is the substantive addition.** GSE39582 carries CpG island
+methylator phenotype status, which TCGA's GDC clinical does not. Promoter
+hypermethylation is the one mechanism that would plausibly produce a discrete
+off-state, so CIMP+ tumours are where bimodality should hide. Dip p = 0.804
+(GUCA2A), 0.515 (CDX2), 0.785 (MS4A12) across 91 patients. **Nothing there
+either.**
+
+So the classification-to-regression question in #13 is no longer contingent on
+whether TCGA is representative. It is a decision about framing, on evidence from
+two independent cohorts.
+
+Cohorts are **not pooled** (invariant 4) — estimated separately, reported side
+by side, using the same test code so a difference could not come from the
+analysis. See [the note](../results/notes/w3.8_replication_gse39582.md).
