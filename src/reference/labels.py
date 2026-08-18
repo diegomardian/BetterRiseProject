@@ -276,46 +276,87 @@ def maturity_score(
 # ---------------------------------------------------------------------------
 
 
-def _bin_within_groups(
-    values: np.ndarray, groups: np.ndarray, bins: tuple[str, ...], epithelial: np.ndarray
-) -> np.ndarray:
-    """Quantile-bin `values` into `bins`, computed separately within each group.
+def _cut_points(
+    values: np.ndarray, reference: np.ndarray, quantiles: np.ndarray
+) -> np.ndarray | None:
+    """Cut points taken from the reference cells only. None if unusable."""
+    subset = values[reference]
+    if subset.size == 0 or np.allclose(subset, subset[0]):
+        return None
+    return np.quantile(subset, quantiles)
 
-    Per sample, not pooled: depth and composition differ between samples, so a
-    pooled quantile would let one sample's library size decide another's labels.
+
+def _bin_against_reference(
+    values: np.ndarray,
+    groups: np.ndarray,
+    bins: tuple[str, ...],
+    epithelial: np.ndarray,
+    reference: np.ndarray,
+) -> np.ndarray:
+    """Bin every epithelial cell against cut points derived from `reference`.
+
+    **This is the correction that makes the compositional term measurable.**
+
+    An earlier version computed quantiles within each sample and binned that
+    sample against its own cuts. That forces the mature fraction to equal the
+    quantile in every sample by construction — a within-sample quantile cannot
+    express a between-sample difference — so Delta(mature fraction) was pinned at
+    zero and the compositional term, which is the whole project, could not move.
+    Observed on the pilot: every `opposite_lineage` arm returned exactly 0.500 at
+    the lineage rung and 0.333 at crypt_position.
+
+    Cuts now come from the reference population — the patient's own **normal**
+    tissue — and the same absolute threshold is applied to their tumour. Normal
+    defines what mature looks like; tumour is then free to differ, which is
+    precisely the paired contrast the decomposition is built on.
+
+    `groups` is the unit the reference is taken within, normally the patient. A
+    group with no usable reference gets the least-mature bin rather than an
+    invented gradient — visible as a degenerate label, not as a plausible number.
     """
     out = np.full(values.shape, NON_EPITHELIAL, dtype=object)
     if len(bins) == 1:
         out[epithelial] = bins[0]
         return out
 
-    edges = np.linspace(0, 1, len(bins) + 1)[1:-1]
+    quantiles = np.linspace(0, 1, len(bins) + 1)[1:-1]
+    labels = np.asarray(bins, dtype=object)
     for group in pd.unique(groups):
         here = epithelial & (groups == group)
         if not here.any():
             continue
-        subset = values[here]
-        if np.allclose(subset, subset[0]):
-            # No variation to bin on. Assign the least-mature bin rather than
-            # inventing a gradient.
+        cuts = _cut_points(values, here & reference, quantiles)
+        if cuts is None:
             out[here] = bins[0]
             continue
-        cuts = np.quantile(subset, edges)
-        out[here] = np.asarray(bins, dtype=object)[np.searchsorted(cuts, subset, side="right")]
+        out[here] = labels[np.searchsorted(cuts, values[here], side="right")]
     return out
 
 
-def _gate_within_groups(
-    values: np.ndarray, groups: np.ndarray, bins: tuple[str, ...],
-    epithelial: np.ndarray, quantile: float,
+def _gate_against_reference(
+    values: np.ndarray,
+    groups: np.ndarray,
+    bins: tuple[str, ...],
+    epithelial: np.ndarray,
+    reference: np.ndarray,
+    quantile: float,
 ) -> np.ndarray:
-    """Call the top `quantile` of `values` the mature bin, per group."""
+    """Marker gate, thresholded on the reference cells only.
+
+    Same correction as :func:`_bin_against_reference`: a per-sample top-5% gate
+    returns 5% in every sample whatever the biology, which is why the pilot's
+    `best4` fraction was 0.050 in all ten arms.
+    """
     out = np.full(values.shape, NON_EPITHELIAL, dtype=object)
     for group in pd.unique(groups):
         here = epithelial & (groups == group)
         if not here.any():
             continue
-        threshold = np.quantile(values[here], quantile)
+        subset = values[here & reference]
+        if subset.size == 0:
+            out[here] = bins[0]
+            continue
+        threshold = np.quantile(subset, quantile)
         out[here] = np.where(values[here] >= threshold, bins[-1], bins[0])
     return out
 
@@ -327,6 +368,9 @@ def assign_labels(
     compartment: Any,
     sample_id: Any,
     target_genes: Any,
+    tissue: Any = None,
+    patient_id: Any = None,
+    reference_tissue: str = "normal",
     axes: Any = TRANSCRIPT_AXES,
     rungs: Any = None,
     normalise: bool = True,
@@ -342,9 +386,22 @@ def assign_labels(
         ``non_epithelial`` in every column. Scoring a fibroblast for
         differentiation would put nonsense into the denominator.
     sample_id:
-        Quantile bins and the BEST4 gate are computed **within** each sample.
-        Pooling them would let one sample's depth decide another's labels, and
-        chemistry differs across samples here.
+        Retained for provenance and for grouping when `patient_id` is absent.
+    tissue, patient_id, reference_tissue:
+        **How the cut points are set, and the reason the compositional term is
+        measurable at all.** Thresholds are taken from the cells where
+        ``tissue == reference_tissue`` — the patient's own normal — and the same
+        absolute cut is applied to their tumour. Grouping is by `patient_id` when
+        given, else by `sample_id`.
+
+        Do not go back to per-sample quantiles. Binning each sample against its
+        own quantiles pins the mature fraction to that quantile in every sample,
+        so Delta(mature fraction) is identically zero by construction. The pilot
+        showed it plainly: every `opposite_lineage` arm returned 0.500 at the
+        lineage rung and 0.333 at crypt_position, and every `best4` arm 0.050.
+
+        With `tissue=None` the reference falls back to all epithelial cells,
+        which is only correct when there is no tumour/normal contrast to make.
     target_genes:
         The genes under test for this run. Required, no default (invariant 2).
         **Labels are therefore specific to a target set**, which is the price of
@@ -368,7 +425,26 @@ def assign_labels(
         if arr.shape[0] != n_cells:
             raise LabelError(f"{name} has {arr.shape[0]} entries for {n_cells} cells")
 
+    if patient_id is not None:
+        groups = np.asarray([str(p) for p in patient_id], dtype=object)
+        if groups.shape[0] != n_cells:
+            raise LabelError(f"patient_id has {groups.shape[0]} entries for {n_cells} cells")
+
     epithelial = compartment == "epithelial"
+    if tissue is None:
+        reference = epithelial.copy()
+    else:
+        tissue_arr = np.asarray([str(t) for t in tissue], dtype=object)
+        if tissue_arr.shape[0] != n_cells:
+            raise LabelError(f"tissue has {tissue_arr.shape[0]} entries for {n_cells} cells")
+        reference = epithelial & (tissue_arr == reference_tissue)
+        if not reference.any():
+            raise LabelError(
+                f"no epithelial cells with tissue == {reference_tissue!r}. Cut "
+                f"points come from the reference arm; without it the mature "
+                f"fraction cannot be compared between arms."
+            )
+
     if not epithelial.any():
         raise LabelError(
             "no cells are labelled 'epithelial'. Pass compartments from "
@@ -385,7 +461,9 @@ def assign_labels(
         for rung in rungs:
             spec = RUNG_SPECS[rung]
             if spec.markers is None:
-                labels = _bin_within_groups(scores, groups, spec.bins, epithelial)
+                labels = _bin_against_reference(
+                    scores, groups, spec.bins, epithelial, reference
+                )
             else:
                 if best4_score is None:
                     best4_score = score_markers(
@@ -393,8 +471,8 @@ def assign_labels(
                         context=f"rung {rung!r} labels",
                         target_genes=target_genes, normalise=normalise,
                     )
-                labels = _gate_within_groups(
-                    best4_score, groups, spec.bins, epithelial, BEST4_QUANTILE
+                labels = _gate_against_reference(
+                    best4_score, groups, spec.bins, epithelial, reference, BEST4_QUANTILE
                 )
             frame[label_column(axis, rung)] = pd.Categorical(
                 labels, categories=[NON_EPITHELIAL, *spec.bins]

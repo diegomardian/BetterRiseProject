@@ -692,3 +692,91 @@ class TestNonRangeIndex:
         assert len(summary) > 0
         assert summary["frac_mature_normal"].notna().all()
         assert summary["frac_mature_tumour"].notna().all()
+
+
+class TestCompositionalSignalIsRecoverable:
+    """THE test this module was missing.
+
+    Every earlier test checked shapes, monotonicity across rungs, and that the
+    axes disagreed. None checked that a known compositional difference could be
+    RECOVERED — which is the only thing the labels exist to enable. Its absence
+    is why per-sample quantile binning, which pins the mature fraction to the
+    quantile and makes Delta(mature fraction) identically zero, survived to real
+    data.
+    """
+
+    def _paired(self, frac_mature_normal: float, frac_mature_tumour: float,
+                n: int = 1200, depth: int = 5_000):
+        """One patient, two arms, with a KNOWN difference in mature fraction.
+
+        "Mature" cells carry no stem-marker expression; "stem" cells carry a lot.
+        Only the mixing proportion differs between arms.
+        """
+        stem_profile = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            stem_profile[GENES.index(gene)] = 60.0
+        mature_profile = np.full(len(GENES), 1.0)
+
+        blocks, tissue = [], []
+        for arm, frac in (("normal", frac_mature_normal), ("tumour", frac_mature_tumour)):
+            n_mature = int(round(n * frac))
+            for profile, count in ((mature_profile, n_mature), (stem_profile, n - n_mature)):
+                if count == 0:
+                    continue
+                p = profile / profile.sum()
+                blocks.append(RNG.poisson(np.outer(np.full(count, depth), p)).astype(np.int64))
+                tissue += [arm] * count
+        matrix = np.vstack(blocks)
+        tissue = np.array(tissue, dtype=object)
+        return (
+            matrix,
+            np.full(matrix.shape[0], "epithelial", dtype=object),
+            np.full(matrix.shape[0], "P1", dtype=object),
+            tissue,
+        )
+
+    def _fraction(self, frac_normal, frac_tumour, rung="lineage"):
+        matrix, compartment, patient, tissue = self._paired(frac_normal, frac_tumour)
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=[rung],
+        )
+        counts = mature_cell_counts(
+            labels, patient_id=patient, tissue=tissue, axes=["stem_pole"], rungs=[rung]
+        ).set_index("tissue")
+        return counts.loc["normal", "mature_fraction"], counts.loc["tumour", "mature_fraction"]
+
+    def test_a_real_compositional_loss_is_detected(self):
+        """Normal 50% mature, tumour 10%. The tumour fraction must come back
+        materially lower — this is the compositional term."""
+        normal, tumour = self._fraction(0.50, 0.10)
+        assert tumour < normal - 0.2, f"normal={normal:.3f} tumour={tumour:.3f}"
+
+    def test_no_difference_is_reported_when_there_is_none(self):
+        """Equal composition must NOT manufacture a difference."""
+        normal, tumour = self._fraction(0.50, 0.50)
+        assert abs(tumour - normal) < 0.1
+
+    def test_a_compositional_gain_is_detected_too(self):
+        """The estimator must not be one-directional."""
+        normal, tumour = self._fraction(0.30, 0.70)
+        assert tumour > normal + 0.2
+
+    @pytest.mark.parametrize("rung", ["lineage", "crypt_position"])
+    def test_the_signal_survives_at_every_binned_rung(self, rung):
+        normal, tumour = self._fraction(0.60, 0.15, rung=rung)
+        assert tumour < normal - 0.15, f"{rung}: normal={normal:.3f} tumour={tumour:.3f}"
+
+    def test_the_delta_tracks_the_injected_magnitude(self):
+        """A bigger true loss must produce a bigger measured loss."""
+        small_n, small_t = self._fraction(0.50, 0.40)
+        large_n, large_t = self._fraction(0.50, 0.05)
+        assert (large_n - large_t) > (small_n - small_t)
+
+    def test_per_sample_quantiles_would_have_failed_this(self):
+        """Pins the regression. The reference arm sits near the intended
+        quantile; the tumour arm must be free to leave it."""
+        normal, tumour = self._fraction(0.50, 0.10)
+        assert abs(normal - 0.5) < 0.15      # reference defines the cut
+        assert tumour < 0.35                  # tumour is NOT pinned to it

@@ -196,6 +196,11 @@ def main() -> int:
             compartment=compartment.to_numpy()[keep],
             sample_id=adata.obs["sample_id"].to_numpy()[keep],
             target_genes=targets,
+            # Cut points come from each patient's own normal, applied to their
+            # tumour. Without this the mature fraction is pinned to the quantile
+            # in every arm and the compositional term cannot move.
+            tissue=adata.obs["tissue"].to_numpy()[keep],
+            patient_id=adata.obs["patient_id"].to_numpy()[keep],
             index=adata.obs.index[keep],
         )
         print(f"\nlabelled {len(labels):,} QC-passing cells, "
@@ -207,8 +212,9 @@ def main() -> int:
             patient_id=adata.obs["patient_id"].to_numpy()[keep],
             tissue=adata.obs["tissue"].to_numpy()[keep],
         )
-        print("\nmature-cell counts (n_cells_mature drives positivity; W2 owns the"
-              " thresholds):")
+        print("\nmature-cell counts. Cut points come from each patient's NORMAL "
+              "arm,\nso normal sits near the rung's target fraction and TUMOUR IS "
+              "FREE TO DIFFER —\nthat difference is the compositional term.")
         print(counts.sort_values(["granularity_rung", "patient_id", "tissue"])
               .to_string(index=False))
 
