@@ -586,3 +586,43 @@ class TestW4Interface:
         that can run out. The intrinsic term is tumour-mature-fraction weighted."""
         summary = self._summary(cohort)
         assert (summary["n_cells_mature"] == summary["n_cells_mature_tumour"]).all()
+
+
+class TestZeroEpitheliumGroup:
+    """A (patient, tissue) group with no epithelium must yield NaN, not a crash.
+
+    Found on the real pilot: np.where evaluates both branches, so guarding the
+    division did not prevent it and pandas raised ZeroDivisionError on the
+    integer denominator.
+    """
+
+    def _labels_with_an_empty_group(self, cohort):
+        matrix, compartment, sample_id, _ = cohort
+        labels = assign_labels(matrix, GENES, compartment=compartment,
+                               sample_id=sample_id, target_genes=TARGETS)
+        # P2/normal is made entirely non-epithelial.
+        patient = np.where(compartment == "immune", "P2", "P1")
+        tissue = np.where(compartment == "immune", "normal", "tumour")
+        return labels, patient, tissue
+
+    def test_counts_do_not_crash(self, cohort):
+        labels, patient, tissue = self._labels_with_an_empty_group(cohort)
+        counts = mature_cell_counts(labels, patient_id=patient, tissue=tissue)
+        assert len(counts) > 0
+
+    def test_the_empty_group_reports_nan_not_zero(self, cohort):
+        """NaN, not 0.0 — the same distinction invariant 1 makes. A fraction of
+        zero would claim 'no mature cells'; the truth is 'no cells to ask'."""
+        labels, patient, tissue = self._labels_with_an_empty_group(cohort)
+        counts = mature_cell_counts(labels, patient_id=patient, tissue=tissue)
+        empty = counts[counts["n_cells_epithelial"] == 0]
+        assert len(empty) > 0
+        assert empty["mature_fraction"].isna().all()
+        assert not (empty["mature_fraction"] == 0.0).any()
+
+    def test_populated_groups_are_unaffected(self, cohort):
+        labels, patient, tissue = self._labels_with_an_empty_group(cohort)
+        counts = mature_cell_counts(labels, patient_id=patient, tissue=tissue)
+        populated = counts[counts["n_cells_epithelial"] > 0]
+        assert populated["mature_fraction"].notna().all()
+        assert populated["mature_fraction"].between(0, 1).all()

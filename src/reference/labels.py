@@ -461,10 +461,13 @@ def mature_cell_counts(
             )
             grouped["labeling_axis"] = axis
             grouped["granularity_rung"] = rung
-            grouped["mature_fraction"] = np.where(
-                grouped["n_cells_epithelial"] > 0,
-                grouped["n_cells_mature"] / grouped["n_cells_epithelial"],
-                np.nan,
+            # np.where evaluates BOTH branches, so a guard around the division
+            # does not prevent it. Blank the denominator instead: a group with no
+            # epithelium has no mature fraction, and NaN says so.
+            denominator = grouped["n_cells_epithelial"].astype(float)
+            grouped["mature_fraction"] = (
+                grouped["n_cells_mature"].astype(float)
+                / denominator.where(denominator > 0)
             )
             rows.append(grouped)
     return pd.concat(rows, ignore_index=True)
