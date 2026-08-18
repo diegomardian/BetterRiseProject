@@ -42,12 +42,24 @@ def _write(tmp_path, spec_dict):
 # ---------------------------------------------------------------------------
 
 
-def test_a_proposed_set_refuses_to_run_a_model(spec):
-    """THE test. The set ships as `proposed`; nothing may be fitted against it
-    until a human confirms and flips it to `locked` in its own commit."""
-    assert spec["status"] == "proposed"
+def test_a_proposed_set_refuses_to_run_a_model():
+    """THE test. Nothing may be fitted against a set still under discussion.
+
+    The committed set is now locked (see test below), so the refusal is checked
+    against a proposed copy — the guard has to keep working after the real set
+    is locked, or it silently stops protecting the next version bump."""
+    proposed = dict(load_covariate_set(), status="proposed")
     with pytest.raises(CovariateError, match="not 'locked'"):
-        require_locked(spec)
+        require_locked(proposed)
+
+
+def test_the_committed_set_is_locked_and_says_who_locked_it(spec):
+    """W3.6 done means confirmed, not merely written down."""
+    assert spec["status"] == "locked"
+    assert spec["locked_by"]
+    assert spec["locked_on"]
+    assert spec["lock_authorisation"].strip()
+    require_locked(spec)
 
 
 def test_a_locked_set_passes(tmp_path, spec):

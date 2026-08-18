@@ -18,11 +18,15 @@
 # =============================================================================
 
 version: "1.0.0"
-status: proposed          # proposed | locked
+status: locked            # proposed | locked
 proposed_on: "2026-08-18"
 proposed_by: W3
-locked_on: null
-locked_by: null
+locked_on: "2026-08-18"
+locked_by: jeremy749
+lock_authorisation: >
+  Confirmed by the W3 owner on 2026-08-18 with the instruction to run W3.7,
+  after reviewing results/notes/w3.6_covariate_lock.md. Any change from here
+  needs its own commit and a stated reason.
 
 # -----------------------------------------------------------------------------
 # Endpoints. CLAUDE.md invariant 9 is implemented as written: DSS and PFI
