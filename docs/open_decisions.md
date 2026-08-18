@@ -60,11 +60,42 @@ symbol-keyed throughout.
 
 W3 has built it: [`src/bulk/gene_index.py`](../src/bulk/gene_index.py), emitted
 as **`gene_index_0.9.0`** — provisional, and versioned to say so. It is *not*
-1.0.0. Two things to settle:
+1.0.0.
 
-1. **Does W1 conform to 0.9.0, or supersede it with 1.0.0 from the GSE178341
-   feature table?** Either is fine. What is not fine is both existing.
-2. If W1 conforms, promote 0.9.0 → 1.0.0 in its own commit with the reason.
+### Measured, 2026-08-17 — neither index is the right shared index
+
+W1's Ensembl IDs were pulled from the Broad-hosted
+`colon10x_default_dDvec_ensgID.csv.gz` (188 KB, the file identified in §11) and
+intersected with W3's index:
+
+| | Genes |
+|---|---|
+| W1 (GSE178341 features) | 43,078 |
+| W3 (index 0.9.0, GENCODE v36) | 60,616 |
+| **On both** | **39,236** |
+| W1 only — not in v36 | 3,842 · **8.9% of W1** |
+| W3 only — bulk-only | 21,380 · 35.3% of W3 |
+
+**All 23 panel genes are present on both.** Tiers A–D are safe either way, which
+was the thing most worth checking.
+
+Note the 8.9%: decision #3 predicted *"the usual way a join silently loses ~8% of
+genes"* and that is almost exactly what version drift between W1's CellRanger
+reference and GENCODE v36 costs. The prediction was right.
+
+**So the question is not "0.9.0 or 1.0.0".** Adopting either wholesale throws
+away genes the other arm measured — W3 conforming loses 21,380, W1 conforming
+loses 3,842. **The shared index should be the intersection: 39,236 genes,
+committed as `gene_index_1.0.0`.** Each arm keeps its own full matrix for its own
+work; the shared index is what integration joins on, and 39,236 is far more than
+the 500–2,000 markers deconvolution needs (§2.1 error #4).
+
+To settle at the weekly:
+
+1. **Agree the shared index is the intersection**, not either arm's native set.
+2. W1 confirms the reference release behind `dDvec_ensgID` so the 3,842 can be
+   attributed to version drift rather than to reference filtering.
+3. Promote to `gene_index_1.0.0` in its own commit; retire 0.9.0.
 
 ---
 
