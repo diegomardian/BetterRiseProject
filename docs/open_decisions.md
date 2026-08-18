@@ -671,3 +671,43 @@ in this cohort.
 MSI coverage, also from W3.4, resolves the brief's other escalation: **98.6%
 annotated** (523 MSS, 76 MSI, 16 conflicting, 9 missing). Coverage was never the
 binding constraint — the 76-patient subgroup size is.
+
+---
+
+## 16 · The CDR calls DSS "approximated" for COAD/READ — invariant 9 needs a look
+
+**Raised:** W3, 2026-08-18, from W3.5 · **Owner:** all four ·
+**Needed by:** week 5, before W3.7 reports anything
+
+[CLAUDE.md](../CLAUDE.md) invariant 9 makes **DSS and PFI primary, OS
+secondary**. The brief also says to honour the CDR's own recommended-use flags.
+The CDR's notes sheet says:
+
+> "we recommend the use of **PFI** [...] and **OS** [...] Given the relatively
+> short follow-up time, PFI is preferred over OS."
+>
+> "DSS is relatively accurate for CESC, PAAD, and UVM, and is **approximated for
+> other tumor types**."
+
+COAD and READ are "other tumor types". The CDR derives DSS as *dead and with
+tumour*, and states that a with-tumour patient who dies of an unrelated cause is
+"incorrectly considered as an event" — the same contamination invariant 9
+objects to in OS, reduced but not removed.
+
+**Invariant 9's reasoning survives**: DSS is still better than OS for COAD. Two
+things argue for leading with PFI regardless:
+
+1. Both the project and the CDR endorse PFI.
+2. **DSS has 75 events; PFI has 156.** The locked covariate set expands to ~11
+   degrees of freedom, so DSS gives under 7 events/df — below the conventional
+   floor of 10. PFI gives ~14.
+
+**Options:** (a) keep invariant 9 verbatim and lead with PFI in practice, which
+is what the code does today; (b) amend invariant 9 to name PFI primary and DSS
+co-primary-with-caveat, which needs a PR and two approvals.
+
+**Recommendation: (a) now, decide (b) at the gate.** Nothing is blocked either
+way; what must not happen is a DSS-led headline result that does not mention the
+approximation.
+
+See [the note](../results/notes/w3.5_clinical_table.md).
