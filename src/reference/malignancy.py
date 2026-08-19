@@ -8,18 +8,36 @@ contrast is then sample-of-origin, not malignant-versus-normal — a different
 claim from the one the project makes, and one that would quietly attribute
 normal cells sitting in a tumour to the tumour.
 
-Choice of reference, and why it departs from the plan's wording
----------------------------------------------------------------
-execution_plan.md §4 says to use *matched normal epithelium* as the inferCNV
-reference. The same row's "done when" is that **normal epithelium is not misread
-as tumour** — and those two cannot both hold, because a population used as the
-CNV baseline is non-malignant by construction. The check would validate nothing.
+Choice of reference
+-------------------
+execution_plan.md §4 says to use *matched normal epithelium*, and the same row's
+"done when" is that **normal epithelium is not misread as tumour**. Taken
+literally those conflict: a population used as the CNV baseline is non-malignant
+by construction, so validating on it proves nothing.
 
-So the reference here is the **non-epithelial compartments** — immune, stromal
-and endothelial — which are reliably diploid and are not the population under
-test. Malignancy is then called on *all* epithelium including the normal
-samples, and normal-sample epithelium coming back non-malignant becomes a real,
-non-circular validation. :func:`validate_normal_epithelium` is that check.
+The resolution is not to change the reference but to **hold part of it out**.
+Matched normal epithelium is the right baseline — inferCNV compares smoothed
+expression along the genome, and because co-regulated genes cluster on
+chromosomes, a reference of a *different cell type* produces spurious CNV. The
+inferCNV documentation names this directly: there are acknowledged caveats when
+using epithelium against immune cells as reference, because the method finds
+cell-type differences and reads them as copy number. Immune/stromal references
+are common in practice, but they are the fallback, not the better option.
+
+So, per patient:
+
+- a random **70%** of normal-sample epithelium becomes the CNV baseline;
+- the held-out **30%** is scored like any query cell, and must come back
+  non-malignant — genuinely out-of-sample, because it never defined the baseline;
+- the non-epithelial compartments are supplied as **additional reference
+  categories**, not merged into one. inferCNV bounds the log fold change by the
+  per-category means, which is what suppresses cell-type-specific false
+  positives; pooling them into a single reference throws that away.
+
+Patients with no matched normal — 26 of 62 on this cohort (open decision #9) —
+cannot do this. They fall back to a diploid-only reference and are flagged, since
+their calls come from a different and weaker method and should not be pooled with
+the rest without saying so.
 
 Per patient, never pooled: CNV inference compares a cell against a baseline, and
 a baseline built across patients would fold germline copy-number variation and
@@ -41,9 +59,21 @@ from typing import Any, Final
 import numpy as np
 import pandas as pd
 
-#: Compartments used as the diploid CNV baseline. Not epithelium, so the
-#: "normal epithelium is not misread as tumour" check stays non-circular.
-REFERENCE_COMPARTMENTS: Final[tuple[str, ...]] = ("immune", "stromal", "endothelial")
+#: Diploid compartments, supplied to inferCNV as SEPARATE reference categories.
+#: Kept separate on purpose: inferCNV bounds the log fold change by the per-
+#: category means, which is what suppresses cell-type-specific false positives.
+#: Merging them into one reference discards that protection.
+DIPLOID_COMPARTMENTS: Final[tuple[str, ...]] = ("immune", "stromal", "endothelial")
+
+#: Backwards-compatible alias. Prefer DIPLOID_COMPARTMENTS.
+REFERENCE_COMPARTMENTS: Final[tuple[str, ...]] = DIPLOID_COMPARTMENTS
+
+#: Share of normal-sample epithelium held out of the baseline so the
+#: "normal epithelium is not misread as tumour" check is out-of-sample.
+HOLDOUT_FRACTION: Final[float] = 0.30
+
+#: Per-patient reference strategy.
+STRATEGIES: Final[tuple[str, ...]] = ("matched_normal", "diploid_only", "none")
 
 #: A baseline built from fewer cells than this is too noisy to call against.
 MIN_REFERENCE_CELLS: Final[int] = 50
@@ -65,18 +95,108 @@ class MalignancyError(ValueError):
     """Malignancy could not be called from the input given."""
 
 
+def assign_cnv_roles(
+    compartment: Any,
+    *,
+    tissue: Any,
+    patient_id: Any,
+    holdout_fraction: float = HOLDOUT_FRACTION,
+    min_cells: int = MIN_REFERENCE_CELLS,
+    seed: int = 20260101,
+) -> pd.DataFrame:
+    """Assign every cell a role for CNV inference. Run this before inferCNV.
+
+    Roles:
+
+    ``reference_normal_epi``
+        Normal-sample epithelium forming the baseline. Cell-type matched to the
+        query, which is what keeps cell-type differences out of the CNV signal.
+    ``holdout_normal_epi``
+        Normal-sample epithelium deliberately excluded from the baseline, so the
+        validation is out-of-sample. This is the population
+        :func:`validate_normal_epithelium` scores.
+    ``reference_diploid``
+        Immune/stromal/endothelial, passed as separate additional categories.
+    ``query``
+        Tumour-sample epithelium — the cells being called.
+    ``unusable``
+        Cells in a patient with no viable reference at all.
+
+    Also returns, per patient, which `strategy` was used. A patient with enough
+    matched normal epithelium gets ``matched_normal``; one without falls back to
+    ``diploid_only`` and is flagged, because those calls come from a weaker
+    method and must not be silently pooled with the rest.
+    """
+    comp = np.asarray([str(c) for c in compartment], dtype=object)
+    tis = np.asarray([str(t) for t in tissue], dtype=object)
+    pat = np.asarray([str(p) for p in patient_id], dtype=object)
+    if not (comp.shape[0] == tis.shape[0] == pat.shape[0]):
+        raise MalignancyError(
+            f"lengths differ: compartment {comp.shape[0]}, tissue {tis.shape[0]}, "
+            f"patient_id {pat.shape[0]}"
+        )
+    if not 0.0 < holdout_fraction < 1.0:
+        raise MalignancyError(f"holdout_fraction must be in (0, 1), got {holdout_fraction}")
+
+    rng = np.random.default_rng(seed)
+    role = np.full(comp.shape, "unusable", dtype=object)
+    epithelial = comp == "epithelial"
+    diploid = np.isin(comp, DIPLOID_COMPARTMENTS)
+
+    rows = []
+    for patient in pd.unique(pat):
+        here = pat == patient
+        normal_epi = np.flatnonzero(here & epithelial & (tis == "normal"))
+        n_diploid = int((here & diploid).sum())
+
+        # Enough matched normal epithelium to both build a baseline and hold
+        # some back? min_cells applies to the baseline AFTER the holdout.
+        needed = int(np.ceil(min_cells / (1.0 - holdout_fraction)))
+        if normal_epi.size >= needed:
+            shuffled = rng.permutation(normal_epi)
+            n_hold = int(round(normal_epi.size * holdout_fraction))
+            role[shuffled[:n_hold]] = "holdout_normal_epi"
+            role[shuffled[n_hold:]] = "reference_normal_epi"
+            role[here & diploid] = "reference_diploid"
+            role[here & epithelial & (tis != "normal")] = "query"
+            strategy = "matched_normal"
+        elif n_diploid >= min_cells:
+            # No usable matched normal. Diploid-only reference, and every
+            # epithelial cell becomes a query — including normal-sample ones,
+            # which then serve as the (weaker) validation.
+            role[here & diploid] = "reference_diploid"
+            role[here & epithelial] = "query"
+            strategy = "diploid_only"
+        else:
+            strategy = "none"
+
+        rows.append(
+            {
+                "patient_id": patient,
+                "strategy": strategy,
+                "n_normal_epithelial": int(normal_epi.size),
+                "n_diploid": n_diploid,
+                "n_epithelial": int((here & epithelial).sum()),
+                "usable": strategy != "none",
+            }
+        )
+
+    return pd.DataFrame(
+        {"patient_id": pat, "compartment": comp, "tissue": tis, "role": role}
+    ), pd.DataFrame(rows)
+
+
 def select_cnv_reference(
     compartment: Any,
     *,
     patient_id: Any,
     min_cells: int = MIN_REFERENCE_CELLS,
 ) -> pd.DataFrame:
-    """Per-patient reference availability. Run before inferCNV, not after.
+    """Diploid reference availability per patient. Cheap pre-flight check.
 
-    Returns one row per patient with the reference cell count and whether it
-    clears `min_cells`. A patient without enough diploid cells cannot have
-    malignancy called at all, and that is a cohort fact worth knowing before
-    hours of CNV inference rather than after.
+    Kept for the case where only compartment labels are to hand. When tissue is
+    available prefer :func:`assign_cnv_roles`, which uses matched normal
+    epithelium as the baseline and holds part of it out.
     """
     frame = pd.DataFrame(
         {
@@ -84,7 +204,7 @@ def select_cnv_reference(
             "compartment": [str(c) for c in compartment],
         }
     )
-    frame["is_reference"] = frame["compartment"].isin(REFERENCE_COMPARTMENTS)
+    frame["is_reference"] = frame["compartment"].isin(DIPLOID_COMPARTMENTS)
     out = (
         frame.groupby("patient_id", observed=True)
         .agg(
@@ -167,13 +287,23 @@ def call_malignancy(
 
 
 def validate_normal_epithelium(
-    calls: pd.DataFrame, *, tissue: Any, min_specificity: float = MIN_NORMAL_SPECIFICITY
+    calls: pd.DataFrame,
+    *,
+    tissue: Any,
+    role: Any = None,
+    min_specificity: float = MIN_NORMAL_SPECIFICITY,
 ) -> pd.DataFrame:
     """**The check that makes the calls believable.** Per patient.
 
     Epithelium from a patient's *normal* sample should come back overwhelmingly
-    non-malignant. Because the CNV baseline is non-epithelial, this is a genuine
-    out-of-sample test rather than a restatement of the reference.
+    non-malignant.
+
+    Pass `role` from :func:`assign_cnv_roles` and the check runs on the
+    **held-out** normal epithelium only — cells that never entered the baseline,
+    so the test is genuinely out-of-sample. Without `role` it falls back to all
+    normal epithelium, which is only valid when the baseline was diploid-only;
+    under a matched-normal baseline that fallback is partly circular and the
+    specificity it reports is optimistic.
 
     execution_plan.md §4 lists it as the "done when" for this stage. If it fails,
     stop — every downstream compositional and intrinsic number would be computed
@@ -185,10 +315,24 @@ def validate_normal_epithelium(
         raise MalignancyError(f"tissue has {tissue_arr.shape[0]} entries for {len(calls)} cells")
 
     frame = calls.assign(tissue=tissue_arr)
-    normal = frame[
-        (frame["tissue"] == "normal")
-        & frame["call"].astype(str).isin(["malignant", "non_malignant"])
-    ]
+    if role is not None:
+        role_arr = np.asarray([str(r) for r in role], dtype=object)
+        if role_arr.shape[0] != len(calls):
+            raise MalignancyError(
+                f"role has {role_arr.shape[0]} entries for {len(calls)} cells"
+            )
+        frame = frame.assign(role=role_arr)
+        eligible = frame["role"] == "holdout_normal_epi"
+        if not eligible.any():
+            raise MalignancyError(
+                "no held-out normal epithelium. Either assign_cnv_roles fell back "
+                "to diploid_only for every patient, or roles were not passed "
+                "through — validating on baseline cells would be circular."
+            )
+    else:
+        eligible = frame["tissue"] == "normal"
+
+    normal = frame[eligible & frame["call"].astype(str).isin(["malignant", "non_malignant"])]
     if normal.empty:
         raise MalignancyError(
             "no called epithelium in normal samples — nothing to validate against"
@@ -213,10 +357,11 @@ def run_infercnv(*args: Any, **kwargs: Any) -> Any:
     reason ``_select_markers`` and ``flag_doublets`` are stubs.
 
     Drive it with ``src/reference/jobs/infercnv.sh``, which submits one array
-    task per patient. Pass the non-epithelial compartments as the reference
-    group, not the matched normal epithelium: see this module's docstring for
-    why the plan's wording cannot be taken literally without making the
-    validation circular.
+    task per patient. Take the reference groups from :func:`assign_cnv_roles`:
+    ``reference_normal_epi`` as the primary baseline, and each diploid
+    compartment as its own additional reference category so inferCNV's
+    per-category bounding can suppress cell-type false positives. Never pass the
+    held-out cells — they exist precisely so the validation is out-of-sample.
 
     Cross-check the result with CopyKAT and report the concordance — §4 asks for
     the cross-check, not a winner.

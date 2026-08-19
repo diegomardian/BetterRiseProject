@@ -12,12 +12,17 @@
 # call. This is also why it parallelises cleanly — §8.1 calls inferCNV on 371k
 # cells "hours to a day", and that is with the per-patient split.
 #
-# REFERENCE GROUP: the non-epithelial compartments (immune, stromal,
-# endothelial), NOT the matched normal epithelium. execution_plan.md §4 says
-# matched normal, but its own "done when" is that normal epithelium is not
-# misread as tumour — and a population used as the baseline is non-malignant by
-# construction, so that check would validate nothing. See
-# src/reference/malignancy.py for the full argument.
+# REFERENCE GROUPS: matched normal epithelium as the primary baseline (70% of it;
+# the other 30% is held out so the "normal epithelium is not misread as tumour"
+# check is out-of-sample), PLUS each diploid compartment as its own additional
+# reference category. Cell-type matching matters: inferCNV compares smoothed
+# expression along the genome, and a reference of a different cell type makes it
+# read cell-type differences as copy number. Keep the diploid compartments
+# separate rather than merged — inferCNV bounds the log fold change by the
+# per-category means, which is what suppresses those false positives.
+#
+# Never pass the held-out cells as reference. They exist to be scored.
+# assign_cnv_roles() in src/reference/malignancy.py emits the roles.
 #
 #$ -N brp_w1_infercnv
 #$ -pe omp 8
@@ -53,7 +58,7 @@ import os
 from src.reference.ingest import (
     read_gse178341_clusters, read_gse178341_index, assign_compartments,
 )
-from src.reference.malignancy import select_cnv_reference
+from src.reference.malignancy import assign_cnv_roles
 
 patient = sys.argv[1]
 data = Path(os.environ.get("BRP_DATA_DIR", "data")) / "raw" / "GSE178341"
@@ -63,15 +68,22 @@ clusters = read_gse178341_clusters(
 )
 compartment = assign_compartments(clusters).reindex(obs.index)
 here = obs["patient_id"] == patient
-report = select_cnv_reference(
-    compartment[here], patient_id=obs.loc[here, "patient_id"]
+roles, report = assign_cnv_roles(
+    compartment[here],
+    tissue=obs.loc[here, "tissue"],
+    patient_id=obs.loc[here, "patient_id"],
 )
 print(report.to_string(index=False))
+print(roles["role"].value_counts().to_string())
 if not bool(report["usable"].iloc[0]):
     raise SystemExit(
-        f"{patient}: too few non-epithelial reference cells. Malignancy is "
-        f"not_called for this patient rather than guessed."
+        f"{patient}: no viable CNV reference. Malignancy is not_called for this "
+        f"patient rather than guessed."
     )
+if report["strategy"].iloc[0] == "diploid_only":
+    print(f"!! {patient}: no matched normal epithelium — falling back to a "
+          f"diploid-only reference. These calls come from a weaker method and "
+          f"must not be pooled with matched_normal patients without saying so.")
 PY
 
 echo "=== running inferCNV for $PATIENT ==="
