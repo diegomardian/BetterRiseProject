@@ -191,7 +191,15 @@ def main() -> int:
         targets = tier_genes("A")
         print(f"\ntarget set for this run: {targets}")
 
-        keep = np.asarray(passes, dtype=bool)
+        # Decision #11: sorted samples have had their cell-type composition
+        # manipulated, so they cannot carry a compositional estimate. This filter
+        # was decided but never applied — earlier runs pooled C107's unsorted,
+        # CD45pMACS and LiveMACS tumour samples into one "tumour" arm.
+        unsorted = (adata.obs["PROCESSING_TYPE"].astype(str) == "unsorted").to_numpy()
+        keep = np.asarray(passes, dtype=bool) & unsorted
+        print(f"\nrestricted to UNSORTED samples for composition: "
+              f"{int(keep.sum()):,} of {int(np.asarray(passes).sum()):,} QC-passing "
+              f"cells (decision #11)")
         labels = assign_labels(
             adata.X[keep],
             adata.var["gene_symbol"],
@@ -203,6 +211,10 @@ def main() -> int:
             # in every arm and the compositional term cannot move.
             tissue=adata.obs["tissue"].to_numpy()[keep],
             patient_id=adata.obs["patient_id"].to_numpy()[keep],
+            # Depth matching: without it the maturity call partly measures
+            # sequencing depth (decision #14).
+            depth_quantile=0.10,
+            seed=DEFAULT_SEED,
             index=adata.obs.index[keep],
         )
         print("\naxis resolution — how much of each score is one tied block:")
@@ -239,6 +251,33 @@ def main() -> int:
               "FREE TO DIFFER —\nthat difference is the compositional term.")
         print(counts.sort_values(["granularity_rung", "patient_id", "tissue"])
               .to_string(index=False))
+
+    print("\n" + "=" * 70)
+    print("WHAT STILL BLOCKS A QUOTABLE COMPOSITIONAL NUMBER")
+    print("=" * 70)
+    print("""
+  APPLIED in this run
+    depth matching          maturity scored at a common depth (decision #14)
+    unsorted samples only   sorted samples cannot carry composition (#11)
+    mito cap 50%            was cutting normal 22.7 points harder (#12)
+    reference thresholds    cuts from each patient's own normal arm
+
+  NOT YET, and each can move the answer
+    malignancy calls        the "tumour" arm still contains NON-MALIGNANT
+                            epithelium from tumour samples. inferCNV is weeks
+                            2-3 and unwritten, so today's contrast is
+                            sample-of-origin, not malignant-vs-normal. This is
+                            the largest remaining gap.
+    ambient correction      contamination is measured (median 1.6%) but never
+                            subtracted; scores run on uncorrected counts
+    doublet removal         flag_doublets() is a stub. Doublets co-express
+                            markers from two compartments and inflate both the
+                            compartment call and the maturity score
+    tiny samples            C138_T_0_0_0_c2_v2 contributes 29 cells and is
+                            pooled with samples 100x larger
+    1,108 cells             370,115 here against a published 371,223, still
+                            unreconciled
+""")
 
     print("\n--- pct_mito distribution, for open decision #12 ---")
     print("Pick the cap from this, not from convention. 20% is a lymphocyte number;")

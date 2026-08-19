@@ -26,6 +26,7 @@ from src.reference.labels import (
     NON_EPITHELIAL,
     RUNG_SPECS,
     TRANSCRIPT_AXES,
+    UNRESOLVED,
     LabelError,
     assign_labels,
     axis_tie_fraction,
@@ -257,7 +258,8 @@ class TestLabelGrid:
         labels = assign_labels(matrix, GENES, compartment=compartment, sample_id=sample_id,
                                target_genes=TARGETS)
         for rung, spec in RUNG_SPECS.items():
-            values = set(labels[label_column("stem_pole", rung)].astype(str)) - {NON_EPITHELIAL}
+            values = set(labels[label_column("stem_pole", rung)].astype(str))
+            values -= {NON_EPITHELIAL, UNRESOLVED}
             assert values <= set(spec.bins), rung
 
     def test_granularity_curve_is_monotone_in_mature_fraction(self, cohort):
@@ -267,11 +269,13 @@ class TestLabelGrid:
         matrix, compartment, sample_id, _ = cohort
         labels = assign_labels(matrix, GENES, compartment=compartment, sample_id=sample_id,
                                target_genes=TARGETS)
-        epithelial = compartment == "epithelial"
-        fractions = {
-            rung: mature_mask(labels, "stem_pole", rung)[epithelial].mean()
-            for rung in RUNG_SPECS
-        }
+        # Denominator is the RESOLVED epithelium — cells dropped by depth
+        # matching are not immature, they are unmeasured.
+        fractions = {}
+        for rung in RUNG_SPECS:
+            column = labels[label_column("stem_pole", rung)].astype(str).to_numpy()
+            resolved = ~np.isin(column, [NON_EPITHELIAL, UNRESOLVED])
+            fractions[rung] = mature_mask(labels, "stem_pole", rung)[resolved].mean()
         assert fractions["epithelial"] == pytest.approx(1.0)
         assert fractions["epithelial"] > fractions["lineage"] > fractions["best4"]
         assert fractions["best4"] < 0.15
@@ -834,7 +838,7 @@ class TestTieCollapse:
             axes=["stem_pole"], rungs=["crypt_position"],
         )
         values = set(labels[label_column("stem_pole", "crypt_position")].astype(str))
-        values.discard(NON_EPITHELIAL)
+        values -= {NON_EPITHELIAL, UNRESOLVED}
         assert values <= set(RUNG_SPECS["crypt_position"].bins)
         # The extremes must both survive the fallback.
         assert RUNG_SPECS["crypt_position"].bins[0] in values
@@ -945,3 +949,198 @@ class TestDepthConfounding:
                                sample_id=sample_id, target_genes=TARGETS)
         with pytest.raises(LabelError, match="rows for"):
             label_depth_confounding(labels, pd.DataFrame({"n_counts": [1], "n_genes": [1]}))
+
+
+class TestDepthMatchingRemovesTheConfound:
+    """The pilot's headline problem, and the proof the fix works.
+
+    Unmatched, axis 1's mature cells came back four times shallower than its
+    non-mature cells (median 4,791 counts against 18,829) — the maturity call was
+    substantially a depth measurement. Binomial thinning to a common depth should
+    drive that ratio back toward 1.
+    """
+
+    def _confounded_cohort(self, n_per_group: int = 400):
+        """Depth varies INDEPENDENTLY of the true population.
+
+        Half the cells are truly stem-like, half truly mature, and each cell is
+        sequenced deep or shallow at random. The markers are deliberately sparse
+        — about 0.5 expected counts per marker in a shallow cell — so a shallow
+        stem cell often drops out to zero and gets miscalled mature. Any
+        association between the maturity call and depth is therefore pure
+        artifact, which is what depth matching has to remove.
+
+        A fixture where depth and biology move together (which was my first
+        attempt) cannot test this: there is nothing to separate.
+        """
+        stem = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            stem[GENES.index(gene)] = 0.01      # sparse, like the real markers
+        mature = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            mature[GENES.index(gene)] = 0.0
+
+        rng = np.random.default_rng(4242)
+        blocks = []
+        for profile in (stem, mature):
+            p = profile / profile.sum()
+            depths = rng.choice([3_000, 20_000], size=n_per_group)   # independent
+            blocks.append(rng.poisson(np.outer(depths, p)).astype(np.int64))
+        matrix = np.vstack(blocks)
+        total = matrix.shape[0]
+        return (
+            matrix,
+            np.full(total, "epithelial", dtype=object),
+            np.full(total, "P1", dtype=object),
+            np.full(total, "normal", dtype=object),
+        )
+
+    def _miscalls_by_depth(self, depth_target):
+        """Ground truth is available here, so measure the property that matters:
+        are the errors depth-dependent?
+
+        Depth matching does not reduce the error rate — it makes the error
+        UNBIASED with respect to depth. Unmatched, every miscalled stem cell is a
+        shallow one; matched, the miscalls split evenly.
+        """
+        matrix, compartment, patient, tissue = self._confounded_cohort()
+        totals = matrix.sum(axis=1)
+        truth = np.array(["stem"] * 400 + ["mature"] * 400, dtype=object)
+
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["lineage"], depth_target=depth_target,
+        )
+        called_mature = mature_mask(labels, "stem_pole", "lineage")
+        wrong = (truth == "stem") & called_mature      # stem cells called mature
+        shallow = totals < 10_000
+        return int((wrong & shallow).sum()), int((wrong & ~shallow).sum())
+
+    def test_unmatched_errors_are_all_in_shallow_cells(self):
+        """The confound in its purest form: dropout, not biology."""
+        shallow, deep = self._miscalls_by_depth(depth_target=0)
+        assert shallow > 0
+        assert deep == 0, f"expected all miscalls shallow, got {shallow}/{deep}"
+
+    def test_matching_makes_the_errors_depth_balanced(self):
+        """Not fewer errors — unbiased ones."""
+        shallow, deep = self._miscalls_by_depth(depth_target=2_500)
+        assert shallow > 0 and deep > 0
+        assert abs(shallow - deep) / (shallow + deep) < 0.35, f"{shallow}/{deep}"
+
+    def test_a_lower_target_balances_them_further(self):
+        shallow, deep = self._miscalls_by_depth(depth_target=1_500)
+        assert abs(shallow - deep) / (shallow + deep) < 0.2, f"{shallow}/{deep}"
+
+    def test_the_auc_statistic_survives_bimodal_depth(self):
+        """counts_ratio flips its median when a bin splits near 50/50 on a
+        bimodal depth distribution. depth_auc must not."""
+        from src.reference.qc import cell_qc_metrics
+
+        matrix, compartment, patient, tissue = self._confounded_cohort()
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["lineage"], depth_target=1_500,
+        )
+        report = label_depth_confounding(
+            labels, cell_qc_metrics(matrix, GENES, batch=tissue),
+            axes=["stem_pole"], rungs=["lineage"],
+        )
+        assert abs(float(report.iloc[0]["depth_auc"]) - 0.5) < 0.1
+
+    def test_a_strong_monotone_confound_is_still_caught(self):
+        """The pilot's case: a 4x median gap, not a median flip. Both statistics
+        should fire."""
+        from src.reference.qc import cell_qc_metrics
+
+        stem = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            stem[GENES.index(gene)] = 40.0
+        flat = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            flat[GENES.index(gene)] = 0.0
+        blocks = []
+        for profile, depth, n in ((stem, 20_000, 400), (flat, 3_000, 400)):
+            p = profile / profile.sum()
+            blocks.append(RNG.poisson(np.outer(np.full(n, depth), p)).astype(np.int64))
+        matrix = np.vstack(blocks)
+        total = matrix.shape[0]
+        compartment = np.full(total, "epithelial", dtype=object)
+        tissue = np.full(total, "normal", dtype=object)
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue,
+            patient_id=np.full(total, "P1", dtype=object),
+            axes=["stem_pole"], rungs=["lineage"], depth_target=0,
+        )
+        report = label_depth_confounding(
+            labels, cell_qc_metrics(matrix, GENES, batch=tissue),
+            axes=["stem_pole"], rungs=["lineage"],
+        )
+        assert bool(report.iloc[0]["flagged"])
+        assert float(report.iloc[0]["counts_ratio"]) < 0.75
+
+    def test_shallow_cells_become_unresolved_not_immature(self):
+        """A cell that could not be measured is not a cell measured to be
+        immature — open decision #14's distinction, in code."""
+        matrix, compartment, patient, tissue = self._confounded_cohort()
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["lineage"], depth_target=10_000,
+        )
+        values = labels[label_column("stem_pole", "lineage")].astype(str)
+        assert (values == UNRESOLVED).sum() > 0
+        # Unresolved cells are neither mature nor counted as the immature bin.
+        assert not mature_mask(labels, "stem_pole", "lineage")[values == UNRESOLVED].any()
+
+    def test_counts_report_the_unresolved_share(self):
+        matrix, compartment, patient, tissue = self._confounded_cohort()
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["lineage"], depth_target=10_000,
+        )
+        counts = mature_cell_counts(
+            labels, patient_id=patient, tissue=tissue,
+            axes=["stem_pole"], rungs=["lineage"],
+        )
+        row = counts.iloc[0]
+        assert row["n_cells_unresolved"] > 0
+        assert row["unresolved_fraction"] > 0
+        assert row["n_cells_resolved"] + row["n_cells_unresolved"] == row["n_cells_epithelial"]
+        # The fraction is over resolved cells, so it is not diluted by them.
+        assert row["mature_fraction"] <= 1.0
+
+    def test_matching_is_deterministic(self):
+        """Thinning is random; the seed must make it reproducible."""
+        matrix, compartment, patient, tissue = self._confounded_cohort()
+        kwargs = dict(
+            compartment=compartment, sample_id=tissue, target_genes=TARGETS,
+            tissue=tissue, patient_id=patient, axes=["stem_pole"],
+            rungs=["lineage"], depth_target=2_500,
+        )
+        a = assign_labels(matrix, GENES, seed=7, **kwargs)
+        b = assign_labels(matrix, GENES, seed=7, **kwargs)
+        pd.testing.assert_frame_equal(a, b)
+
+    def test_the_compositional_signal_survives_matching(self):
+        """Matching must not destroy real signal while removing the artifact."""
+        from tests.test_reference_labels import TestCompositionalSignalIsRecoverable as T
+
+        maker = T()
+        matrix, compartment, patient, tissue = maker._paired(0.50, 0.10)
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["lineage"], depth_target=2_000,
+        )
+        counts = mature_cell_counts(
+            labels, patient_id=patient, tissue=tissue,
+            axes=["stem_pole"], rungs=["lineage"],
+        ).set_index("tissue")
+        normal = counts.loc["normal", "mature_fraction"]
+        tumour = counts.loc["tumour", "mature_fraction"]
+        assert tumour < normal - 0.2, f"normal={normal:.3f} tumour={tumour:.3f}"

@@ -66,6 +66,12 @@ from src.reference.signature import assert_no_target_leakage
 #: Transcript-based axes. Chromatin and spatial are axis 3 and carry no markers.
 TRANSCRIPT_AXES: Final[tuple[str, ...]] = ("stem_pole", "opposite_lineage")
 
+#: Epithelial cells too shallow to score comparably once depth is matched.
+#: Kept as their own label rather than folded into the least-mature bin: a cell
+#: that could not be measured is not a cell measured to be immature, and open
+#: decision #14 turns on exactly that distinction.
+UNRESOLVED: Final[str] = "unresolved_depth"
+
 #: Label given to cells outside the epithelium. They are not scored — a maturity
 #: value for a fibroblast is meaningless — but they keep a row so the label frame
 #: aligns with the AnnData it came from.
@@ -188,6 +194,26 @@ def _positions(gene_names: Any, wanted: Any) -> tuple[np.ndarray, list[str]]:
     return np.array([lookup[g] for g in found], dtype=int), found
 
 
+def _thin_to_depth(
+    subset: np.ndarray, totals: np.ndarray, target: float, seed: int
+) -> np.ndarray:
+    """Binomial thinning of marker counts to a common sequencing depth.
+
+    Each count is kept with probability ``target / total``, so every cell's
+    marker counts are drawn as if it had been sequenced to `target` UMIs. The
+    denominator is then the same for all cells and depth stops being a variable.
+
+    This is the fix for the confound the pilot exposed: axis 1's mature cells
+    came back four times shallower than its non-mature cells (median 4,791 counts
+    against 18,829), because zero counts stay zero after CP10K normalisation, and
+    because one stochastic count in a 1,000-UMI cell outranks ten in a
+    20,000-UMI cell. Normalising a ratio cannot undo that; matching the depth can.
+    """
+    probability = np.clip(target / np.maximum(totals, 1.0), 0.0, 1.0)
+    rng = np.random.default_rng(seed)
+    return rng.binomial(subset.astype(np.int64), probability[:, None]).astype(float)
+
+
 def score_markers(
     expression: Any,
     gene_names: Any,
@@ -196,6 +222,8 @@ def score_markers(
     context: str,
     target_genes: Any,
     normalise: bool = True,
+    depth_target: float | None = None,
+    seed: int = 20260101,
 ) -> np.ndarray:
     """Per-cell score: mean z-scored, depth-normalised log expression of `markers`.
 
@@ -229,11 +257,15 @@ def score_markers(
 
     subset = expression[:, positions]
     subset = np.asarray(subset.todense() if hasattr(subset, "todense") else subset, dtype=float)
+    totals = np.asarray(expression.sum(axis=1), dtype=float).ravel()
 
-    if normalise:
-        totals = np.asarray(expression.sum(axis=1), dtype=float).reshape(-1, 1)
-        totals[totals == 0] = 1.0
-        subset = np.log1p(subset / totals * 1e4)
+    if depth_target is not None:
+        # Depth-matched: thin to a common depth, then use that fixed denominator.
+        subset = _thin_to_depth(subset, totals, depth_target, seed)
+        subset = np.log1p(subset / depth_target * 1e4)
+    elif normalise:
+        safe = np.where(totals == 0, 1.0, totals).reshape(-1, 1)
+        subset = np.log1p(subset / safe * 1e4)
 
     centre = subset.mean(axis=0)
     spread = subset.std(axis=0)
@@ -249,7 +281,7 @@ def score_markers(
 
 def maturity_score(
     expression: Any, gene_names: Any, axis: str, *, target_genes: Any,
-    normalise: bool = True,
+    normalise: bool = True, depth_target: float | None = None, seed: int = 20260101,
 ) -> np.ndarray:
     """Per-cell maturity along `axis`. Higher is more mature.
 
@@ -268,6 +300,7 @@ def maturity_score(
     return -score_markers(
         expression, gene_names, markers, context=f"axis {axis!r} labels",
         target_genes=target_genes, normalise=normalise,
+        depth_target=depth_target, seed=seed,
     )
 
 
@@ -392,6 +425,9 @@ def assign_labels(
     tissue: Any = None,
     patient_id: Any = None,
     reference_tissue: str = "normal",
+    depth_target: float | None = None,
+    depth_quantile: float = 0.10,
+    seed: int = 20260101,
     axes: Any = TRANSCRIPT_AXES,
     rungs: Any = None,
     normalise: bool = True,
@@ -423,6 +459,19 @@ def assign_labels(
 
         With `tissue=None` the reference falls back to all epithelial cells,
         which is only correct when there is no tumour/normal contrast to make.
+    depth_target, depth_quantile:
+        **Depth matching.** Pass a target depth, or leave it None to use the
+        `depth_quantile` of epithelial totals. Marker counts are binomially
+        thinned to that depth so every cell is scored as if sequenced equally.
+
+        Without it the maturity call partly measures sequencing depth: on the
+        pilot, axis 1's mature cells were four times shallower than its
+        non-mature cells. Cells whose own depth is below the target cannot be
+        thinned up and are labelled `unresolved_depth` — measurable in principle,
+        not measurable here.
+
+        Set `depth_target=0` to disable matching entirely, which reproduces the
+        confounded behaviour and should only be used to demonstrate it.
     target_genes:
         The genes under test for this run. Required, no default (invariant 2).
         **Labels are therefore specific to a target set**, which is the price of
@@ -472,18 +521,49 @@ def assign_labels(
             "ingest.assign_compartments(), whose epithelial value is 'epithelial'."
         )
 
+    totals = np.asarray(expression.sum(axis=1), dtype=float).ravel()
+    if depth_target is None:
+        depth_target = float(np.quantile(totals[epithelial], depth_quantile))
+    matched = depth_target > 0
+    if matched:
+        resolvable = epithelial & (totals >= depth_target)
+        if not resolvable.any():
+            raise LabelError(
+                f"no epithelial cell reaches the depth target {depth_target:.0f}. "
+                f"Lower depth_quantile, or pass depth_target explicitly."
+            )
+        dropped = int(epithelial.sum() - resolvable.sum())
+        if dropped:
+            print(
+                f"note: {dropped:,} of {int(epithelial.sum()):,} epithelial cells "
+                f"are below the depth target {depth_target:,.0f} and are labelled "
+                f"{UNRESOLVED!r} — not scored, not counted as immature."
+            )
+        # The reference must also be depth-matched, or the cut points come from a
+        # differently-sequenced population than the cells being cut.
+        reference = reference & resolvable
+        if not reference.any():
+            raise LabelError(
+                "no reference cell survives depth matching; the cut points would "
+                "come from nothing. Lower depth_quantile."
+            )
+    else:
+        resolvable = epithelial
+
     frame = pd.DataFrame(index=pd.RangeIndex(n_cells) if index is None else pd.Index(index))
     best4_score: np.ndarray | None = None
 
     for axis in axes:
         scores = maturity_score(
-            expression, gene_names, axis, target_genes=target_genes, normalise=normalise
+            expression, gene_names, axis, target_genes=target_genes,
+            normalise=normalise,
+            depth_target=depth_target if matched else None, seed=seed,
         )
         for rung in rungs:
             spec = RUNG_SPECS[rung]
             if spec.markers is None:
                 labels = _bin_against_reference(
-                    scores, groups, spec.bins, epithelial, reference
+                    scores, groups, spec.bins, resolvable, reference
                 )
             else:
                 if best4_score is None:
@@ -491,12 +571,14 @@ def assign_labels(
                         expression, gene_names, spec.markers,
                         context=f"rung {rung!r} labels",
                         target_genes=target_genes, normalise=normalise,
+                        depth_target=depth_target if matched else None, seed=seed,
                     )
                 labels = _gate_against_reference(
-                    best4_score, groups, spec.bins, epithelial, reference, BEST4_QUANTILE
+                    best4_score, groups, spec.bins, resolvable, reference, BEST4_QUANTILE
                 )
+            labels[epithelial & ~resolvable] = UNRESOLVED
             frame[label_column(axis, rung)] = pd.Categorical(
-                labels, categories=[NON_EPITHELIAL, *spec.bins]
+                labels, categories=[NON_EPITHELIAL, UNRESOLVED, *spec.bins]
             )
     return frame
 
@@ -553,24 +635,41 @@ def mature_cell_counts(
             # .to_numpy() on BOTH: `keys` has a RangeIndex while `labels` is
             # indexed by barcode, so assigning a Series here aligns on index,
             # matches nothing, and silently yields an all-NaN column.
-            epithelial = (
-                labels[label_column(axis, rung)].astype(str).ne(NON_EPITHELIAL).to_numpy()
-            )
+            column = labels[label_column(axis, rung)].astype(str).to_numpy()
+            epithelial = column != NON_EPITHELIAL
+            unresolved = column == UNRESOLVED
             grouped = (
-                keys.assign(mature=mature, epithelial=epithelial)
+                keys.assign(mature=mature, epithelial=epithelial, unresolved=unresolved)
                 .groupby(["patient_id", "tissue"], observed=True)
-                .agg(n_cells_mature=("mature", "sum"), n_cells_epithelial=("epithelial", "sum"))
+                .agg(
+                    n_cells_mature=("mature", "sum"),
+                    n_cells_epithelial=("epithelial", "sum"),
+                    n_cells_unresolved=("unresolved", "sum"),
+                )
                 .reset_index()
             )
             grouped["labeling_axis"] = axis
             grouped["granularity_rung"] = rung
+            # Denominator is the RESOLVED epithelium. Cells dropped by depth
+            # matching are reported separately rather than counted as immature —
+            # a cell that could not be measured is not a cell measured to be
+            # immature (open decision #14).
+            grouped["n_cells_resolved"] = (
+                grouped["n_cells_epithelial"] - grouped["n_cells_unresolved"]
+            )
             # np.where evaluates BOTH branches, so a guard around the division
-            # does not prevent it. Blank the denominator instead: a group with no
-            # epithelium has no mature fraction, and NaN says so.
-            denominator = grouped["n_cells_epithelial"].astype(float)
+            # does not prevent it. Blank the denominator instead.
+            denominator = grouped["n_cells_resolved"].astype(float)
             grouped["mature_fraction"] = (
                 grouped["n_cells_mature"].astype(float)
                 / denominator.where(denominator > 0)
+            )
+            # How much of the epithelium the fraction could not speak for. A
+            # large value means the fraction is bounded, not measured.
+            epithelium = grouped["n_cells_epithelial"].astype(float)
+            grouped["unresolved_fraction"] = (
+                grouped["n_cells_unresolved"].astype(float)
+                / epithelium.where(epithelium > 0)
             )
             rows.append(grouped)
     return pd.concat(rows, ignore_index=True)
@@ -724,6 +823,7 @@ def label_depth_confounding(
     axes: Any = TRANSCRIPT_AXES,
     rungs: Any = None,
     warn_ratio: float = 1.25,
+    warn_auc: float = 0.10,
 ) -> pd.DataFrame:
     """Is the maturity call tracking sequencing depth rather than biology?
 
@@ -741,7 +841,14 @@ def label_depth_confounding(
     mature cells are shallower; `flagged` marks a gap beyond `warn_ratio` in
     either direction.
 
-    Returns one row per (axis, rung) with median counts and genes in each bin.
+    Two statistics, because neither is sufficient alone. `counts_ratio` compares
+    medians and is what caught the pilot's 4x gap, but it is fragile when depth is
+    bimodal — a bin split near 50/50 flips its median to whichever side holds one
+    extra cell. `depth_auc` is the rank probability that a mature cell is deeper
+    than a non-mature one: 0.5 means no association, and it is unaffected by
+    bimodality. Either exceeding its tolerance sets `flagged`.
+
+    Returns one row per (axis, rung).
     """
     rungs = list(rungs) if rungs is not None else granularity_rungs()
     for column in ("n_counts", "n_genes"):
@@ -752,6 +859,21 @@ def label_depth_confounding(
 
     counts = np.asarray(metrics["n_counts"], dtype=float)
     genes = np.asarray(metrics["n_genes"], dtype=float)
+
+    def _auc(values: np.ndarray, positive: np.ndarray) -> float:
+        """P(a mature cell is deeper than a non-mature one). 0.5 = no association."""
+        order = np.argsort(values, kind="mergesort")
+        ranks = np.empty(values.size, dtype=float)
+        ranks[order] = np.arange(1, values.size + 1)
+        # Average ranks within ties so a tied block cannot fake an association.
+        unique, inverse, counts_ = np.unique(values, return_inverse=True, return_counts=True)
+        sums = np.zeros(unique.size)
+        np.add.at(sums, inverse, ranks)
+        ranks = (sums / counts_)[inverse]
+        n1, n0 = int(positive.sum()), int((~positive).sum())
+        if n1 == 0 or n0 == 0:
+            return float("nan")
+        return float((ranks[positive].sum() - n1 * (n1 + 1) / 2) / (n1 * n0))
 
     rows = []
     for axis in axes:
@@ -765,6 +887,7 @@ def label_depth_confounding(
             median_mature = float(np.median(counts[mature]))
             median_other = float(np.median(counts[other]))
             ratio = median_mature / median_other if median_other else np.nan
+            area = _auc(counts[scored], mature[scored])
             rows.append(
                 {
                     "labeling_axis": axis,
@@ -775,9 +898,11 @@ def label_depth_confounding(
                     "counts_ratio": ratio,
                     "median_genes_mature": float(np.median(genes[mature])),
                     "median_genes_other": float(np.median(genes[other])),
+                    "depth_auc": area,
                     "flagged": bool(
-                        np.isfinite(ratio)
-                        and (ratio < 1 / warn_ratio or ratio > warn_ratio)
+                        (np.isfinite(ratio)
+                         and (ratio < 1 / warn_ratio or ratio > warn_ratio))
+                        or (np.isfinite(area) and abs(area - 0.5) > warn_auc)
                     ),
                 }
             )
