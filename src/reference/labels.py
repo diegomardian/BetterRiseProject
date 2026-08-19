@@ -320,7 +320,6 @@ def _bin_against_reference(
         return out
 
     quantiles = np.linspace(0, 1, len(bins) + 1)[1:-1]
-    labels = np.asarray(bins, dtype=object)
     for group in pd.unique(groups):
         here = epithelial & (groups == group)
         if not here.any():
@@ -329,7 +328,29 @@ def _bin_against_reference(
         if cuts is None:
             out[here] = bins[0]
             continue
-        out[here] = labels[np.searchsorted(cuts, values[here], side="right")]
+
+        # Coincident cut points collapse a bin. It happens when a large block of
+        # cells share a score — on axis 1, every cell with zero counts across all
+        # five stem markers — so a quantile boundary lands inside the tie and the
+        # next one lands on the same value. searchsorted can then never return
+        # the middle index and that bin silently never appears: the pilot's
+        # stem_pole crypt_position came back as two bins, with crypt_middle
+        # absent and the result identical to the lineage rung.
+        #
+        # Use the distinct boundaries only and keep the extremes. A binary split
+        # honestly reported beats a three-way split with an empty middle.
+        distinct = np.unique(cuts)
+        index = np.searchsorted(distinct, values[here], side="right")
+        if distinct.size == len(bins) - 1:
+            usable = np.asarray(bins, dtype=object)
+        else:
+            usable = np.asarray((bins[0], *bins[-distinct.size:]), dtype=object)
+            print(
+                f"note: group {group!r} supports only {distinct.size + 1} of "
+                f"{len(bins)} bins — scores are tied across a quantile boundary. "
+                f"Using {tuple(usable)}."
+            )
+        out[here] = usable[index]
     return out
 
 
@@ -649,3 +670,48 @@ def maturity_summary(
     out["study_id"] = study_id
     out = out.dropna(subset=["frac_mature_normal", "frac_mature_tumour"])
     return out.reset_index(drop=True)
+
+
+def axis_tie_fraction(
+    expression: Any,
+    gene_names: Any,
+    axis: str,
+    *,
+    target_genes: Any,
+    epithelial: Any = None,
+    normalise: bool = True,
+) -> dict[str, float]:
+    """How much of the maturity score is a single tied block. **Run this first.**
+
+    Axis 1's markers (LGR5, ASCL2, MKI67, OLFM4, SMOC2) are sparsely detected, so
+    a large share of epithelial cells carry zero counts for all five and share an
+    identical score. Quantile boundaries cannot split a tie, which is what
+    collapsed `crypt_position` into two bins on the pilot.
+
+    The deeper issue is interpretive, not mechanical: a cell with no detected
+    stem markers might be genuinely differentiated, or might simply be shallow.
+    Scoring it as maximally mature is inference from absence of evidence, and how
+    to treat those cells is a decision for the team rather than a default — see
+    the note in the module docstring.
+
+    Returns the tied fraction, the size of the largest tied block, and the number
+    of distinct score values, so the problem is a number rather than an
+    impression.
+    """
+    scores = maturity_score(
+        expression, gene_names, axis, target_genes=target_genes, normalise=normalise
+    )
+    if epithelial is not None:
+        scores = scores[np.asarray(epithelial, dtype=bool)]
+    if scores.size == 0:
+        raise LabelError("no cells to score")
+
+    values, counts = np.unique(np.round(scores, 10), return_counts=True)
+    largest = int(counts.max())
+    return {
+        "n_cells": int(scores.size),
+        "n_distinct_scores": int(values.size),
+        "largest_tied_block": largest,
+        "tied_fraction": float(largest / scores.size),
+        "resolvable_fraction": float(1.0 - largest / scores.size),
+    }

@@ -43,6 +43,7 @@ from src.reference.ingest import (
 )
 from src.reference.labels import (
     assign_labels,
+    axis_tie_fraction,
     describe_labels,
     mature_cell_counts,
 )
@@ -203,6 +204,17 @@ def main() -> int:
             patient_id=adata.obs["patient_id"].to_numpy()[keep],
             index=adata.obs.index[keep],
         )
+        print("\naxis resolution — how much of each score is one tied block:")
+        for axis in ("stem_pole", "opposite_lineage"):
+            stats = axis_tie_fraction(
+                adata.X[keep], adata.var["gene_symbol"], axis,
+                target_genes=targets,
+                epithelial=(compartment.to_numpy()[keep] == "epithelial"),
+            )
+            print(f"  {axis:<18} tied {stats['tied_fraction']:.1%} "
+                  f"(largest block {stats['largest_tied_block']:,} of "
+                  f"{stats['n_cells']:,}, {stats['n_distinct_scores']:,} distinct)")
+
         print(f"\nlabelled {len(labels):,} QC-passing cells, "
               f"{len(labels.columns)} columns")
         print(describe_labels(labels).to_string(index=False))

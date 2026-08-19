@@ -28,6 +28,7 @@ from src.reference.labels import (
     TRANSCRIPT_AXES,
     LabelError,
     assign_labels,
+    axis_tie_fraction,
     cell_type_vector,
     describe_labels,
     label_column,
@@ -780,3 +781,99 @@ class TestCompositionalSignalIsRecoverable:
         normal, tumour = self._fraction(0.50, 0.10)
         assert abs(normal - 0.5) < 0.15      # reference defines the cut
         assert tumour < 0.35                  # tumour is NOT pinned to it
+
+
+class TestTieCollapse:
+    """Coincident quantile cuts must not silently delete a bin.
+
+    On the pilot, stem_pole/crypt_position came back with only crypt_bottom and
+    crypt_top — crypt_middle never appeared — and the result was byte-identical
+    to the lineage rung. Cells with zero counts across all five axis-1 markers
+    share a score, so both tertile boundaries landed inside that tie.
+    """
+
+    def _tied(self, n_tied: int = 900, n_spread: int = 100):
+        """A cohort where most epithelial cells have no axis-1 marker counts."""
+        spread = np.full(len(GENES), 1.0)
+        for i, gene in enumerate(STEM):
+            spread[GENES.index(gene)] = 20.0 * (i + 1)
+        flat = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            flat[GENES.index(gene)] = 0.0
+
+        blocks = []
+        for profile, n in ((flat, n_tied), (spread, n_spread)):
+            p = profile / profile.sum()
+            blocks.append(RNG.poisson(np.outer(np.full(n, 5000), p)).astype(np.int64))
+        matrix = np.vstack(blocks)
+        total = matrix.shape[0]
+        return (
+            matrix,
+            np.full(total, "epithelial", dtype=object),
+            np.full(total, "P1", dtype=object),
+            np.array(["normal"] * total, dtype=object),
+        )
+
+    def test_the_diagnostic_reports_the_tie(self):
+        matrix, compartment, _, _ = self._tied()
+        stats = axis_tie_fraction(
+            matrix, GENES, "stem_pole", target_genes=TARGETS,
+            epithelial=compartment == "epithelial",
+        )
+        assert stats["tied_fraction"] > 0.5
+        assert stats["largest_tied_block"] >= 900
+
+    def test_no_bin_is_silently_empty(self):
+        """Whatever bins appear, none of the declared ones may be missing without
+        the fallback having been taken."""
+        matrix, compartment, patient, tissue = self._tied()
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["crypt_position"],
+        )
+        values = set(labels[label_column("stem_pole", "crypt_position")].astype(str))
+        values.discard(NON_EPITHELIAL)
+        assert values <= set(RUNG_SPECS["crypt_position"].bins)
+        # The extremes must both survive the fallback.
+        assert RUNG_SPECS["crypt_position"].bins[0] in values
+        assert RUNG_SPECS["crypt_position"].mature in values
+
+    def test_the_extremes_are_kept_not_the_middle(self):
+        """A binary fallback must span bottom-to-top, not collapse onto adjacent
+        bins — the mature end has to stay the mature end."""
+        matrix, compartment, patient, tissue = self._tied()
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["crypt_position"],
+        )
+        column = labels[label_column("stem_pole", "crypt_position")].astype(str)
+        if "crypt_middle" not in set(column):
+            assert {"crypt_bottom", "crypt_top"} <= set(column)
+
+    def test_an_unresolvable_axis_still_labels_every_cell(self):
+        """All markers zero everywhere: no gradient exists at all."""
+        matrix = RNG.poisson(5, size=(200, len(GENES))).astype(np.int64)
+        for gene in STEM:
+            matrix[:, GENES.index(gene)] = 0
+        compartment = np.full(200, "epithelial", dtype=object)
+        tissue = np.full(200, "normal", dtype=object)
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue,
+            patient_id=np.full(200, "P1", dtype=object),
+            axes=["stem_pole"], rungs=["crypt_position"],
+        )
+        assert labels.notna().all().all()
+
+    def test_a_well_spread_axis_keeps_all_three_bins(self):
+        """The fallback must not fire when the data does support three bins."""
+        matrix, compartment, patient, tissue = self._tied(n_tied=0, n_spread=900)
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["crypt_position"],
+        )
+        values = set(labels[label_column("stem_pole", "crypt_position")].astype(str))
+        assert set(RUNG_SPECS["crypt_position"].bins) <= values
