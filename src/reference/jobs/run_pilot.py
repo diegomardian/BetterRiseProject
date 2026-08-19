@@ -217,6 +217,23 @@ def main() -> int:
             seed=DEFAULT_SEED,
             index=adata.obs.index[keep],
         )
+        # The depth target trades ties against unresolved cells: a lower target
+        # keeps more cells but detects fewer marker counts, so the tied block
+        # grows. Report the trade rather than hiding it behind one default.
+        print("\ndepth target trade-off (tie fraction vs cells lost):")
+        epi_mask = compartment.to_numpy()[keep] == "epithelial"
+        epi_totals = np.asarray(adata.X[keep].sum(axis=1)).ravel()[epi_mask]
+        for q in (0.05, 0.10, 0.25, 0.50):
+            target = float(np.quantile(epi_totals, q))
+            stats = axis_tie_fraction(
+                adata.X[keep], adata.var["gene_symbol"], "stem_pole",
+                target_genes=targets, epithelial=epi_mask,
+                depth_target=target,
+            )
+            print(f"  q={q:<5} target {target:>8,.0f}  "
+                  f"stem_pole tied {stats['tied_fraction']:.1%}  "
+                  f"cells lost {q:.0%}")
+
         print("\naxis resolution — how much of each score is one tied block:")
         for axis in ("stem_pole", "opposite_lineage"):
             stats = axis_tie_fraction(

@@ -1144,3 +1144,40 @@ class TestDepthMatchingRemovesTheConfound:
         normal = counts.loc["normal", "mature_fraction"]
         tumour = counts.loc["tumour", "mature_fraction"]
         assert tumour < normal - 0.2, f"normal={normal:.3f} tumour={tumour:.3f}"
+
+
+def test_depth_diagnostic_excludes_unresolved_cells():
+    """UNRESOLVED cells are defined by low depth, so including them in the
+    comparison guarantees a perfect association. The pilot reported
+    counts_ratio 11.8 and AUC 1.000 for the epithelial rung, which was the
+    diagnostic measuring its own definition rather than the labels.
+    """
+    from src.reference.qc import cell_qc_metrics
+
+    rng = np.random.default_rng(11)
+    profile = np.full(len(GENES), 1.0)
+    for gene in STEM:
+        profile[GENES.index(gene)] = 0.01
+    p = profile / profile.sum()
+    depths = np.concatenate([np.full(300, 20_000), np.full(300, 900)])
+    matrix = rng.poisson(np.outer(depths, p)).astype(np.int64)
+    total = matrix.shape[0]
+    compartment = np.full(total, "epithelial", dtype=object)
+    tissue = np.full(total, "normal", dtype=object)
+
+    labels = assign_labels(
+        matrix, GENES, compartment=compartment, sample_id=tissue,
+        target_genes=TARGETS, tissue=tissue,
+        patient_id=np.full(total, "P1", dtype=object),
+        axes=["stem_pole"], rungs=["epithelial"], depth_target=5_000,
+    )
+    assert (labels[label_column("stem_pole", "epithelial")].astype(str)
+            == UNRESOLVED).sum() > 0
+
+    report = label_depth_confounding(
+        labels, cell_qc_metrics(matrix, GENES, batch=tissue),
+        axes=["stem_pole"], rungs=["epithelial"],
+    )
+    # Every resolved cell is mature at this rung, so there is no comparison to
+    # make and the row is omitted rather than reported as a perfect confound.
+    assert len(report) == 0 or float(report.iloc[0]["depth_auc"]) < 0.99

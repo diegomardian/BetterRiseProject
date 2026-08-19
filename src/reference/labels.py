@@ -779,6 +779,8 @@ def axis_tie_fraction(
     target_genes: Any,
     epithelial: Any = None,
     normalise: bool = True,
+    depth_target: float | None = None,
+    seed: int = 20260101,
 ) -> dict[str, float]:
     """How much of the maturity score is a single tied block. **Run this first.**
 
@@ -798,7 +800,8 @@ def axis_tie_fraction(
     impression.
     """
     scores = maturity_score(
-        expression, gene_names, axis, target_genes=target_genes, normalise=normalise
+        expression, gene_names, axis, target_genes=target_genes,
+        normalise=normalise, depth_target=depth_target, seed=seed,
     )
     if epithelial is not None:
         scores = scores[np.asarray(epithelial, dtype=bool)]
@@ -879,7 +882,11 @@ def label_depth_confounding(
     for axis in axes:
         for rung in rungs:
             column = labels[label_column(axis, rung)].astype(str).to_numpy()
-            scored = column != NON_EPITHELIAL
+            # UNRESOLVED cells are excluded from BOTH sides. They are defined by
+            # having low depth, so leaving them in the comparison guarantees a
+            # perfect association and reports AUC 1.0 for the epithelial rung —
+            # a property of the diagnostic, not of the labels.
+            scored = ~np.isin(column, [NON_EPITHELIAL, UNRESOLVED])
             mature = column == RUNG_SPECS[rung].mature
             other = scored & ~mature
             if not mature.any() or not other.any():
