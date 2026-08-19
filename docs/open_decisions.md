@@ -618,6 +618,59 @@ Both are covered by tests that call W2's and W4's real functions rather than moc
 
 ---
 
+## 14 · Neither labelling axis is a clean maturity measure — OPEN, BLOCKS COMPOSITION
+
+**Raised:** W1, 2026-08-18 (from the pilot) · **Owner:** W1 + W2 + W4 ·
+**Needed by:** before any compositional number is quoted
+
+Measured on 16,955 QC-passing epithelial cells:
+
+| axis | tied fraction | largest tied block | distinct scores |
+|---|---|---|---|
+| `stem_pole` | **44.8%** | 7,593 | 9,329 |
+| `opposite_lineage` | 13.5% | 2,296 | 14,373 |
+
+**Axis 1's mature bin IS the tied block, exactly.** 16,955 − 7,593 = 9,362, which
+is precisely the `stem_like` / `crypt_bottom` count from the same run. The
+threshold lands on the tie boundary, so "mature" on axis 1 means nothing more
+than *no stem marker was detected in this cell*. It is a detection split, not a
+graded maturity call.
+
+That is a problem because **zero counts stay zero after depth normalisation**. A
+shallower cell is likelier to have none of LGR5/ASCL2/MKI67/OLFM4/SMOC2 and so be
+called mature, and per-sample count thresholds on this deposit span 5,140 to
+162,736. `label_depth_confounding()` in
+[src/reference/labels.py](../src/reference/labels.py) measures it directly.
+
+**Axis 2 has the opposite problem**: it resolves well (13.5% tied) but measures
+*absence of the goblet program*, and "not secretory" is not "mature". On the
+pilot C162's tumour read 0.856 mature on axis 2 against 0.200 on axis 1, and
+C165's tumour read exactly 0.000 — a tumour with few goblet cells scores as
+uniformly mature.
+
+So the two axes fail in opposite ways: axis 1 is well-conceived but poorly
+resolved on this data; axis 2 is well-resolved but measuring the wrong quantity.
+README design decision 2 chose them for structural independence, which they have
+— but neither is clean, and "agreement across axes" is weakened when both are
+individually suspect.
+
+### Options
+
+| | Approach | Cost |
+|---|---|---|
+| a | **Treat unresolvable cells as unscored** — give them their own label, exclude from the mature numerator, and report the fraction as partially unidentifiable. | Most honest, and matches the project's own three-way framing. Changes what the compositional denominator means, so W4 and W2 must agree. |
+| b | Keep them as mature and carry the depth confound as a stated limitation. | Cheapest, and wrong if `label_depth_confounding()` flags — the bias would sit in the headline number. |
+| c | Restrict the analysis to cells above a depth floor where absence is informative. | Defensible; costs cells, and the floor is another arbitrary cut needing justification. |
+| d | Add axis 3 (chromatin/spatial) sooner than week 13+, since it is not transcript-based and has neither failure mode. | Expensive, but it is the only axis immune to both problems. |
+
+**Recommendation: (a), with (c) as a sensitivity analysis.** A cell with no
+detected stem markers might be genuinely differentiated or merely shallow, and
+scoring it as maximally mature is inference from absence of evidence — the exact
+move this project refuses elsewhere. **This is a scientific choice, not a default
+W1 should pick**, which is why it is here rather than in the code.
+
+---
+
 ## Closed
 
 *(none yet — move entries here with the date and the decision, do not delete them)*

@@ -33,6 +33,7 @@ from src.reference.labels import (
     describe_labels,
     label_column,
     label_columns,
+    label_depth_confounding,
     mature_cell_counts,
     mature_mask,
     maturity_score,
@@ -877,3 +878,70 @@ class TestTieCollapse:
         )
         values = set(labels[label_column("stem_pole", "crypt_position")].astype(str))
         assert set(RUNG_SPECS["crypt_position"].bins) <= values
+
+
+class TestDepthConfounding:
+    """Zero counts stay zero after depth normalisation, so a shallow cell is more
+    likely to be called mature on a sparsely detected axis. On the pilot, axis 1's
+    mature bin was exactly the tied block of cells with no stem-marker counts.
+    """
+
+    def _cohort_with_depth_split(self, deep_depth=20_000, shallow_depth=1_500):
+        """Stem-marker-positive cells sequenced deep, marker-free cells shallow —
+        the confound in its purest form."""
+        stem = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            stem[GENES.index(gene)] = 40.0
+        flat = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            flat[GENES.index(gene)] = 0.0
+
+        blocks = []
+        for profile, depth, n in ((stem, deep_depth, 400), (flat, shallow_depth, 400)):
+            p = profile / profile.sum()
+            blocks.append(RNG.poisson(np.outer(np.full(n, depth), p)).astype(np.int64))
+        matrix = np.vstack(blocks)
+        total = matrix.shape[0]
+        return (
+            matrix,
+            np.full(total, "epithelial", dtype=object),
+            np.full(total, "P1", dtype=object),
+            np.full(total, "normal", dtype=object),
+        )
+
+    def _run(self, matrix, compartment, patient, tissue):
+        from src.reference.qc import cell_qc_metrics
+
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["lineage"],
+        )
+        metrics = cell_qc_metrics(matrix, GENES, batch=tissue)
+        return label_depth_confounding(labels, metrics, axes=["stem_pole"],
+                                       rungs=["lineage"])
+
+    def test_a_depth_confound_is_detected(self):
+        report = self._run(*self._cohort_with_depth_split())
+        assert len(report) == 1
+        assert bool(report.iloc[0]["flagged"])
+        assert report.iloc[0]["counts_ratio"] < 1.0   # mature cells are shallower
+
+    def test_balanced_depth_is_not_flagged(self):
+        report = self._run(*self._cohort_with_depth_split(20_000, 20_000))
+        assert not bool(report.iloc[0]["flagged"])
+        assert report.iloc[0]["counts_ratio"] == pytest.approx(1.0, abs=0.25)
+
+    def test_reports_both_counts_and_genes(self):
+        report = self._run(*self._cohort_with_depth_split())
+        assert {"median_counts_mature", "median_counts_other",
+                "median_genes_mature", "median_genes_other"} <= set(report.columns)
+
+    def test_metrics_length_mismatch_raises(self, cohort):
+        import pandas as pd
+
+        matrix, compartment, sample_id, _ = cohort
+        labels = assign_labels(matrix, GENES, compartment=compartment,
+                               sample_id=sample_id, target_genes=TARGETS)
+        with pytest.raises(LabelError, match="rows for"):
+            label_depth_confounding(labels, pd.DataFrame({"n_counts": [1], "n_genes": [1]}))

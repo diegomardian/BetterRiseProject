@@ -45,6 +45,7 @@ from src.reference.labels import (
     assign_labels,
     axis_tie_fraction,
     describe_labels,
+    label_depth_confounding,
     mature_cell_counts,
 )
 from src.reference.qc import (
@@ -218,6 +219,15 @@ def main() -> int:
         print(f"\nlabelled {len(labels):,} QC-passing cells, "
               f"{len(labels.columns)} columns")
         print(describe_labels(labels).to_string(index=False))
+
+        depth_report = label_depth_confounding(labels, metrics[keep].reset_index(drop=True))
+        print("\nis the maturity call tracking DEPTH rather than biology?")
+        print("(counts_ratio < 1 means mature cells are shallower — an artifact)")
+        print(depth_report.to_string(index=False))
+        if depth_report["flagged"].any():
+            print("\n!! flagged rows: the mature fraction is partly a depth measurement,\n"
+                  "   so Delta(mature fraction) between arms of differing depth is partly\n"
+                  "   an artifact. Do not quote a compositional number from those rungs.")
 
         counts = mature_cell_counts(
             labels,

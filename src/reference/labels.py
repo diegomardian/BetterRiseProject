@@ -715,3 +715,70 @@ def axis_tie_fraction(
         "tied_fraction": float(largest / scores.size),
         "resolvable_fraction": float(1.0 - largest / scores.size),
     }
+
+
+def label_depth_confounding(
+    labels: pd.DataFrame,
+    metrics: pd.DataFrame,
+    *,
+    axes: Any = TRANSCRIPT_AXES,
+    rungs: Any = None,
+    warn_ratio: float = 1.25,
+) -> pd.DataFrame:
+    """Is the maturity call tracking sequencing depth rather than biology?
+
+    **Run this before quoting any compositional number.**
+
+    Both axes score on sparsely detected markers, and zero counts stay zero after
+    depth normalisation — a shallow cell is more likely to have none of the five
+    stem markers and so be called mature. On the pilot, axis 1's mature bin was
+    *exactly* the tied block of cells with no stem-marker counts at all (7,593 of
+    16,955), which makes the concern concrete rather than theoretical.
+
+    If mature cells are systematically shallower than non-mature ones, the mature
+    fraction is partly a depth measurement, and Delta(mature fraction) between
+    two arms with different depth is partly an artifact. `ratio` below 1 means
+    mature cells are shallower; `flagged` marks a gap beyond `warn_ratio` in
+    either direction.
+
+    Returns one row per (axis, rung) with median counts and genes in each bin.
+    """
+    rungs = list(rungs) if rungs is not None else granularity_rungs()
+    for column in ("n_counts", "n_genes"):
+        if column not in metrics.columns:
+            raise LabelError(f"metrics needs a {column} column (from cell_qc_metrics)")
+    if len(metrics) != len(labels):
+        raise LabelError(f"metrics has {len(metrics)} rows for {len(labels)} cells")
+
+    counts = np.asarray(metrics["n_counts"], dtype=float)
+    genes = np.asarray(metrics["n_genes"], dtype=float)
+
+    rows = []
+    for axis in axes:
+        for rung in rungs:
+            column = labels[label_column(axis, rung)].astype(str).to_numpy()
+            scored = column != NON_EPITHELIAL
+            mature = column == RUNG_SPECS[rung].mature
+            other = scored & ~mature
+            if not mature.any() or not other.any():
+                continue
+            median_mature = float(np.median(counts[mature]))
+            median_other = float(np.median(counts[other]))
+            ratio = median_mature / median_other if median_other else np.nan
+            rows.append(
+                {
+                    "labeling_axis": axis,
+                    "granularity_rung": rung,
+                    "n_mature": int(mature.sum()),
+                    "median_counts_mature": median_mature,
+                    "median_counts_other": median_other,
+                    "counts_ratio": ratio,
+                    "median_genes_mature": float(np.median(genes[mature])),
+                    "median_genes_other": float(np.median(genes[other])),
+                    "flagged": bool(
+                        np.isfinite(ratio)
+                        and (ratio < 1 / warn_ratio or ratio > warn_ratio)
+                    ),
+                }
+            )
+    return pd.DataFrame(rows)
