@@ -90,18 +90,25 @@ def test_reference_must_carry_non_epithelial_compartments():
         )
 
 
-def test_marker_selection_is_reached_only_after_every_guard_passes():
-    """The scaffold owns the guard rails; W1 owns the biology. With a clean
-    index and all compartments present, we should land on W1's TODO."""
+def test_a_signature_is_produced_once_every_guard_passes():
+    """The scaffold owned the guard rails; W1 has now supplied the biology.
+
+    Previously this asserted we landed on a NotImplementedError. Marker
+    selection is implemented, so the assertion becomes: all four leakage checks
+    run, the compartment requirement is met, and a usable signature comes back.
+    """
     index = _clean_index()
     labels = ["mature_colonocyte", "stem", "stromal", "immune", "endothelial"] * 10
-    with pytest.raises(NotImplementedError, match="W1 owns marker selection"):
-        build_signature(
-            _expression(index),
-            labels,
-            target_genes=TARGETS,
-            gene_index=index,
-        )
+    signature = build_signature(
+        _expression(index),
+        labels,
+        target_genes=TARGETS,
+        gene_index=index,
+    )
+    assert MIN_SIGNATURE_GENES <= len(signature) <= MAX_SIGNATURE_GENES
+    assert set(signature.columns) == set(labels)
+    # The emitted matrix is still checked against the target set.
+    assert_no_target_leakage(signature.index, TARGETS, context="the emitted S matrix")
 
 
 def test_whole_panel_can_be_held_out_at_once():

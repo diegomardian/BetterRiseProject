@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
+import numpy as np
 import pandas as pd
 
 #: execution_plan.md §2.1 error #4 — nu-SVR robustness comes from high
@@ -128,19 +129,123 @@ def build_signature(
     return profiles
 
 
+#: A gene detected in fewer than this share of a cell type's cells is not a
+#: marker for it, however large the fold change looks. Guards against a handful
+#: of cells with a big count setting the reference profile for a whole column.
+MIN_DETECTION_RATE = 0.10
+
+#: Pseudocount for the log fold change, so a gene absent from the rest of the
+#: cells does not produce an infinite score and monopolise the ranking.
+LFC_PSEUDOCOUNT = 1e-3
+
+
 def _select_markers(
     expression: pd.DataFrame,
     cell_type: Sequence[str],
     *,
     n_genes: int,
 ) -> list[str]:
-    """Pick n_genes discriminative markers. W1 — unimplemented.
+    """Pick `n_genes` discriminative markers: one-vs-rest, quota per cell type.
 
-    Suggested starting point: per-cell-type one-vs-rest differential expression,
-    take the top-k per type, union, then cap at n_genes. Whatever you choose,
-    write down why in the docstring — the bake-off in W2 will be interpreted
-    against this choice.
+    Why this and not something else
+    -------------------------------
+    Deconvolution recovers cell fractions by asking which mixture of reference
+    columns explains a bulk profile, so the signature has to *separate the
+    columns*. That makes one-vs-rest differential expression the natural
+    criterion — a gene earns its place by being high in one column and low in the
+    others — and it is what CIBERSORT-style signatures use.
+
+    Three choices inside it are worth stating, because W2's bake-off will be
+    interpreted against them (execution_plan.md §4):
+
+    1. **A per-cell-type quota, not a global ranking.** A global top-N is
+       dominated by the most abundant and most transcriptionally distinct
+       compartments, so the rare columns get few genes and their fractions
+       become the least identifiable. In this cohort epithelium and T cells
+       would swamp endothelium and mast cells. Each type gets an equal quota
+       first; only leftovers are filled by global rank.
+    2. **A detection floor** (`MIN_DETECTION_RATE`). Log fold change alone
+       rewards a gene detected in three cells of a type with a large count. Such
+       a gene is noise in the reference profile and worse in the bulk, where it
+       is diluted. A gene must be seen in at least 10% of the type's cells.
+    3. **Mean of log, not log of mean.** `expression` arrives log-normalised;
+       averaging on that scale weights cells equally rather than letting the
+       deepest cells set the profile.
+
+    What it does not do: no HVG pre-filter, no variance stabilisation, no
+    marker-list prior. Those would each be defensible, and each would need its
+    own justification against the bake-off. This is the plain version, chosen so
+    that when W2 compares deconvolution methods the signature is not itself a
+    confounder.
+
+    Determinism: ties break on gene name, so the same input gives the same
+    signature. Invariant 10 depends on it.
     """
-    raise NotImplementedError(
-        "W1 owns marker selection — see src/reference/README.md, week 4-5."
-    )
+    if n_genes < MIN_SIGNATURE_GENES:
+        raise ValueError(
+            f"n_genes={n_genes} is below the {MIN_SIGNATURE_GENES} minimum. "
+            f"nu-SVR robustness comes from high dimensionality; the 11-gene panel "
+            f"is for interpretation, not deconvolution (execution_plan.md §2.1 "
+            f"error #4)."
+        )
+
+    labels = pd.Series(list(cell_type), index=expression.index, name="cell_type")
+    types = sorted(labels.unique())
+    if len(types) < 2:
+        raise ValueError(
+            f"need at least two cell types to select discriminative markers, got "
+            f"{types}. A one-column reference cannot separate anything."
+        )
+
+    detected = expression.gt(0)
+    means = expression.groupby(labels, observed=True).mean()
+    rates = detected.groupby(labels, observed=True).mean()
+
+    # One-vs-rest on the log scale: the type's mean against the mean of the
+    # other types, each type weighted equally so a large type does not define
+    # "the rest" on its own.
+    scores: dict[str, pd.Series] = {}
+    for cell_type_name in types:
+        rest = means.drop(index=cell_type_name).mean(axis=0)
+        lfc = means.loc[cell_type_name] - rest + LFC_PSEUDOCOUNT
+        eligible = rates.loc[cell_type_name] >= MIN_DETECTION_RATE
+        scores[cell_type_name] = lfc.where(eligible, other=-np.inf)
+
+    quota = max(1, n_genes // len(types))
+    chosen: list[str] = []
+    seen: set[str] = set()
+    for cell_type_name in types:
+        ranked = scores[cell_type_name]
+        ranked = ranked[np.isfinite(ranked)]
+        # Sort by score, then by name, so ties are resolved identically every run.
+        order = sorted(ranked.index, key=lambda g: (-ranked[g], g))
+        for gene in order:
+            if len(chosen) >= n_genes:
+                break
+            if gene not in seen:
+                chosen.append(gene)
+                seen.add(gene)
+            if sum(1 for g in chosen if g in set(order[:quota])) >= quota:
+                break
+
+    if len(chosen) < n_genes:
+        # Fill the remainder by best score across any type, still deterministic.
+        best = pd.DataFrame(scores).max(axis=1)
+        best = best[np.isfinite(best)]
+        for gene in sorted(best.index, key=lambda g: (-best[g], g)):
+            if len(chosen) >= n_genes:
+                break
+            if gene not in seen:
+                chosen.append(gene)
+                seen.add(gene)
+
+    if len(chosen) < min(n_genes, MIN_SIGNATURE_GENES):
+        raise ValueError(
+            f"only {len(chosen)} of the requested {n_genes} genes cleared the "
+            f"detection floor across {len(types)} cell types, below the "
+            f"{MIN_SIGNATURE_GENES} minimum. "
+            f"nu-SVR robustness comes from high dimensionality "
+            f"(execution_plan.md §2.1 error #4) — lower MIN_DETECTION_RATE or "
+            f"widen the gene pool rather than shipping a thin signature."
+        )
+    return chosen
