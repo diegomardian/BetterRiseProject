@@ -32,9 +32,11 @@ import numpy as np
 import pandas as pd
 
 from src.common.io import write_versioned_table
-from src.common.panel import tier_genes
+from src.common.panel import granularity_rungs, tier_genes
+from src.common.paths import s_matrix_path
 from src.common.provenance import DEFAULT_SEED, set_global_seeds
 from src.reference.ambient import contamination_by_sample, soup_profile_from_cells
+from src.reference.gene_index import read_gene_index
 from src.reference.ingest import (
     assign_compartments,
     read_gse178341,
@@ -42,9 +44,11 @@ from src.reference.ingest import (
     read_gse178341_metadata,
 )
 from src.reference.labels import (
+    NON_EPITHELIAL,
     assign_labels,
     axis_tie_fraction,
     describe_labels,
+    label_column,
     label_depth_confounding,
     mature_cell_counts,
 )
@@ -55,6 +59,7 @@ from src.reference.qc import (
     qc_summary,
     qc_thresholds,
 )
+from src.reference.signature import build_signature
 
 PILOT = ["C122", "C165", "C107", "C138", "C162"]
 
@@ -71,6 +76,15 @@ EPITHELIAL_COMPARTMENT = "Epi"
 
 #: Below this many epithelial cells a per-sample contamination estimate is noise.
 MIN_CELLS_FOR_CONTAMINATION = 20
+
+#: Shared gene index version. W3 emits bulk on the same one.
+GENE_INDEX_VERSION = "1.0.0"
+
+#: S matrix version. Bump rather than overwrite — results cite it by version.
+S_MATRIX_VERSION = "0.1.0-pilot"
+
+#: Within [500, 2000] per §2.1 error 4. Modest for a five-patient pilot.
+SIGNATURE_GENES = 800
 
 
 def main() -> int:
@@ -268,6 +282,55 @@ def main() -> int:
               "FREE TO DIFFER —\nthat difference is the compositional term.")
         print(counts.sort_values(["granularity_rung", "patient_id", "tissue"])
               .to_string(index=False))
+
+    print("\n--- pilot S matrix (the W2 handoff) ---")
+    if len(labels):
+        try:
+            index = read_gene_index(GENE_INDEX_VERSION)
+        except Exception as exc:
+            print(f"!! no gene index: {exc}")
+            print("   run: python src/reference/jobs/emit_gene_index.py --version "
+                  f"{GENE_INDEX_VERSION}")
+        else:
+            # Rows are the shared index, so W3's bulk joins onto this directly.
+            ensembl = list(adata.var["ensembl_id"])
+            expression = pd.DataFrame(
+                np.log1p(
+                    np.asarray(adata.X[keep].todense())
+                    / np.maximum(
+                        np.asarray(adata.X[keep].sum(axis=1)), 1.0
+                    ).reshape(-1, 1)
+                    * 1e4
+                ),
+                columns=ensembl,
+                index=adata.obs.index[keep],
+            )
+            # Compartment for the non-epithelial columns; within epithelium, the
+            # rung's own bins. §2.1 error 3 needs stromal/immune/endothelial.
+            for rung in granularity_rungs():
+                column = labels[label_column("stem_pole", rung)].astype(str).to_numpy()
+                cell_type = np.where(
+                    column == NON_EPITHELIAL,
+                    compartment.to_numpy()[keep],
+                    column,
+                )
+                try:
+                    s_matrix = build_signature(
+                        expression, cell_type,
+                        target_genes=targets, gene_index=index,
+                        n_genes=SIGNATURE_GENES,
+                    )
+                except Exception as exc:
+                    print(f"  {rung:<16} FAILED: {exc}")
+                    continue
+                path = s_matrix_path(rung, S_MATRIX_VERSION)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                s_matrix.to_parquet(path)
+                print(f"  {rung:<16} {s_matrix.shape[0]:,} genes x "
+                      f"{s_matrix.shape[1]} columns -> {path.name}")
+            print("\n  Hand W2 these plus the labelled object. Have them load it")
+            print("  against the frozen schema before week 2 closes — if they can")
+            print("  read it without asking a question, the interface holds.")
 
     print("\n" + "=" * 70)
     print("WHAT STILL BLOCKS A QUOTABLE COMPOSITIONAL NUMBER")
