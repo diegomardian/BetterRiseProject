@@ -297,7 +297,7 @@ def main() -> int:
             # 8.3 GB and will not allocate. build_signature_sparse aggregates
             # per cell type without materialising that array.
             ensembl = list(adata.var["ensembl_id"])
-            counts = adata.X[keep]
+            count_matrix = adata.X[keep]
             for rung in granularity_rungs():
                 column = labels[label_column("stem_pole", rung)].astype(str).to_numpy()
                 # Compartment for non-epithelial cells; the rung's own bins
@@ -309,7 +309,7 @@ def main() -> int:
                 )
                 try:
                     s_matrix = build_signature_sparse(
-                        counts, ensembl, cell_type,
+                        count_matrix, ensembl, cell_type,
                         target_genes=targets, gene_index=index,
                         n_genes=SIGNATURE_GENES,
                     )
@@ -395,6 +395,10 @@ def main() -> int:
         (describe_labels(labels) if len(labels) else labels, "pilot_label_summary"),
         (counts, "pilot_mature_cell_counts"),
     ):
+        if not isinstance(frame, pd.DataFrame):
+            print(f"  !! {name}: expected a DataFrame, got "
+                  f"{type(frame).__name__} — skipping")
+            continue
         if len(frame):
             path = write_versioned_table(
                 frame, name, seed=DEFAULT_SEED, allow_dirty=True,
