@@ -270,7 +270,15 @@ def main() -> int:
         epi_mask = compartment.to_numpy()[keep] == "epithelial"
         epi_totals = np.asarray(adata.X[keep].sum(axis=1)).ravel()[epi_mask]
         n_epi = int(epi_mask.sum())
-        print("  q      target   tied   kept   USABLE  depth_ratio  AUC  kappa  flagged")
+        # A depth floor does not remove a random half of the epithelium — it
+        # removes the shallow SAMPLES. C138's per-batch upper count thresholds
+        # run 5,140-10,453, so a 9,244 floor takes most of that patient, and a
+        # patient that loses either arm contributes to neither term (#9). Kappa
+        # is measured on whoever survives, so it can improve precisely because
+        # the hard patients left. Report the paired n beside it.
+        MIN_RESOLVED_PER_ARM = 50
+        print("  q      target   tied   kept   USABLE  depth_ratio  AUC  kappa  "
+              "paired  flagged")
         best_q, best_kappa = None, -np.inf
         for q in (0.05, 0.10, 0.25, 0.50, 0.65):
             target = float(np.quantile(epi_totals, q))
@@ -314,17 +322,38 @@ def main() -> int:
                     )["kappa"]
                 except Exception as exc:  # noqa: BLE001 - diagnostic only
                     print(f"  (kappa unavailable at q={q}: {exc})")
+            trial_counts = mature_cell_counts(
+                trial,
+                patient_id=adata.obs["patient_id"].to_numpy()[keep],
+                tissue=adata.obs["tissue"].to_numpy()[keep],
+                axes=["stem_pole"], rungs=["lineage"],
+            )
+            usable_arms = trial_counts[
+                trial_counts["n_cells_resolved"] >= MIN_RESOLVED_PER_ARM
+            ]
+            paired = int(
+                (usable_arms.groupby("patient_id", observed=True)["tissue"]
+                 .nunique() >= 2).sum()
+            )
+
             if np.isfinite(kappa) and kappa > best_kappa:
                 best_q, best_kappa = q, kappa
             print(f"  {q:<5} {target:>8,.0f} {stats['tied_fraction']:>6.1%} "
                   f"{kept:>6.1%} {usable:>7.1%} {ratio:>12.3f} {auc:>5.3f} "
-                  f"{kappa:>6.3f}  {flagged}")
+                  f"{kappa:>6.3f} {paired:>6}   {flagged}")
         if best_q is not None:
             print(f"\n  -> kappa peaks at q={best_q} ({best_kappa:.3f}). Depth "
                   f"matching cannot clear the depth flag on this axis — the "
                   f"mature bin IS the undetected block — so pick the target by "
                   f"agreement with an independent annotation, not by the flag. "
                   f"The run below used q={DEPTH_QUANTILE}.")
+            print(f"     But read the `paired` column first: it counts patients "
+                  f"keeping BOTH arms with >={MIN_RESOLVED_PER_ARM} resolved "
+                  f"epithelial cells.\n     Kappa is measured on the survivors, "
+                  f"so a target that drops the shallow patients can raise it "
+                  f"without\n     the labels having got any better. If `paired` "
+                  f"falls as kappa rises, that is the trade, and\n     the "
+                  f"compositional n is what the project spends.")
         else:
             print("\n  -> no target produced a usable kappa. Axis 1 may not be "
                   "measurable on this data at any depth (open decision #14).")

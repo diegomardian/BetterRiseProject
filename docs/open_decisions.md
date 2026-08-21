@@ -604,7 +604,7 @@ and the mature fraction is the compositional term, so divergence is not cosmetic
 | crypt_position | top 15% | top 33% (tertiles) |
 | best4 | top 5% | top 5% (marker-gated, not score-binned) |
 | Scoring | mean raw expression | depth-normalised, z-scored per gene |
-| Quantiles computed | over the whole input | **within each sample** |
+| Cut points computed | over the whole input | **within each patient's NORMAL arm** |
 | Non-epithelial cells | caller must pre-filter | labelled `non_epithelial` explicitly |
 
 Three of these matter:
@@ -617,8 +617,16 @@ Three of these matter:
    capture efficiency, so a raw-mean score ranks deep cells as more mature for
    technical reasons. W1 normalises for this. Lee may not need it; the two should
    still agree on whether it is done.
-3. **Per-sample vs pooled quantiles.** Pooling lets one sample's depth and
-   composition decide another's labels.
+3. **Where the cut points come from.** Pooling lets one sample's depth and
+   composition decide another's labels. But **per-sample quantiles are worse**,
+   and W1 learned this the expensive way: a within-sample quantile cannot express
+   a between-sample difference, so it forces the mature fraction to equal the
+   quantile in every arm and Δ(mature fraction) is **identically zero by
+   construction**. Observed on the pilot — every `opposite_lineage` arm returned
+   exactly 0.500 at `lineage` and 0.333 at `crypt_position`. W1 now takes cut
+   points from **the patient's own normal arm** and applies that absolute
+   threshold to their tumour, which is the only one of the three that leaves the
+   compositional term free to move. W4 must do the same or the term is zero.
 
 W4's own docstring defers on the numbers — *"Swap them for whatever W1/W2 lands on
 once real cells are in hand; this file's job is the plumbing... not the final
@@ -626,8 +634,9 @@ number."* So this is a handoff waiting to happen rather than a disagreement.
 
 **Recommendation: adopt W1's definitions, now that they have been run on real
 cells.** Specifically: all-epithelium at the coarsest rung (it is the lower bound
-of the granularity curve and is *supposed* to look degenerate), per-sample
-quantiles, depth-normalised z-scored input, and marker-gating rather than
+of the granularity curve and is *supposed* to look degenerate), **cut points
+from the patient's own normal arm — not per-sample quantiles**,
+depth-normalised z-scored input, and marker-gating rather than
 score-binning for BEST4+ since that population is discrete. W1 keeps the
 categorical bin names — they carry which bin, not merely mature-or-not, which the
 granularity curve needs.
