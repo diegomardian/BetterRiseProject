@@ -174,3 +174,105 @@ class TestSMatrix:
                 target_genes=["GUCA2A"], gene_index=self._index(expression),
                 n_genes=600,
             )
+
+
+class TestSparsePath:
+    """The dense path allocates cells x genes — 8.3 GB at pilot scale, which is
+    where the first S matrix attempt died. The sparse path must give the same
+    answer without ever materialising that array."""
+
+    def _sparse_cohort(self, n_cells=600, n_genes=2000):
+        from scipy import sparse
+
+        rng = np.random.default_rng(7)
+        genes = [f"ENSG{i:08d}" for i in range(n_genes)]
+        types = list(TYPES)
+        labels = [types[i % len(types)] for i in range(n_cells)]
+
+        dense = rng.poisson(0.4, size=(n_cells, n_genes)).astype(np.float32)
+        block = n_genes // len(types)
+        for index, cell_type in enumerate(types):
+            rows = [i for i, t in enumerate(labels) if t == cell_type]
+            dense[np.ix_(rows, range(index * block, (index + 1) * block))] += 15.0
+        return sparse.csr_matrix(dense), genes, labels
+
+    def test_it_produces_a_signature_without_densifying(self):
+        from src.reference.signature import build_signature_sparse
+
+        matrix, genes, labels = self._sparse_cohort()
+        signature = build_signature_sparse(
+            matrix, genes, labels,
+            target_genes=["GUCA2A"], gene_index=genes, n_genes=600,
+        )
+        assert MIN_SIGNATURE_GENES <= len(signature) <= MAX_SIGNATURE_GENES
+        assert set(signature.columns) == set(TYPES)
+
+    def test_it_matches_the_dense_path(self):
+        """Same aggregates, so the same markers and the same profiles."""
+        from src.reference.signature import build_signature_sparse, normalise_sparse
+
+        matrix, genes, labels = self._sparse_cohort()
+        normalised = normalise_sparse(matrix)
+        dense = pd.DataFrame(np.asarray(normalised.todense()), columns=genes)
+
+        sparse_signature = build_signature_sparse(
+            matrix, genes, labels, target_genes=["GUCA2A"],
+            gene_index=genes, n_genes=600,
+        )
+        dense_signature = build_signature(
+            dense, labels, target_genes=["GUCA2A"], gene_index=genes, n_genes=600,
+        )
+        assert list(sparse_signature.index) == list(dense_signature.index)
+        np.testing.assert_allclose(
+            sparse_signature.to_numpy(), dense_signature.to_numpy(), rtol=1e-4
+        )
+
+    def test_normalisation_preserves_sparsity(self):
+        """CP10K is a diagonal scaling and log1p(0) is 0, so nothing densifies."""
+        from src.reference.signature import normalise_sparse
+
+        matrix, _, _ = self._sparse_cohort()
+        out = normalise_sparse(matrix)
+        assert out.nnz == matrix.nnz
+
+    def test_every_guard_still_runs(self):
+        from src.reference.signature import LeakageError, build_signature_sparse
+
+        matrix, genes, labels = self._sparse_cohort()
+        with pytest.raises(ValueError, match="target_genes is empty"):
+            build_signature_sparse(
+                matrix, genes, labels, target_genes=[], gene_index=genes, n_genes=600
+            )
+        with pytest.raises(LeakageError, match="invariant 2"):
+            build_signature_sparse(
+                matrix, genes, labels, target_genes=[genes[0]],
+                gene_index=genes, n_genes=600,
+            )
+        epithelial_only = ["mature_colonocyte"] * len(labels)
+        with pytest.raises(ValueError, match="missing compartment"):
+            build_signature_sparse(
+                matrix, genes, epithelial_only, target_genes=["GUCA2A"],
+                gene_index=genes, n_genes=600,
+            )
+
+    def test_genes_off_the_shared_index_are_dropped(self):
+        """W3 joins on this index; anything not on it cannot participate."""
+        from src.reference.signature import build_signature_sparse
+
+        matrix, genes, labels = self._sparse_cohort()
+        index = genes[:1200]
+        signature = build_signature_sparse(
+            matrix, genes, labels, target_genes=["GUCA2A"],
+            gene_index=index, n_genes=600,
+        )
+        assert set(signature.index) <= set(index)
+
+    def test_a_matrix_sharing_nothing_with_the_index_raises(self):
+        from src.reference.signature import build_signature_sparse
+
+        matrix, genes, labels = self._sparse_cohort()
+        with pytest.raises(ValueError, match="unversioned Ensembl"):
+            build_signature_sparse(
+                matrix, genes, labels, target_genes=["GUCA2A"],
+                gene_index=["NOTHING_MATCHES"], n_genes=600,
+            )

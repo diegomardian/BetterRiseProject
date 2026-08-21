@@ -45,6 +45,7 @@ from src.reference.ingest import (
 )
 from src.reference.labels import (
     NON_EPITHELIAL,
+    UNRESOLVED,
     assign_labels,
     axis_tie_fraction,
     describe_labels,
@@ -59,7 +60,7 @@ from src.reference.qc import (
     qc_summary,
     qc_thresholds,
 )
-from src.reference.signature import build_signature
+from src.reference.signature import build_signature_sparse
 
 PILOT = ["C122", "C165", "C107", "C138", "C162"]
 
@@ -292,31 +293,23 @@ def main() -> int:
             print("   run: python src/reference/jobs/emit_gene_index.py --version "
                   f"{GENE_INDEX_VERSION}")
         else:
-            # Rows are the shared index, so W3's bulk joins onto this directly.
+            # Sparse throughout: densifying 25,959 x 43,113 in float64 is
+            # 8.3 GB and will not allocate. build_signature_sparse aggregates
+            # per cell type without materialising that array.
             ensembl = list(adata.var["ensembl_id"])
-            expression = pd.DataFrame(
-                np.log1p(
-                    np.asarray(adata.X[keep].todense())
-                    / np.maximum(
-                        np.asarray(adata.X[keep].sum(axis=1)), 1.0
-                    ).reshape(-1, 1)
-                    * 1e4
-                ),
-                columns=ensembl,
-                index=adata.obs.index[keep],
-            )
-            # Compartment for the non-epithelial columns; within epithelium, the
-            # rung's own bins. §2.1 error 3 needs stromal/immune/endothelial.
+            counts = adata.X[keep]
             for rung in granularity_rungs():
                 column = labels[label_column("stem_pole", rung)].astype(str).to_numpy()
+                # Compartment for non-epithelial cells; the rung's own bins
+                # within epithelium. §2.1 error 3 needs stromal/immune/endothelial.
                 cell_type = np.where(
-                    column == NON_EPITHELIAL,
+                    np.isin(column, [NON_EPITHELIAL, UNRESOLVED]),
                     compartment.to_numpy()[keep],
                     column,
                 )
                 try:
-                    s_matrix = build_signature(
-                        expression, cell_type,
+                    s_matrix = build_signature_sparse(
+                        counts, ensembl, cell_type,
                         target_genes=targets, gene_index=index,
                         n_genes=SIGNATURE_GENES,
                     )
@@ -328,6 +321,7 @@ def main() -> int:
                 s_matrix.to_parquet(path)
                 print(f"  {rung:<16} {s_matrix.shape[0]:,} genes x "
                       f"{s_matrix.shape[1]} columns -> {path.name}")
+
             print("\n  Hand W2 these plus the labelled object. Have them load it")
             print("  against the frozen schema before week 2 closes — if they can")
             print("  read it without asking a question, the interface holds.")
