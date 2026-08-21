@@ -10,6 +10,29 @@ for decisions that block or shape code.
 
 ---
 
+## W1 status board — 2026-08-20
+
+Ranked by what breaks if they stay open. Seven are live.
+
+| # | Subject | State | Why it matters |
+|---|---|---|---|
+| **14** | Neither labelling axis is a clean maturity measure | OPEN | **Blocks composition.** The `annotation_concordance` kappa from `run_pilot.py` decides it — and has not been read yet. |
+| **13** | W1 and W4 label cells differently | OPEN | Cohorts not comparable, and the week-5 gate compares them |
+| **12** | Mitochondrial cap | ANSWERED for W1 (50) | W4 still on 20. A QC difference reads as biology at the gate. |
+| **10** | Refined tier-B test | OPEN | 12 vs 7 with MMR held fixed. **Worthless if decided after seeing results.** |
+| **9** | The 26 unmatched patients | OPEN | 42% of the cohort. Recommend emitting as `not_estimable`. |
+| **11** | Sorted samples | OPEN | Implemented, unratified. W4 must nod to the arm asymmetry. |
+| **8** | No unfiltered droplets | ANSWERED | CellBender out; SoupX + DecontX in. W4 has the same exposure on Lee. |
+| — | CNV reference design | NEEDS SIGN-OFF | Matched normal with 30% held out. **Corrected once** — see `src/reference/malignancy.py`. |
+
+Not decisions, but outstanding and cheap: tell W3 the gene index is emitted at
+`config/gene_index/gene_index_1.0.0.*` **and that this deposit is hg19 while TCGA
+is GRCh38**; run `src/reference/jobs/pull_icbi_metadata.py`, which has never been
+run and sizes the plate-based subset — G1's fallback after #8, and the only route
+to a deeper-sequenced axis 1 for #14.
+
+---
+
 ## 1 · MUC2 and TFF3 are both targets and labels — OPEN
 
 **Raised:** scaffold, 2026-08-15 · **Owner:** W1 + W2 · **Needed by:** week 3

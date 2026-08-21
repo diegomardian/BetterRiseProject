@@ -1,7 +1,53 @@
 # W1 — Reference
 
-**Owner:** strongest scRNA-seq person · **Env:** `env/w1_reference.yml` → `conda activate brp-w1`
-**Branch prefix:** `w1/…` · **Blocked by:** nothing — you start day one
+**Owner:** Bode · **Env:** `env/w1_reference.yml` → `conda activate brp-w1`
+**Branch prefix:** `w1/…` · **Blocked by:** nothing
+
+> ## STATE — 2026-08-20
+>
+> Week 1 complete; week 2's handoff artifact exists. 525 tests, ruff clean.
+> Working branch `w1/ingest-gse178341`, PR #5.
+>
+> **Read `docs/open_decisions.md` first.** Seven decisions are open and every one
+> shapes numbers that weeks 3-5 will produce.
+>
+> **The one number outstanding:** the last `run_pilot.py` added
+> `annotation_concordance` and its Cohen's kappa has not been read. That kappa
+> decides open decision #14, which blocks every compositional number. Run the
+> pilot and read that block before anything else.
+>
+> ### Measured, not assumed
+>
+> | | |
+> |---|---|
+> | Cells / genes | 370,115 x 43,113 (published 371,223 — 1,108 unreconciled) |
+> | **Matched tumour + normal** | **36 of 62** — not the ~60 §8.4 assumes |
+> | **Unsorted in both arms** | **~30** — the real compositional n |
+> | Ambient contamination | median 1.6%, max 4.1% |
+> | QC retention | 91.5% |
+>
+> ### What the deposit actually is
+>
+> 10x CellRanger HDF5 v2, CSC, genes x barcodes, float64-but-integral, 764M
+> nonzeros. Feature ids `ENSG00000243485.5_4` on **GRCh37_liftover_v28 — hg19**,
+> while TCGA is GRCh38 (tell W3). Barcodes encode patient, tissue and chemistry.
+> `TA`/`TB` are two tumour regions, not a tissue type. Chemistry is mixed but
+> constant within 61 of 62 patients; `PROCESSING_TYPE` is **not** — mixed within
+> 45 of 62, and `CD45pMACS` is immune enrichment. Already mito-filtered at 50%
+> upstream, and **no unfiltered droplets exist in any public source** (#8), so
+> CellBender cannot run and the ambient arm is SoupX + DecontX.
+>
+> ### Still stubbed, all deliberately judgement over real data
+>
+> `malignancy.run_infercnv` · `qc.flag_doublets` · `ambient.run_soupx` ·
+> `ambient.run_decontx`
+>
+> ### Before any compositional number
+>
+> Malignancy calls (largest gap — the "tumour" arm still holds non-malignant
+> epithelium, so the contrast is sample-of-origin), ambient subtraction, doublet
+> removal, the 29-cell sample pooled with samples 100x larger, and the 1,108-cell
+> discrepancy.
 
 You own GSE178341 (Pelka et al. 2021): ~371k cells, 62 patients, matched normal,
 MMRp and MMRd. Everything downstream is built on what you emit.
@@ -114,3 +160,23 @@ estimate would present a modelling choice as a measurement.
 **W1 and W4 currently define the rungs differently** — see
 [open decision #13](../../docs/open_decisions.md). The interop functions above work
 regardless, but the two cohorts are not comparable until that is settled.
+
+
+## Lessons that cost real time
+
+- **Per-sample quantile binning pins the mature fraction to the quantile**, making
+  Δ(mature fraction) identically zero by construction. Cut points must come from the
+  reference (normal) arm so the tumour arm is free to differ.
+- **`np.where` evaluates both branches** — it cannot guard a division.
+- **Index alignment.** `labels` is barcode-indexed; internal frames are not. Assigning a
+  Series aligns on index, matches nothing, and yields a silent all-NaN column. Use
+  `.to_numpy()`.
+- **Never densify.** cells × genes is 8.3 GB at pilot scale and grows with the cohort.
+  `build_signature_sparse` aggregates without materialising it.
+- **Depth matching removes bias, not error.** It makes error unbiased with respect to
+  depth; it does not make it smaller.
+- **Dropout is stochastic**, so depth strata cannot separate technical from biological
+  confounding. Only concordance with an independent annotation can.
+- **Tests that check shapes and monotonicity pass while the measurement is meaningless.**
+  Test that a known injected effect is recovered — that is the test that caught the
+  quantile-pinning bug, and its absence is why the bug reached real data.
