@@ -209,12 +209,14 @@ def _clinical(n=40):
     )
 
 
-def _purity(n=40, method="absolute"):
+def _purity(n=40, method="absolute", sample_type="01"):
+    """One row per (patient, method). Real tables also carry normal-adjacent rows."""
     return pd.DataFrame(
         {
             "patient_id": [f"P{i}" for i in range(n)],
             "method": [method] * n,
             "purity": [0.5 + (i % 10) / 40 for i in range(n)],
+            "sample_type": [sample_type] * n,
         }
     )
 
@@ -262,6 +264,57 @@ def test_missing_purity_method_is_a_loud_failure(spec):
         build_design(
             _clinical(),
             _purity(method="something_else"),
+            spec,
+            endpoint="PFI",
+            context="expression_models",
+        )
+
+
+def test_normal_adjacent_purity_never_reaches_the_design(spec):
+    """A patient's purity must come from their tumour, whatever the row order.
+
+    ESTIMATE scores normal-adjacent tissue too and gives it a median 0.69 (W3.3),
+    which is not a statement about anyone's tumour. 50 real patients carry both
+    rows. Reducing to one row per patient without filtering first picks whichever
+    sorts earliest — today the tumour, but only because "01" < "11" in the
+    barcode. This puts the normal row first so that accident cannot save it.
+    """
+    tumours = _purity()
+    tumours.loc[tumours["patient_id"] == "P0", "purity"] = 0.9
+    normal = _purity(n=1, sample_type="11")
+    normal["purity"] = 0.2
+
+    design, _ = build_design(
+        _clinical(),
+        pd.concat([normal, tumours], ignore_index=True),
+        spec,
+        endpoint="PFI",
+        context="expression_models",
+    )
+    assert float(design.loc[design["patient_id"] == "P0", "purity"].iloc[0]) == 0.9
+
+
+def test_a_patient_with_only_a_normal_sample_gets_no_purity(spec):
+    """TCGA-AF-2689 is real: normal-adjacent expression, no tumour sample, and
+    usable for PFI and DSS. It must drop out of a purity-bearing model rather
+    than enter it carrying normal colon's purity."""
+    purity = pd.concat(
+        [_purity(n=1, sample_type="11"), _purity().loc[lambda d: d["patient_id"] != "P0"]],
+        ignore_index=True,
+    )
+    design, _ = build_design(
+        _clinical(), purity, spec, endpoint="PFI", context="expression_models"
+    )
+    assert "P0" not in set(design["patient_id"])
+
+
+def test_a_purity_table_without_sample_type_is_refused(spec):
+    """The filter must not be able to silently no-op on a table that cannot
+    support it. A guard that quietly does nothing is worse than no guard."""
+    with pytest.raises(CovariateError, match="sample_type"):
+        build_design(
+            _clinical(),
+            _purity().drop(columns="sample_type"),
             spec,
             endpoint="PFI",
             context="expression_models",

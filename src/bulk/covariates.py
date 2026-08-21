@@ -30,6 +30,12 @@ COVARIATE_SET_PATH = CONFIG_DIR / "covariate_set.yaml"
 #: Values in the clinical table that are labels for "we do not know", not levels.
 NOT_A_LEVEL = ("conflicting",)
 
+#: TCGA sample-type code for primary tumour. A patient's purity covariate has to
+#: come from their tumour: ESTIMATE scores normal-adjacent tissue too, and gives
+#: it a median "purity" of 0.69 (W3.3), which is not a number about that
+#: patient's tumour at all.
+PRIMARY_TUMOUR = "01"
+
 
 class CovariateError(RuntimeError):
     """The covariate set is missing, malformed, or not yet locked."""
@@ -153,13 +159,32 @@ def build_design(
     record(f"usable for {endpoint}", frame)
 
     if "purity" in names:
+        # Tumours only, BEFORE reducing to one row per patient. The purity table
+        # is per (sample, method) and 50 patients have both a tumour and a
+        # normal-adjacent ESTIMATE score; TCGA-AF-2689 has *only* a normal one.
+        # Without this filter the patient's purity is whichever row sorts first,
+        # which today is the tumour purely because "01" < "11" in the barcode.
+        # That is accidental correctness, and it breaks the moment the purity
+        # table is written in another order.
+        if "sample_type" not in purity.columns:
+            raise CovariateError(
+                "the purity table has no `sample_type` column, so tumour samples "
+                "cannot be told from normal-adjacent ones. ESTIMATE scores both, "
+                "and a normal-adjacent score is not a covariate about the "
+                "patient's tumour. Pass the table written by run_purity."
+            )
         values = (
-            purity.loc[purity["method"] == method, ["patient_id", "purity"]]
+            purity.loc[
+                (purity["method"] == method) & (purity["sample_type"] == PRIMARY_TUMOUR),
+                ["patient_id", "purity"],
+            ]
             .dropna(subset=["purity"])
             .drop_duplicates("patient_id")
         )
         if values.empty:
-            raise CovariateError(f"no purity values for method {method!r}")
+            raise CovariateError(
+                f"no purity values for method {method!r} on primary tumours"
+            )
         frame = frame.merge(values, on="patient_id", how="inner")
         record(f"has {method} purity", frame)
 
