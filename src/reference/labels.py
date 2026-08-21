@@ -929,3 +929,144 @@ def label_depth_confounding(
                 }
             )
     return pd.DataFrame(rows)
+
+
+def maturity_within_depth_strata(
+    labels: pd.DataFrame,
+    metrics: pd.DataFrame,
+    *,
+    axis: str = "stem_pole",
+    rung: str = "lineage",
+    n_strata: int = 10,
+) -> pd.DataFrame:
+    """The maturity call's depth gradient, stratum by stratum. Descriptive.
+
+    Reports the mature fraction inside each depth decile. A steep monotone slope
+    — near 1 in the shallowest stratum, near 0 in the deepest — means the call
+    is largely tracking depth; a flat profile means it is not.
+
+    **It does not separate technical from biological confounding**, and an
+    earlier version of this docstring claimed it did. Dropout is stochastic: at
+    a fixed depth some cells lose all five sparse markers by chance and some do
+    not, so even a purely technical call keeps a mix inside every stratum. That
+    mix is noise, and this function cannot tell it from signal.
+
+    For that question use :func:`annotation_concordance` against an independent
+    annotation. A call made of dropout noise will not agree with one; a call
+    measuring real maturity will.
+    """
+    if "n_counts" not in metrics.columns:
+        raise LabelError("metrics needs an n_counts column (from cell_qc_metrics)")
+    if len(metrics) != len(labels):
+        raise LabelError(f"metrics has {len(metrics)} rows for {len(labels)} cells")
+
+    column = labels[label_column(axis, rung)].astype(str).to_numpy()
+    scored = ~np.isin(column, [NON_EPITHELIAL, UNRESOLVED])
+    if not scored.any():
+        raise LabelError("no scored cells")
+
+    counts = np.asarray(metrics["n_counts"], dtype=float)[scored]
+    mature = (column == RUNG_SPECS[rung].mature)[scored]
+
+    edges = np.quantile(counts, np.linspace(0, 1, n_strata + 1))
+    edges = np.unique(edges)
+    stratum = np.clip(np.searchsorted(edges, counts, side="right") - 1, 0, len(edges) - 2)
+
+    rows = []
+    for index in range(len(edges) - 1):
+        here = stratum == index
+        if not here.any():
+            continue
+        fraction = float(mature[here].mean())
+        rows.append(
+            {
+                "stratum": index,
+                "n_cells": int(here.sum()),
+                "counts_low": float(edges[index]),
+                "counts_high": float(edges[index + 1]),
+                "mature_fraction": fraction,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def annotation_concordance(
+    labels: pd.DataFrame,
+    annotation: Any,
+    *,
+    axis: str = "stem_pole",
+    rung: str = "lineage",
+    immature_pattern: str = "stem|TA-like|prolif",
+) -> dict[str, Any]:
+    """Does the maturity call agree with an INDEPENDENT annotation?
+
+    **The test that separates signal from dropout noise.**
+
+    :func:`label_depth_confounding` shows the call is associated with depth, and
+    :func:`maturity_within_depth_strata` shows how steeply — but neither can say
+    whether what remains is biology or noise, because dropout is stochastic and
+    produces a mix at every depth just as real variation would.
+
+    Agreement with an independent annotation can. A call made of dropout noise
+    has nothing to agree with; one measuring real maturity will track a
+    well-informed annotation built from many genes and a clustering.
+
+    For GSE178341 that annotation is the authors' ``cl295v11SubFull``, whose
+    epithelial subsets are named — ``cE01 (Stem/TA-like)``,
+    ``cE03 (Stem/TA-like prolif)``. Cells whose annotation matches
+    `immature_pattern` are treated as immature.
+
+    **This is validation, not labelling.** Their clustering is transcriptional
+    and may have used panel genes, so it must never become a label
+    (CLAUDE.md invariant 2). Using it to ask whether our own independent call
+    recovers the same structure is a different act, and the direction matters:
+    agreement is evidence our call is real; disagreement is evidence it is not.
+
+    Returns the 2x2 counts, agreement, sensitivity, specificity, and Cohen's
+    kappa — kappa because raw agreement is inflated when one class dominates.
+    """
+    column = label_column(axis, rung)
+    if column not in labels.columns:
+        raise LabelError(f"{column} not in labels")
+    values = labels[column].astype(str).to_numpy()
+    scored = ~np.isin(values, [NON_EPITHELIAL, UNRESOLVED])
+    if not scored.any():
+        raise LabelError("no scored cells to compare")
+
+    reference = pd.Series(annotation).astype(str).to_numpy()
+    if reference.shape[0] != len(labels):
+        raise LabelError(
+            f"annotation has {reference.shape[0]} entries for {len(labels)} cells"
+        )
+
+    ours_mature = (values == RUNG_SPECS[rung].mature)[scored]
+    theirs_immature = pd.Series(reference[scored]).str.contains(
+        immature_pattern, case=False, regex=True, na=False
+    ).to_numpy()
+    theirs_mature = ~theirs_immature
+
+    tp = int((ours_mature & theirs_mature).sum())
+    tn = int((~ours_mature & theirs_immature).sum())
+    fp = int((ours_mature & theirs_immature).sum())
+    fn = int((~ours_mature & theirs_mature).sum())
+    total = tp + tn + fp + fn
+    if total == 0:
+        raise LabelError("no overlapping cells")
+
+    agreement = (tp + tn) / total
+    expected = (
+        ((tp + fp) * (tp + fn) + (tn + fn) * (tn + fp)) / (total * total)
+    )
+    kappa = (agreement - expected) / (1 - expected) if expected < 1 else float("nan")
+    return {
+        "n_cells": total,
+        "n_mature_ours": tp + fp,
+        "n_mature_theirs": tp + fn,
+        "agreement": float(agreement),
+        "sensitivity": float(tp / (tp + fn)) if (tp + fn) else float("nan"),
+        "specificity": float(tn / (tn + fp)) if (tn + fp) else float("nan"),
+        "kappa": float(kappa),
+        # Kappa near 0 means the call carries no more information than chance
+        # about an independently-derived maturity annotation.
+        "informative": bool(np.isfinite(kappa) and kappa > 0.2),
+    }

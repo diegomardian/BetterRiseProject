@@ -28,6 +28,7 @@ from src.reference.labels import (
     TRANSCRIPT_AXES,
     UNRESOLVED,
     LabelError,
+    annotation_concordance,
     assign_labels,
     axis_tie_fraction,
     cell_type_vector,
@@ -39,6 +40,7 @@ from src.reference.labels import (
     mature_mask,
     maturity_score,
     maturity_summary,
+    maturity_within_depth_strata,
     score_markers,
 )
 from src.reference.signature import LeakageError
@@ -1248,3 +1250,168 @@ class TestTieDiagnosticMatchesAssignLabels:
                 matrix, GENES, "stem_pole", target_genes=TARGETS,
                 epithelial=compartment == "epithelial", depth_target=1e9,
             )
+
+
+class TestWithinDepthStrata:
+    """Separating the two explanations label_depth_confounding cannot.
+
+    A maturity call driven purely by dropout is all-or-nothing inside a narrow
+    depth band. One driven by biology keeps a mix in every band.
+    """
+
+    def _labels_and_metrics(self, matrix, compartment, patient, tissue):
+        from src.reference.qc import cell_qc_metrics
+
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["lineage"], depth_target=0,
+        )
+        return labels, cell_qc_metrics(matrix, GENES, batch=tissue)
+
+    def test_a_purely_technical_call_shows_a_steep_depth_gradient(self):
+        """Marker expression identical in every cell; only depth varies. The
+        mature fraction must then fall steeply from shallow to deep.
+
+        Note what this does NOT show: dropout is stochastic, so even here every
+        stratum keeps a mix. That is why this function cannot separate technical
+        from biological confounding — annotation_concordance does that."""
+        rng = np.random.default_rng(19)
+        profile = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            profile[GENES.index(gene)] = 0.01
+        p = profile / profile.sum()
+        depths = rng.integers(600, 40_000, size=800)
+        matrix = rng.poisson(np.outer(depths, p)).astype(np.int64)
+        total = matrix.shape[0]
+        compartment = np.full(total, "epithelial", dtype=object)
+        tissue = np.full(total, "normal", dtype=object)
+        labels, metrics = self._labels_and_metrics(
+            matrix, compartment, np.full(total, "P1", dtype=object), tissue
+        )
+        out = maturity_within_depth_strata(labels, metrics)
+        shallow = float(out.iloc[0]["mature_fraction"])
+        deep = float(out.iloc[-1]["mature_fraction"])
+        assert shallow > deep + 0.3, f"shallow={shallow:.2f} deep={deep:.2f}"
+
+    def test_a_biological_call_keeps_a_mix_in_every_stratum(self):
+        """Two true populations present at every depth. The call must then
+        still separate cells inside each band."""
+        rng = np.random.default_rng(23)
+        stem = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            stem[GENES.index(gene)] = 3.0          # well detected, not sparse
+        mature = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            mature[GENES.index(gene)] = 0.0
+
+        blocks = []
+        for profile in (stem, mature):
+            p = profile / profile.sum()
+            depths = rng.integers(600, 40_000, size=400)   # same depth range
+            blocks.append(rng.poisson(np.outer(depths, p)).astype(np.int64))
+        matrix = np.vstack(blocks)
+        total = matrix.shape[0]
+        compartment = np.full(total, "epithelial", dtype=object)
+        tissue = np.full(total, "normal", dtype=object)
+        labels, metrics = self._labels_and_metrics(
+            matrix, compartment, np.full(total, "P1", dtype=object), tissue
+        )
+        out = maturity_within_depth_strata(labels, metrics)
+        # Both populations present at every depth, so the gradient stays shallow.
+        spread = out["mature_fraction"].max() - out["mature_fraction"].min()
+        assert spread < 0.4, out["mature_fraction"].tolist()
+
+    def test_it_reports_one_row_per_stratum_with_ranges(self):
+        rng = np.random.default_rng(5)
+        matrix = rng.poisson(3, size=(400, len(GENES))).astype(np.int64)
+        total = matrix.shape[0]
+        compartment = np.full(total, "epithelial", dtype=object)
+        tissue = np.full(total, "normal", dtype=object)
+        labels, metrics = self._labels_and_metrics(
+            matrix, compartment, np.full(total, "P1", dtype=object), tissue
+        )
+        out = maturity_within_depth_strata(labels, metrics, n_strata=5)
+        assert {"stratum", "n_cells", "counts_low", "counts_high",
+                "mature_fraction"} == set(out.columns)
+        assert (out["counts_high"] >= out["counts_low"]).all()
+
+    def test_metrics_mismatch_raises(self, cohort):
+        matrix, compartment, sample_id, _ = cohort
+        labels = assign_labels(matrix, GENES, compartment=compartment,
+                               sample_id=sample_id, target_genes=TARGETS)
+        with pytest.raises(LabelError, match="rows for"):
+            maturity_within_depth_strata(
+                labels, pd.DataFrame({"n_counts": [1.0]})
+            )
+
+
+class TestAnnotationConcordance:
+    """Signal versus dropout noise — the question the depth diagnostics cannot
+    answer, because stochastic dropout produces a mix at every depth just as
+    real variation would.
+
+    A call made of noise has nothing to agree with. One measuring real maturity
+    tracks an independently-derived annotation.
+    """
+
+    def _labels(self, separable: bool):
+        """separable=True: two real populations. False: pure dropout noise."""
+        rng = np.random.default_rng(41)
+        stem = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            stem[GENES.index(gene)] = 3.0 if separable else 0.01
+        mature = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            mature[GENES.index(gene)] = 0.0 if separable else 0.01
+
+        blocks, truth = [], []
+        for name, profile in (("cE01 (Stem/TA-like)", stem), ("cE07 (Mature)", mature)):
+            p = profile / profile.sum()
+            depths = rng.integers(2_000, 30_000, size=400)
+            blocks.append(rng.poisson(np.outer(depths, p)).astype(np.int64))
+            truth += [name] * 400
+        matrix = np.vstack(blocks)
+        total = matrix.shape[0]
+        compartment = np.full(total, "epithelial", dtype=object)
+        tissue = np.full(total, "normal", dtype=object)
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue,
+            patient_id=np.full(total, "P1", dtype=object),
+            axes=["stem_pole"], rungs=["lineage"], depth_target=0,
+        )
+        return labels, np.array(truth, dtype=object)
+
+    def test_a_real_call_agrees_with_the_annotation(self):
+        labels, annotation = self._labels(separable=True)
+        out = annotation_concordance(labels, annotation)
+        assert out["kappa"] > 0.5, out
+        assert out["informative"]
+
+    def test_a_dropout_call_does_not(self):
+        """Identical marker rates in both populations, so any 'maturity' the
+        call finds is Poisson noise. Kappa must be near zero."""
+        labels, annotation = self._labels(separable=False)
+        out = annotation_concordance(labels, annotation)
+        assert abs(out["kappa"]) < 0.2, out
+        assert not out["informative"]
+
+    def test_it_reports_the_full_two_by_two(self):
+        labels, annotation = self._labels(separable=True)
+        out = annotation_concordance(labels, annotation)
+        assert {"n_cells", "agreement", "sensitivity", "specificity",
+                "kappa", "informative"} <= set(out)
+        assert 0.0 <= out["agreement"] <= 1.0
+
+    def test_kappa_not_raw_agreement_is_the_verdict(self):
+        """Raw agreement is inflated when one class dominates, which is exactly
+        the situation at the best4 rung."""
+        labels, annotation = self._labels(separable=False)
+        out = annotation_concordance(labels, annotation)
+        assert out["agreement"] > out["kappa"]
+
+    def test_length_mismatch_raises(self):
+        labels, _ = self._labels(separable=True)
+        with pytest.raises(LabelError, match="entries for"):
+            annotation_concordance(labels, ["cE01 (Stem/TA-like)"])

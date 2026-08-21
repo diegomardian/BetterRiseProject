@@ -46,12 +46,14 @@ from src.reference.ingest import (
 from src.reference.labels import (
     NON_EPITHELIAL,
     UNRESOLVED,
+    annotation_concordance,
     assign_labels,
     axis_tie_fraction,
     describe_labels,
     label_column,
     label_depth_confounding,
     mature_cell_counts,
+    maturity_within_depth_strata,
 )
 from src.reference.qc import (
     apply_qc,
@@ -319,6 +321,41 @@ def main() -> int:
             print("\n!! flagged rows: the mature fraction is partly a depth measurement,\n"
                   "   so Delta(mature fraction) between arms of differing depth is partly\n"
                   "   an artifact. Do not quote a compositional number from those rungs.")
+
+        # THE decisive test for open decision #14. The depth diagnostics show
+        # the maturity call is associated with depth but cannot say whether what
+        # remains is biology or dropout noise — stochastic dropout produces a mix
+        # at every depth just as real variation would. Agreement with the
+        # authors' own annotation can: noise has nothing to agree with.
+        #
+        # Validation only. Their clustering is transcriptional and may have used
+        # panel genes, so it must never become a label (invariant 2).
+        if "cl295v11SubFull" in clusters.columns:
+            annotation = (
+                clusters["cl295v11SubFull"].reindex(adata.obs.index).to_numpy()[keep]
+            )
+            print("\nis the maturity call SIGNAL or DROPOUT NOISE?")
+            print("(concordance with the authors' independent annotation; kappa")
+            print(" near 0 means the call carries no more information than chance)")
+            for axis in ("stem_pole", "opposite_lineage"):
+                for rung in ("lineage", "crypt_position", "best4"):
+                    try:
+                        out = annotation_concordance(
+                            labels, annotation, axis=axis, rung=rung
+                        )
+                    except Exception as exc:
+                        print(f"  {axis:<18} {rung:<15} unavailable: {exc}")
+                        continue
+                    print(f"  {axis:<18} {rung:<15} kappa {out['kappa']:>6.3f}  "
+                          f"agreement {out['agreement']:.1%}  "
+                          f"sens {out['sensitivity']:.2f} spec {out['specificity']:.2f}"
+                          f"  informative={out['informative']}")
+
+            strata = maturity_within_depth_strata(
+                labels, metrics[keep].reset_index(drop=True)
+            )
+            print("\nmature fraction by depth decile (steep slope = tracking depth):")
+            print(strata.to_string(index=False))
 
         counts = mature_cell_counts(
             labels,
