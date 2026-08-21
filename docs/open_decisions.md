@@ -714,17 +714,23 @@ See [the note](../results/notes/w3.5_clinical_table.md).
 
 ---
 
-## 17 · W3.6 covariate set — PROPOSED, awaiting confirmation
+## 17 · W3.6 covariate set — LOCKED 2026-08-18
 
-**Raised:** W3, 2026-08-18 · **Owner:** W3 (owner confirms) · **Needed by:** week 5,
-before W3.7 runs
+**Raised:** W3, 2026-08-18 · **Locked:** W3 owner (jeremy749), 2026-08-18, commit
+53442b0 · **Owner:** W3 (owner confirms) · **Was needed by:** week 5, before W3.7 ran
 
-[`config/covariate_set.yaml`](../config/covariate_set.yaml) is committed with
-`status: proposed`. `src/bulk/covariates.py:require_locked` refuses to let any
-survival model run against it until that flips to `locked` in its own commit.
+[`config/covariate_set.yaml`](../config/covariate_set.yaml) was committed with
+`status: proposed`; `src/bulk/covariates.py:require_locked` refused to let any
+survival model run against it until it flipped to `locked` in its own commit.
+That flip is 53442b0, authorised by the W3 owner and recorded in the file's
+`lock_authorisation` field. [W3.7](../results/notes/w3.7_baseline_survival.md)
+ran after it, not before.
 
-The proposal carries answers to three decisions that are formally the team's,
-because leaving them open blocks W3.7 and each now has evidence:
+**This closes #17 and nothing else.** The lock carries answers to three
+decisions that are formally the team's, and locking the config did not ratify
+them — it implemented them so W3.7 could run. **#4, #14 and #16 stay open until
+the group says otherwise**, and overruling any of them is a config change with
+its own commit and a stated reason:
 
 - **#4 (pool or stratify)** → COAD/READ as **strata**, not a covariate. Rectal
   cancer usually gets neoadjuvant chemoradiation, so a shared baseline hazard

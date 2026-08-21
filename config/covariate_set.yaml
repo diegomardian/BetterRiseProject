@@ -1,16 +1,17 @@
 # =============================================================================
 # W3.6 — the pre-specified covariate set for all TCGA survival modelling.
 #
-# STATUS: proposed — NOT YET LOCKED.
+# STATUS: LOCKED 2026-08-18 by jeremy749, in commit 53442b0, before W3.7 ran.
 #
 # The brief: "Pre-specify and freeze [...] Write it to a versioned config file,
 # committed, BEFORE any survival model is run. If it changes later, that change
 # gets its own commit and a stated reason."
 #
-# So this file is deliberately committed `proposed`. W3 flips `status` to
-# `locked` in its own commit once the owner confirms; after that every change
-# needs a commit with a written reason. No survival model may run against a
-# proposed config — `src/bulk/covariates.py:require_locked` refuses.
+# This file was committed `proposed` first and flipped to `locked` in its own
+# commit once the owner confirmed — see `lock_authorisation` below. From here
+# every change needs its own commit and a written reason. No survival model may
+# run against a proposed config — `src/bulk/covariates.py:require_locked`
+# refuses, and it refused until the flip.
 #
 # Reasoning: results/notes/w3.6_covariate_lock.md. Numbers are from W3.3
 # (purity), W3.4 (batch) and W3.5 (clinical) on the 621 patients who have both
