@@ -87,6 +87,16 @@ S_MATRIX_VERSION = "0.1.0-pilot"
 #: Within [500, 2000] per §2.1 error 4. Modest for a five-patient pilot.
 SIGNATURE_GENES = 800
 
+#: Depth-matching quantile. Cells below this quantile of epithelial totals cannot
+#: be thinned up and become `unresolved_depth`.
+#:
+#: NOT obviously 0.10. A lower target keeps more cells but detects fewer marker
+#: counts, so the tied block grows — and axis 1's mature bin IS that tied block.
+#: The sweep printed below reports cells both resolved and untied, which on the
+#: pilot peaks around q=0.25 rather than at the smallest target. Set from that
+#: table, not from a default.
+DEPTH_QUANTILE = 0.10
+
 
 def main() -> int:
     set_global_seeds(DEFAULT_SEED)
@@ -228,7 +238,7 @@ def main() -> int:
             patient_id=adata.obs["patient_id"].to_numpy()[keep],
             # Depth matching: without it the maturity call partly measures
             # sequencing depth (decision #14).
-            depth_quantile=0.10,
+            depth_quantile=DEPTH_QUANTILE,
             seed=DEFAULT_SEED,
             index=adata.obs.index[keep],
         )
@@ -239,20 +249,52 @@ def main() -> int:
         epi_mask = compartment.to_numpy()[keep] == "epithelial"
         epi_totals = np.asarray(adata.X[keep].sum(axis=1)).ravel()[epi_mask]
         n_epi = int(epi_mask.sum())
-        for q in (0.05, 0.10, 0.25, 0.50):
+        print("  q      target   tied   kept   USABLE  depth_ratio  AUC  flagged")
+        best_q, best_usable = None, -1.0
+        for q in (0.05, 0.10, 0.25, 0.50, 0.65):
             target = float(np.quantile(epi_totals, q))
             stats = axis_tie_fraction(
                 adata.X[keep], adata.var["gene_symbol"], "stem_pole",
-                target_genes=targets, epithelial=epi_mask,
-                depth_target=target,
+                target_genes=targets, epithelial=epi_mask, depth_target=target,
             )
-            # The measured loss, not the nominal quantile: ties in the depth
-            # distribution mean the two need not agree.
-            lost = 1.0 - stats["n_cells"] / n_epi
-            print(f"  q={q:<5} target {target:>8,.0f}  "
-                  f"stem_pole tied {stats['tied_fraction']:.1%}  "
-                  f"cells lost {lost:.1%} ({n_epi - stats['n_cells']:,} of "
-                  f"{n_epi:,})")
+            kept = stats["n_cells"] / n_epi
+            # Cells both resolved AND untied — the only ones carrying a gradient.
+            # A lower target keeps more cells but detects fewer markers, so this
+            # is not monotone and the default is not obviously right.
+            usable = kept * (1.0 - stats["tied_fraction"])
+
+            # Does this target also clear the depth confound? The mature bin IS
+            # the tied block, so fewer ties should mean less confounding — which
+            # makes this one sweep answer both questions.
+            trial = assign_labels(
+                adata.X[keep], adata.var["gene_symbol"],
+                compartment=compartment.to_numpy()[keep],
+                sample_id=adata.obs["sample_id"].to_numpy()[keep],
+                target_genes=targets,
+                tissue=adata.obs["tissue"].to_numpy()[keep],
+                patient_id=adata.obs["patient_id"].to_numpy()[keep],
+                depth_target=target, seed=DEFAULT_SEED,
+                axes=["stem_pole"], rungs=["lineage"],
+                index=adata.obs.index[keep],
+            )
+            report = label_depth_confounding(
+                trial, metrics[keep].reset_index(drop=True),
+                axes=["stem_pole"], rungs=["lineage"],
+            )
+            ratio = float(report.iloc[0]["counts_ratio"]) if len(report) else float("nan")
+            auc = float(report.iloc[0]["depth_auc"]) if len(report) else float("nan")
+            flagged = bool(report.iloc[0]["flagged"]) if len(report) else True
+            if usable > best_usable and not flagged:
+                best_q, best_usable = q, usable
+            print(f"  {q:<5} {target:>8,.0f} {stats['tied_fraction']:>6.1%} "
+                  f"{kept:>6.1%} {usable:>7.1%} {ratio:>12.3f} {auc:>5.3f}  {flagged}")
+        if best_q is not None:
+            print(f"\n  -> q={best_q} maximises usable cells among UNFLAGGED targets "
+                  f"({best_usable:.1%} of epithelium). The run below used "
+                  f"q={DEPTH_QUANTILE}.")
+        else:
+            print("\n  -> every target is still depth-flagged. Axis 1 may not be "
+                  "measurable on this data at any depth (open decision #14).")
 
         print("\naxis resolution — how much of each score is one tied block:")
         for axis in ("stem_pole", "opposite_lineage"):
