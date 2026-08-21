@@ -16,7 +16,7 @@ Ranked by what breaks if they stay open. Seven are live.
 
 | # | Subject | State | Why it matters |
 |---|---|---|---|
-| **14** | Neither labelling axis is a clean maturity measure | OPEN | **Blocks composition.** The `annotation_concordance` kappa from `run_pilot.py` decides it — and has not been read yet. |
+| **14** | Neither labelling axis is a clean maturity measure | OPEN | **Blocks composition.** Kappa read 2026-08-20: `stem_pole` **0.313** (fair), `best4` 0.03 (unusable), axis 2 negative by construction. Also found: `lineage` and `crypt_position` are the *same partition* on axis 1. Rerun the depth sweep — kappa was measured at its worst target. |
 | **13** | W1 and W4 label cells differently | OPEN | Cohorts not comparable, and the week-5 gate compares them |
 | **12** | Mitochondrial cap | ANSWERED for W1 (50) | W4 still on 20. A QC difference reads as biology at the gate. |
 | **10** | Refined tier-B test | OPEN | 12 vs 7 with MMR held fixed. **Worthless if decided after seeing results.** |
@@ -642,6 +642,83 @@ Both are covered by tests that call W2's and W4's real functions rather than moc
 ---
 
 ## 14 · Neither labelling axis is a clean maturity measure — OPEN, BLOCKS COMPOSITION
+
+> ### UPDATE 2026-08-20 — the kappa has been read
+>
+> Options (a) and (c) below are **both implemented** (`unresolved_depth` label,
+> binomial depth matching). The run that followed says three things, and the
+> second was not anticipated.
+>
+> **1 · Axis 1 carries real but *fair* signal.** Cohen's kappa against the
+> authors' `cl295v11SubFull`, at `depth_quantile=0.10` (target 1,352 UMIs):
+>
+> | axis | rung | kappa | agreement | sens | spec |
+> |---|---|---|---|---|---|
+> | `stem_pole` | `lineage` | **0.313** | 62.1% | 0.93 | 0.44 |
+> | `stem_pole` | `crypt_position` | **0.313** | 62.1% | 0.93 | 0.44 |
+> | `stem_pole` | `best4` | 0.030 | 63.0% | 0.04 | 0.98 |
+> | `opposite_lineage` | `lineage` | −0.271 | 32.4% | 0.43 | 0.26 |
+> | `opposite_lineage` | `crypt_position` | −0.291 | 33.7% | 0.35 | 0.33 |
+>
+> 0.313 is "fair" on Landis–Koch, not "good". Backing the 2x2 out of the
+> published margins: of 10,276 scored epithelial cells the authors call **6,327
+> stem/TA-like** and 3,949 mature; we call **7,216** mature. We recover 93% of
+> their mature cells and also call **56% of their stem cells mature**. The error
+> is one-directional and it points the same way dropout does.
+>
+> **2 · `lineage` and `crypt_position` are the same partition on axis 1.**
+> Identical mature counts in all ten pilot arms (885, 765, 342, 694, 149 normal;
+> 271, 862, 137, 2354, 757 tumour), `crypt_middle` absent entirely, and the
+> per-patient "supports only 2 of 3 bins" note fired for every patient. Reading
+> `_bin_against_reference`, the mechanism is that the reference-arm quantiles
+> both land on the tied score and `searchsorted(..., side="right")` puts the
+> whole tied block on the mature side — which is also why the **normal** arm
+> reads 87–96% mature at a rung whose nominal target is 50% (and 33%).
+>
+> So axis 1's mature call is, operationally, **"no stem marker detected at 1,352
+> UMIs"** — a detection gate, not a median split and not a tertile. The
+> granularity curve has **three points on axis 1, not four**, and two of them
+> were being reported as different resolutions of the same boundary.
+> `rung_degeneracy()` now reports this rather than leaving it to be noticed.
+>
+> **3 · The depth flag cannot clear on this axis, and should stop being the
+> gate.** After thinning, every scored cell sits at the same expected depth, so
+> detection probability depends only on a marker's *fraction* of the
+> transcriptome. The route from depth to label is closed; the residual
+> association (`depth_auc` 0.378) is then a correlation between RNA content and
+> stem-marker fraction, which is what proliferating cells are expected to show.
+> `label_depth_confounding` cannot tell that from the artifact — which is the
+> reason `annotation_concordance` exists — so **the depth target must be chosen
+> by kappa, not by the flag.** The sweep now prints kappa per target.
+>
+> **What this does not yet settle.** The kappa above was measured at the sweep's
+> *worst* setting: q=0.10 gives a 70.2% tied block, against 33.3% at q=0.50,
+> which also has the same usable fraction (33.4%) and the `depth_auc` closest to
+> 0.5. Better detection should mean better agreement. **Rerun the pilot and read
+> the kappa column of the sweep before resolving this.** If kappa rises
+> materially at q=0.50, option (b) becomes defensible on a stated-limitation
+> basis; if it stays near 0.3 at every target, axis 1 is detection-limited on 10x
+> data and option (d) is the honest answer.
+>
+> **Axis 2's negative kappa is not noise and not a bug — it is a criterion
+> mismatch, and it costs the project an argument.** Systematic anti-agreement
+> (−0.29, not ~0) is what you get when two labels disagree *by definition*: axis
+> 2 calls goblet cells immature and stem cells mature, the authors' stem-vs-rest
+> criterion says the reverse. This test therefore does not measure whether axis 2
+> works. But it does show that **README design decision 2's "agreement across
+> structurally different axes" was never a testable claim with these two axes** —
+> they cannot agree, because they do not measure the same quantity. Confirm by
+> cross-tabulating `label_opposite_lineage_lineage` against `cl295v11SubFull`
+> (expect axis-2-immature to be enriched for Goblet clusters); then either
+> re-scope axis 2 as a secretory-composition control rather than a maturity axis,
+> or replace it. **That is a decision for the team, and it is arguably larger
+> than #14 itself.**
+>
+> **`best4` should not be quoted at any resolution.** Sensitivity 0.04 — the gate
+> recovers 4% of the authors' BEST4+ cells while calling 279 cells BEST4+. It is
+> the finest rung and therefore the upper bound of the granularity curve, so its
+> failure truncates the curve at both ends.
+
 
 **Raised:** W1, 2026-08-18 (from the pilot) · **Owner:** W1 + W2 + W4 ·
 **Needed by:** before any compositional number is quoted

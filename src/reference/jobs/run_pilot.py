@@ -54,6 +54,7 @@ from src.reference.labels import (
     label_depth_confounding,
     mature_cell_counts,
     maturity_within_depth_strata,
+    rung_degeneracy,
 )
 from src.reference.qc import (
     apply_qc,
@@ -93,10 +94,17 @@ SIGNATURE_GENES = 800
 #: be thinned up and become `unresolved_depth`.
 #:
 #: NOT obviously 0.10. A lower target keeps more cells but detects fewer marker
-#: counts, so the tied block grows — and axis 1's mature bin IS that tied block.
-#: The sweep printed below reports cells both resolved and untied, which on the
-#: pilot peaks around q=0.25 rather than at the smallest target. Set from that
-#: table, not from a default.
+#: counts, so the tied block grows — and axis 1's mature bin IS that tied block,
+#: exactly. At q=0.10 the block is 70% of scored epithelium, which is why the
+#: `lineage` and `crypt_position` rungs came back as the *same partition*: both
+#: quantile boundaries land inside one tie.
+#:
+#: Set this from the **kappa** column of the sweep below, not from the tie
+#: fraction and not from the depth flag. The flag can never clear on this axis —
+#: the mature bin is defined by non-detection, so it is correlated with depth by
+#: construction — and the tie fraction only says how much resolution exists, not
+#: whether what resolves is real. Agreement with an independent annotation is
+#: the only one of the three that answers open decision #14.
 DEPTH_QUANTILE = 0.10
 
 
@@ -247,12 +255,23 @@ def main() -> int:
         # The depth target trades ties against unresolved cells: a lower target
         # keeps more cells but detects fewer marker counts, so the tied block
         # grows. Report the trade rather than hiding it behind one default.
+        # Concordance is what decides open decision #14, so the sweep reports it
+        # per target rather than only at the setting the run happens to use. The
+        # tie fraction and the depth AUC are proxies for "is this measurable";
+        # kappa against an independent annotation is the thing itself, and the
+        # two do not have to peak at the same target.
+        sweep_annotation = (
+            clusters["cl295v11SubFull"].reindex(adata.obs.index).to_numpy()[keep]
+            if "cl295v11SubFull" in clusters.columns
+            else None
+        )
+
         print("\ndepth target trade-off (tie fraction vs cells lost):")
         epi_mask = compartment.to_numpy()[keep] == "epithelial"
         epi_totals = np.asarray(adata.X[keep].sum(axis=1)).ravel()[epi_mask]
         n_epi = int(epi_mask.sum())
-        print("  q      target   tied   kept   USABLE  depth_ratio  AUC  flagged")
-        best_q, best_usable = None, -1.0
+        print("  q      target   tied   kept   USABLE  depth_ratio  AUC  kappa  flagged")
+        best_q, best_kappa = None, -np.inf
         for q in (0.05, 0.10, 0.25, 0.50, 0.65):
             target = float(np.quantile(epi_totals, q))
             stats = axis_tie_fraction(
@@ -286,16 +305,28 @@ def main() -> int:
             ratio = float(report.iloc[0]["counts_ratio"]) if len(report) else float("nan")
             auc = float(report.iloc[0]["depth_auc"]) if len(report) else float("nan")
             flagged = bool(report.iloc[0]["flagged"]) if len(report) else True
-            if usable > best_usable and not flagged:
-                best_q, best_usable = q, usable
+
+            kappa = float("nan")
+            if sweep_annotation is not None:
+                try:
+                    kappa = annotation_concordance(
+                        trial, sweep_annotation, axis="stem_pole", rung="lineage"
+                    )["kappa"]
+                except Exception as exc:  # noqa: BLE001 - diagnostic only
+                    print(f"  (kappa unavailable at q={q}: {exc})")
+            if np.isfinite(kappa) and kappa > best_kappa:
+                best_q, best_kappa = q, kappa
             print(f"  {q:<5} {target:>8,.0f} {stats['tied_fraction']:>6.1%} "
-                  f"{kept:>6.1%} {usable:>7.1%} {ratio:>12.3f} {auc:>5.3f}  {flagged}")
+                  f"{kept:>6.1%} {usable:>7.1%} {ratio:>12.3f} {auc:>5.3f} "
+                  f"{kappa:>6.3f}  {flagged}")
         if best_q is not None:
-            print(f"\n  -> q={best_q} maximises usable cells among UNFLAGGED targets "
-                  f"({best_usable:.1%} of epithelium). The run below used "
-                  f"q={DEPTH_QUANTILE}.")
+            print(f"\n  -> kappa peaks at q={best_q} ({best_kappa:.3f}). Depth "
+                  f"matching cannot clear the depth flag on this axis — the "
+                  f"mature bin IS the undetected block — so pick the target by "
+                  f"agreement with an independent annotation, not by the flag. "
+                  f"The run below used q={DEPTH_QUANTILE}.")
         else:
-            print("\n  -> every target is still depth-flagged. Axis 1 may not be "
+            print("\n  -> no target produced a usable kappa. Axis 1 may not be "
                   "measurable on this data at any depth (open decision #14).")
 
         print("\naxis resolution — how much of each score is one tied block:")
@@ -312,6 +343,20 @@ def main() -> int:
         print(f"\nlabelled {len(labels):,} QC-passing cells, "
               f"{len(labels.columns)} columns")
         print(describe_labels(labels).to_string(index=False))
+
+        degeneracy = rung_degeneracy(labels)
+        collapsed = degeneracy[degeneracy["identical"]]
+        print("\ndid any two rungs draw the SAME boundary?")
+        print("(the granularity curve is only a curve if they did not)")
+        print(degeneracy.to_string(index=False))
+        if len(collapsed):
+            print("\n!! identical partitions: "
+                  + "; ".join(f"{r.labeling_axis} {r.rung_a}=={r.rung_b}"
+                              for r in collapsed.itertuples())
+                  + "\n   Those rungs are one point on the curve, not two. A quantile "
+                    "boundary\n   cannot split a tied block, so a rung with more bins "
+                    "than the score has\n   distinct values silently returns the "
+                    "coarser partition.")
 
         depth_report = label_depth_confounding(labels, metrics[keep].reset_index(drop=True))
         print("\nis the maturity call tracking DEPTH rather than biology?")

@@ -834,6 +834,52 @@ def axis_tie_fraction(
     }
 
 
+def rung_degeneracy(
+    labels: pd.DataFrame,
+    *,
+    axes: Any = TRANSCRIPT_AXES,
+    rungs: Any = None,
+) -> pd.DataFrame:
+    """Which rungs collapsed onto the same partition. **The granularity curve
+    is only a curve if they did not.**
+
+    README design decision 3 makes the whole project turn on comparing the split
+    across resolutions: "a compositional change becomes an expression change
+    purely by re-drawing cluster boundaries". That comparison is empty for any
+    two rungs that drew the same boundary.
+
+    They can, and on the pilot they did. Axis 1's score is one large tied block
+    of cells with no stem-marker counts, and a quantile boundary cannot split a
+    tie: at `depth_quantile=0.10` both of `crypt_position`'s tertile cuts landed
+    inside that block, `crypt_middle` never appeared, and `lineage` and
+    `crypt_position` returned identical mature sets in all ten pilot arms. Two
+    points on the curve, reported as three.
+
+    Nothing raises when that happens — each rung is individually well-formed —
+    so it has to be asked for. Returns one row per ordered rung pair with the
+    Jaccard overlap of their mature masks and `identical`.
+    """
+    rungs = list(rungs) if rungs is not None else granularity_rungs()
+    rows = []
+    for axis in axes:
+        present = [r for r in rungs if label_column(axis, r) in labels.columns]
+        for i, first in enumerate(present):
+            for second in present[i + 1:]:
+                a = mature_mask(labels, axis, first)
+                b = mature_mask(labels, axis, second)
+                union = int((a | b).sum())
+                rows.append({
+                    "labeling_axis": axis,
+                    "rung_a": first,
+                    "rung_b": second,
+                    "n_mature_a": int(a.sum()),
+                    "n_mature_b": int(b.sum()),
+                    "jaccard": float((a & b).sum() / union) if union else float("nan"),
+                    "identical": bool(np.array_equal(a, b)),
+                })
+    return pd.DataFrame(rows)
+
+
 def label_depth_confounding(
     labels: pd.DataFrame,
     metrics: pd.DataFrame,

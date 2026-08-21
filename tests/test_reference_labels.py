@@ -41,6 +41,7 @@ from src.reference.labels import (
     maturity_score,
     maturity_summary,
     maturity_within_depth_strata,
+    rung_degeneracy,
     score_markers,
 )
 from src.reference.signature import LeakageError
@@ -884,6 +885,66 @@ class TestTieCollapse:
         )
         values = set(labels[label_column("stem_pole", "crypt_position")].astype(str))
         assert set(RUNG_SPECS["crypt_position"].bins) <= values
+
+
+class TestRungDegeneracy:
+    """Two rungs that draw the same boundary are one point on the curve, not two.
+
+    This is not hypothetical: on the pilot at `depth_quantile=0.10`, stem_pole's
+    `lineage` and `crypt_position` returned identical mature sets in all ten
+    arms, because both of crypt_position's tertile cuts landed inside the block
+    of cells with no stem-marker counts. Nothing raised — each rung is
+    individually well-formed — and the granularity curve silently reported three
+    resolutions where the data supported two.
+    """
+
+    def _labels(self, rungs=("lineage", "crypt_position"), **kwargs):
+        matrix, compartment, patient, tissue = TestTieCollapse()._tied(**kwargs)
+        return assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=list(rungs),
+        )
+
+    def test_it_catches_the_collapse_it_exists_to_catch(self):
+        """The pilot's actual failure, reproduced."""
+        labels = self._labels()
+        report = rung_degeneracy(
+            labels, axes=["stem_pole"], rungs=["lineage", "crypt_position"]
+        )
+        collapsed = report[report["identical"]]
+        assert len(collapsed) == 1
+        assert set(collapsed.iloc[0][["rung_a", "rung_b"]]) == {
+            "lineage", "crypt_position"
+        }
+        assert collapsed.iloc[0]["jaccard"] == pytest.approx(1.0)
+
+    def test_a_well_spread_axis_is_not_degenerate(self):
+        """No false alarm when the score really does support three bins."""
+        labels = self._labels(n_tied=0, n_spread=900)
+        report = rung_degeneracy(
+            labels, axes=["stem_pole"], rungs=["lineage", "crypt_position"]
+        )
+        assert not report["identical"].any()
+        assert (report["jaccard"] < 1.0).all()
+
+    def test_it_covers_every_pair_once(self):
+        rungs = ["epithelial", "lineage", "crypt_position"]
+        labels = self._labels(rungs=rungs)
+        report = rung_degeneracy(labels, axes=["stem_pole"], rungs=rungs)
+        assert len(report) == 3
+        pairs = {frozenset(r) for r in report[["rung_a", "rung_b"]].to_numpy()}
+        assert len(pairs) == 3
+
+    def test_missing_columns_are_skipped_not_raised(self):
+        """A run that labelled only some rungs still gets a report."""
+        labels = self._labels()
+        report = rung_degeneracy(
+            labels, axes=["stem_pole"], rungs=["lineage", "best4", "crypt_position"]
+        )
+        assert set(report["rung_a"]) | set(report["rung_b"]) == {
+            "lineage", "crypt_position"
+        }
 
 
 class TestDepthConfounding:

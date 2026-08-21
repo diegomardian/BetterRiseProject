@@ -5,16 +5,30 @@
 
 > ## STATE — 2026-08-20
 >
-> Week 1 complete; week 2's handoff artifact exists. 525 tests, ruff clean.
+> Week 1 complete; week 2's handoff artifact exists. 529 tests, ruff clean.
 > Working branch `w1/ingest-gse178341`, PR #5.
 >
 > **Read `docs/open_decisions.md` first.** Seven decisions are open and every one
 > shapes numbers that weeks 3-5 will produce.
 >
-> **The one number outstanding:** the last `run_pilot.py` added
-> `annotation_concordance` and its Cohen's kappa has not been read. That kappa
-> decides open decision #14, which blocks every compositional number. Run the
-> pilot and read that block before anything else.
+> ### The kappa is in — see decision #14 for the full write-up
+>
+> `stem_pole` scores **kappa 0.313** against the authors' annotation: fair, not
+> good, and we call 56% of their stem cells mature. Two things came with it that
+> were not the question being asked:
+>
+> - **`lineage` and `crypt_position` are the same partition on axis 1** — identical
+>   in all ten pilot arms, `crypt_middle` never appears. Axis 1's mature call is
+>   operationally *"no stem marker detected at the depth target"*: a detection
+>   gate, not a median split. `rung_degeneracy()` reports this now.
+> - **The depth flag can never clear on this axis**, because the mature bin is
+>   defined by non-detection. Choose the depth target by kappa, not by the flag.
+>   The sweep in `run_pilot.py` prints kappa per target for that reason.
+>
+> **Next action, one run:** the kappa above was measured at the sweep's *worst*
+> target (q=0.10). Rerun, read the sweep's `kappa` column, set `DEPTH_QUANTILE`
+> from it, rerun once more. `best4` is unusable at any target (sens 0.04), and
+> axis 2 cannot agree with axis 1 by construction — both are team decisions.
 >
 > ### Measured, not assumed
 >
