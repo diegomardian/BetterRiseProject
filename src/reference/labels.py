@@ -803,8 +803,23 @@ def axis_tie_fraction(
         expression, gene_names, axis, target_genes=target_genes,
         normalise=normalise, depth_target=depth_target, seed=seed,
     )
-    if epithelial is not None:
-        scores = scores[np.asarray(epithelial, dtype=bool)]
+    keep = (
+        np.ones(scores.shape, dtype=bool)
+        if epithelial is None
+        else np.asarray(epithelial, dtype=bool)
+    )
+    if depth_target:
+        # Cells below the target cannot be thinned up — _thin_to_depth clips the
+        # probability at 1 and leaves them alone — so including them here mixes
+        # thinned and unthinned cells and reports a tie fraction that no actual
+        # run would produce. assign_labels drops them as UNRESOLVED; match it.
+        totals = np.asarray(expression.sum(axis=1), dtype=float).ravel()
+        keep = keep & (totals >= depth_target)
+        if not keep.any():
+            raise LabelError(
+                f"no cell reaches the depth target {depth_target:,.0f}"
+            )
+    scores = scores[keep]
     if scores.size == 0:
         raise LabelError("no cells to score")
 

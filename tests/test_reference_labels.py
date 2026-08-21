@@ -1181,3 +1181,70 @@ def test_depth_diagnostic_excludes_unresolved_cells():
     # Every resolved cell is mature at this rung, so there is no comparison to
     # make and the row is omitted rather than reported as a perfect confound.
     assert len(report) == 0 or float(report.iloc[0]["depth_auc"]) < 0.99
+
+
+class TestTieDiagnosticMatchesAssignLabels:
+    """axis_tie_fraction's sweep must report what a real run would produce.
+
+    _thin_to_depth clips the thinning probability at 1, so a cell below the
+    target passes through unthinned. Leaving those in the tie computation mixes
+    thinned and unthinned cells and reports a number no actual run would give —
+    assign_labels drops them as unresolved_depth.
+    """
+
+    def _cohort(self):
+        rng = np.random.default_rng(31)
+        profile = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            profile[GENES.index(gene)] = 0.02
+        p = profile / profile.sum()
+        depths = np.concatenate([np.full(300, 20_000), np.full(300, 800)])
+        matrix = rng.poisson(np.outer(depths, p)).astype(np.int64)
+        total = matrix.shape[0]
+        return (
+            matrix,
+            np.full(total, "epithelial", dtype=object),
+            np.full(total, "P1", dtype=object),
+            np.full(total, "normal", dtype=object),
+        )
+
+    def test_the_diagnostic_excludes_sub_target_cells(self):
+        matrix, compartment, _, _ = self._cohort()
+        stats = axis_tie_fraction(
+            matrix, GENES, "stem_pole", target_genes=TARGETS,
+            epithelial=compartment == "epithelial", depth_target=5_000,
+        )
+        # Only the 300 deep cells clear 5,000, so that is what was scored.
+        assert stats["n_cells"] == 300
+
+    def test_its_cell_count_matches_what_assign_labels_resolves(self):
+        matrix, compartment, patient, tissue = self._cohort()
+        target = 5_000.0
+        stats = axis_tie_fraction(
+            matrix, GENES, "stem_pole", target_genes=TARGETS,
+            epithelial=compartment == "epithelial", depth_target=target,
+        )
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["lineage"], depth_target=target,
+        )
+        column = labels[label_column("stem_pole", "lineage")].astype(str)
+        resolved = int((~column.isin([NON_EPITHELIAL, UNRESOLVED])).sum())
+        assert stats["n_cells"] == resolved
+
+    def test_no_target_means_no_exclusion(self):
+        matrix, compartment, _, _ = self._cohort()
+        stats = axis_tie_fraction(
+            matrix, GENES, "stem_pole", target_genes=TARGETS,
+            epithelial=compartment == "epithelial",
+        )
+        assert stats["n_cells"] == 600
+
+    def test_an_unreachable_target_raises(self):
+        matrix, compartment, _, _ = self._cohort()
+        with pytest.raises(LabelError, match="no cell reaches"):
+            axis_tie_fraction(
+                matrix, GENES, "stem_pole", target_genes=TARGETS,
+                epithelial=compartment == "epithelial", depth_target=1e9,
+            )

@@ -238,6 +238,7 @@ def main() -> int:
         print("\ndepth target trade-off (tie fraction vs cells lost):")
         epi_mask = compartment.to_numpy()[keep] == "epithelial"
         epi_totals = np.asarray(adata.X[keep].sum(axis=1)).ravel()[epi_mask]
+        n_epi = int(epi_mask.sum())
         for q in (0.05, 0.10, 0.25, 0.50):
             target = float(np.quantile(epi_totals, q))
             stats = axis_tie_fraction(
@@ -245,9 +246,13 @@ def main() -> int:
                 target_genes=targets, epithelial=epi_mask,
                 depth_target=target,
             )
+            # The measured loss, not the nominal quantile: ties in the depth
+            # distribution mean the two need not agree.
+            lost = 1.0 - stats["n_cells"] / n_epi
             print(f"  q={q:<5} target {target:>8,.0f}  "
                   f"stem_pole tied {stats['tied_fraction']:.1%}  "
-                  f"cells lost {q:.0%}")
+                  f"cells lost {lost:.1%} ({n_epi - stats['n_cells']:,} of "
+                  f"{n_epi:,})")
 
         print("\naxis resolution — how much of each score is one tied block:")
         for axis in ("stem_pole", "opposite_lineage"):
@@ -302,10 +307,15 @@ def main() -> int:
                 column = labels[label_column("stem_pole", rung)].astype(str).to_numpy()
                 # Compartment for non-epithelial cells; the rung's own bins
                 # within epithelium. §2.1 error 3 needs stromal/immune/endothelial.
+                # Non-epithelial cells take their compartment. Epithelial cells
+                # that depth matching could not score get their OWN column rather
+                # than being folded into "epithelial" — at the lineage rung that
+                # name would sit confusingly beside stem_like/differentiated, and
+                # a reference column of unscored cells should be visibly that.
                 cell_type = np.where(
-                    np.isin(column, [NON_EPITHELIAL, UNRESOLVED]),
+                    column == NON_EPITHELIAL,
                     compartment.to_numpy()[keep],
-                    column,
+                    np.where(column == UNRESOLVED, "epithelial_unscored", column),
                 )
                 try:
                     s_matrix = build_signature_sparse(
