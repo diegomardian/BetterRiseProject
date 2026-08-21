@@ -563,9 +563,48 @@ Options for the durable fix:
 | b | `build_signature()` filters targets out of `gene_index` itself, as it already does for `usable` at line 98, and drops the line-96 assertion. | One line in W1's module plus a test update. Makes the guard unforgettable. |
 | c | Amputate panel genes from the shared index. | **Do not.** Breaks W3.2 and Stage 4. Listed only to rule it out in writing. |
 
-**Recommendation: (b).** The assertion at line 98 is the one that protects the
-reference pool; line 96 protects nothing extra and costs the shared index its
-completeness. (a) is what is in place today and is a fine holding position.
+**Recommendation: (b).** The assertion on the *reference pool* is the one that
+protects anything; the one on the *whole shared index* protects nothing extra
+and costs the shared index its completeness. (a) is what is in place today and
+is a fine holding position.
+
+### Why this is now urgent
+
+[`src/reference/jobs/run_pilot.py`](../src/reference/jobs/run_pilot.py) passes
+`read_gene_index(...)` straight into `build_signature_sparse` as `gene_index=`,
+unfiltered, inside a `try/except` that prints `FAILED: {exc}` and continues to
+the next rung. So the moment W1 has an index containing panel genes — and every
+candidate index does, decision #2 measured all 23 present on both — **every rung
+fails and no S matrix is written**, as a printed line rather than a raised
+error. The S matrix is the W1 → W2 handoff the gate depends on.
+
+It does not get that far today: `config/gene_index/` holds only a README, so the
+job reports `!! no gene index` and skips the step. The failure is sitting on the
+other side of decision #2, not in front of it.
+
+### Ready to apply — drafted and tested against W1's branch, 2026-08-20
+
+Option (b) as a patch:
+[`decision_12_signature_filter.patch`](decision_12_signature_filter.patch).
+
+```
+git switch w1/ingest-gse178341
+git apply docs/decision_12_signature_filter.patch
+```
+
+Three files, +53/−19. It replaces the assertion on the whole `gene_index` with a
+filter, in both `build_signature` and `build_signature_sparse`, and updates the
+two tests that pinned the old behaviour. The other three leakage guards are
+untouched — `usable`, `markers`, and the post-condition on the emitted S matrix,
+which is the one that still binds and is what invariant 2 is actually about.
+
+Verified against `origin/w1/ingest-gse178341` at da6ba75: applies cleanly, full
+suite **459 passed, 2 skipped**, `ruff` clean.
+
+**W1 owns this call.** It is drafted rather than committed because it is W1's
+module and W1's test. The patch exists so the decision is a review rather than a
+rewrite — and so that "we agreed on (b)" and "(b) is in the tree" do not end up
+three weeks apart.
 
 ---
 
