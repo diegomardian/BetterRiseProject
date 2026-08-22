@@ -33,6 +33,7 @@ from src.reference.labels import (
     axis_tie_fraction,
     cell_type_vector,
     describe_labels,
+    differential_resolution,
     label_column,
     label_columns,
     label_depth_confounding,
@@ -646,6 +647,70 @@ class TestTheMeasurementTravelsWithTheNumber:
         )
         out = decompose_cohort(summary)
         assert len(out) == len(summary) * 3
+
+
+class TestDifferentialResolution:
+    """The depth floor must not cut one arm harder than the other.
+
+    C165 on the pilot: 65.2% of the normal arm lost to the floor against 0.6% of
+    the tumour arm, and its compositional term changed sign between depth
+    targets while the other four patients held. A paired-patient count cannot
+    see this — C165 kept both arms comfortably.
+    """
+
+    #: Depth target both arms are cut against. Between the two ranges below, so
+    #: a shallow arm loses most of its cells and a deep arm loses none — while
+    #: BOTH keep enough to score, which is the case a paired count cannot catch.
+    TARGET = 4_000.0
+
+    def _counts(self, normal_range, tumour_range):
+        """One patient, two arms, each with a spread of sequencing depths."""
+        n = 300
+        profile = np.full(len(GENES), 1.0)
+        for gene in STEM:
+            profile[GENES.index(gene)] = 30.0
+        profile = profile / profile.sum()
+
+        blocks, tissue = [], []
+        for (low, high), arm in ((normal_range, "normal"), (tumour_range, "tumour")):
+            depths = RNG.uniform(low, high, size=n)
+            blocks.append(RNG.poisson(np.outer(depths, profile)))
+            tissue += [arm] * n
+        matrix = np.vstack(blocks).astype(np.int64)
+        tissue = np.array(tissue, dtype=object)
+        patient = np.full(len(tissue), "P1", dtype=object)
+        labels = assign_labels(
+            matrix, GENES, compartment=np.full(len(tissue), "epithelial", dtype=object),
+            sample_id=tissue, target_genes=TARGETS, tissue=tissue,
+            patient_id=patient, depth_target=self.TARGET,
+            axes=["stem_pole"], rungs=["lineage"],
+        )
+        return mature_cell_counts(
+            labels, patient_id=patient, tissue=tissue,
+            axes=["stem_pole"], rungs=["lineage"],
+        )
+
+    def test_a_lopsided_floor_is_flagged(self):
+        counts = self._counts(normal_range=(2_000, 6_000), tumour_range=(20_000, 40_000))
+        report = differential_resolution(counts)
+        assert report["flagged"].any()
+        assert (report["difference"].abs() > 0.10).any()
+
+    def test_evenly_sequenced_arms_are_not_flagged(self):
+        counts = self._counts(normal_range=(20_000, 40_000), tumour_range=(20_000, 40_000))
+        report = differential_resolution(counts)
+        assert not report["flagged"].any()
+
+    def test_it_reports_both_arms_not_just_the_gap(self):
+        counts = self._counts(normal_range=(2_000, 6_000), tumour_range=(20_000, 40_000))
+        report = differential_resolution(counts)
+        assert {"unresolved_tumour", "unresolved_normal", "difference"} <= set(
+            report.columns
+        )
+
+    def test_missing_columns_raise_rather_than_returning_nonsense(self):
+        with pytest.raises(LabelError, match="missing column"):
+            differential_resolution(pd.DataFrame({"patient_id": ["P1"]}))
 
 
 class TestQuotabilityIsCarriedOnTheRow:
@@ -1345,9 +1410,9 @@ class TestDepthMatchingRemovesTheConfound:
 
     def test_the_compositional_signal_survives_matching(self):
         """Matching must not destroy real signal while removing the artifact."""
-        from tests.test_reference_labels import TestCompositionalSignalIsRecoverable as T
-
-        maker = T()
+        # Same module — importing it by path fails under CI's thin env, where
+        # `tests` is not an importable package (CONTRIBUTING §6).
+        maker = TestCompositionalSignalIsRecoverable()
         matrix, compartment, patient, tissue = maker._paired(0.50, 0.10)
         labels = assign_labels(
             matrix, GENES, compartment=compartment, sample_id=tissue,

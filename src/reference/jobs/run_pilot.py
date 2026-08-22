@@ -50,6 +50,7 @@ from src.reference.labels import (
     assign_labels,
     axis_tie_fraction,
     describe_labels,
+    differential_resolution,
     label_column,
     label_depth_confounding,
     mature_cell_counts,
@@ -452,6 +453,31 @@ def main() -> int:
             patient_id=adata.obs["patient_id"].to_numpy()[keep],
             tissue=adata.obs["tissue"].to_numpy()[keep],
         )
+        # The depth floor is QC by another name, and decision #12 established
+        # that QC cutting one arm harder than the other biases the compositional
+        # term directly. differential_retention asks that of the mito cap; this
+        # asks it of the depth target, which is the newer and larger cut.
+        resolution = differential_resolution(counts)
+        flagged_res = resolution[resolution["flagged"]]
+        print("\ndoes the DEPTH FLOOR cut one arm harder than the other?")
+        print("(the same question decision #12 asked of the mito cap)")
+        print(resolution.to_string(index=False))
+        if len(flagged_res):
+            worst = flagged_res.reindex(
+                flagged_res["difference"].abs().sort_values(ascending=False).index
+            ).iloc[0]
+            print(
+                f"\n!! {len(flagged_res)} of {len(resolution)} rows flagged; worst is "
+                f"{worst['patient_id']} at {worst['difference']:+.1%}.\n"
+                "   Cells below the target are dropped from BOTH numerator and "
+                "denominator, and\n   the mature call is depth-associated, so an "
+                "arm that loses more cells has its\n   mature fraction shifted "
+                "relative to the other. Delta between them is the\n   "
+                "compositional term. A `paired` count cannot see this — a patient "
+                "can keep\n   both arms and still be cut 60 points harder on one "
+                "of them."
+            )
+
         print("\nmature-cell counts. Cut points come from each patient's NORMAL "
               "arm,\nso normal sits near the rung's target fraction and TUMOUR IS "
               "FREE TO DIFFER —\nthat difference is the compositional term.")
