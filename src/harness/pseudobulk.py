@@ -58,6 +58,15 @@ class PseudobulkSample:
     drawn_expression: dict[str, dict[str, np.ndarray]] = field(default_factory=dict)
     #: Which drawn cells are mature, per arm. Aligned with ``drawn_expression``.
     drawn_is_mature: dict[str, np.ndarray] = field(default_factory=dict)
+    #: Cell-type label of every drawn cell, per arm. Aligned with
+    #: ``drawn_expression``.
+    #:
+    #: Kept so a sample can be re-estimated under a *different* partition of the
+    #: same cells without regenerating it — which is what
+    #: ``harness.rungs.rung_separation`` needs to ask whether the estimator
+    #: distinguishes two granularity rungs, and what the permutation control
+    #: needs to shuffle a mask.
+    drawn_cell_type: dict[str, np.ndarray] = field(default_factory=dict)
 
     @property
     def mature_expression(self) -> dict[str, dict[str, np.ndarray]]:
@@ -309,4 +318,5 @@ def generate_pseudobulk(
             for g in shifted_genes
         },
         drawn_is_mature={"normal": mature_n, "tumour": mature_t},
+        drawn_cell_type={"normal": cell_type[idx_n], "tumour": cell_type[idx_t]},
     )

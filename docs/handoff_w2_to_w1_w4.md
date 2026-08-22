@@ -87,8 +87,45 @@ W2's read, offered as input rather than a verdict:
   the sweep gives a target where the two rungs *do* separate, that is worth
   knowing before anyone concludes they cannot.
 
-**What W2 needs from you:** nothing immediately. Say whether you want the harness
-check above before or after your depth-target rerun.
+### The harness check is done — the estimator is cleared
+
+Run on a synthetic cohort with a genuinely nested structure: a coarse rung that
+pools `crypt_top` and `crypt_mid` into "mature", and a fine rung that calls only
+`crypt_top` mature. `src/harness/rungs.py`, tested in `tests/test_rungs.py`.
+
+**A · when the rungs genuinely differ:**
+
+| rung | n mature | mean normal | mean tumour | compositional | intrinsic |
+|---|---|---|---|---|---|
+| lineage (coarse) | 750 | 43.88 | 14.40 | −6.58 | **−11.79** |
+| crypt_position (fine) | 150 | 79.77 | 40.44 | −11.97 | **−7.87** |
+
+Relative gap: **33% on the intrinsic term, 45% on the compositional term.**
+
+**B · when the two rungs name the same cell types** — W1's observed case:
+
+```
+intrinsic: -11.794400 vs -11.794400    absolute gap 0.00e+00
+```
+
+**Conclusion: the estimator is not the explanation.** It resolves a real rung
+difference at a third of the effect size, and returns bit-identical answers only
+when the partitions are genuinely identical. So the degeneracy W1 measured is a
+statement about the labelling, and it can be reported as one.
+
+**A second thing fell out, and it is the more interesting one.** Between the two
+rungs the compositional and intrinsic terms move in *opposite* directions —
+coarse (−6.58, −11.79), fine (−11.97, −7.87) — while the total is roughly
+conserved (−18.4 vs −19.8). The granularity choice does not add or remove loss;
+it **reallocates it between the two mechanisms**. That is §6.2's "if it swings,
+that divergence is the contribution", demonstrated on a case where the ground
+truth is known. It also means a single-rung result would present a modelling
+choice as a measurement, exactly as README design decision 3 warns.
+
+**What W2 needs from you:** nothing blocking. Worth knowing whether your
+depth-target rerun produces a target where the rungs stop being the same
+partition — if it does, this reallocation is measurable on real data and it is a
+result rather than a caveat.
 
 ---
 
