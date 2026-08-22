@@ -462,12 +462,23 @@ def main() -> int:
         print("\ndoes the DEPTH FLOOR cut one arm harder than the other?")
         print("(the same question decision #12 asked of the mito cap)")
         print(resolution.to_string(index=False))
-        if len(flagged_res):
+        if len(flagged_res) or resolution["thin_reference"].any():
             worst = flagged_res.reindex(
                 flagged_res["difference"].abs().sort_values(ascending=False).index
-            ).iloc[0]
+            ).iloc[0] if len(flagged_res) else resolution.iloc[0]
+            thin = resolution[resolution["thin_reference"]]
+            if len(thin):
+                print(
+                    "\n!! thin reference arm: "
+                    + ", ".join(f"{r.patient_id} ({int(r.n_resolved_reference)} cells)"
+                                for r in thin.itertuples())
+                    + "\n   The cut points come from the NORMAL arm, so a floor that "
+                      "removes most of it\n   leaves the threshold defined by whichever "
+                      "deep cells survived — and the whole\n   tumour arm is scored "
+                      "against that. This corrupts the REFERENCE, not just the sample."
+                )
             print(
-                f"\n!! {len(flagged_res)} of {len(resolution)} rows flagged; worst is "
+                f"\n!! {len(flagged_res)} of {len(resolution)} patients flagged; worst is "
                 f"{worst['patient_id']} at {worst['difference']:+.1%}.\n"
                 "   Cells below the target are dropped from BOTH numerator and "
                 "denominator, and\n   the mature call is depth-associated, so an "

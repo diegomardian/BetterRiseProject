@@ -701,6 +701,26 @@ class TestDifferentialResolution:
         report = differential_resolution(counts)
         assert not report["flagged"].any()
 
+    def test_one_row_per_patient_not_per_axis_and_rung(self):
+        """The floor is applied before labelling, so it does not vary by axis
+        or rung. Eight identical rows per patient buries the outlier."""
+        counts = self._counts(
+            normal_range=(2_000, 6_000), tumour_range=(20_000, 40_000)
+        )
+        report = differential_resolution(counts)
+        assert len(report) == report["patient_id"].nunique()
+
+    def test_a_thin_reference_arm_is_flagged_even_without_a_gap(self):
+        """The reference arm is where the CUT POINTS come from, so its
+        surviving size matters on its own — a threshold set by a handful of
+        cells is applied to the whole tumour arm."""
+        counts = self._counts(
+            normal_range=(2_000, 6_000), tumour_range=(20_000, 40_000)
+        )
+        report = differential_resolution(counts, min_reference=10_000)
+        assert report["thin_reference"].all()
+        assert "n_resolved_reference" in report.columns
+
     def test_it_reports_both_arms_not_just_the_gap(self):
         counts = self._counts(normal_range=(2_000, 6_000), tumour_range=(20_000, 40_000))
         report = differential_resolution(counts)
