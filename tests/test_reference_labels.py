@@ -751,6 +751,34 @@ class TestCompositionalStability:
         with pytest.raises(LabelError, match="at least"):
             compositional_stability(counts)
 
+    def test_a_constant_zero_is_degenerate_not_unstable(self):
+        """The `epithelial` rung has mature_fraction 1.0 in BOTH arms by
+        construction, so Delta is exactly 0 at every target. That is an
+        identified zero, not a failed sign test."""
+        counts = self._counts([{"P1": 0.0}, {"P1": 0.0}, {"P1": 0.0}])
+        out = compositional_stability(counts).iloc[0]
+        assert bool(out["degenerate"])
+        assert out["verdict"] == "degenerate_by_construction"
+        assert not bool(out["identified"])
+
+    def test_a_dropped_out_patient_is_not_called_sign_unstable(self):
+        """C138 survives q=0.10 and q=0.25 and vanishes at q=0.50. A missing
+        target is a different problem from a direction that moves."""
+        counts = self._counts([
+            {"P1": -0.30, "C138": -0.15},
+            {"P1": -0.40, "C138": -0.12},
+            {"P1": -0.35},
+        ])
+        out = compositional_stability(counts).set_index("patient_id")
+        assert out.loc["C138", "verdict"] == "insufficient_targets"
+        assert bool(out.loc["C138", "sign_stable"])
+        assert out.loc["P1", "verdict"] == "identified"
+
+    def test_a_real_flip_is_still_called_sign_unstable(self):
+        counts = self._counts([{"P1": 0.14}, {"P1": -0.05}, {"P1": 0.02}])
+        out = compositional_stability(counts).iloc[0]
+        assert out["verdict"] == "sign_unstable"
+
     def test_patients_are_judged_separately(self):
         counts = self._counts([
             {"P1": -0.5, "C165": 0.14},

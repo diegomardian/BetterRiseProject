@@ -999,11 +999,39 @@ def compositional_stability(
         .reset_index()
     )
     out["delta_range"] = out["delta_max"] - out["delta_min"]
-    # Sign stability, not magnitude stability. The magnitude of a detection-gate
-    # fraction legitimately moves with the gate; the DIRECTION of the
-    # compositional change should not.
-    out["sign_stable"] = (out["delta_min"] > 0) | (out["delta_max"] < 0)
-    out["identified"] = out["sign_stable"] & (out["n_targets"] >= min_targets)
+
+    # Three different failures were being reported as one, which inflated the
+    # count and hid which of them mattered.
+    #
+    # DEGENERATE: Delta is exactly zero at every target. That is not an
+    # unidentified estimate, it is an identified zero — and on the `epithelial`
+    # rung it is zero BY CONSTRUCTION, because every resolved epithelial cell is
+    # the mature bin so the fraction is 1.0 in both arms. Flagging it as
+    # unstable treats a designed property as a failure.
+    #
+    # INSUFFICIENT: fewer targets than asked for, because the patient dropped
+    # out at the deeper ones. C138 survives q=0.10 and q=0.25 and vanishes at
+    # q=0.50. That is a real limitation and a different one from a sign flip.
+    #
+    # SIGN_UNSTABLE: the estimate genuinely changes direction with the nuisance
+    # parameter. Only this one says the estimand is not identified.
+    out["degenerate"] = (out["delta_min"] == 0) & (out["delta_max"] == 0)
+    out["insufficient_targets"] = out["n_targets"] < min_targets
+    out["sign_stable"] = (
+        (out["delta_min"] > 0) | (out["delta_max"] < 0) | out["degenerate"]
+    )
+    out["identified"] = (
+        out["sign_stable"] & ~out["insufficient_targets"] & ~out["degenerate"]
+    )
+    # Why an estimate is unusable, in one column, so the reason survives into a
+    # report rather than being reconstructed from three booleans.
+    out["verdict"] = np.where(
+        out["degenerate"], "degenerate_by_construction",
+        np.where(
+            out["insufficient_targets"], "insufficient_targets",
+            np.where(out["sign_stable"], "identified", "sign_unstable"),
+        ),
+    )
     return out
 
 

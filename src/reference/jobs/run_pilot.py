@@ -528,15 +528,40 @@ def main() -> int:
         print("(the target is a nuisance parameter; the estimand must not "
               "depend on it)")
         print(stability.to_string(index=False))
-        lost = stability[~stability["identified"]]
-        if len(lost):
+        print("\nverdicts:")
+        print(stability["verdict"].value_counts().to_string())
+        flipped = stability[stability["verdict"] == "sign_unstable"]
+        thin = stability[stability["verdict"] == "insufficient_targets"]
+        if len(flipped):
             print(
-                f"\n!! {len(lost)} of {len(stability)} (patient, axis, rung) "
-                f"estimates change SIGN across the depth sweep.\n"
-                "   Those are NOT identified on this data. Report them as "
-                "not_estimable rather\n   than quoting the value at whichever "
-                "target the run happened to use — that\n   presents a modelling "
-                "choice as a measurement."
+                f"\n!! {len(flipped)} estimate(s) change SIGN across the depth "
+                f"sweep — NOT identified.\n   "
+                + ", ".join(f"{r.patient_id}/{r.labeling_axis}/{r.granularity_rung}"
+                            for r in flipped.itertuples())
+                + "\n   Report these as not_estimable rather than quoting the "
+                  "value at whichever\n   target the run happened to use, which "
+                  "presents a modelling choice as a\n   measurement."
+            )
+        if len(thin):
+            print(
+                f"\n!! {len(thin)} estimate(s) had fewer depth targets than "
+                f"asked for — the patient\n   drops out at the deeper floors. "
+                "Different problem from a sign flip: the\n   direction held "
+                "wherever it could be measured. Patients: "
+                + ", ".join(sorted(set(thin["patient_id"])))
+            )
+        degen = stability[stability["verdict"] == "degenerate_by_construction"]
+        if len(degen):
+            print(
+                f"\n   ({len(degen)} rows are Delta == 0 at every target. On the "
+                "`epithelial` rung that\n   is BY CONSTRUCTION — every resolved "
+                "epithelial cell is the mature bin, so the\n   fraction is 1.0 "
+                "in both arms. Worth noting that this makes the rung carry no\n"
+                "   compositional information at all, which is NOT what its "
+                "rationale claims:\n   it says the rung measures "
+                "epithelial-vs-non-epithelial shifts, and that would\n   need "
+                "the denominator to be ALL cells rather than epithelial ones. "
+                "Open question.)"
             )
 
         print("\nmature-cell counts. Cut points come from each patient's NORMAL "
