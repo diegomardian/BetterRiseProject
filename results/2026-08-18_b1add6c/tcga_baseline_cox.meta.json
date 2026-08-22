@@ -1,0 +1,28 @@
+{
+  "date": "2026-08-18",
+  "utc_timestamp": "2026-08-18T21:23:58+00:00",
+  "git_sha": "b1add6cf9d43128148ab8afa3e9055fcde80f29a",
+  "git_sha_short": "b1add6c",
+  "git_branch": "w3/covariate-lock",
+  "git_dirty": true,
+  "seed": 20260818,
+  "python": "3.11.15",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "notes": "W3.7 Cox coefficients, clinical only",
+  "name": "tcga_baseline_cox",
+  "n_rows": 24,
+  "columns": [
+    "term",
+    "hazard_ratio",
+    "ci_low",
+    "ci_high",
+    "p",
+    "endpoint",
+    "context",
+    "n",
+    "n_events"
+  ],
+  "table_kind": "harness"
+}

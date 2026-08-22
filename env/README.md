@@ -44,3 +44,39 @@ stops reproducing.
 371k cells). The bulk/TCGA arm is laptop-fine. "Standard consumer laptop" was
 wrong for the single-cell arm and is corrected in both documents. **Confirm the
 machine before week 1** — it is the only hard infrastructure dependency.
+
+## MKL 2026 breaks numpy 1.26 — read this before creating an env
+
+**Symptom:** any BLAS or LAPACK call dies with a native Windows error
+`0xC06D007F` and no Python traceback. `numpy.linalg.lstsq`, plain `matmul`,
+`scipy.optimize.nnls` and `sklearn`'s KMeans all crash the interpreter;
+`scipy.stats` and pandas are fine, so it looks like a broken package rather than
+a broken environment. `threadpoolctl.threadpool_info()` returning `[]` is the
+giveaway — numpy cannot load its BLAS at all.
+
+**Cause:** conda-forge now resolves `mkl` to 2026.x, which is ABI-incompatible
+with the `numpy=1.26.4` pinned in [`pyproject.toml`](../pyproject.toml).
+`0xC06D007F` is the delay-load "module not found" code. Nothing in this repo is
+at fault, and it was not reproducible until the envs were built fresh in
+August 2026.
+
+**Fix — per environment, until someone pins it properly:**
+
+```bash
+conda install -n brp-wN "libblas=*=*openblas"
+```
+
+Verify:
+
+```bash
+python -c "import numpy as np; print(np.linalg.lstsq(np.eye(3), np.ones(3), rcond=None)[0])"
+```
+
+**This affects all four env files, not just W3.** Anyone creating an env today
+gets MKL 2026 and hits it. The durable fix is a `libblas=*=*openblas` line in
+each `wN_*.yml`, or bumping numpy — but that is a `pyproject.toml` change
+touching all four workstreams, so it wants a decision rather than a drive-by.
+Raised by W3, 2026-08-18, after it cost most of a day.
+
+**It is not a code bug.** W2's NNLS baseline was suspected and is innocent; with
+OpenBLAS the full suite passes, 408 tests.

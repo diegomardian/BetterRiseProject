@@ -1,0 +1,24 @@
+{
+  "date": "2026-08-18",
+  "utc_timestamp": "2026-08-18T20:44:29+00:00",
+  "git_sha": "d1cde6dc7906d562a8daf9f06be7fa0e72763dc9",
+  "git_sha_short": "d1cde6d",
+  "git_branch": "w3/batch-structure",
+  "git_dirty": false,
+  "seed": 20260818,
+  "python": "3.11.15",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "notes": "W3.4 clinical annotation coverage",
+  "name": "tcga_clinical_coverage",
+  "n_rows": 5,
+  "columns": [
+    "variable",
+    "n_patients",
+    "n_annotated",
+    "coverage",
+    "n_levels"
+  ],
+  "table_kind": "harness"
+}
