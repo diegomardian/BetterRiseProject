@@ -44,20 +44,6 @@ INTENTIONALLY_OPTIONAL = {
     # scanpy to the dev extra instead — at that point the compile cost buys
     # something.
     "scanpy",
-    # src/reference/ingest.py:read_gse178341 — lazily imported, and the tests
-    # that need it already skip when it is absent. Kept out of the dev extra for
-    # a specific reason rather than for weight: anndata >=0.13 deprecates
-    # `__version__`, and src/common/provenance.py reads exactly that attribute
-    # to stamp package versions onto every result. Installing anndata in CI's
-    # thin env therefore turns provenance_record's FutureWarning into an error
-    # and takes write_results down with it.
-    #
-    # That is a real bug in shared code, not a reason to avoid the dependency —
-    # provenance should use importlib.metadata.version(). Raised separately;
-    # `src/common/` is not W1's to edit alone (CONTRIBUTING §2). Delete this
-    # entry and add anndata to the dev extra once provenance is fixed, and the
-    # seven currently-skipped tests start running.
-    "anndata",
 }
 
 

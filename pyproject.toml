@@ -39,6 +39,10 @@ dev = [
     "scipy>=1.11",  # src/harness/deconvolve/nnls.py
     "statsmodels>=0.14",  # src/estimator/hierarchical.py (lazy import, still needed)
     "scikit-learn>=1.3",  # src/harness/deconvolve/nusvr.py (lazy import, still needed)
+    # src/reference/ingest.py:read_gse178341. Now safe to install in CI: the
+    # FutureWarning it used to trigger came from provenance reading
+    # `anndata.__version__`, which is fixed to use importlib.metadata.
+    "anndata>=0.10",
     "lifelines>=0.29",  # src/bulk/survival.py (lazy import, still needed)
     "diptest>=0.5",  # src/bulk/premise.py (lazy import, still needed)
     "matplotlib>=3.7",  # src/bulk/premise.py, src/bulk/run_survival.py — figures
