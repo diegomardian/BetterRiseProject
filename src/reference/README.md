@@ -1,5 +1,7 @@
 # W1 — Reference
 
+> **W2 needs two things from you** — see [docs/handoff_w2_to_w1_w4.md](../../docs/handoff_w2_to_w1_w4.md).
+
 **Owner:** Bode · **Env:** `env/w1_reference.yml` → `conda activate brp-w1`
 **Branch prefix:** `w1/…` · **Blocked by:** nothing
 
