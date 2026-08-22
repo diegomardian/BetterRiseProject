@@ -431,19 +431,40 @@ def write_infercnv_inputs(
         )
 
     subset = counts[keep]
-    dense = np.asarray(
-        subset.todense() if hasattr(subset, "todense") else subset
-    ).T  # inferCNV wants genes x cells
 
-    matrix_path = out / "counts.tsv"
-    frame = pd.DataFrame(dense, index=names, columns=cells[keep])
-    frame.to_csv(matrix_path, sep="\t")
+    # SPARSE, in 10x layout. The dense route is not merely slower: the largest
+    # pilot patient is ~22,000 cells x 43,113 genes, which is 7.8 GB as float64
+    # before pandas takes its copy, and the TSV would be ~950 million numbers.
+    # Writing that costs hours before inferCNV starts, and a matrix this shape
+    # is >90% zeros. CreateInfercnvObject reads a directory of
+    # matrix.mtx / barcodes.tsv / genes.tsv directly.
+    from scipy import io as sio
+    from scipy import sparse
+
+    matrix = subset.T if sparse.issparse(subset) else sparse.csr_matrix(
+        np.asarray(subset).T
+    )
+    matrix_path = out / "matrix.mtx"
+    sio.mmwrite(str(matrix_path), matrix.tocoo())
+
+    # Symbol in BOTH columns on purpose. 10x convention is id then symbol, and
+    # inferCNV's reader takes the first — but the gene-order file is keyed on
+    # SYMBOL, and a mismatch there does not error, it silently drops every gene
+    # from the inference.
+    (out / "genes.tsv").write_text(
+        "".join(f"{g}\t{g}\n" for g in names)
+    )
+    (out / "barcodes.tsv").write_text(
+        "".join(f"{b}\n" for b in cells[keep])
+    )
 
     annotation_path = out / "annotations.tsv"
     pd.DataFrame({"cell": cells[keep], "group": group[keep]}).to_csv(
         annotation_path, sep="\t", header=False, index=False
     )
-    return {"counts": matrix_path, "annotations": annotation_path}
+    # inferCNV takes the DIRECTORY for 10x input, not the .mtx path.
+    return {"counts": out, "annotations": annotation_path,
+            "matrix": matrix_path}
 
 
 def infercnv_reference_groups(roles: pd.DataFrame) -> list[str]:

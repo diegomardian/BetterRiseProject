@@ -129,8 +129,16 @@ def main() -> int:
     print(f"  {len(rows):,} genes across {len({r[1] for r in rows})} chromosomes")
     print("\nAdd this row to data/manifest.csv, in the same PR as the code that "
           "reads it:\n")
+    # Repo-relative, not the absolute cluster path. The manifest travels with
+    # the repo and every machine points BRP_DATA_DIR somewhere different, so an
+    # absolute path here names a file nobody else has.
+    try:
+        relative = out.relative_to(Path(os.environ.get("BRP_DATA_DIR", "data")))
+        manifest_path = Path("data") / relative
+    except ValueError:
+        manifest_path = out
     print(
-        f"{out},{digest},{size},{source_url},GENCODE-v28lift37,"
+        f"{manifest_path},{digest},{size},{source_url},GENCODE-v28lift37,"
         f"{date.today().isoformat()},W1,"
         f"inferCNV gene order. GENCODE v28 mapped to GRCh37 — matches "
         f"GSE178341's GRCh37_liftover_v28 tag. NOT v19: nine releases earlier "

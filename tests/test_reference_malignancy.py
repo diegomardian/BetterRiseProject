@@ -332,14 +332,40 @@ class TestInferCNVWiring:
     def test_the_matrix_is_genes_by_cells(self, tmp_path):
         """inferCNV's orientation, not AnnData's. Transposed silently, this
         would run and return nonsense."""
+        from scipy import io as sio
+
         roles = self._roles()
         paths = write_infercnv_inputs(
             self._counts(roles), [f"G{i}" for i in range(25)], roles,
             out_dir=tmp_path,
         )
-        frame = pd.read_csv(paths["counts"], sep="\t", index_col=0)
-        assert frame.shape[0] == 25
-        assert frame.shape[1] == len(roles)
+        matrix = sio.mmread(paths["matrix"])
+        assert matrix.shape == (25, len(roles))
+
+    def test_the_matrix_is_written_sparse(self, tmp_path):
+        """Dense would be 7.8 GB for the largest pilot patient before pandas
+        takes its copy, and hours to write for a >90%-zero matrix."""
+        roles = self._roles()
+        paths = write_infercnv_inputs(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            out_dir=tmp_path,
+        )
+        assert paths["matrix"].name.endswith(".mtx")
+        assert (tmp_path / "genes.tsv").exists()
+        assert (tmp_path / "barcodes.tsv").exists()
+        # inferCNV reads the DIRECTORY for 10x input, not the .mtx.
+        assert paths["counts"] == tmp_path
+
+    def test_genes_tsv_carries_the_symbol_in_both_columns(self, tmp_path):
+        """The gene-order file is keyed on SYMBOL. A mismatch there does not
+        error — it silently drops every gene from the inference."""
+        roles = self._roles()
+        write_infercnv_inputs(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            out_dir=tmp_path,
+        )
+        first = (tmp_path / "genes.tsv").read_text().splitlines()[0]
+        assert first.split("\t") == ["G0", "G0"]
 
     def test_unusable_cells_are_dropped_not_written(self, tmp_path):
         roles = self._roles()
