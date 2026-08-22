@@ -16,6 +16,11 @@ A verification pass over W1's own recommendations, against the other
 workstreams' branches rather than against memory. Five were wrong. They are
 corrected in place below; recorded here because several were circulated.
 
+**Raised with the other workstreams as issues, not as pushes to their branches**
+(CONTRIBUTING §2 puts `src/bulk/` and `src/estimator/` off-limits to W1):
+[#7 for W3](https://github.com/diegomardian/BetterRiseProject/issues/7) ·
+[#8 for W4](https://github.com/diegomardian/BetterRiseProject/issues/8).
+
 **1 · The gene index. W1 never emitted one into the repo.** The decision board
 said "W1 emits it at `config/gene_index/gene_index_1.0.0.*`". That file does not
 exist on any branch — it was written on the cluster and never committed. What
