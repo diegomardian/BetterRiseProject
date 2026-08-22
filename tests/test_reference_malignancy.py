@@ -20,6 +20,7 @@ from src.reference.malignancy import (
     assign_cnv_roles,
     call_malignancy,
     infercnv_reference_groups,
+    read_infercnv_score_table,
     read_infercnv_scores,
     run_infercnv,
     select_cnv_reference,
@@ -406,6 +407,38 @@ class TestInferCNVWiring:
         )
         annotations = pd.read_csv(paths["annotations"], sep="\t", header=None)
         assert "unusable" not in set(annotations[1])
+
+    def test_the_R_writes_the_score_itself(self, tmp_path):
+        """no_plot=TRUE skips the step that writes infercnv.observations.txt,
+        so the score comes off the final object instead of a 400 MB text
+        matrix produced only to be reduced to one number per cell."""
+        roles = self._roles()
+        positions = tmp_path / "hg19.txt"
+        positions.write_text("G0\tchr1\t1\t100\n")
+        out = run_infercnv(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            gene_position_file=positions, out_dir=tmp_path / "out", dry_run=True,
+        )
+        script = out["script"].read_text()
+        assert "colMeans((expr - 1)^2)" in script
+        assert "cnv_scores.csv" in script
+
+    def test_the_score_table_joins_the_role_back_on(self, tmp_path):
+        """call_malignancy needs the REFERENCE cells too — they set the
+        threshold — so the group has to come back with the scores."""
+        (tmp_path / "cnv_scores.csv").write_text(
+            "cell,cnv_score\nc0,0.01\nc1,0.40\n"
+        )
+        (tmp_path / "annotations.tsv").write_text(
+            "c0\tref_immune\nc1\tquery\n"
+        )
+        table = read_infercnv_score_table(tmp_path)
+        assert set(table["group"]) == {"ref_immune", "query"}
+        assert table.loc[table["cell"] == "c1", "cnv_score"].iloc[0] == 0.40
+
+    def test_a_missing_score_file_says_where_to_look(self, tmp_path):
+        with pytest.raises(MalignancyError, match="infercnv_R.log"):
+            read_infercnv_score_table(tmp_path)
 
     def test_scores_feed_call_malignancy(self, tmp_path):
         """Mean squared deviation from 1, and it must land on the scale

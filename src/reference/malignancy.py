@@ -669,7 +669,7 @@ obj <- CreateInfercnvObject(
 )
 cat("after gene-order intersection:", nrow(obj@expr.data), "genes\n")
 
-infercnv::run(
+result <- infercnv::run(
   obj,
   cutoff              = {cutoff},
   out_dir             = "{out_dir}",
@@ -681,7 +681,56 @@ infercnv::run(
   num_threads         = {threads},
   no_plot             = TRUE
 )
+
+# no_plot = TRUE skips the final plot, and in inferCNV that is also the step
+# that writes infercnv.observations.txt / infercnv.references.txt. Rather than
+# turn plotting back on — a 400 MB text matrix and a heatmap nobody reads, per
+# patient — take the score straight off the final object.
+#
+# Mean squared deviation from 1 across genes, which is the conventional per-cell
+# CNV score and exactly what call_malignancy() thresholds. Squared, not
+# absolute: a cell with a few large deviations is more plausibly aneuploid than
+# one with many tiny ones, and the absolute deviation treats those the same.
+expr <- result@expr.data
+scores <- colMeans((expr - 1)^2)
+write.csv(
+  data.frame(cell = names(scores), cnv_score = as.numeric(scores)),
+  file = file.path("{out_dir}", "cnv_scores.csv"),
+  row.names = FALSE
+)
+cat("wrote cnv_scores.csv for", length(scores), "cells\n")
 """
+
+
+def read_infercnv_score_table(out_dir: Any) -> pd.DataFrame:
+    """Per-cell CNV score and role from a finished inferCNV run.
+
+    Reads ``cnv_scores.csv`` — written by the R step, which computes the mean
+    squared deviation from 1 directly off the final object — and joins the role
+    each cell was given, so :func:`call_malignancy` has both the scores and the
+    reference cells that set the threshold.
+
+    Preferred over :func:`read_infercnv_scores`. That one parses
+    ``infercnv.observations.txt``, which inferCNV only writes when plotting is
+    on: a ~400 MB text matrix per patient, produced solely to be read back and
+    reduced to one number per cell.
+    """
+    directory = Path(out_dir)
+    scores_path = directory / "cnv_scores.csv"
+    if not scores_path.exists():
+        raise MalignancyError(
+            f"no {scores_path}. Either the run did not finish, or it predates "
+            f"the R step that writes it — check {directory / 'infercnv_R.log'}."
+        )
+    scores = pd.read_csv(scores_path)
+
+    annotations_path = directory / "annotations.tsv"
+    if annotations_path.exists():
+        annotations = pd.read_csv(
+            annotations_path, sep="\t", header=None, names=["cell", "group"]
+        )
+        scores = scores.merge(annotations, on="cell", how="left")
+    return scores
 
 
 def read_infercnv_scores(
