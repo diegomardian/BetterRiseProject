@@ -2,7 +2,7 @@
 # Needs 32-64 GB RAM. See env/README.md.
 #
 # GPU is NO LONGER required for the ambient step: GSE178341 ships no empty
-# droplets, so CellBender cannot run at all (docs/open_decisions.md #8). The
+# droplets, so CellBender cannot run at all (docs/open_decisions.md #11). The
 # ambient arm is SoupX in degraded mode + DecontX, both CPU. GPU still helps
 # nothing here; inferCNV is CPU-parallel across patients.
 name: brp-w1
@@ -42,7 +42,7 @@ dependencies:
   - pip:
       # CellBender is retained but CURRENTLY UNUSABLE — it models all barcodes
       # including cell-free ones, and GSE178341 has none. Keep it pinned in case
-      # the dbGaP route (open decision #8, option d) is ever taken; drop it if
+      # the dbGaP route (open decision #11, option d) is ever taken; drop it if
       # the solve time becomes annoying, since it pulls torch.
       - cellbender==0.3.0
       - -e ..

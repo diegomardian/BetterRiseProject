@@ -146,6 +146,11 @@ class GroundTruth:
     #: gene -> weighting -> terms. Filled by the generator.
     parametric: dict[str, dict[str, dict[str, float]]] = field(default_factory=dict)
     realised: dict[str, dict[str, dict[str, float]]] = field(default_factory=dict)
+    #: gene -> the four scalars ``kitagawa.decompose()`` takes, measured on the
+    #: cells actually drawn. This is what an estimator with perfect access to
+    #: the single-cell data would see, and feeding it to ``decompose()`` is how
+    #: the harness tests W4's arithmetic rather than restating its own truth.
+    realised_stats: dict[str, dict[str, float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for label, comp in (
@@ -215,12 +220,17 @@ def realised_truth(
     genes: list[str],
     *,
     weightings: tuple[Weighting, ...] = ("normal", "tumour"),
-) -> dict[str, dict[str, dict[str, float]]]:
+) -> tuple[dict[str, dict[str, dict[str, float]]], dict[str, dict[str, float]]]:
     """Terms computed from the cells actually drawn, not from what we asked for.
 
     Parameters are cells x genes count matrices and boolean mature masks. The
     fractions and means here are empirical, so these terms carry sampling noise
     — that is the point of having them alongside the parametric ones.
+
+    Returns ``(terms, stats)``. ``stats`` carries the four scalars
+    ``kitagawa.decompose()`` takes, so a caller can run the real estimator on
+    them rather than reading these terms back out — which would only restate
+    the harness's own arithmetic.
     """
     if counts_normal.shape[1] != len(genes) or counts_tumour.shape[1] != len(genes):
         raise ValueError("count matrices and gene list disagree on width")
@@ -228,11 +238,18 @@ def realised_truth(
     f_n = float(is_mature_normal.mean()) if is_mature_normal.size else 0.0
     f_t = float(is_mature_tumour.mean()) if is_mature_tumour.size else 0.0
 
+    stats: dict[str, dict[str, float]] = {}
     out: dict[str, dict[str, dict[str, float]]] = {}
     for j, gene in enumerate(genes):
         m_n = float(counts_normal[is_mature_normal, j].mean()) if is_mature_normal.any() else 0.0
         m_t = float(counts_tumour[is_mature_tumour, j].mean()) if is_mature_tumour.any() else 0.0
         d_frac, d_mean = f_t - f_n, m_t - m_n
+        stats[gene] = {
+            "frac_mature_normal": f_n,
+            "frac_mature_tumour": f_t,
+            "mean_normal": m_n,
+            "mean_tumour": m_t,
+        }
         out[gene] = {}
         for w in weightings:
             if w == "normal":
@@ -250,4 +267,4 @@ def realised_truth(
             terms["total"] = f_t * m_t - f_n * m_n
             assert_identity_closes(terms)
             out[gene][w] = terms
-    return out
+    return out, stats

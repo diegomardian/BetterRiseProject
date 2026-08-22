@@ -109,9 +109,10 @@ the gate will show whether axis 2 is carrying weight.
 
 ---
 
-## 2 · Who owns the shared gene index — OPEN
+## 2 · Who owns the shared gene index — FALLBACK FIRED, W3 BUILT IT
 
-**Raised:** scaffold, 2026-08-15 · **Owner:** W1 + W3 · **Needed by:** week 1
+**Raised:** scaffold, 2026-08-15 · **Acted on:** W3, 2026-08-17 ·
+**Owner:** W1 + W3 · **Confirm at:** the next weekly
 
 W1 emits S matrices on a fixed gene index; W3 emits bulk on the same index;
 integration is a join. The plan does not say who *produces* the index, and both
@@ -138,21 +139,75 @@ coverage inside it. Then, in the meeting:
 
 Either way: one index. A panel gene missing from the intersection is a reason to
 revisit the index, not to drop the gene.
+**Original recommendation: W1 emits it in week 1** from the GSE178341 feature
+table, with the written fallback *"if W1's ingest slips, W3 emits a provisional
+index from the GDC gene model and W1 conforms."*
+
+**The fallback fired.** W1's week-1 work landed — ingest guards, per-batch QC,
+ambient estimator, labels — and `config/gene_index/` still holds only its
+README. Nothing under `src/` handles Ensembl IDs at all; W1's pipeline is
+symbol-keyed throughout.
+
+W3 has built it: [`src/bulk/gene_index.py`](../src/bulk/gene_index.py), emitted
+as **`gene_index_0.9.0`** — provisional, and versioned to say so. It is *not*
+1.0.0.
+
+### Measured, 2026-08-17 — neither index is the right shared index
+
+W1's Ensembl IDs were pulled from the Broad-hosted
+`colon10x_default_dDvec_ensgID.csv.gz` (188 KB, the file identified in §11) and
+intersected with W3's index:
+
+| | Genes |
+|---|---|
+| W1 (GSE178341 features) | 43,078 |
+| W3 (index 0.9.0, GENCODE v36) | 60,616 |
+| **On both** | **39,236** |
+| W1 only — not in v36 | 3,842 · **8.9% of W1** |
+| W3 only — bulk-only | 21,380 · 35.3% of W3 |
+
+**All 23 panel genes are present on both.** Tiers A–D are safe either way, which
+was the thing most worth checking.
+
+Note the 8.9%: decision #3 predicted *"the usual way a join silently loses ~8% of
+genes"* and that is almost exactly what version drift between W1's CellRanger
+reference and GENCODE v36 costs. The prediction was right.
+
+**So the question is not "0.9.0 or 1.0.0".** Adopting either wholesale throws
+away genes the other arm measured — W3 conforming loses 21,380, W1 conforming
+loses 3,842. **The shared index should be the intersection: 39,236 genes,
+committed as `gene_index_1.0.0`.** Each arm keeps its own full matrix for its own
+work; the shared index is what integration joins on, and 39,236 is far more than
+the 500–2,000 markers deconvolution needs (§2.1 error #4).
+
+To settle at the weekly:
+
+1. **Agree the shared index is the intersection**, not either arm's native set.
+2. W1 confirms the reference release behind `dDvec_ensgID` so the 3,842 can be
+   attributed to version drift rather than to reference filtering.
+3. Promote to `gene_index_1.0.0` in its own commit; retire 0.9.0.
 
 ---
 
-## 3 · Symbol vs. Ensembl ID on the shared index — OPEN
+## 3 · Symbol vs. Ensembl ID on the shared index — ADOPTED AS RECOMMENDED
 
-**Raised:** scaffold, 2026-08-15 · **Owner:** W1 + W3 · **Needed by:** week 1
+**Raised:** scaffold, 2026-08-15 · **Implemented:** W3, 2026-08-17 ·
+**Owner:** W1 + W3
 
 Follows from #2 and is the usual way a join silently loses 8% of genes. TCGA
 STAR counts arrive as Ensembl IDs with versions; the panel and both labelling
 axes are written as symbols; single-cell references are usually symbols.
 
-**Recommendation: Ensembl IDs (unversioned) as the index, symbols as a mapped
-column.** Panel and axis lookups resolve through the map, which is committed
-alongside the index. Unmapped panel genes are a week-1 finding, not a week-9
-surprise.
+**Recommendation, now implemented: Ensembl IDs (unversioned) as the index,
+symbols as a mapped column.** The version suffix is stripped into its own column
+because the same gene carries a different suffix in a different GENCODE release,
+so a versioned key drops those genes silently. Panel lookups resolve through
+`gene_index_0.9.0.map.tsv`; `panel_resolution_report()` reports unmapped and
+ambiguous panel genes in week 1.
+
+**Ambiguous symbols are not auto-resolved.** A panel gene mapping to two Ensembl
+IDs is a decision, not a tie-break. Tiers A–D are eleven genes — pin them by
+hand and write down why.
 
 ---
 
@@ -176,10 +231,18 @@ protection for `main`.
 
 ---
 
-## 6 · Which cohort W2 ingests — OPEN
+## 6 · Which cohort W2 ingests — OVERTAKEN BY EVENTS, see §8
 
-**Raised:** W2 planning, 2026-08-15 · **Owner:** W2 + W4 · **Needed by:** week 1,
-before anyone downloads anything
+**Raised:** W2 planning, 2026-08-15 · **Resolved:** 2026-08-15 by W4 shipping
+`src/estimator/lee_io.py`, which loads **both** cohorts (SMC and KUL3) behind one
+`load_lee_cohort(which=...)`. The split proposed below did not happen and no
+longer needs to — nobody duplicated anything, because W4 got there first.
+
+What replaces it is a narrower question about the *shape* of the artifact rather
+than who downloads it. See **§8** below.
+
+<details>
+<summary>Original proposal, kept for the record</summary>
 
 W2 needs real cells in week 1 so the harness is never queued behind W1's
 five-patient pilot. W4 owns both Lee cohorts (GSE132465 SMC, GSE144735 KUL3) and
@@ -207,6 +270,8 @@ the harness. The harness needs cells with labels, not a dataset nobody else has
 touched. What it does require is that the patients held out for a pseudobulk
 sample are held out — which is enforced in `generate_pseudobulk`, not assumed.
 
+</details>
+
 ---
 
 ## 7 · Detectable effect for cutpoint calibration — OPEN
@@ -227,7 +292,150 @@ than chosen. See [harness_design_spec.md §4](harness_design_spec.md).
 
 ---
 
-## 8 · GSE178341 ships NO unfiltered droplets — ANSWERED, BLOCKING
+## 8 · The harness needs raw counts; `lee_io` emits CP10K — OPEN
+
+**Raised:** W2, 2026-08-15, reviewing `w4/estimator-core` · **Owner:** W2 + W4 ·
+**Needed by:** week 2, before the harness runs on real cells
+
+`LeeCohort.expression` is **CP10K-normalised** and restricted to
+genes-of-interest. That is exactly right for `decompose_cohort`, which consumes
+per-patient summary means and needs a linear depth-normalised scale for the
+Kitagawa identity to be additive. It is the wrong artifact for the harness,
+which needs:
+
+| | `lee_io` gives | harness needs |
+|---|---|---|
+| scale | CP10K floats | **raw integer counts** — binomial thinning is defined on counts |
+| gene width | genes-of-interest | **the full index** — deconvolution wants 500–2000 markers |
+
+Handing the CP10K frame to `generate_pseudobulk` used to truncate silently:
+`astype(int64)` turns every value below 1.0 into 0, destroying exactly the
+low-expressing cells the near-zero mature-cell edge cases are made of. **The
+generator now refuses a non-integer matrix** with a message naming CP10K, so this
+can no longer happen quietly — but refusing is not the same as being unblocked.
+
+Options:
+
+| | Approach | Cost |
+|---|---|---|
+| a | `lee_io` grows a `return_raw_counts=True` / second accessor on `LeeCohort` | Small, and W4 already streams the raw matrix — the counts exist before the CP10K step at `lee_io.py:322` |
+| b | W2 writes its own reader against the same manifest files | Duplicates the parsing and the QC that `ingest.qc_flags` already does |
+| c | `lee_io` caches a raw-count parquet next to the CP10K frame | Both arms served, one parse, costs disk |
+
+**Recommendation: (a).** It is a keyword argument on code W4 has already
+written, and the raw counts are in hand at the point of normalisation. Needs
+W4's agreement since it is their module.
+
+**Until it lands**, the harness runs on synthetic fixtures. That is not a block
+on the week-5 gate — G3 is a statement about the estimator's algebra and
+synthetic cells test it fine — but the attenuation curve wants real
+expression distributions, so this should not drift past week 3.
+
+---
+
+## 9 · `doubly_robust` folds the interaction into both arms — OPEN
+
+**Raised:** W2, 2026-08-15, reviewing `d9c08c0` · **Owner:** W4 + W2 ·
+**Needed by:** before any decomposition result is written with
+`weighting="doubly_robust"`
+
+CLAUDE.md invariant 7: *the interaction term is reported separately, never
+folded into either arm.* The pooled-reference split in
+`kitagawa._doubly_robust_split` reports `interaction = 0.0` — but the cross term
+has not vanished, it has been distributed **50/50 into the other two arms**:
+
+```
+comp_pooled = Δf·(m_n+m_t)/2 = Δf·m_n + Δf·Δm/2 = comp_normal + interaction/2
+intr_pooled = (f_n+f_t)/2·Δm = f_n·Δm + Δf·Δm/2 = intr_normal + interaction/2
+```
+
+Verified numerically on `f_n=0.40, f_t=0.10, m_n=10.0, m_t=4.0`:
+
+| weighting | compositional | intrinsic | interaction |
+|---|---|---|---|
+| normal | −3.0000 | −2.4000 | **+1.8000** |
+| tumour | −1.2000 | −0.6000 | −1.8000 |
+| doubly_robust | −2.1000 | −1.5000 | **0.0000** |
+
+`−2.1 = −3.0 + 0.9` and `−1.5 = −2.4 + 0.9`, and `0.9` is exactly half the
+interaction term. Here that shrinks the intrinsic term by **37.5%, toward
+zero** — the direction of our prior hypothesis, which README calls out as the
+worst way for a result to move.
+
+This is not a claim that W4 is wrong. Kline (2011) is a real citation, the
+pooled reference is a real estimator, and W4's docstring is explicit that it is
+a first cut pending cell-level AIPW. The problem is narrower:
+
+1. It is what invariant 7 was written to forbid, and invariants change by PR
+   with two approvals and a written reason — not by implementation.
+2. Writing `0.0` into the schema's `interaction` column reads as "no interaction
+   here" when the honest statement is "interaction distributed into the arms."
+   That is the invariant-1 failure mode wearing a different hat.
+
+Options:
+
+| | Approach | Cost |
+|---|---|---|
+| a | Amend invariant 7 to "never folded silently" and require the pooled split to record what it absorbed | Frozen-doc PR, 2 approvals. Keeps a citable estimator. |
+| b | Keep `doubly_robust` but report the normal-weighting interaction alongside, not `0.0` | Schema already has the column; the value stops being a lie |
+| c | Rename it — it is a pooled-reference split, not AIPW — and defer true doubly-robust to cell-level data | Cheapest, most honest about what it is; W4's docstring already says this |
+
+**Recommendation: (c) plus (b).** Call it what it is, and put the real cross
+term in the interaction column rather than zero. Neither needs new maths.
+
+---
+
+## 10 · Which interval goes in the schema's `ci_low`/`ci_high` — W2 PROPOSES, W4 TO CONFIRM
+
+**Raised:** W4 in `bootstrap_over_patients`' docstring · **Answered by:** W2,
+2026-08-16 · **Owner:** W2 + W4 · **Needed by:** week 5
+
+W4 wrote, and was right to:
+
+> *"which quantity belongs there (this cohort-level bootstrap band on
+> `intrinsic`, a per-patient interval from within-patient cell-count
+> uncertainty, or a value read off the hierarchical model instead) is an open
+> call for whoever owns the week 4–5 hierarchical-model deliverable to make
+> deliberately."*
+
+**The two are different estimands and the project needs both.**
+
+| Question | Sampling unit | Where |
+|---|---|---|
+| What is the cohort's intrinsic loss, and how sure are we? | **patients** (invariant 5) | W4's `bootstrap_over_patients` |
+| Does *this* patient have enough mature cells for their own estimate to mean anything? | **cells**, by construction | W2's `harness/interval.py` |
+
+The cutpoints have to be calibrated on the second. A cohort-level band
+broadcast onto every patient row is *identical* for a patient with 800 mature
+cells and one with 21, so coverage against `n_cells_mature` is flat and no
+cutpoint exists. Measured on the new interval, CI width runs 2.583 at 5 mature
+cells to 0.596 at 800 — a 4.3× range, which is the dependence a cutpoint needs.
+
+**This is not a violation of invariant 5.** Invariant 5 exists because
+resampling cells to make a *population* claim inflates n by the cells-per-patient
+count. That failure mode requires the claim to be about patients. A
+within-patient statement has cells as its sample by construction. The argument
+is in `src/harness/interval.py`'s module docstring in full, so a reader who finds
+the resampling loop finds the reasoning next to it.
+
+**Proposal for the schema slot:** keep W4's current choice — the cohort-level
+intrinsic band — because the per-patient row is read as part of a population
+result, and say which one it is wherever it is presented, as
+`attach_intrinsic_ci` already instructs. The within-patient interval is a
+harness-side quantity for calibration and does not need a schema slot.
+
+**W4: flag it if you disagree.** The only thing that would change is which
+number lands in `ci_low`/`ci_high`; both intervals exist and are tested either
+way.
+
+---
+
+## 11 · GSE178341 ships NO unfiltered droplets — ANSWERED, BLOCKING
+
+> **Renumbered from #8 on merge.** W1 and W2 both reached for the next free
+> number on the same day and collided. This is W1's decision; #8 is W2's
+> `lee_io` raw-counts question. Anything still citing "open decision #8"
+> for the ambient problem means this one.
 
 **Raised:** W1, 2026-08-16 · **Answered:** W1, 2026-08-16 ·
 **Owner:** W1 (W4 has the same exposure) · **Decision needed by:** week 1
@@ -914,6 +1122,49 @@ detected stem markers might be genuinely differentiated or merely shallow, and
 scoring it as maximally mature is inference from absence of evidence — the exact
 move this project refuses elsewhere. **This is a scientific choice, not a default
 W1 should pick**, which is why it is here rather than in the code.
+## 12 · `build_signature()` asserts on the whole index; W3's matrix needs panel genes — OPEN
+
+**Raised:** W3, 2026-08-17, building the provisional index · **Owner:** W1 + W3 ·
+**Needed by:** week 4, before W1 builds an S matrix
+
+Two requirements that are both correct and look incompatible:
+
+| | Needs | Where |
+|---|---|---|
+| W1 | the index handed to `build_signature()` to contain **no** target gene | [`signature.py:96`](../src/reference/signature.py#L96), pinned by [`test_leakage.py:45`](../tests/test_leakage.py#L45) |
+| W3 | the bulk matrix to **contain** GUCA2A and CDX2 | they are the outcome variables for the week-2 premise check and the Stage 4 variance question |
+
+If the shared index is made target-free to satisfy the assertion, W3's own
+deliverable becomes unrepresentable on the shared index. If it is not, every
+`build_signature()` call raises.
+
+Note also that [`config/gene_index/README.md`](../config/gene_index/README.md)
+already says the opposite of what the code does — *"the index itself may contain
+them for other purposes"* — so the doc and the assertion currently disagree.
+
+**W3 has implemented the narrow fix** without touching W1's module: the
+committed index carries every gene, and
+[`target_free_index()`](../src/bulk/gene_index.py) produces the filtered view for
+the call site:
+
+```python
+build_signature(..., gene_index=target_free_index(ids, index_map, targets))
+```
+
+Invariant 2 binds where it matters — the reference matrix — and the shared index
+stays whole.
+
+Options for the durable fix:
+
+| | Approach | Cost |
+|---|---|---|
+| a | Keep it at the call site. W1 wraps every `build_signature` call in `target_free_index`. | Zero code change to frozen-ish W1 code. Relies on W1 remembering. |
+| b | `build_signature()` filters targets out of `gene_index` itself, as it already does for `usable` at line 98, and drops the line-96 assertion. | One line in W1's module plus a test update. Makes the guard unforgettable. |
+| c | Amputate panel genes from the shared index. | **Do not.** Breaks W3.2 and Stage 4. Listed only to rule it out in writing. |
+
+**Recommendation: (b).** The assertion at line 98 is the one that protects the
+reference pool; line 96 protects nothing extra and costs the shared index its
+completeness. (a) is what is in place today and is a fine holding position.
 
 ---
 

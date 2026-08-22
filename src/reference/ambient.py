@@ -313,7 +313,7 @@ def run_soupx(*args: Any, **kwargs: Any) -> Any:
     """
     raise NotImplementedError(
         "W1 — SoupX needs the real matrices and a per-sample soup profile. "
-        "See docs/open_decisions.md #8."
+        "See docs/open_decisions.md #11."
     )
 
 

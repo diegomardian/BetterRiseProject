@@ -1,6 +1,6 @@
 """Ambient contamination measured without empty droplets. W1.
 
-GSE178341 ships no empty droplets (docs/open_decisions.md #8), so the estimator
+GSE178341 ships no empty droplets (docs/open_decisions.md #11), so the estimator
 under test here is the method-independent replacement: contamination read off
 genes the cells cannot possibly transcribe. The recovery tests inject soup at a
 known rate and check it comes back.

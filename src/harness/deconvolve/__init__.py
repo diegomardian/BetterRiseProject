@@ -18,5 +18,6 @@ missing method must be visible, not absent.
 
 from src.harness.deconvolve.base import Deconvolver, available_methods
 from src.harness.deconvolve.nnls import NNLSDeconvolver
+from src.harness.deconvolve.nusvr import NuSVRDeconvolver
 
-__all__ = ["Deconvolver", "NNLSDeconvolver", "available_methods"]
+__all__ = ["Deconvolver", "NNLSDeconvolver", "NuSVRDeconvolver", "available_methods"]
