@@ -1410,9 +1410,9 @@ class TestDepthMatchingRemovesTheConfound:
 
     def test_the_compositional_signal_survives_matching(self):
         """Matching must not destroy real signal while removing the artifact."""
-        from tests.test_reference_labels import TestCompositionalSignalIsRecoverable as T
-
-        maker = T()
+        # Same module — importing it by path fails under CI's thin env, where
+        # `tests` is not an importable package (CONTRIBUTING §6).
+        maker = TestCompositionalSignalIsRecoverable()
         matrix, compartment, patient, tissue = maker._paired(0.50, 0.10)
         labels = assign_labels(
             matrix, GENES, compartment=compartment, sample_id=tissue,
