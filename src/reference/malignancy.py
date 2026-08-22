@@ -616,10 +616,27 @@ def run_infercnv(
     result["returncode"] = completed.returncode
     result["stdout"] = completed.stdout
     result["stderr"] = completed.stderr
+
+    # Keep the whole R log next to the results. inferCNV's own progress output
+    # is the record of what it did, and a run whose log lives only in a Python
+    # variable cannot be checked afterwards.
+    (out / "infercnv_R.log").write_text(
+        f"$ {' '.join(command)}\n\n{completed.stdout}\n{completed.stderr}"
+    )
+
     if completed.returncode != 0:
         raise MalignancyError(
             f"inferCNV failed (exit {completed.returncode}).\n{completed.stderr[-2000:]}"
         )
+
+    # Echo the lines that say whether the run means anything, rather than
+    # capturing them and discarding them on success. The gene count AFTER the
+    # gene-order intersection is the one that matters: a large drop means the
+    # symbol join failed, and inferCNV does not error on that — it infers from
+    # whatever survived.
+    for line in completed.stdout.splitlines():
+        if line.startswith(("matrix:", "after gene-order intersection:")):
+            print(f"  {line}")
     return result
 
 
