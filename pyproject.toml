@@ -43,6 +43,10 @@ dev = [
     "diptest>=0.5",  # src/bulk/premise.py (lazy import, still needed)
     "matplotlib>=3.7",  # src/bulk/premise.py, src/bulk/run_survival.py — figures
     "requests>=2.31",  # src/bulk/{gdc,cdr,clinical,purity,replication}.py — fetchers
+    # Module-level in src/reference/{icbi,ingest}.py, so its absence kills
+    # collection rather than failing one test. Added in #13, lost when #12 and
+    # #13 both edited this list and the conflict resolution took one side whole.
+    "h5py>=3.10",
 ]
 
 [tool.setuptools.packages.find]
