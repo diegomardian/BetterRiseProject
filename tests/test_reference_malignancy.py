@@ -513,3 +513,65 @@ class TestHeldOutReference:
         )
         with pytest.raises(MalignancyError, match="no held-out normal epithelium"):
             validate_normal_epithelium(calls, tissue=df["tissue"], role=roles["role"])
+
+
+class TestGenePositions:
+    """The gene-order file decides where inferCNV thinks every gene is. Getting
+    it wrong does not fail — it produces chromosome-arm artifacts that look
+    exactly like real copy-number events."""
+
+    def _parse(self, text):
+        import io
+        import sys
+        from pathlib import Path
+
+        sys.path.insert(0, str(Path("src/reference/jobs").resolve()))
+        from fetch_gene_positions import parse_gtf, sort_rows
+
+        return sort_rows(parse_gtf(io.StringIO(text)))
+
+    def _gene(self, chrom, start, end, name):
+        return (
+            f'{chrom}\tHAVANA\tgene\t{start}\t{end}\t.\t+\t.\t'
+            f'gene_name "{name}"; gene_type "protein_coding";\n'
+        )
+
+    def test_only_gene_rows_are_kept(self):
+        text = self._gene("chr1", 100, 200, "A") + (
+            'chr1\tHAVANA\texon\t100\t200\t.\t+\t.\tgene_name "A";\n'
+        )
+        assert len(self._parse(text)) == 1
+
+    def test_scaffolds_and_chrM_are_excluded(self):
+        """A contig with a handful of genes contributes noise with no positional
+        meaning, and chrM has no copy number in the relevant sense."""
+        text = (
+            self._gene("chr1", 100, 200, "A")
+            + self._gene("chrM", 1, 10, "MT-CO1")
+            + self._gene("GL000191.1", 1, 10, "SCAF")
+        )
+        assert [r[0] for r in self._parse(text)] == ["A"]
+
+    def test_pseudoautosomal_duplicates_are_dropped(self):
+        """PAR genes appear on both X and Y. A gene at two positions makes the
+        smoothing window ambiguous."""
+        text = self._gene("chr1", 100, 200, "A") + self._gene(
+            "chrY", 5, 9, "XG_PAR_Y"
+        )
+        assert [r[0] for r in self._parse(text)] == ["A"]
+
+    def test_a_repeated_symbol_keeps_the_first_occurrence(self):
+        text = self._gene("chr1", 100, 200, "A") + self._gene("chr1", 900, 950, "A")
+        rows = self._parse(text)
+        assert len(rows) == 1
+        assert rows[0][2] == 100
+
+    def test_output_is_in_genomic_order(self):
+        """inferCNV walks the file top to bottom as the genome."""
+        text = (
+            self._gene("chr2", 50, 80, "B")
+            + self._gene("chr1", 900, 950, "C")
+            + self._gene("chr1", 100, 200, "A")
+            + self._gene("chrX", 10, 20, "D")
+        )
+        assert [r[0] for r in self._parse(text)] == ["A", "C", "B", "D"]
