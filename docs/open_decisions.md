@@ -1123,7 +1123,7 @@ or GSE178341 and the Lee cohorts are not comparable at the gate.
 > epithelial compartment by default (`load_lee_cohort(label_compartment=...)`).
 > This was not tidying. `classify_maturity` thresholds at a quantile of the axis
 > score *over whatever it is handed*, and on Lee the non-epithelial cells are
-> the majority — 56k of 63k on SMC. They carry no LGR5/OLFM4 at all, so on the
+> the majority — 45k of 64k on SMC. They carry no LGR5/OLFM4 at all, so on the
 > inverted `stem_pole` axis they score as maximally mature and drag the quantile
 > into the immune mass, leaving almost no epithelial cell above it. The mature
 > fraction **is** the compositional term, so a caller who forgot to pre-filter

@@ -307,7 +307,7 @@ def load_lee_cohort(
     ``label_compartment`` restricts *labelling* to one compartment, epithelium
     by default, and is not a cosmetic filter. ``classify_maturity`` thresholds
     at a quantile of the axis score over whatever it is handed, and on Lee the
-    non-epithelial cells are the majority (56k of 63k on SMC). They carry no
+    non-epithelial cells are the majority (45k of 64k on SMC). They carry no
     LGR5/OLFM4 at all, so on the inverted ``stem_pole`` axis they score as
     maximally mature and drag the quantile into the immune mass — leaving
     essentially no epithelial cell above it. The mature *fraction* is the
