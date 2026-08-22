@@ -408,6 +408,20 @@ def write_infercnv_inputs(
             f"gene_names has {names.shape[0]} entries for {counts.shape[1]} genes"
         )
 
+    # One row per symbol. The deposit carries several Ensembl IDs mapping to the
+    # same symbol, and the gene-order file is keyed on symbol — a duplicated
+    # row name gives inferCNV two genomic positions for one gene, which makes
+    # the smoothing window ambiguous. First occurrence wins, matching how
+    # fetch_gene_positions.py resolves the same collision on the other side.
+    _, first = np.unique(names, return_index=True)
+    gene_keep = np.zeros(names.shape, dtype=bool)
+    gene_keep[np.sort(first)] = True
+    dropped = int((~gene_keep).sum())
+    if dropped:
+        print(f"note: {dropped:,} duplicate gene symbols dropped, keeping the "
+              f"first occurrence of each ({int(gene_keep.sum()):,} remain)")
+    names = names[gene_keep]
+
     if barcodes is None:
         barcodes = [f"cell{i}" for i in range(counts.shape[0])]
     cells = np.asarray([str(b) for b in barcodes], dtype=object)
@@ -441,6 +455,7 @@ def write_infercnv_inputs(
     from scipy import io as sio
     from scipy import sparse
 
+    subset = subset[:, gene_keep]
     matrix = subset.T if sparse.issparse(subset) else sparse.csr_matrix(
         np.asarray(subset).T
     )
@@ -462,7 +477,6 @@ def write_infercnv_inputs(
     pd.DataFrame({"cell": cells[keep], "group": group[keep]}).to_csv(
         annotation_path, sep="\t", header=False, index=False
     )
-    # inferCNV takes the DIRECTORY for 10x input, not the .mtx path.
     return {"counts": out, "annotations": annotation_path,
             "matrix": matrix_path}
 
@@ -567,7 +581,9 @@ def run_infercnv(
 
     script = out / "run_infercnv.R"
     script.write_text(_INFERCNV_R_TEMPLATE.format(
-        counts=paths["counts"],
+        matrix=paths["matrix"],
+        genes=out / "genes.tsv",
+        barcodes=out / "barcodes.tsv",
         annotations=paths["annotations"],
         positions=positions,
         ref_groups=", ".join(f'"{g}"' for g in references),
@@ -615,13 +631,26 @@ _INFERCNV_R_TEMPLATE = """\
 suppressPackageStartupMessages(library(infercnv))
 set.seed({seed})
 
+# Load the sparse matrix here rather than handing CreateInfercnvObject a path.
+# It does read.table() on whatever path it is given and has no 10x-directory
+# reader in this version, so a directory fails with "not a regular file". A
+# dense TSV would be ~950 million numbers for the largest patient, so the matrix
+# is read from Matrix Market and passed as an object instead.
+suppressPackageStartupMessages(library(Matrix))
+counts <- Matrix::readMM("{matrix}")
+counts <- as(counts, "CsparseMatrix")
+rownames(counts) <- read.delim("{genes}", header = FALSE)$V1
+colnames(counts) <- read.delim("{barcodes}", header = FALSE)$V1
+cat("matrix:", nrow(counts), "genes x", ncol(counts), "cells\n")
+
 obj <- CreateInfercnvObject(
-  raw_counts_matrix = "{counts}",
+  raw_counts_matrix = counts,
   annotations_file  = "{annotations}",
   gene_order_file   = "{positions}",
   ref_group_names   = c({ref_groups}),
   delim             = "\t"
 )
+cat("after gene-order intersection:", nrow(obj@expr.data), "genes\n")
 
 infercnv::run(
   obj,

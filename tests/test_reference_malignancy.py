@@ -353,8 +353,38 @@ class TestInferCNVWiring:
         assert paths["matrix"].name.endswith(".mtx")
         assert (tmp_path / "genes.tsv").exists()
         assert (tmp_path / "barcodes.tsv").exists()
-        # inferCNV reads the DIRECTORY for 10x input, not the .mtx.
         assert paths["counts"] == tmp_path
+
+    def test_the_R_script_reads_the_mtx_rather_than_a_path(self, tmp_path):
+        """CreateInfercnvObject does read.table() on whatever path it gets and
+        has no 10x-directory reader — a directory fails with 'not a regular
+        file'. The matrix is loaded in R and passed as an object."""
+        roles = self._roles()
+        positions = tmp_path / "hg19.txt"
+        positions.write_text("G0\tchr1\t1\t100\n")
+        out = run_infercnv(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            gene_position_file=positions, out_dir=tmp_path / "out", dry_run=True,
+        )
+        script = out["script"].read_text()
+        assert "readMM" in script
+        assert "raw_counts_matrix = counts" in script
+
+    def test_duplicate_gene_symbols_are_collapsed(self, tmp_path):
+        """The deposit maps several Ensembl IDs to one symbol, and the
+        gene-order file is keyed on symbol — a duplicated row name gives
+        inferCNV two positions for one gene."""
+        from scipy import io as sio
+
+        roles = self._roles()
+        names = ["A", "B", "A", "C", "B"] + [f"G{i}" for i in range(20)]
+        paths = write_infercnv_inputs(
+            self._counts(roles), names, roles, out_dir=tmp_path,
+        )
+        written = (tmp_path / "genes.tsv").read_text().splitlines()
+        symbols = [line.split("\t")[0] for line in written]
+        assert len(symbols) == len(set(symbols))
+        assert sio.mmread(paths["matrix"]).shape[0] == len(symbols)
 
     def test_genes_tsv_carries_the_symbol_in_both_columns(self, tmp_path):
         """The gene-order file is keyed on SYMBOL. A mismatch there does not
