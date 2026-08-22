@@ -39,10 +39,17 @@ dev = [
     "scipy>=1.11",  # src/harness/deconvolve/nnls.py
     "statsmodels>=0.14",  # src/estimator/hierarchical.py (lazy import, still needed)
     "scikit-learn>=1.3",  # src/harness/deconvolve/nusvr.py (lazy import, still needed)
-    # src/reference/ingest.py:read_gse178341. Now safe to install in CI: the
+    # src/reference/ingest.py:read_gse178341. Safe to install in CI: the
     # FutureWarning it used to trigger came from provenance reading
     # `anndata.__version__`, which is fixed to use importlib.metadata.
-    "anndata>=0.10",
+    #
+    # The UPPER bound is separate and load-bearing. anndata 0.12 requires
+    # numpy>=2. Unbounded, pip resolves 0.12 here, which forces numpy 2, which
+    # breaks lifelines 0.29 (numpy<2) — pip then quietly lifts lifelines to
+    # 0.30 and CI ends up on a different numpy MAJOR than the 1.26.4 every
+    # env/ file pins. Results produced under one numpy, tested under another.
+    # 0.10.8 is what env/w1_reference.yml already uses.
+    "anndata>=0.10,<0.11",
     "lifelines>=0.29",  # src/bulk/survival.py (lazy import, still needed)
     "diptest>=0.5",  # src/bulk/premise.py (lazy import, still needed)
     "matplotlib>=3.7",  # src/bulk/premise.py, src/bulk/run_survival.py — figures
