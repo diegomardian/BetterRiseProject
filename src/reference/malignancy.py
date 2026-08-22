@@ -611,22 +611,36 @@ def run_infercnv(
 
     import subprocess
 
-    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    # STREAMED, not captured. subprocess.run(capture_output=True) buffers until
+    # the process exits, which for a run measured in hours means no way to tell
+    # a working job from a stuck one until it is over. Each line is echoed as it
+    # arrives — so `tail -f` on the SGE job log follows inferCNV live — and kept
+    # for the saved log and the error message.
+    log_path = out / "infercnv_R.log"
+    lines: list[str] = []
+    with log_path.open("w") as log:
+        log.write(f"$ {' '.join(command)}\n\n")
+        process = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1,
+        )
+        assert process.stdout is not None
+        for line in process.stdout:
+            print(line, end="", flush=True)
+            log.write(line)
+            log.flush()
+            lines.append(line)
+        returncode = process.wait()
+
     result["ran"] = True
-    result["returncode"] = completed.returncode
-    result["stdout"] = completed.stdout
-    result["stderr"] = completed.stderr
+    result["returncode"] = returncode
+    result["stdout"] = "".join(lines)
+    result["stderr"] = ""
 
-    # Keep the whole R log next to the results. inferCNV's own progress output
-    # is the record of what it did, and a run whose log lives only in a Python
-    # variable cannot be checked afterwards.
-    (out / "infercnv_R.log").write_text(
-        f"$ {' '.join(command)}\n\n{completed.stdout}\n{completed.stderr}"
-    )
-
-    if completed.returncode != 0:
+    if returncode != 0:
+        tail = "".join(lines[-40:])
         raise MalignancyError(
-            f"inferCNV failed (exit {completed.returncode}).\n{completed.stderr[-2000:]}"
+            f"inferCNV failed (exit {returncode}). Full log: {log_path}\n{tail}"
         )
 
     # Echo the lines that say whether the run means anything, rather than
@@ -634,9 +648,9 @@ def run_infercnv(
     # gene-order intersection is the one that matters: a large drop means the
     # symbol join failed, and inferCNV does not error on that — it infers from
     # whatever survived.
-    for line in completed.stdout.splitlines():
+    for line in lines:
         if line.startswith(("matrix:", "after gene-order intersection:")):
-            print(f"  {line}")
+            print(f"  {line.rstrip()}")
     return result
 
 
