@@ -73,6 +73,37 @@ def set_global_seeds(seed: int = DEFAULT_SEED) -> int:
     return seed
 
 
+#: Packages whose version is stamped onto every result. Import name == install
+#: name for all of these; add a mapping here if that ever stops being true.
+_STAMPED_PACKAGES: tuple[str, ...] = ("numpy", "pandas", "scanpy", "anndata")
+
+
+def _package_version(name: str) -> str | None:
+    """Installed version of ``name``, or None if it is not installed.
+
+    Reads distribution metadata rather than importing the package and asking for
+    ``__version__``. Three reasons, in order of how much trouble they caused:
+
+    1. ``__version__`` is being deprecated. anndata >= 0.13 emits a
+       FutureWarning on attribute access, and this project turns FutureWarning
+       into an error (``filterwarnings`` in pyproject.toml), so the old code took
+       ``write_results`` down with it the moment anndata was installed — a
+       results writer failing because of how it stamps a version number.
+    2. It does not import anything. Stamping provenance should not execute a
+       third-party package's import side effects, and scanpy's are not cheap.
+    3. It works for packages that never defined ``__version__`` at all.
+
+    Diagnosed by W1 in tests/test_dependencies.py while working around it; the
+    fix belongs here because src/common/ is shared code.
+    """
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version(name)
+    except PackageNotFoundError:
+        return None
+
+
 def provenance_record(*, seed: int, notes: str | None = None) -> dict[str, Any]:
     """The dict written alongside every results parquet."""
     sha = git_sha()
@@ -87,11 +118,10 @@ def provenance_record(*, seed: int, notes: str | None = None) -> dict[str, Any]:
         "python": sys.version.split()[0],
         "platform": platform.platform(),
     }
-    for pkg in ("numpy", "pandas", "scanpy", "anndata"):
-        try:
-            record[f"{pkg}_version"] = __import__(pkg).__version__
-        except (ImportError, AttributeError):
-            pass
+    for pkg in _STAMPED_PACKAGES:
+        version = _package_version(pkg)
+        if version is not None:
+            record[f"{pkg}_version"] = version
     if notes:
         record["notes"] = notes
     return record
