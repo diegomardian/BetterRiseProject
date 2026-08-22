@@ -14,7 +14,7 @@ opinion.
 |----|------|-----------|
 | 1–2 | Lee ingest, QC, ambient correction (same pipeline **shape** as W1 — coordinate, do not share code prematurely) | Cells labelled, axes 1 and 2 |
 | 2–3 | Kitagawa standardisation: both weightings + interaction reported separately | **Unit-tested on synthetic data with analytically known answers** |
-| 3–4 | Doubly-robust reweighted version | Agreement with the plain version quantified |
+| 3–4 | ~~Doubly-robust~~ **pooled-reference** reweighted version | Agreement with the plain version quantified. **Renamed:** it is a pooled-reference split, not AIPW — docs/open_decisions.md #9 |
 | 4 | Cross-check against cacoa and QuasiMed | Correlation reported |
 | 4–5 | Patient-level bootstrap; hierarchical model with patient as grouping factor | CIs that reflect the real unit of inference |
 | 5 | First decomposition results on Lee | Independent of W1's timeline — a second opinion at the gate |
@@ -27,6 +27,13 @@ intrinsic     = tumour mature fraction × Δ(per-cell mean)
 interaction   = Δ(mature fraction) × Δ(per-cell mean)   [separately, never folded in]
 ```
 
+**Do not sum three columns without checking `weighting`.** `normal` and `tumour`
+are three-term splits. `doubly_robust` is a pooled-reference two-term split:
+`compositional + intrinsic` is already the total, and `interaction` reports the
+cross term those two arms absorbed half each. `ADDITIVE_WEIGHTINGS` names the
+first two; `identity_residual(d, total)` applies the right identity for you.
+docs/open_decisions.md #9.
+
 Kitagawa (1955) demographic standardisation — **not** regression
 Oaxaca–Blinder, which decomposes by regression coefficients and answers a
 different question. The scalar identity is implemented and unit-tested in
@@ -37,7 +44,7 @@ The split is **not unique**. Normal-weighted and tumour-weighted give different
 answers and the difference lives in the interaction term. Report both plus
 doubly-robust — three rows per (patient, gene, rung, axis), one per weighting.
 
-## Three things that will silently ruin the result
+## Four things that will silently ruin the result
 
 1. **`None` is not `0.0`.** Take the verdict from W2:
    ```python
@@ -54,6 +61,20 @@ doubly-robust — three rows per (patient, gene, rung, axis), one per weighting.
 3. **Estimate per study, then meta-analyse. Never pool** (invariant 4).
    Batch correction removes between-dataset variation, which is where the
    compositional signal lives. Integration is for label transfer only.
+4. **QC is not neutral, and neither is a quantile.** Both bit, on real Lee
+   cells, in the same direction — toward the hypothesis:
+   - MAD depth bounds pooled across compartments cut SMC's tumour epithelium
+     **29.6 points** harder than its normal arm, because epithelium runs 3.9×
+     deeper than immune and immune cells set the median. `qc_flags` now groups
+     by (study, compartment) and requires the column.
+   - `classify_maturity` thresholds at a quantile *of whatever it is handed*.
+     Hand it a whole cohort and the non-epithelial majority — which carries no
+     stem markers, so scores as maximally mature on the inverted axis — drags
+     the cut into the immune mass. `load_lee_cohort` labels within epithelium
+     by default; cells outside carry `pd.NA`, never `False`.
+
+   Run `differential_retention()` before believing any compositional number.
+   docs/open_decisions.md #12 and #13, and `results/notes/w4.1_lee_qc.md`.
 
 ## Cross-checks
 

@@ -307,7 +307,39 @@ than chosen. See [harness_design_spec.md §4](harness_design_spec.md).
 
 ---
 
-## 8 · The harness needs raw counts; `lee_io` emits CP10K — OPEN
+## 8 · The harness needs raw counts; `lee_io` emits CP10K — CLOSED (a), W4 REVIEWED
+
+> ### W4's retrospective review, 2026-08-22 — approved as merged
+>
+> `w2/lee-raw-counts` (`9513186`) landed in W4's module on the repo owner's
+> instruction because it blocked every harness run on real cells. W4 was asked
+> to review it after the fact. **Verdict: correct, and it is the option this
+> entry recommended.** Nothing to change.
+>
+> What W4 checked, rather than what the commit message claims:
+>
+> | Claim | Checked |
+> |---|---|
+> | No existing default changes | `keep_raw_counts=False` and `extra_genes=()`; both branches of the field are hit by the six tests, and the pre-existing tests were untouched |
+> | `raw_counts` is integer counts, not CP10K | `expression_counts` is captured before the `.div(library_size)` line and cast to `Int64` — the nullable dtype is the right call, it makes the scale visible in a `dtypes` dump |
+> | The two frames align | same index and columns by construction — both derive from `expression_counts` after the same two filters, so they cannot drift apart without a code change that breaks the alignment test |
+> | `extra_genes` cannot leak a target into the labels | it widens `genes_of_interest`, which reaches `label_cohort` only through `expression`; the leakage guard is on the *marker* list, not the matrix width, so widening is safe. Confirmed by the sixth test |
+>
+> One thing the commit message understates. `raw_counts` carrying the target
+> genes is called out as a note for callers building a reference matrix, but it
+> is the one sharp edge in the change: a frame that deliberately contains the
+> panel is one `reference_profiles()` call away from an invariant-2 violation,
+> and the protection lives in W2's `exclude_genes=` argument rather than here.
+> The field docstring says so. W4 would rather it were an assertion than a note,
+> but the assertion belongs on the consumer, which is W2's module — so this is
+> a comment on the seam, not an objection to the diff.
+>
+> **The CP10K/counts distinction is real and worth restating**: `expression`
+> stays the right input for `decompose_cohort` (Kitagawa is additive, it needs a
+> linear depth-normalised scale) and the wrong one for the pseudobulk generator
+> (binomial thinning is defined on counts). Both frames exist because both are
+> correct for their own consumer. Neither is a fallback for the other.
+
 
 **Raised:** W2, 2026-08-15, reviewing `w4/estimator-core` · **Owner:** W2 + W4 ·
 **Needed by:** week 2, before the harness runs on real cells
@@ -348,7 +380,66 @@ expression distributions, so this should not drift past week 3.
 
 ---
 
-## 9 · `doubly_robust` folds the interaction into both arms — OPEN
+## 9 · `doubly_robust` folds the interaction into both arms — DECIDED (c)+(b), W4
+
+> ### W4's answer, 2026-08-22 — recommendation adopted, implemented
+>
+> **(c) and (b), as recommended.** W2 was right on both halves and W4 does not
+> want the "keep it" outcome the entry offers.
+>
+> **(c) — it is a pooled-reference split and it is now called one.**
+> `_doubly_robust_split` is renamed `_pooled_reference_split`, and its docstring
+> says outright that the name is a misnomer: there is no propensity model and no
+> outcome regression, so nothing here is robust to either being misspecified.
+> Kline (2011) shows the pooled reference is *equivalent to a reweighting
+> estimator*, which is where the framing came from and is not the same claim.
+>
+> **The label `weighting="doubly_robust"` stays.** It is in `WEIGHTINGS` in
+> `src/schema.py`, which is frozen (invariant 3), asserted in
+> `tests/test_freeze.py`, and already written into W3's committed results.
+> Renaming the enum is a `shared/…` PR with two approvals that invalidates
+> existing parquet to fix a word. **Not worth it, and W4 says so rather than
+> leaving it looking like an oversight** — the code, the docstring and this
+> entry all now say what the estimator is; the frozen string is a name, not a
+> claim. If the team wants the enum renamed too, that is a separate PR and W4
+> will write it.
+>
+> **(b) — the `interaction` column now carries the real cross term Δf·Δm**,
+> not `0.0`. The measured consequence, which is the honest cost of the fix:
+>
+> | weighting | comp | intr | interaction | identity that closes |
+> |---|---|---|---|---|
+> | normal | −3.0000 | −2.4000 | +1.8000 | comp + intr + interaction = total |
+> | tumour | −1.2000 | −0.6000 | −1.8000 | comp + intr + interaction = total |
+> | doubly_robust | −2.1000 | −1.5000 | **+1.8000** | **comp + intr = total** |
+>
+> For the pooled split the three columns no longer sum to the total, because the
+> two arms already contain half the cross term each. That is a real cost and W4
+> is not hiding it: `interaction` means "the cross term these arms absorbed"
+> for this one weighting and "the residual" for the other two. The alternative
+> — leaving `0.0` — meant one column lying instead of one column being
+> weighting-dependent, and a reader who mis-sums gets a visibly wrong total
+> where a reader who trusted `0.0` got a silently shrunken intrinsic term.
+>
+> Three things make the seam hard to trip over:
+> `kitagawa.ADDITIVE_WEIGHTINGS` names the two three-term weightings;
+> `kitagawa.identity_residual(d, total)` applies the right identity for you and
+> raises rather than answering `0.0` on a `None` arm; and the module docstring
+> leads with the table above. Five tests cover it, including one asserting
+> `comp_pooled = comp_normal + interaction/2` so the folding is legible in the
+> suite rather than only in prose.
+>
+> **Invariant 7 is not amended and did not need to be.** It says the interaction
+> is reported separately and never folded into either arm. The pooled split
+> folds — that is what a symmetric two-term split *is* — so what it now does is
+> report, separately, exactly what it folded. Option (a)'s frozen-doc PR is not
+> needed for that reading, and W4 would rather leave the invariant as the strict
+> statement it is.
+>
+> The genuine AIPW estimator remains unbuilt and now unblocked from confusion:
+> if one is ever fitted on cell-level covariates it is a **new** weighting with
+> a new label, not a redefinition of this one.
+
 
 **Raised:** W2, 2026-08-15, reviewing `d9c08c0` · **Owner:** W4 + W2 ·
 **Needed by:** before any decomposition result is written with
@@ -400,7 +491,37 @@ term in the interaction column rather than zero. Neither needs new maths.
 
 ---
 
-## 10 · Which interval goes in the schema's `ci_low`/`ci_high` — W2 PROPOSES, W4 TO CONFIRM
+## 10 · Which interval goes in the schema's `ci_low`/`ci_high` — CONFIRMED by W4
+
+> ### W4 confirms, 2026-08-22 — no objection, and the reasoning is right
+>
+> **Keep the cohort-level intrinsic band in `ci_low`/`ci_high`.** W2's argument
+> is the one W4's own docstring was groping toward when it left the call open:
+> the schema row is read as part of a population result, and the population
+> estimand is the one invariant 5 governs. Nothing changes in the code path.
+>
+> W4 also accepts the invariant-5 argument for `harness/interval.py`, which is
+> the part that could have been contentious. Resampling cells there is not the
+> failure mode invariant 5 forbids, because the claim is not about patients —
+> "does *this* patient have enough mature cells" has cells as its sample by
+> construction. The tell is the one W2 gives: a cohort band is identical at 800
+> mature cells and at 21, so no cutpoint could ever be calibrated on it. An
+> interval that cannot vary with n cannot answer a question about n.
+>
+> What W4 has done rather than just agreeing: `bootstrap_over_patients`'
+> docstring no longer says the call is open — it names this decision, says which
+> interval won and why, and points at `harness/interval.py` as a different
+> estimand rather than a rejected alternative. `attach_intrinsic_ci` records the
+> broadcast as the known cost of the choice. The docstring that raised the
+> question should not be the last place still asking it.
+>
+> **One thing for the gate memo, not a change of position.** The broadcast band
+> makes every patient row in a group carry the same interval, so a reader
+> scanning per-patient rows sees uncertainty that does not respond to how much
+> data each patient has. `estimability` is the column that carries that, and it
+> is per patient. They have to be read together; a table of `ci_low`/`ci_high`
+> with `estimability` dropped is misleading in a way neither column is alone.
+
 
 **Raised:** W4 in `bootstrap_over_patients`' docstring · **Answered by:** W2,
 2026-08-16 · **Owner:** W2 + W4 · **Needed by:** week 5
@@ -806,7 +927,89 @@ different cell sets.
 
 ---
 
-## 12 · The 20% mitochondrial cap cuts normal harder than tumour — ANSWERED BY DATA
+## 12 · The 20% mitochondrial cap cuts normal harder than tumour — ANSWERED BY DATA, W4's HALF NOW CLOSED
+
+> ### W4 ran the breakdown on Lee, 2026-08-22. Two answers, and the second is the one that mattered.
+>
+> The ask was "run the same per-compartment `pct_mito` breakdown on Lee and set
+> the cap from it." Done, on both cohorts, all 91,103 annotated cells.
+>
+> **1 · The mitochondrial cap is a no-op on Lee, and cannot be anything else.**
+> Both deposits are **already filtered at 20%** upstream — observed maxima
+> **19.995** (SMC) and **19.994** (KUL3). The cap fails **zero** cells at any
+> value ≥ 20, and GEO does not ship the droplets that would let W4 revisit the
+> authors' cut. Per-compartment medians:
+>
+> | compartment | SMC | KUL3 |
+> |---|---|---|
+> | **Epithelial cells** | **8.6%** | **9.7%** |
+> | Stromal | 4.1% | 5.1% |
+> | Myeloid | 4.6% | 4.9% |
+> | Mast | 5.4% | 5.1% |
+> | T cells | 3.7% | 4.3% |
+> | B cells | 2.7% | 3.3% |
+>
+> The epithelial-runs-highest ordering reproduces on Lee, and so does the
+> tumour/normal direction W1 flagged (normal epithelium 13.3% vs tumour 8.4% on
+> SMC). But these medians are **conditioned on the authors' 20% cut** and are
+> not comparable to GSE178341's unconditioned 29.8%.
+>
+> **`DEFAULT_MAX_PCT_MITO` stays 20.0 on Lee**, and the reason is now written on
+> the constant: it is *inherited from the deposit*, not chosen, and no value W4
+> picks changes a single cell. W1's 50.0 on GSE178341 and W4's 20.0 on Lee are
+> not a disagreement — the deposits differ. This is the same shape of finding as
+> #11: the raw droplets are not in GEO, so the QC decision was made by the
+> original authors and is not ours to make.
+>
+> **2 · Running the differential-retention check the entry mandates found a
+> larger problem, in a different filter.** #12 requires "no systematic
+> tumour/normal gap before any compositional number is believed." W4's QC had
+> one, and it was not the mito cap — it was the MAD depth filter:
+>
+> | SMC epithelium | MAD pooled per study (what W4 had) | MAD per study × compartment (now) |
+> |---|---|---|
+> | normal arm retained | 88.5% | 100% |
+> | tumour arm retained | **62.0%** | 100% |
+> | median per-patient gap | **−29.6 pts** | 0.0 pts |
+> | patients with a >10 pt gap | **9 of 10** | 0 |
+> | whole-cohort retention | 87.3% | 99.8% |
+>
+> KUL3 was milder and the same sign: −6.4 pts median, 3 of 6 patients flagged.
+>
+> **The mechanism.** A MAD outlier rule assumes one unimodal population. A
+> cohort matrix is six, and on SMC epithelium runs **3.9× deeper** than the
+> median immune compartment (18,724 vs 4,861 median UMIs). Immune cells are the
+> majority, so they set the pooled median and a tight pooled MAD — and the upper
+> bound then fires on epithelial cells *for being epithelial*. Tumour epithelium
+> is deepest of all, so it is cut hardest.
+>
+> **The direction is the bad one.** Mature colonocytes are the deepest
+> epithelial cells there are. Cutting the tumour arm's deepest cells understates
+> the tumour mature fraction, which **inflates the apparent compositional loss** —
+> toward the prior hypothesis, produced entirely by a QC parameter. Exactly the
+> failure W1 raised for the mitochondrial cap on GSE178341, arriving at Lee
+> through a different filter. It would not have been found by looking at the
+> cap, which is what the entry asked about.
+>
+> **Fix, in `src/estimator/ingest.py`:** MAD bounds are computed within
+> **(study, compartment)**, and `compartment` is a required column rather than
+> an optional one — defaulting it away restores the artifact silently.
+> `differential_retention()` is added on W4's side (W1's is not exported and
+> `src/reference/` is off-limits per CONTRIBUTING §2) and `load_lee_cohort`
+> runs it on every load, logging any patient over the same 10-point threshold
+> W1 uses. Reported, not enforced: a flagged patient is a fact about the deposit
+> the gate memo should carry, not a reason to fail a load.
+>
+> Grouping is by compartment and deliberately **not** by tissue. Grouping by
+> tissue would equalise retention by construction and hide the artifact instead
+> of removing it — the per-sample-quantile trap from #13, one filter earlier.
+>
+> **Answering W1's framing directly:** W4's cap remains a single hard threshold
+> while W1's is per batch, and that is now a decision rather than an accident —
+> a per-batch mitochondrial threshold on a deposit already cut at 20% would be
+> per-batch arithmetic over a constant. The depth filter, which is the one that
+> was actually doing damage, is now stratified on both sides.
+
 
 > **For W4 (CORRECTIONS #5):** the ask is not "adopt 50". 29.8% is the epithelial
 > median measured on **GSE178341**; W4's cohort is Lee, with different chemistry
@@ -907,7 +1110,70 @@ or GSE178341 and the Lee cohorts are not comparable at the gate.
 
 ---
 
-## 13 · W1 and W4 label cells differently — OPEN, BLOCKS COMPARABILITY
+## 13 · W1 and W4 label cells differently — W4 RESPONDS; one part done, two accepted, one objected to
+
+> ### W4's position, 2026-08-22
+>
+> The recommendation has four parts. W4 has **done one**, **accepts two pending
+> #14**, and **objects to the fourth on invariant-2 grounds**. Taking them in
+> the order the entry lists them:
+>
+> **1 · "Non-epithelial cells: caller must pre-filter" — done, and it was worse
+> than a documentation gap.** W4's loader now restricts labelling to the
+> epithelial compartment by default (`load_lee_cohort(label_compartment=...)`).
+> This was not tidying. `classify_maturity` thresholds at a quantile of the axis
+> score *over whatever it is handed*, and on Lee the non-epithelial cells are
+> the majority — 56k of 63k on SMC. They carry no LGR5/OLFM4 at all, so on the
+> inverted `stem_pole` axis they score as maximally mature and drag the quantile
+> into the immune mass, leaving almost no epithelial cell above it. The mature
+> fraction **is** the compositional term, so a caller who forgot to pre-filter
+> did not get a slightly noisy estimate, they got a different quantity. Cells
+> outside the compartment now carry `pd.NA`, never `False` — an unlabelled cell
+> counted as immature would put the tumour's immune infiltrate in the
+> denominator, and tumour/normal immune content differs enormously. Invariant
+> 1's shape, one level down. Five tests, on a mixed-compartment fixture built
+> from the real one.
+>
+> **2 · Reference-arm cut points (threshold from the patient's own normal) —
+> accepted, not yet implemented.** W1's reasoning is right and W4 has no
+> counter-argument: pooled cuts make the threshold depend on the cohort's
+> tumour:normal cell mix, so the same biology gives a different mature fraction
+> in Pelka and in Lee, and invariant 4's estimate-per-study-then-meta-analyse
+> needs the per-study numbers on a comparable scale.
+>
+> **3 · Depth-normalised, z-scored-per-gene scoring — accepted, not yet
+> implemented.** Lee is single-chemistry so it needs this less than GSE178341
+> does, but the entry is right that the two cohorts should agree on whether it
+> is done, and "we did not need it" is not a reason to differ.
+>
+> **Why 2 and 3 are not in this PR.** #14 is open and titled *BLOCKS
+> COMPOSITION* — neither axis is yet established as a clean maturity measure,
+> on W1's own cells. Reimplementing W4's labelling to match a definition that
+> is itself mid-revision would mean doing it twice and comparing against a
+> moving reference. W4 will take W1's definitions in one pass once #14 settles,
+> which is also when the depth-target rerun lands. **If that reads as too slow,
+> say so and W4 will do it now against the current definitions** — the cost is
+> rework, not risk.
+>
+> **4 · Marker-gating `best4` rather than score-binning — objection, and it is
+> an invariant-2 objection, not a preference.** The canonical BEST4+ markers are
+> BEST4, **OTOP2** and **CA7**. OTOP2 and CA7 are **tier-A panel genes** —
+> targets. Gating the `best4` rung on them makes a silenced mature cell
+> unreadable from an absent one at exactly the rung tier A is the control for.
+> BEST4 itself is clear (it is named in `config/labeling_axes.yaml`'s sequencing
+> note as a gene the panel was kept away from, and it is not in `panel_genes()`)
+> — but a one-gene gate on a population under 5% of epithelium is thin, and
+> W1's own pilot put `best4` sensitivity at 0.04. **W4's proposal: gate `best4`
+> on BEST4 alone, never on OTOP2/CA7, and report the rung as unusable rather
+> than reach for the target genes to rescue it.** `build_signature()` would
+> catch this if the markers went through it; the labelling path has its own
+> guard (`assert_no_target_leakage`) and would also catch it — which is the
+> system working, but it is better not to write the gate that way in the first
+> place.
+>
+> **Interop is unaffected either way** — `cell_type_vector()` and
+> `maturity_summary()` are unchanged by all of the above.
+
 
 **Raised:** W1, 2026-08-17 · **Owner:** W1 + W4 (+ W2 consumes both) ·
 **Needed by:** before either cohort's decomposition is compared

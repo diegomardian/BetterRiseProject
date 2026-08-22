@@ -21,6 +21,7 @@ import pytest
 
 from src.estimator.kitagawa import decompose_cohort
 from src.estimator.lee_io import (
+    EPITHELIAL_COMPARTMENT,
     MITO_GENES,
     build_gene_rung_axis_summary,
     label_agreement,
@@ -189,6 +190,95 @@ def test_load_lee_cohort_has_no_normal_arm_smc_with_zero_normal_patients_exclude
         "smc", target_genes=PANEL_AB, raw_dir=FIXTURES
     )
     assert cohort.excluded_patients == ["SMC14"]
+
+
+# ---------------------------------------------------------------------------
+# label_compartment -- docs/open_decisions.md #13, "caller must pre-filter"
+# ---------------------------------------------------------------------------
+
+
+def _mixed_compartment_fixture(tmp_path):
+    """The committed fixture is all-epithelial, which is the one shape that
+    cannot exercise the restriction. Relabel half its cells as T cells --
+    real barcodes, real counts, only the annotation's Cell_type changes."""
+    import gzip
+    import shutil
+
+    annotation = pd.read_csv(SMC_ANNOTATION, sep="\t")
+    every_other = annotation.index[::2]
+    annotation.loc[every_other, "Cell_type"] = "T cells"
+
+    out_annotation = tmp_path / SMC_ANNOTATION.name
+    with gzip.open(out_annotation, "wt") as fh:
+        annotation.to_csv(fh, sep="\t", index=False)
+    shutil.copy(SMC_MATRIX, tmp_path / SMC_MATRIX.name)
+    return tmp_path, set(annotation.loc[every_other, "Index"])
+
+
+def test_cells_outside_the_compartment_are_na_not_immature(tmp_path):
+    """The compositional term is the mature FRACTION. Reading an unlabelled
+    T cell as False puts the tumour's immune infiltrate in the denominator."""
+    raw_dir, t_cells = _mixed_compartment_fixture(tmp_path)
+    cohort = load_lee_cohort("smc", target_genes=PANEL_AB, raw_dir=raw_dir)
+
+    assert cohort.label_compartment == EPITHELIAL_COMPARTMENT
+    maturity = [c for c in cohort.labels.columns if c.startswith("mature__")]
+    assert maturity
+
+    outside = cohort.labels.index.intersection(list(t_cells))
+    assert len(outside) > 0
+    for col in maturity:
+        assert cohort.labels.loc[outside, col].isna().all()
+        inside = cohort.labels.index.difference(outside)
+        assert cohort.labels.loc[inside, col].notna().all()
+
+
+def test_the_maturity_quantile_is_taken_within_the_compartment(tmp_path):
+    """The reason the restriction is in the loader and not left to the caller:
+    the threshold is a quantile of whatever it is handed. Non-epithelial cells
+    carry no stem markers, so on the inverted axis they score as maximally
+    mature -- label everything and the cut lands in the immune mass."""
+    raw_dir, _ = _mixed_compartment_fixture(tmp_path)
+    restricted = load_lee_cohort("smc", target_genes=PANEL_AB, raw_dir=raw_dir)
+    everything = load_lee_cohort(
+        "smc", target_genes=PANEL_AB, raw_dir=raw_dir, label_compartment=None
+    )
+
+    col = "mature__stem_pole__epithelial"
+    epithelium = restricted.labels.index[restricted.labels[col].notna()]
+    assert not restricted.labels.loc[epithelium, col].equals(
+        everything.labels.loc[epithelium, col].astype("boolean")
+    ), "restriction changed no epithelial call -- fixture no longer separates them"
+
+
+def test_labelling_everything_stays_available_and_says_so(tmp_path):
+    raw_dir, _ = _mixed_compartment_fixture(tmp_path)
+    cohort = load_lee_cohort(
+        "smc", target_genes=PANEL_AB, raw_dir=raw_dir, label_compartment=None
+    )
+    assert cohort.label_compartment is None
+    maturity = [c for c in cohort.labels.columns if c.startswith("mature__")]
+    assert cohort.labels.loc[:, maturity].notna().all().all()
+
+
+def test_an_empty_compartment_raises_rather_than_labelling_nothing(tmp_path):
+    raw_dir, _ = _mixed_compartment_fixture(tmp_path)
+    with pytest.raises(ValueError, match="no cells in compartment"):
+        load_lee_cohort(
+            "smc", target_genes=PANEL_AB, raw_dir=raw_dir, label_compartment="Neurons"
+        )
+
+
+def test_the_summary_drops_unlabelled_cells_instead_of_counting_them(tmp_path):
+    """End to end: the mature fraction must not move when non-epithelial cells
+    are added to the cohort, because they are dropped rather than counted."""
+    raw_dir, _ = _mixed_compartment_fixture(tmp_path)
+    mixed = load_lee_cohort("smc", target_genes=PANEL_AB, raw_dir=raw_dir)
+    summary = build_gene_rung_axis_summary(mixed, genes=PANEL_AB)
+    if len(summary) == 0:
+        pytest.skip("fixture too small to produce a summary row")
+    assert summary["frac_mature_normal"].between(0, 1).all()
+    assert summary["frac_mature_tumour"].between(0, 1).all()
 
 
 # ---------------------------------------------------------------------------

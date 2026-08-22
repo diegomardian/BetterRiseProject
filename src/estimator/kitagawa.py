@@ -8,15 +8,33 @@ which decomposes by regression coefficients and answers a different question.
     interaction   = Δ(mature fraction) × Δ(per-cell mean)
 
 The split is not unique: normal-weighted and tumour-weighted give different
-answers and the difference lives in the interaction term. Report both plus
-doubly-robust. CLAUDE.md invariant 7: the interaction term is reported
+answers and the difference lives in the interaction term. Report both plus the
+pooled-reference split. CLAUDE.md invariant 7: the interaction term is reported
 separately and never folded into either arm.
+
+WHAT ``interaction`` MEANS PER WEIGHTING — read this before summing columns
+--------------------------------------------------------------------------
+Two of the three weightings are three-term splits; the pooled-reference one is
+a two-term split that reports the cross term it absorbed. Closing
+docs/open_decisions.md #9 (W4, 2026-08-22) put the honest number in that column
+instead of ``0.0``, which cost the three-term sum for that one weighting:
+
+==================  ===========================================  ==============
+``weighting``       identity that closes                         ``interaction``
+==================  ===========================================  ==============
+``normal``          comp + intr + interaction == total           residual, +Δf·Δm
+``tumour``          comp + intr + interaction == total           residual, −Δf·Δm
+``doubly_robust``   **comp + intr == total**                     disclosed, +Δf·Δm
+==================  ===========================================  ==============
+
+``ADDITIVE_WEIGHTINGS`` names the first two, and :func:`identity_residual`
+applies the right identity for you — use it rather than hard-coding a sum.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Final, Literal
 
 import numpy as np
 import pandas as pd
@@ -43,6 +61,37 @@ class Decomposition:
     n_cells_mature: int
 
 
+#: Weightings whose three terms sum to the total. ``doubly_robust`` is absent
+#: on purpose: it is a two-term split that discloses the cross term rather than
+#: carrying it as a third additive piece (docs/open_decisions.md #9). Anything
+#: that adds the columns up must consult this or call ``identity_residual``.
+ADDITIVE_WEIGHTINGS: Final[tuple[Weighting, ...]] = ("normal", "tumour")
+
+
+def identity_residual(d: Decomposition, total: float) -> float:
+    """How far ``d`` is from closing, under the identity ITS weighting obeys.
+
+    ``total`` is the raw contrast the split explains, ``f_t·m_t − f_n·m_n``.
+    Returns an absolute residual — ~0 for a correct decomposition under every
+    weighting. Exists so callers do not hard-code ``comp + intr + interaction``
+    and silently get the pooled-reference weighting wrong by one cross term.
+
+    Raises if either arm is None: an unestimable intrinsic term has no
+    identity to close, and answering 0.0 there would be invariant 1 again.
+    """
+    if d.compositional is None or d.intrinsic is None:
+        raise ValueError(
+            f"cannot check the identity for a {d.weighting!r} decomposition with a "
+            f"None arm — there is no residual to report, not a residual of zero"
+        )
+    explained = d.compositional + d.intrinsic
+    if d.weighting in ADDITIVE_WEIGHTINGS:
+        if d.interaction is None:
+            raise ValueError(f"{d.weighting!r} is a three-term split but interaction is None")
+        explained += d.interaction
+    return abs(explained - total)
+
+
 def decompose(
     frac_mature_normal: float,
     frac_mature_tumour: float,
@@ -52,20 +101,23 @@ def decompose(
     n_cells_mature: int,
     weighting: Weighting = "normal",
 ) -> Decomposition:
-    """Two-term Kitagawa split with the interaction reported separately.
+    """Kitagawa split under one reference weighting, interaction reported separately.
 
-    The identity holds exactly for the normal weighting::
+    For ``normal`` and ``tumour`` the three-term identity holds exactly::
 
         total = compositional + intrinsic + interaction
+
+    For ``doubly_robust`` — a pooled-reference split, see
+    :func:`_pooled_reference_split` — the closing identity is the two-term
+    ``total = compositional + intrinsic``, and ``interaction`` reports the
+    cross term those two arms absorbed half each. Do not sum three columns
+    without checking ``weighting``; :func:`identity_residual` picks the right
+    identity.
 
     Estimability is NOT decided here — call
     ``src.harness.classify_estimability(n_cells_mature)`` and null out the
     intrinsic term yourself, so the decision is visible at the call site rather
     than buried in the arithmetic.
-
-    W4 — the scalar identity below is correct and unit-tested; the real work is
-    the per-patient version over the AnnData, the doubly-robust reweighting
-    (weeks 3-4) and the patient-level bootstrap (weeks 4-5).
     """
     d_frac = frac_mature_tumour - frac_mature_normal
     d_mean = mean_tumour - mean_normal
@@ -81,7 +133,9 @@ def decompose(
         intrinsic = frac_mature_tumour * d_mean
         interaction = -d_frac * d_mean
     elif weighting == "doubly_robust":
-        compositional, intrinsic, interaction = _doubly_robust_split(
+        # Frozen vocabulary keeps the label; the estimator is a pooled-reference
+        # split, not AIPW. docs/open_decisions.md #9.
+        compositional, intrinsic, interaction = _pooled_reference_split(
             frac_mature_normal, frac_mature_tumour, mean_normal, mean_tumour
         )
     else:
@@ -96,34 +150,56 @@ def decompose(
     )
 
 
-def _doubly_robust_split(
+def _pooled_reference_split(
     frac_mature_normal: float,
     frac_mature_tumour: float,
     mean_normal: float,
     mean_tumour: float,
 ) -> tuple[float, float, float]:
-    """Pooled-reference split. First-pass answer for weighting="doubly_robust".
+    """Pooled-reference split — what ``weighting="doubly_robust"`` actually is.
 
     Kline (2011), "Oaxaca-Blinder as a Reweighting Estimator," AER P&P 101(3):
     532-537, shows that using the POOLED (average) reference weights instead of
     either group's own values is numerically equivalent to a reweighting
     estimator — which is where the "doubly robust" framing for this weighting
-    comes from. It also has a property neither plain weighting has: summing
-    compositional and intrinsic reproduces total exactly, with the interaction
-    term at zero by construction (algebra below), so it does not depend on
-    which side is picked as the reference — the asymmetry invariant 7 exists to
-    police is removed rather than chosen away.
+    came from. The name is a misnomer and this is not AIPW: there is no
+    propensity model and no outcome regression here, so nothing is doubly
+    robust to either being misspecified. It is a symmetric two-term split, and
+    it is worth having for the reason it was added — it does not depend on
+    which side is picked as the reference.
 
-    Proof compositional + intrinsic == total, for pooled p=(p_N+p_T)/2 and
-    m=(m_N+m_T)/2:
-        (p_T-p_N)*m + p*(m_T-m_N)
-      = [(p_T-p_N)(m_N+m_T) + (p_N+p_T)(m_T-m_N)] / 2
-      = (2 p_T m_T - 2 p_N m_N) / 2 = p_T*m_T - p_N*m_N = total.
+    THE CROSS TERM IS NOT ZERO, IT IS SPLIT IN HALF
+    ----------------------------------------------
+    Writing pooled p=(p_N+p_T)/2, m=(m_N+m_T)/2, Δp, Δm and Δ=Δp·Δm::
 
-    This is a defensible, citable first cut, not the last word. A genuine
-    covariate-level AIPW estimator (propensity model over cell-level
-    covariates, paired with an outcome regression) needs cell-level Lee data
-    to fit and validate — replace this once that data is in hand, and keep the
+        comp_pooled = Δp·m = Δp·m_N + Δ/2 = comp_normal + Δ/2
+        intr_pooled = p·Δm = p_N·Δm + Δ/2 = intr_normal + Δ/2
+
+    so comp + intr == total exactly (the two halves put the cross term back),
+    and the *residual* interaction is zero by construction. Reporting that zero
+    in the ``interaction`` column read as "no interaction here" when the
+    honest statement is "the interaction is in the two arms, half each" — the
+    invariant-1 failure mode in a different hat, and the thing CLAUDE.md
+    invariant 7 was written to forbid. W2 caught it reviewing ``d9c08c0``.
+
+    So this returns the **real cross term Δp·Δm** as ``interaction``, not the
+    residual. For this one weighting the three columns therefore do NOT sum to
+    total — ``comp + intr`` does — and ``interaction`` is a disclosure of what
+    the two arms absorbed rather than a third additive piece. See the module
+    docstring's table, ``ADDITIVE_WEIGHTINGS`` and :func:`identity_residual`.
+    docs/open_decisions.md #9 records why this was preferred over amending
+    invariant 7 or dropping the weighting.
+
+    On this cohort's scale the folded half is not a rounding error: on
+    ``f_n=0.40, f_t=0.10, m_n=10.0, m_t=4.0`` it moves intrinsic from −2.40 to
+    −1.50, a 37.5% shrink toward zero — the direction README names as the worst
+    way for a result to move. That is an argument for reporting all three
+    weightings side by side, which ``decompose_cohort`` does, not for hiding it.
+
+    A genuine covariate-level AIPW estimator (propensity model over cell-level
+    covariates, paired with an outcome regression) would need the cell-level
+    Lee data to fit and validate. If one is ever built it is a *new* estimator
+    and a new label, not a redefinition of this one — and it lands with the
     "agreement with the plain version, quantified" comparison from the week
     3-4 deliverable in src/estimator/README.md.
     """
@@ -133,7 +209,9 @@ def _doubly_robust_split(
     d_mean = mean_tumour - mean_normal
     compositional = d_frac * pooled_mean
     intrinsic = pooled_frac * d_mean
-    interaction = 0.0
+    # The cross term the two arms absorbed, disclosed. NOT the residual, which
+    # is zero here — see the docstring.
+    interaction = d_frac * d_mean
     return compositional, intrinsic, interaction
 
 
@@ -246,13 +324,23 @@ def bootstrap_over_patients(
     weighting, term) with a **cohort-level** ``ci_low``/``ci_high`` at the
     percentile bounds implied by ``alpha`` (default: a 95% interval). This is
     deliberately a separate frame from ``decompose_cohort``'s per-patient
-    point estimates, not merged into it here — the schema has one
-    ``ci_low``/``ci_high`` slot per patient-row, and which quantity belongs
-    there (this cohort-level bootstrap band on ``intrinsic`, a per-patient
-    interval from within-patient cell-count uncertainty, or a value read off
-    the hierarchical model instead) is an open call for whoever owns the
-    week 4-5 hierarchical-model deliverable to make deliberately. See
-    ``attach_intrinsic_ci`` below for the one choice this module commits to.
+    point estimates, not merged into it here.
+
+    WHICH INTERVAL GOES IN THE SCHEMA SLOT — settled, docs/open_decisions.md #10
+    ---------------------------------------------------------------------------
+    This docstring used to leave that open. **This band does**, broadcast onto
+    every patient row by ``attach_intrinsic_ci``; W2 proposed it and W4
+    confirmed on 2026-08-22. The schema row is read as part of a population
+    result, and the population estimand is the one invariant 5 governs.
+
+    W2's ``src.harness.interval.within_patient_intrinsic_ci`` is a *different*
+    estimand, not a competitor: it resamples cells to ask whether one patient
+    has enough mature cells for their own estimate to mean anything. It has to
+    resample cells — this cohort band is identical at 800 mature cells and at
+    21, so coverage against ``n_cells_mature`` is flat and no cutpoint could
+    ever be calibrated on it. That is a harness-side quantity and needs no
+    schema slot. Neither interval replaces the other and a results table must
+    say which one it carries.
     """
     missing = [c for c in _SUMMARY_COLUMNS if c not in summary.columns]
     if missing:
@@ -322,6 +410,10 @@ def attach_intrinsic_ci(point: pd.DataFrame, ci: pd.DataFrame) -> pd.DataFrame:
     patient row within a (study, gene, rung, axis, weighting) group carries
     the same cohort-level band; this is a population interval broadcast onto
     each patient row, not a per-patient interval — say so if you present it.
+
+    docs/open_decisions.md #10 closed on this choice (W2 proposed, W4 confirmed
+    2026-08-22) rather than on W2's per-patient interval. The broadcast is the
+    known cost and it is why that sentence above is not boilerplate.
     """
     intrinsic_cols = [*_BOOTSTRAP_GROUP_COLS, "weighting", "ci_low", "ci_high"]
     intrinsic_ci = ci.loc[ci["term"] == "intrinsic", intrinsic_cols]
