@@ -941,7 +941,7 @@ def rung_degeneracy(
 
 
 def differential_resolution(
-    counts: pd.DataFrame, *, warn_at: float = 0.10
+    counts: pd.DataFrame, *, warn_at: float = 0.10, min_reference: int = 200
 ) -> pd.DataFrame:
     """Does the depth floor cut one arm harder than the other? **Read this
     before quoting Delta(mature fraction) at any depth target.**
@@ -966,9 +966,11 @@ def differential_resolution(
     catch this: C165 kept both arms comfortably. Asymmetry, not availability, is
     the failure mode.
 
-    `counts` is :func:`mature_cell_counts`' output. Returns one row per
-    (patient, axis, rung) with both unresolved fractions, their difference, and
-    `flagged`.
+    `counts` is :func:`mature_cell_counts`' output. Returns **one row per
+    patient** — the floor is applied before labelling, so the unresolved
+    fraction does not vary by axis or rung — with both arms' unresolved
+    fractions, their difference, the surviving size of the reference arm, and
+    two flags.
     """
     required = {"patient_id", "tissue", "unresolved_fraction",
                 "labeling_axis", "granularity_rung"}
@@ -976,20 +978,34 @@ def differential_resolution(
     if missing:
         raise LabelError(f"counts is missing column(s): {sorted(missing)}")
 
-    wide = (
-        counts.pivot_table(
-            index=["patient_id", "labeling_axis", "granularity_rung"],
-            columns="tissue", values="unresolved_fraction", observed=True,
-        )
+    # One row per patient, not per (patient, axis, rung). The depth floor is
+    # applied before any label is assigned, so the unresolved fraction is
+    # identical across all eight axis/rung combinations — reporting it eight
+    # times turns a five-row answer into forty and buries the outlier.
+    wide = counts.pivot_table(
+        index="patient_id", columns="tissue",
+        values=["unresolved_fraction", "n_cells_resolved"],
+        aggfunc="first", observed=True,
     )
-    for column in ("tumour", "normal"):
-        if column not in wide.columns:
-            wide[column] = np.nan
+    for value in ("unresolved_fraction", "n_cells_resolved"):
+        for arm in ("tumour", "normal"):
+            if (value, arm) not in wide.columns:
+                wide[(value, arm)] = np.nan
 
-    out = wide.loc[:, ["tumour", "normal"]].copy()
-    out.columns = ["unresolved_tumour", "unresolved_normal"]
+    out = pd.DataFrame({
+        "unresolved_tumour": wide[("unresolved_fraction", "tumour")],
+        "unresolved_normal": wide[("unresolved_fraction", "normal")],
+        "n_resolved_reference": wide[("n_cells_resolved", "normal")],
+    })
     out["difference"] = out["unresolved_tumour"] - out["unresolved_normal"]
     out["flagged"] = out["difference"].abs() > warn_at
+    # The reference arm is not just a sample here — it is where the CUT POINTS
+    # come from. A floor that removes most of the normal arm leaves the
+    # threshold defined by whatever deep cells survived, and the whole tumour
+    # arm is then scored against that. C165 on the pilot: 97 surviving normal
+    # cells setting the threshold for 809 tumour cells. Small enough to matter
+    # even when the gap alone would not flag.
+    out["thin_reference"] = out["n_resolved_reference"] < min_reference
     return out.reset_index()
 
 
