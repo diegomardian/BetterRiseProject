@@ -25,6 +25,14 @@
 # assign_cnv_roles() in src/reference/malignancy.py emits the roles.
 #
 #$ -N brp_w1_infercnv
+# RESOURCES. inferCNV is CPU-only — R with C++ inner loops, no CUDA path — so
+# do NOT request a GPU here. A `-l gpu_c=` line would queue this behind GPU
+# nodes for hardware it cannot use. (CLAUDE.md lists GPU beside inferCNV; that
+# belongs to CellBender, which is blocked by open decision #8 anyway.)
+#
+# 8 cores x 8G = 64 GB. The inputs are written sparse, so the memory goes to
+# inferCNV's own smoothing rather than to holding a dense 22,000 x 43,113
+# matrix. num_threads in the R call matches `-pe omp`.
 #$ -pe omp 8
 #$ -l h_rt=24:00:00
 #$ -l mem_per_core=8G
