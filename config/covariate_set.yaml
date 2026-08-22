@@ -1,0 +1,243 @@
+# =============================================================================
+# W3.6 — the pre-specified covariate set for all TCGA survival modelling.
+#
+# STATUS: LOCKED 2026-08-18 by jeremy749, in commit 53442b0, before W3.7 ran.
+#
+# The brief: "Pre-specify and freeze [...] Write it to a versioned config file,
+# committed, BEFORE any survival model is run. If it changes later, that change
+# gets its own commit and a stated reason."
+#
+# This file was committed `proposed` first and flipped to `locked` in its own
+# commit once the owner confirmed — see `lock_authorisation` below. From here
+# every change needs its own commit and a written reason. No survival model may
+# run against a proposed config — `src/bulk/covariates.py:require_locked`
+# refuses, and it refused until the flip.
+#
+# Reasoning: results/notes/w3.6_covariate_lock.md. Numbers are from W3.3
+# (purity), W3.4 (batch) and W3.5 (clinical) on the 621 patients who have both
+# expression and a CDR record.
+# =============================================================================
+
+version: "1.0.0"
+status: locked            # proposed | locked
+proposed_on: "2026-08-18"
+proposed_by: W3
+locked_on: "2026-08-18"
+locked_by: jeremy749
+lock_authorisation: >
+  Confirmed by the W3 owner on 2026-08-18 with the instruction to run W3.7,
+  after reviewing results/notes/w3.6_covariate_lock.md. Any change from here
+  needs its own commit and a stated reason.
+
+# -----------------------------------------------------------------------------
+# Endpoints. CLAUDE.md invariant 9 is implemented as written: DSS and PFI
+# primary, OS secondary. `lead` marks the endpoint a headline result is stated
+# on — see open decision #16, where the CDR's own notes call DSS "approximated"
+# for COAD/READ and recommend PFI, which also has twice the events.
+# -----------------------------------------------------------------------------
+endpoints:
+  PFI:
+    role: primary
+    lead: true
+    rationale: >
+      Recommended by the CDR, endorsed by invariant 9, and the only endpoint
+      that clears the events-per-degree-of-freedom floor in every context.
+  DSS:
+    role: primary
+    lead: false
+    rationale: >
+      Invariant 9 names it primary and its reasoning holds — less contaminated
+      by non-cancer death than OS. But it has roughly half the events of PFI, so
+      it runs on a reduced covariate set, pre-specified here rather than chosen
+      after seeing a fit.
+  OS:
+    role: secondary
+    lead: false
+    rationale: >
+      Invariant 9. COAD OS is contaminated by non-cancer death. Reported for
+      completeness, never led with.
+  DFI:
+    role: not_used
+    lead: false
+    rationale: >
+      390 of 629 CDR patients have no DFI and stage IV is excluded by
+      construction. Too sparse to model.
+
+# -----------------------------------------------------------------------------
+# The locked covariate set — the brief's six. `df` is what each term costs, and
+# df is what binds against the event count, not the number of variables.
+# -----------------------------------------------------------------------------
+covariates:
+  - name: stage
+    type: categorical
+    levels: [I, II, III, IV]
+    reference: I
+    df: 3
+    coverage: 0.968
+    rationale: >
+      AJCC editions harmonised to four levels by dropping sub-stage letters. The
+      strongest known prognostic factor and the sanity check in W3.7 — if stage
+      is not prognostic, something is wrong upstream.
+
+  - name: age
+    type: continuous
+    df: 1
+    coverage: 1.000
+    functional_form: linear
+    rationale: >
+      Linear in years. Non-linearity checked with a spline as a sensitivity, not
+      adopted by default.
+
+  - name: sex
+    type: categorical
+    levels: [Female, Male]
+    reference: Female
+    df: 1
+    coverage: 1.000
+    rationale: Standard demographic adjustment; complete in this cohort.
+
+  - name: msi_status
+    type: categorical
+    levels: [MSS, MSI]
+    reference: MSS
+    df: 1
+    coverage: 0.959
+    missing_policy: >
+      The 16 patients whose WGS and WXS files disagree are coded `conflicting`
+      in the clinical table and treated as MISSING, not as a third level. A
+      fabricated label in the project's single pre-registered subgroup variable
+      is worse than a smaller n.
+    rationale: >
+      The one pre-registered subgroup variable. 76 MSI against 520 MSS, so an
+      adjustment term here and an estimate-with-an-interval in any subgroup
+      report — never a powered test.
+
+  - name: purity
+    type: continuous
+    df: 1
+    source: absolute
+    sensitivity_source: estimate_affy_extrapolated
+    coverage: 0.894
+    rationale: >
+      ABSOLUTE (Aran et al. 2015), called from copy number, so not circular with
+      an expression outcome. ESTIMATE is expression-derived and is the
+      sensitivity analysis, never the primary. The two are never coalesced.
+      Note purity applies only where expression does — see `contexts`.
+
+  - name: site
+    type: categorical
+    levels: [right_colon, left_colon, rectum, colon_unspecified]
+    reference: left_colon
+    df: 3
+    coverage: 0.995
+    rationale: >
+      Split at the splenic flexure, so transverse colon counts as right.
+      `colon_unspecified` is 102 patients with no recorded subsite — an explicit
+      level rather than dropped or guessed into a side.
+
+total_df: 10
+
+# -----------------------------------------------------------------------------
+# Two model contexts. This is the substantive proposal.
+#
+# Purity is a tumour-content measure. It confounds analyses whose PREDICTOR is
+# expression. W3.7's baseline contains no expression at all, so purity is not a
+# confounder there — and requiring it costs 65 patients and 19 PFI events for no
+# inferential gain. Excluding it is what lets every endpoint clear the floor.
+# -----------------------------------------------------------------------------
+contexts:
+  clinical_baseline:
+    description: >
+      W3.7. Clinical covariates only, no expression, no project variables. A
+      pipeline sanity check: stage must come out prognostic or something is
+      wrong upstream.
+    exclude: [purity]
+    endpoint_overrides:
+      DSS:
+        exclude: [purity, site]
+        rationale: >
+          Site costs three degrees of freedom for the weakest prior claim.
+          Stage is the strongest prognostic term and the sanity check, MSI is
+          pre-registered, and age and sex cost one each. Dropping site takes DSS
+          from 7.3 to 11.2 events per df.
+    expected:
+      PFI: {n: 548, events: 142, df: 9, events_per_df: 15.8}
+      OS:  {n: 550, events: 110, df: 9, events_per_df: 12.2}
+      DSS: {n: 532, events: 67,  df: 6, events_per_df: 11.2}
+
+  expression_models:
+    description: >
+      Stage 4, when a deconvolution-derived fraction enters as a predictor.
+      Purity becomes a genuine confounder and plate becomes a measurement
+      confound.
+    exclude: []
+    endpoint_overrides:
+      DSS:
+        exclude: [site]
+        rationale: >
+          DSS keeps purity here — it is a real confounder once expression is the
+          predictor — but still cannot afford site. Even so, DSS in this context
+          runs at roughly 8 events per degree of freedom BEFORE the fraction
+          variable is added, and is expected to be underpowered. Report it as a
+          consistency check on PFI, not as an independent result.
+    additional_required:
+      - name: plate
+        form: strata_or_random_effect
+        rationale: >
+          29 levels over 624 samples is too many for fixed effects. W3.4 found
+          plate associated with more expression variance than any biological
+          variable (13.2% above its permutation null against 4.2% for MSI) and
+          confounded with MSI at V = 0.21. Required for any model containing an
+          expression-derived variable.
+    note: >
+      Invariant 6 still holds — fractions only from bulk, never cell-type
+      expression. Invariant 4 still holds — this adjusts a model, it does not
+      correct the matrix.
+
+# -----------------------------------------------------------------------------
+# Model form.
+# -----------------------------------------------------------------------------
+model:
+  type: cox_proportional_hazards
+  strata: [project]
+  missing_data: complete_case
+  ties: efron
+  strata_rationale: >
+    COAD and READ enter as STRATA, not as a covariate. Rectal cancer usually
+    receives neoadjuvant chemoradiation, so a common baseline hazard with a
+    proportional shift is not credible. Stratifying gives each a separate
+    baseline, costs zero degrees of freedom, and — because tissue source site is
+    almost perfectly confounded with project (Cramer's V = 0.971, W3.4) — also
+    absorbs most of the institution effect. W3's proposed answer to open
+    decision #4.
+  missing_data_rationale: >
+    Complete case, with n and events reported at every step. No imputation: the
+    missingness is concentrated in stage and MSI, both plausibly not missing at
+    random.
+  proportional_hazards: >
+    Checked per term with Schoenfeld residuals and reported whether or not it
+    holds. A violated PH assumption is a finding, not a reason to quietly switch
+    models.
+
+# -----------------------------------------------------------------------------
+# Deliberately NOT in the set, so the omissions are decisions not oversights.
+# -----------------------------------------------------------------------------
+excluded:
+  - name: plate
+    reason: >
+      Excluded from the clinical baseline because plate affects expression
+      MEASUREMENT and that model contains no expression. Required in
+      `expression_models`. W3's proposed answer to open decision #14.
+  - name: tissue_source_site
+    reason: >
+      Cramer's V = 0.971 with project (W3.4). Stratifying by project already
+      absorbs it; including both would be near-collinear.
+  - name: treatment_outcome_first_course
+    reason: >
+      Recorded for 48% of patients, and it is a RESPONSE measure rather than a
+      record of treatment given. Not usable as an adjustment variable and a poor
+      proxy for the neoadjuvant difference behind decision #4.
+  - name: race
+    reason: >
+      Available but not pre-registered and not part of the scientific question.
+      Adding covariates after seeing data is what this file exists to prevent.

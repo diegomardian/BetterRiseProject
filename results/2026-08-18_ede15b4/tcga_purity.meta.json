@@ -1,0 +1,48 @@
+{
+  "date": "2026-08-18",
+  "utc_timestamp": "2026-08-18T12:45:06+00:00",
+  "git_sha": "ede15b400ab9a81c9a2117dbcb38a1c44664a005",
+  "git_sha_short": "ede15b4",
+  "git_branch": "w3/purity",
+  "git_dirty": true,
+  "seed": 20260818,
+  "python": "3.11.15",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "notes": "W3.3 purity. One row per (sample, method); never coalesced.",
+  "name": "tcga_purity",
+  "n_rows": 1854,
+  "columns": [
+    "barcode",
+    "method",
+    "purity",
+    "stromal_score",
+    "immune_score",
+    "estimate_score",
+    "expression_derived",
+    "patient_id",
+    "project",
+    "sample_type",
+    "sample_type_name"
+  ],
+  "table_kind": "harness",
+  "gene_mapping": {
+    "ensembl_in_matrix": 60616,
+    "mapped_to_a_symbol": 60616,
+    "in_estimate_common_genes": 9915,
+    "unique_symbols": 9911,
+    "common_genes_total": 10412
+  },
+  "agreement": {
+    "n_samples": 675,
+    "n_estimate": 675,
+    "n_absolute": 556,
+    "absolute_coverage": 0.8237,
+    "n_both": 556,
+    "pearson_r": 0.5695,
+    "spearman_rho": 0.5881,
+    "median_difference": -0.1284
+  },
+  "index_version": "0.9.0"
+}

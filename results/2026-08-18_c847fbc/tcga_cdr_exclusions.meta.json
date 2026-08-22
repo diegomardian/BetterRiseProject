@@ -1,0 +1,24 @@
+{
+  "date": "2026-08-18",
+  "utc_timestamp": "2026-08-18T20:52:14+00:00",
+  "git_sha": "c847fbcb07c9462dee28d5691e0a355e83dbe797",
+  "git_sha_short": "c847fbc",
+  "git_branch": "w3/clinical-cdr",
+  "git_dirty": true,
+  "seed": 20260818,
+  "python": "3.11.15",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "notes": "W3.5 per-endpoint exclusions and reasons",
+  "name": "tcga_cdr_exclusions",
+  "n_rows": 16,
+  "columns": [
+    "endpoint",
+    "role",
+    "reason",
+    "n",
+    "n_total"
+  ],
+  "table_kind": "harness"
+}

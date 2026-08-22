@@ -1,0 +1,41 @@
+{
+  "date": "2026-08-18",
+  "utc_timestamp": "2026-08-18T20:24:06+00:00",
+  "git_sha": "7c49e995f4771d65ec0e9d6b6077bbd0d7260a0a",
+  "git_sha_short": "7c49e99",
+  "git_branch": "w3/premise-purity-rerun",
+  "git_dirty": true,
+  "seed": 20260818,
+  "python": "3.11.15",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "notes": "W3.2 re-run conditioned on purity (W3.3). ABSOLUTE primary.",
+  "name": "tcga_premise_purity_conditioned",
+  "n_rows": 32,
+  "columns": [
+    "gene",
+    "stratum",
+    "n",
+    "zero_fraction",
+    "median",
+    "iqr",
+    "dip_statistic",
+    "dip_pvalue",
+    "bic_1",
+    "bic_2",
+    "bic_delta",
+    "gmm_weights",
+    "gmm_means",
+    "verdict",
+    "purity_adjusted",
+    "purity_method"
+  ],
+  "table_kind": "harness",
+  "genes": [
+    "GUCA2A",
+    "CDX2"
+  ],
+  "scale": "log2(CPM+1)",
+  "purity_adjusted": true
+}

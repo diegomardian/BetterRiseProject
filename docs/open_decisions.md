@@ -1162,12 +1162,268 @@ Options for the durable fix:
 | b | `build_signature()` filters targets out of `gene_index` itself, as it already does for `usable` at line 98, and drops the line-96 assertion. | One line in W1's module plus a test update. Makes the guard unforgettable. |
 | c | Amputate panel genes from the shared index. | **Do not.** Breaks W3.2 and Stage 4. Listed only to rule it out in writing. |
 
-**Recommendation: (b).** The assertion at line 98 is the one that protects the
-reference pool; line 96 protects nothing extra and costs the shared index its
-completeness. (a) is what is in place today and is a fine holding position.
+**Recommendation: (b).** The assertion on the *reference pool* is the one that
+protects anything; the one on the *whole shared index* protects nothing extra
+and costs the shared index its completeness. (a) is what is in place today and
+is a fine holding position.
+
+### Why this is now urgent
+
+[`src/reference/jobs/run_pilot.py`](../src/reference/jobs/run_pilot.py) passes
+`read_gene_index(...)` straight into `build_signature_sparse` as `gene_index=`,
+unfiltered, inside a `try/except` that prints `FAILED: {exc}` and continues to
+the next rung. So the moment W1 has an index containing panel genes — and every
+candidate index does, decision #2 measured all 23 present on both — **every rung
+fails and no S matrix is written**, as a printed line rather than a raised
+error. The S matrix is the W1 → W2 handoff the gate depends on.
+
+It does not get that far today: `config/gene_index/` holds only a README, so the
+job reports `!! no gene index` and skips the step. The failure is sitting on the
+other side of decision #2, not in front of it.
+
+### Ready to apply — drafted and tested against W1's branch, 2026-08-20
+
+Option (b) as a patch:
+[`decision_12_signature_filter.patch`](decision_12_signature_filter.patch).
+
+```
+git switch w1/ingest-gse178341
+git apply docs/decision_12_signature_filter.patch
+```
+
+Three files, +53/−19. It replaces the assertion on the whole `gene_index` with a
+filter, in both `build_signature` and `build_signature_sparse`, and updates the
+two tests that pinned the old behaviour. The other three leakage guards are
+untouched — `usable`, `markers`, and the post-condition on the emitted S matrix,
+which is the one that still binds and is what invariant 2 is actually about.
+
+Verified against `origin/w1/ingest-gse178341` at da6ba75: applies cleanly, full
+suite **459 passed, 2 skipped**, `ruff` clean.
+
+**W1 owns this call.** It is drafted rather than committed because it is W1's
+module and W1's test. The patch exists so the decision is a review rather than a
+rewrite — and so that "we agreed on (b)" and "(b) is in the tree" do not end up
+three weeks apart.
 
 ---
 
 ## Closed
 
 *(none yet — move entries here with the date and the decision, do not delete them)*
+
+---
+
+## 13 · Bulk GUCA2A is continuous, not bimodal — CONFIRMED AFTER PURITY ADJUSTMENT
+
+**Raised:** W3, 2026-08-17 · **Confirmed:** W3, 2026-08-18, purity-conditioned re-run · **Owner:** all four ·
+**Needed by:** week 2 standing meeting, and before W2 calibrates cutpoints (#7)
+
+The premise check ran. **Hartigan's dip test finds no multimodality in GUCA2A in
+any stratum** — p = 0.851 in COAD tumours (n=458), 0.919 in READ (n=166), 0.982
+pooled. The loss is large (median 2.8 vs 9.0 log2CPM, ~64-fold) and entirely
+graded. Zero inflation is ruled out at 0.2%. CDX2 is unimodal *and* barely lost
+at the median (8.08 vs 8.31).
+
+BIC prefers two components in most strata. That is the skew artifact the brief
+warned about, not evidence of two groups — see
+[the note](../results/notes/w3.2_premise_check.md).
+
+execution_plan.md §8.2 pre-registered the consequence: *"if continuous, the
+two-type classification dissolves into a regression."* So:
+
+1. **Does the bulk arm become explicitly a regression?** There is no natural cut
+   point, so any threshold is a modelling choice and should be reported as one.
+2. **Does this change what W2 calibrates against (#7)?** Cutpoints for the
+   *positivity* threshold are about mature-cell counts and are unaffected. But
+   anything calibrating a bulk-phenotype cut is calibrating against a continuum.
+3. **It does not touch G1–G4.** This is a statement about bulk GUCA2A, not about
+   whether the decomposition separates compositional from intrinsic.
+
+**CONFIRMED 2026-08-18 — no longer provisional.** The re-run conditioned on
+W3.3 purity is done and the finding is unchanged. Purity explains **1.9%** of
+GUCA2A variance (ABSOLUTE, n=556). The smallest dip p-value across every
+adjustment — residualised on ABSOLUTE, residualised on ESTIMATE, and within
+each purity tertile — is **0.332**. Nothing approaches significance.
+
+A further reason to prefer ABSOLUTE in the W3.6 lock: GUCA2A correlates with
+ABSOLUTE purity at r=-0.139 (purer tumour, less GUCA2A — the direction the
+compositional hypothesis predicts) but at r=+0.064 against ESTIMATE, which is
+near zero and the wrong sign. See the addendum in
+[the note](../results/notes/w3.2_premise_check.md).
+
+---
+
+## 14 · Plate explains more expression variance than any biological variable — OPEN
+
+**Raised:** W3, 2026-08-18, from W3.4 · **Owner:** W3 + W2 · **Needed by:** week 4–5,
+before the covariate set is locked (W3.6)
+
+PVCA-style variance analysis over 624 TCGA tumours, permutation-nulled:
+
+| Factor | Excess variance over null | p |
+|---|---|---|
+| **plate** | **0.132** | 0.010 |
+| **TSS** | **0.084** | 0.010 |
+| msi_status | 0.042 | 0.010 |
+| site | 0.023 | 0.010 |
+| stage | 0.007 | 0.010 |
+| vial (negative control) | −0.001 | 0.683 |
+
+**Plate is associated with three times more expression variance than MSI status
+and twenty times more than stage.** And plate is confounded with MSI
+(Cramér's V = 0.21, permutation p = 0.006), which is the project's single
+pre-registered subgroup variable.
+
+Two decisions follow, neither taken here:
+
+1. **Does plate join the locked covariate set?** It is not on the current list
+   (stage, age, sex, MMR/MSI, purity, site) and on this evidence has a stronger
+   claim than stage. But 29 levels against 624 samples is a lot of degrees of
+   freedom — a random effect or a coarser grouping is probably wanted rather
+   than 28 fixed-effect dummies.
+2. **How is the MSI subgroup contrast reported?** With 76 MSI patients, a plate
+   confound and no batch correction, an unqualified MSI contrast overstates the
+   evidence. Minimum: report the plate association alongside it.
+
+**Invariant 4 is not in question.** The response to a measured confound is to
+carry it into the model, not to remove it from the data.
+
+See [the note](../results/notes/w3.4_batch_structure.md).
+
+---
+
+## 15 · TSS and COAD/READ are nearly the same variable — bears on #4
+
+**Raised:** W3, 2026-08-18, from W3.4 · **Owner:** W3 · **Needed by:** week 3,
+alongside decision #4
+
+Tissue source site against project: **Cramér's V = 0.971, permutation p = 0.001.**
+A hospital submits colon cases or rectal cases, essentially never both.
+
+So **a COAD-vs-READ contrast is also an institution contrast**, and adding a
+project covariate does not adjust for site because the two are nearly the same
+column. This does not by itself settle [#4](#4--coad-and-read-pool-or-stratify--open),
+but whichever way it goes should be decided knowing the two cannot be separated
+in this cohort.
+
+MSI coverage, also from W3.4, resolves the brief's other escalation: **98.6%
+annotated** (523 MSS, 76 MSI, 16 conflicting, 9 missing). Coverage was never the
+binding constraint — the 76-patient subgroup size is.
+
+---
+
+## 16 · The CDR calls DSS "approximated" for COAD/READ — invariant 9 needs a look
+
+**Raised:** W3, 2026-08-18, from W3.5 · **Owner:** all four ·
+**Needed by:** week 5, before W3.7 reports anything
+
+[CLAUDE.md](../CLAUDE.md) invariant 9 makes **DSS and PFI primary, OS
+secondary**. The brief also says to honour the CDR's own recommended-use flags.
+The CDR's notes sheet says:
+
+> "we recommend the use of **PFI** [...] and **OS** [...] Given the relatively
+> short follow-up time, PFI is preferred over OS."
+>
+> "DSS is relatively accurate for CESC, PAAD, and UVM, and is **approximated for
+> other tumor types**."
+
+COAD and READ are "other tumor types". The CDR derives DSS as *dead and with
+tumour*, and states that a with-tumour patient who dies of an unrelated cause is
+"incorrectly considered as an event" — the same contamination invariant 9
+objects to in OS, reduced but not removed.
+
+**Invariant 9's reasoning survives**: DSS is still better than OS for COAD. Two
+things argue for leading with PFI regardless:
+
+1. Both the project and the CDR endorse PFI.
+2. **DSS has 75 events; PFI has 156.** The locked covariate set expands to ~11
+   degrees of freedom, so DSS gives under 7 events/df — below the conventional
+   floor of 10. PFI gives ~14.
+
+**Options:** (a) keep invariant 9 verbatim and lead with PFI in practice, which
+is what the code does today; (b) amend invariant 9 to name PFI primary and DSS
+co-primary-with-caveat, which needs a PR and two approvals.
+
+**Recommendation: (a) now, decide (b) at the gate.** Nothing is blocked either
+way; what must not happen is a DSS-led headline result that does not mention the
+approximation.
+
+See [the note](../results/notes/w3.5_clinical_table.md).
+
+---
+
+## 17 · W3.6 covariate set — LOCKED 2026-08-18
+
+**Raised:** W3, 2026-08-18 · **Locked:** W3 owner (jeremy749), 2026-08-18, commit
+53442b0 · **Owner:** W3 (owner confirms) · **Was needed by:** week 5, before W3.7 ran
+
+[`config/covariate_set.yaml`](../config/covariate_set.yaml) was committed with
+`status: proposed`; `src/bulk/covariates.py:require_locked` refused to let any
+survival model run against it until it flipped to `locked` in its own commit.
+That flip is 53442b0, authorised by the W3 owner and recorded in the file's
+`lock_authorisation` field. [W3.7](../results/notes/w3.7_baseline_survival.md)
+ran after it, not before.
+
+**This closes #17 and nothing else.** The lock carries answers to three
+decisions that are formally the team's, and locking the config did not ratify
+them — it implemented them so W3.7 could run. **#4, #14 and #16 stay open until
+the group says otherwise**, and overruling any of them is a config change with
+its own commit and a stated reason:
+
+- **#4 (pool or stratify)** → COAD/READ as **strata**, not a covariate. Rectal
+  cancer usually gets neoadjuvant chemoradiation, so a shared baseline hazard
+  with a proportional shift is not credible. Costs zero degrees of freedom, and
+  since TSS is confounded with project at V = 0.971 (#15) it absorbs the
+  institution effect too.
+- **#14 (does plate join the set)** → **no** for the clinical baseline, **yes,
+  required** for expression models. Plate affects expression *measurement*, and
+  the clinical baseline contains no expression, so it is not a confounder there.
+- **#16 (which endpoint leads)** → invariant 9 unchanged; PFI carries
+  `lead: true`.
+
+**The driving constraint:** the six covariates cost **ten** degrees of freedom,
+not six. Applying all of them to DSS gives 59 events over 10 df. Excluding
+purity from the clinical baseline — where it is not a confounder — and dropping
+site from DSS gets every endpoint over the floor:
+
+| Context | PFI | DSS | OS |
+|---|---|---|---|
+| clinical baseline | 15.8 ✅ | 11.2 ✅ | 12.2 ✅ |
+| expression models | 12.4 ✅ | 8.1 ❌ | 9.7 ❌ |
+
+Reasoning in full: [the note](../results/notes/w3.6_covariate_lock.md).
+
+---
+
+## 18 · The premise-check finding replicates independently — CLOSES the artifact worry on #13
+
+**Raised:** W3, 2026-08-18, from W3.8 · **Owner:** all four · **Status:** informational
+
+[Decision #13](#13--bulk-guca2a-is-continuous-not-bimodal--confirmed-after-purity-adjustment)
+rests on a finding from one cohort. It has now been replicated in **GSE39582**
+(Marisa et al., 566 tumours) on **Affymetrix microarray** rather than Illumina
+RNA-seq:
+
+| Gene | TCGA dip p | GSE39582 dip p | TCGA % of normal | GSE39582 % of normal |
+|---|---|---|---|---|
+| GUCA2A | 0.982 | 0.997 | 1.40% | 1.72% |
+| CDX2 | 0.969 | 0.987 | 94.7% | 84.8% |
+| MS4A12 | — | 0.992 | 0.82% | 0.35% |
+
+Different patients, different country, different measurement technology — and
+the effect sizes land within a factor of two on all three genes.
+
+**The CIMP+ test is the substantive addition.** GSE39582 carries CpG island
+methylator phenotype status, which TCGA's GDC clinical does not. Promoter
+hypermethylation is the one mechanism that would plausibly produce a discrete
+off-state, so CIMP+ tumours are where bimodality should hide. Dip p = 0.804
+(GUCA2A), 0.515 (CDX2), 0.785 (MS4A12) across 91 patients. **Nothing there
+either.**
+
+So the classification-to-regression question in #13 is no longer contingent on
+whether TCGA is representative. It is a decision about framing, on evidence from
+two independent cohorts.
+
+Cohorts are **not pooled** (invariant 4) — estimated separately, reported side
+by side, using the same test code so a difference could not come from the
+analysis. See [the note](../results/notes/w3.8_replication_gse39582.md).
