@@ -105,7 +105,19 @@ SIGNATURE_GENES = 800
 #: construction — and the tie fraction only says how much resolution exists, not
 #: whether what resolves is real. Agreement with an independent annotation is
 #: the only one of the three that answers open decision #14.
-DEPTH_QUANTILE = 0.10
+#:
+#: **Set to 0.25 on 2026-08-21 from that column.** The sweep measured kappa
+#: 0.247 / 0.313 / 0.444 / 0.495 / 0.343 at q = 0.05 / 0.10 / 0.25 / 0.50 / 0.65.
+#: 0.25 dominates the previous 0.10 on every axis at once — kappa 0.444 against
+#: 0.313, tie 55.4% against 70.2%, usable 33.4% against 26.8% — so the change
+#: costs nothing. The peak at q=0.50 was NOT taken: it buys +0.05 kappa for a
+#: quarter of the epithelium, and a depth floor removes shallow *samples* rather
+#: than a random slice of cells, so it can drop whole patients. Kappa is measured
+#: on the survivors, which means a higher floor can raise it without the labels
+#: having improved. Watch the `paired` column: if it falls at 0.25 relative to
+#: 0.10, revisit — the compositional term is a paired within-patient contrast and
+#: patients are what the project spends.
+DEPTH_QUANTILE = 0.25
 
 
 def main() -> int:

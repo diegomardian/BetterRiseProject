@@ -721,6 +721,7 @@ def maturity_summary(
     study_id: str,
     axes: Any = TRANSCRIPT_AXES,
     rungs: Any = None,
+    depth_target: float | None = None,
 ) -> pd.DataFrame:
     """Per-patient mature fractions, shaped for W4's estimator.
 
@@ -768,6 +769,40 @@ def maturity_summary(
     out["n_cells_mature"] = out["n_cells_mature_tumour"].astype("Int64")
     out["study_id"] = study_id
     out = out.dropna(subset=["frac_mature_normal", "frac_mature_tumour"])
+
+    # What was actually measured travels with the number, in the same spirit as
+    # invariant 10's git sha and seed. On axis 1 the "mature" bin is the block of
+    # cells with no marker detected at `depth_target` — a detection gate, not the
+    # median split the rung name implies — and a fraction quoted without the
+    # depth it was gated at is not reproducible or comparable between studies.
+    out["depth_target"] = depth_target
+    out["mature_definition"] = (
+        "no axis marker detected at matched depth"
+        if depth_target
+        else "axis score above the reference arm's cut point"
+    )
+
+    # Which rungs collapsed onto a coarser rung's boundary. The granularity curve
+    # is the project's central claim (README design decision 3) and a duplicated
+    # point inflates it, so the flag is carried on the row rather than left for
+    # the consumer to rediscover. `None` means this rung drew its own boundary.
+    degenerate = rung_degeneracy(labels, axes=axes, rungs=rungs)
+    collapsed = degenerate[degenerate["identical"]]
+    order = list(rungs) if rungs is not None else granularity_rungs()
+    lookup: dict[tuple[str, str], str] = {}
+    for row in collapsed.itertuples():
+        # Name the COARSER of the pair — the finer rung is the one adding a
+        # resolution the data does not support.
+        first, second = row.rung_a, row.rung_b
+        coarser, finer = (
+            (first, second) if order.index(first) < order.index(second)
+            else (second, first)
+        )
+        lookup[(row.labeling_axis, finer)] = coarser
+    out["degenerate_with"] = [
+        lookup.get((axis, rung)) for axis, rung
+        in zip(out["labeling_axis"], out["granularity_rung"], strict=True)
+    ]
     return out.reset_index(drop=True)
 
 

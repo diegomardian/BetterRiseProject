@@ -597,6 +597,101 @@ class TestW4Interface:
         assert (summary["n_cells_mature"] == summary["n_cells_mature_tumour"]).all()
 
 
+class TestTheMeasurementTravelsWithTheNumber:
+    """A mature fraction is not interpretable without what defined "mature".
+
+    On axis 1 the mature bin is the block of cells with no marker detected at
+    the depth target — a detection gate, not the median split the rung name
+    implies. Two studies gating at different depths produce numbers that look
+    comparable and are not, and invariant 4 has us meta-analyse across studies.
+    So the depth and the definition ride on the row, like the git sha does.
+    """
+
+    def _summary(self, cohort, **kwargs):
+        matrix, compartment, sample_id, _ = cohort
+        patient = np.full(matrix.shape[0], "P1")
+        tissue = np.where(sample_id == "s1", "tumour", "normal")
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=sample_id,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            **kwargs,
+        )
+        return maturity_summary(
+            labels, patient_id=patient, tissue=tissue, study_id="GSE178341",
+            depth_target=kwargs.get("depth_target"),
+        )
+
+    def test_the_depth_target_is_recorded(self, cohort):
+        summary = self._summary(cohort, depth_target=2_000.0)
+        assert (summary["depth_target"] == 2_000.0).all()
+        assert (
+            summary["mature_definition"]
+            == "no axis marker detected at matched depth"
+        ).all()
+
+    def test_an_unmatched_run_says_so_rather_than_inventing_a_depth(self, cohort):
+        summary = self._summary(cohort, depth_target=0)
+        assert summary["depth_target"].isna().all() or (
+            summary["depth_target"] == 0
+        ).all()
+        assert (summary["mature_definition"] != "").all()
+
+    def test_extra_columns_do_not_break_W4(self, cohort):
+        """decompose_cohort checks for missing columns, not for extra ones —
+        but that is a promise worth pinning, since this adds three."""
+        from src.estimator.kitagawa import decompose_cohort
+
+        summary = self._summary(cohort, depth_target=2_000.0).assign(
+            gene="GUCA2A", mean_normal=2.0, mean_tumour=0.4
+        )
+        out = decompose_cohort(summary)
+        assert len(out) == len(summary) * 3
+
+
+class TestDegeneracyIsCarriedOnTheRow:
+    """The granularity curve must be buildable without recomputing degeneracy.
+
+    A rung that collapsed onto a coarser rung's boundary is not a second point
+    on the curve. The consumer building that curve is W4, which never sees the
+    labels — only this summary — so the flag has to be on the row.
+    """
+
+    def _summary(self, **kwargs):
+        matrix, compartment, patient, tissue = TestTieCollapse()._tied(**kwargs)
+        # _tied is single-arm; give it a tumour arm so both fractions exist.
+        tissue = np.array(
+            ["normal"] * (len(tissue) // 2)
+            + ["tumour"] * (len(tissue) - len(tissue) // 2),
+            dtype=object,
+        )
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["lineage", "crypt_position"],
+        )
+        return maturity_summary(
+            labels, patient_id=patient, tissue=tissue, study_id="S",
+            axes=["stem_pole"], rungs=["lineage", "crypt_position"],
+        )
+
+    def test_the_finer_rung_names_the_coarser_one_it_duplicates(self):
+        summary = self._summary()
+        finer = summary[summary["granularity_rung"] == "crypt_position"]
+        assert len(finer)
+        assert (finer["degenerate_with"] == "lineage").all()
+
+    def test_the_coarser_rung_is_not_itself_flagged(self):
+        """crypt_position duplicates lineage, not the other way round — the
+        finer rung is the one claiming a resolution the data does not support."""
+        summary = self._summary()
+        coarser = summary[summary["granularity_rung"] == "lineage"]
+        assert coarser["degenerate_with"].isna().all()
+
+    def test_a_well_spread_axis_flags_nothing(self):
+        summary = self._summary(n_tied=0, n_spread=900)
+        assert summary["degenerate_with"].isna().all()
+
+
 class TestZeroEpitheliumGroup:
     """A (patient, tissue) group with no epithelium must yield NaN, not a crash.
 
