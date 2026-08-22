@@ -157,10 +157,35 @@ class TestThresholds:
         with pytest.raises(QCError, match="missing column"):
             qc_thresholds(pd.DataFrame({"batch": ["s1"], "n_counts": [10]}))
 
-    def test_defaults_match_w4(self):
+    def test_mad_default_still_matches_w4(self):
         """Comparability at the gate: diverging silently would read as biology."""
         assert DEFAULT_N_MADS == 5.0
-        assert DEFAULT_MAX_PCT_MITO == 20.0
+
+    def test_mito_cap_deliberately_diverges_from_w4(self):
+        """W4 uses 20 on Lee; W1 uses 50 on GSE178341, and the reason is measured.
+
+        Colonic epithelium here runs at a median of 29.8% mitochondrial in normal
+        tissue against 4-11% for immune and stromal compartments, so a 20% cap
+        sits below the median for the very population under study — it removed
+        59% of epithelium and opened a 22.7-point tumour/normal retention gap,
+        which lands straight on Delta(mature fraction).
+
+        GSE178341 is also already filtered at 50% upstream (observed max 49.99),
+        so 50 is a no-op rather than an opinion.
+
+        This is a KNOWN, DOCUMENTED divergence (docs/open_decisions.md #12), not
+        drift. If W4 adopts 50 too, update this test rather than deleting it.
+        """
+        assert DEFAULT_MAX_PCT_MITO == 50.0
+
+    def test_mito_cap_does_not_cut_epithelium_below_its_median(self):
+        """The failure mode #12 describes, as an executable check.
+
+        A cap below the population's median removes more than half of it. For the
+        population whose abundance IS the measurement, that is not a QC choice.
+        """
+        observed_epithelial_median_normal = 29.8  # pilot, 2026-08-17
+        assert DEFAULT_MAX_PCT_MITO > observed_epithelial_median_normal
 
 
 class TestApplyQC:

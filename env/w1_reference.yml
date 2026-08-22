@@ -30,7 +30,8 @@ dependencies:
   # DecontX (in celda) replaces CellBender as the second ambient method: it
   # infers contamination from cluster structure and needs no empty droplets.
   - bioconductor-celda=1.18.1
-  - bioconductor-infercnv=1.18.0
+  # 1.18.0 was never published to bioconda — the Bioc 3.18 release is 1.18.1.
+  - bioconductor-infercnv=1.18.1
   - bioconductor-scdblfinder=1.16.0
   - r-seurat=5.0.3
   # CopyKAT is the inferCNV cross-check (weeks 2-3) and is NOT on bioconda.
