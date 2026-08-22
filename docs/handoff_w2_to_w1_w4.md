@@ -20,7 +20,78 @@ kappa is measured. Apologies — the ask below is narrower as a result.
 
 # W1 — one artifact, one team decision
 
-## W1-A · The S matrices — *the blocking item*
+## W1-A · The S matrices — **DELIVERED AND ACCEPTED** (PR #17, 2026-08-22)
+
+All four passed every published check. Nothing to redo on the matrices themselves.
+
+| rung | genes x types | 500–2000 | no target leak | non-epithelial cols | on shared index |
+|---|---|---|---|---|---|
+| epithelial | 800 x 5 | PASS | PASS | PASS | 800/800 |
+| lineage | 800 x 6 | PASS | PASS | PASS | 800/800 |
+| crypt_position | 800 x 6 | PASS | PASS | PASS | 800/800 |
+| best4 | 800 x 6 | PASS | PASS | PASS | 800/800 |
+
+Two deviations from the spec, both fine and worth recording:
+
+- Versioned `0.1.0-pilot`, not `1.0.0`, and written to `results/{date}_{sha}/`
+  rather than `s_matrix_path()`'s `data/processed/reference/`. **Better than what
+  was asked** — it carries provenance. W2 reads them by glob; if you want
+  `s_matrix_path()` to find them later, that helper needs a pointer, which is
+  W2's to change.
+- Index is `gene_index_0.9.0`, not a `1.0.0`. Fine for a pilot; open decisions
+  #2/#3 still need settling before a full-cohort version.
+
+### But the rung *structure* has two problems, and one is a real bug
+
+Found while checking the matrices. Neither is a defect in the S matrices; both
+are in how the rungs are defined, and both hit the four-resolution curve.
+
+**1 · The epithelial rung's compositional term is structurally zero.**
+
+`mature_fraction` is 1.000000 for every patient, both arms, both axes, so
+Δ(mature fraction) = 0.000000 exactly:
+
+```
+opposite_lineage/epithelial   max |delta mature fraction| = 0.000000
+       stem_pole/epithelial   max |delta mature fraction| = 0.000000
+```
+
+At this rung "mature" is *all resolved epithelium*, and the denominator is also
+resolved epithelium — so the fraction is 1 by construction and the compositional
+arm cannot move. The rung contributes a guaranteed zero to the curve.
+
+This looks like a denominator choice rather than a deep problem. If the epithelial
+rung's denominator were **all cells** rather than resolved epithelial cells, it
+would measure epithelial content of the sample, which genuinely differs between
+normal and tumour and is a meaningful compositional quantity. **W1: worth a look
+— it is a small change with a large effect on what the coarsest rung means.**
+
+**2 · The degeneracy is axis-specific, which is better news than reported.**
+
+`lineage` and `crypt_position` are identical on `stem_pole` — confirmed
+independently: their S-matrix columns are bit-identical,
+`corr(differentiated, crypt_top) = 1.0000`, `np.allclose` True. But on
+`opposite_lineage` they separate:
+
+| axis | lineage | crypt_position | separate? |
+|---|---|---|---|
+| stem_pole | 0.5996 | 0.5996 | **no — identical** |
+| opposite_lineage | 0.3711 | 0.5326 | **yes** |
+
+So the curve is not lost, it is **axis-dependent**: two usable interior points on
+axis 2, one on axis 1. Combined with the harness result below — identical
+partitions give bit-identical estimates, genuinely different ones separate at
+33% — the picture is complete, and axis 2 is where the granularity contribution
+lives.
+
+**3 · 37% of epithelial cells are unresolved** (median `unresolved_fraction`
+0.367, up to 0.65 in one arm). Not a blocker, but it is a third of the compartment
+excluded before any biology, and it should be stated wherever the mature fraction
+is reported.
+
+---
+
+## W1-A (original ask, kept for the record)
 
 `build_signature()` works, `_select_markers` is implemented, the pilot has run.
 What does not exist yet is the emitted artifact W2 and W3 both join against.
