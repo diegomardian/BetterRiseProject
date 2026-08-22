@@ -43,6 +43,11 @@ dev = [
     "diptest>=0.5",  # src/bulk/premise.py (lazy import, still needed)
     "matplotlib>=3.7",  # src/bulk/premise.py, src/bulk/run_survival.py — figures
     "requests>=2.31",  # src/bulk/{gdc,cdr,clinical,purity,replication}.py — fetchers
+    "h5py>=3.11",  # src/reference/{ingest,icbi}.py, jobs/inspect_h5.py (W1, PR #10)
+    # Upper bound is load-bearing: anndata 0.12 requires numpy>=2, which breaks
+    # lifelines 0.29 (numpy<2) and puts CI on a different numpy MAJOR than the
+    # one every env/ file pins (1.26.4). 0.10.8 is what env/w1_reference.yml uses.
+    "anndata>=0.10,<0.11",  # src/reference/ingest.py (W1, PR #10)
 ]
 
 [tool.setuptools.packages.find]
