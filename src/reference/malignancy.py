@@ -54,6 +54,7 @@ drives it per patient as an SGE array job.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Final
 
 import numpy as np
@@ -349,24 +350,300 @@ def validate_normal_epithelium(
     return out
 
 
-def run_infercnv(*args: Any, **kwargs: Any) -> Any:
-    """inferCNV against real matrices. W1, weeks 2-3. Not scaffolded further.
+#: inferCNV's expression cutoff. **0.1 is the documented 10x value**; the
+#: package's own guidance is 1 for Smart-seq2 and 0.1 for droplet data, because
+#: droplet counts are far sparser per cell. Not a free parameter, and not tuned.
+INFERCNV_CUTOFF_10X: Final[float] = 0.1
 
-    Needs the actual per-patient matrices, and its window size, cutoff and HMM
-    settings are judgement calls over real data rather than a formula — the same
-    reason ``_select_markers`` and ``flag_doublets`` are stubs.
+#: Genes per smoothing window. inferCNV's default. Larger windows suppress noise
+#: and blur focal events; 101 is the setting the published analyses use, so it is
+#: kept unless there is a reason on this data to move it.
+INFERCNV_WINDOW: Final[int] = 101
 
-    Drive it with ``src/reference/jobs/infercnv.sh``, which submits one array
-    task per patient. Take the reference groups from :func:`assign_cnv_roles`:
-    ``reference_normal_epi`` as the primary baseline, and each diploid
-    compartment as its own additional reference category so inferCNV's
-    per-category bounding can suppress cell-type false positives. Never pass the
-    held-out cells — they exist precisely so the validation is out-of-sample.
 
-    Cross-check the result with CopyKAT and report the concordance — §4 asks for
-    the cross-check, not a winner.
+def write_infercnv_inputs(
+    counts: Any,
+    gene_names: Any,
+    roles: pd.DataFrame,
+    *,
+    out_dir: Any,
+    barcodes: Any = None,
+) -> dict[str, Path]:
+    """Write the three files inferCNV reads. Returns their paths.
+
+    inferCNV wants a genes x cells count matrix, a two-column annotation file
+    mapping each cell to a group, and a gene-position file. The first two are
+    written here; the third is a **reference file the caller supplies**, because
+    it must match the deposit's genome build and inventing coordinates would be
+    worse than failing.
+
+    The annotation groups come straight from :func:`assign_cnv_roles`, with one
+    deliberate detail: ``reference_diploid`` is split into one group per
+    compartment (``ref_immune``, ``ref_stromal``, ``ref_endothelial``) rather
+    than pooled. inferCNV bounds the log fold change by each reference
+    category's own mean, so keeping them separate is what suppresses cell-type
+    differences being read as copy number — the failure that made this project
+    reverse its reference design once already.
+
+    ``holdout_normal_epi`` cells are written as **observations, not
+    references**. They exist to be scored out-of-sample by
+    :func:`validate_normal_epithelium`; passing them as reference would make
+    that check circular.
     """
-    raise NotImplementedError(
-        "W1 — inferCNV needs the real per-patient matrices. "
-        "See src/reference/jobs/infercnv.sh."
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    required = {"role", "compartment"}
+    missing = required - set(roles.columns)
+    if missing:
+        raise MalignancyError(f"roles is missing column(s): {sorted(missing)}")
+    if len(roles) != counts.shape[0]:
+        raise MalignancyError(
+            f"roles has {len(roles)} rows for {counts.shape[0]} cells"
+        )
+
+    names = np.asarray([str(g) for g in gene_names], dtype=object)
+    if names.shape[0] != counts.shape[1]:
+        raise MalignancyError(
+            f"gene_names has {names.shape[0]} entries for {counts.shape[1]} genes"
+        )
+
+    if barcodes is None:
+        barcodes = [f"cell{i}" for i in range(counts.shape[0])]
+    cells = np.asarray([str(b) for b in barcodes], dtype=object)
+
+    group = np.asarray(
+        [
+            f"ref_{c}" if r == "reference_diploid" else r
+            for r, c in zip(
+                roles["role"].astype(str),
+                roles["compartment"].astype(str),
+                strict=True,
+            )
+        ],
+        dtype=object,
     )
+    keep = group != "unusable"
+    if not keep.any():
+        raise MalignancyError(
+            "every cell is 'unusable' — this patient has no viable CNV "
+            "reference. Leave malignancy not_called rather than running."
+        )
+
+    subset = counts[keep]
+    dense = np.asarray(
+        subset.todense() if hasattr(subset, "todense") else subset
+    ).T  # inferCNV wants genes x cells
+
+    matrix_path = out / "counts.tsv"
+    frame = pd.DataFrame(dense, index=names, columns=cells[keep])
+    frame.to_csv(matrix_path, sep="\t")
+
+    annotation_path = out / "annotations.tsv"
+    pd.DataFrame({"cell": cells[keep], "group": group[keep]}).to_csv(
+        annotation_path, sep="\t", header=False, index=False
+    )
+    return {"counts": matrix_path, "annotations": annotation_path}
+
+
+def infercnv_reference_groups(roles: pd.DataFrame) -> list[str]:
+    """The group names to pass as ``ref_group_names``. **Not the query, and not
+    the holdout.**
+
+    Only ``reference_normal_epi`` and the per-compartment diploid groups are
+    references. ``query`` is what is being called; ``holdout_normal_epi`` is
+    scored out-of-sample and must never appear here, or the validation checks
+    the baseline against itself.
+    """
+    groups = set()
+    for role, compartment in zip(
+        roles["role"].astype(str), roles["compartment"].astype(str), strict=True
+    ):
+        if role == "reference_normal_epi":
+            groups.add(role)
+        elif role == "reference_diploid":
+            groups.add(f"ref_{compartment}")
+    if not groups:
+        raise MalignancyError(
+            "no reference cells in roles — assign_cnv_roles() reported no "
+            "viable strategy, so inferCNV must not be run for this patient."
+        )
+    return sorted(groups)
+
+
+def run_infercnv(
+    counts: Any,
+    gene_names: Any,
+    roles: pd.DataFrame,
+    *,
+    gene_position_file: Any,
+    out_dir: Any,
+    barcodes: Any = None,
+    cutoff: float = INFERCNV_CUTOFF_10X,
+    window_length: int = INFERCNV_WINDOW,
+    denoise: bool = True,
+    hmm: bool = False,
+    analysis_mode: str = "subclusters",
+    threads: int = 8,
+    seed: int = 20260101,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Run inferCNV for ONE patient. W1, weeks 2-3.
+
+    Per patient, never pooled: a baseline built across patients folds germline
+    copy-number variation and per-patient capture differences into the
+    malignancy call. Drive it with ``src/reference/jobs/infercnv.sh``, which
+    submits one array task per patient.
+
+    Parameters worth knowing about rather than accepting:
+
+    `cutoff`
+        **0.1, the package's documented value for droplet data** (1 is for
+        Smart-seq2). Not tuned here, and it should not be tuned to make the
+        calls look better.
+    `analysis_mode`
+        ``"subclusters"`` rather than ``"samples"``. A tumour is not one clone,
+        and a per-sample mode averages subclones together — which pulls
+        low-burden malignant cells toward the reference and costs sensitivity
+        exactly where this project needs it, since a mature-looking tumour cell
+        with few CNVs is the case that decides compositional vs intrinsic.
+        Slower. That is the trade being made deliberately.
+    `hmm`
+        **Off by default.** The HMM produces discrete CNV state calls and
+        roughly triples the runtime, and this pipeline does not use them:
+        :func:`call_malignancy` thresholds a continuous score against each
+        patient's own reference cells. Turn it on if someone wants CNV states as
+        a result in their own right.
+    `gene_position_file`
+        Required, no default. inferCNV needs genomic coordinates and **this
+        deposit is GRCh37_liftover_v28 (hg19)** — a GRCh38 gene-order file would
+        misplace genes and produce chromosome-arm artifacts that look exactly
+        like real CNVs. Supply an hg19/GENCODE-v19-era file and add its
+        ``data/manifest.csv`` row in the same PR (CONTRIBUTING §4).
+
+    With `dry_run`, writes the inputs and returns the command without executing
+    it, so the wiring is testable without R installed.
+    """
+    if analysis_mode not in {"samples", "subclusters"}:
+        raise MalignancyError(
+            f"analysis_mode must be 'samples' or 'subclusters', got {analysis_mode!r}"
+        )
+    positions = Path(gene_position_file)
+    if not positions.exists():
+        raise MalignancyError(
+            f"gene_position_file {positions} does not exist. inferCNV needs "
+            f"genomic coordinates, and this deposit is hg19 "
+            f"(GRCh37_liftover_v28) — a GRCh38 file would misplace genes and "
+            f"produce arm-level artifacts indistinguishable from real CNVs. "
+            f"Fetch an hg19 gene-order file and record it in data/manifest.csv."
+        )
+
+    out = Path(out_dir)
+    paths = write_infercnv_inputs(
+        counts, gene_names, roles, out_dir=out, barcodes=barcodes
+    )
+    references = infercnv_reference_groups(roles)
+
+    script = out / "run_infercnv.R"
+    script.write_text(_INFERCNV_R_TEMPLATE.format(
+        counts=paths["counts"],
+        annotations=paths["annotations"],
+        positions=positions,
+        ref_groups=", ".join(f'"{g}"' for g in references),
+        cutoff=cutoff,
+        window=window_length,
+        denoise="TRUE" if denoise else "FALSE",
+        hmm="TRUE" if hmm else "FALSE",
+        analysis_mode=analysis_mode,
+        threads=int(threads),
+        seed=int(seed),
+        out_dir=out,
+    ))
+    command = ["Rscript", str(script)]
+
+    result: dict[str, Any] = {
+        "command": command,
+        "reference_groups": references,
+        "out_dir": out,
+        **paths,
+        "script": script,
+    }
+    if dry_run:
+        result["ran"] = False
+        return result
+
+    import subprocess
+
+    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    result["ran"] = True
+    result["returncode"] = completed.returncode
+    result["stdout"] = completed.stdout
+    result["stderr"] = completed.stderr
+    if completed.returncode != 0:
+        raise MalignancyError(
+            f"inferCNV failed (exit {completed.returncode}).\n{completed.stderr[-2000:]}"
+        )
+    return result
+
+
+#: The R side. Kept as a template rather than a checked-in .R file so the
+#: settings and their reasons live next to each other — the parameters are the
+#: judgement calls, and separating them from the docstring is how they drift.
+_INFERCNV_R_TEMPLATE = """\
+# Generated by src/reference/malignancy.py:run_infercnv — do not edit by hand.
+suppressPackageStartupMessages(library(infercnv))
+set.seed({seed})
+
+obj <- CreateInfercnvObject(
+  raw_counts_matrix = "{counts}",
+  annotations_file  = "{annotations}",
+  gene_order_file   = "{positions}",
+  ref_group_names   = c({ref_groups}),
+  delim             = "\t"
+)
+
+infercnv::run(
+  obj,
+  cutoff              = {cutoff},
+  out_dir             = "{out_dir}",
+  window_length       = {window},
+  cluster_by_groups   = TRUE,
+  analysis_mode       = "{analysis_mode}",
+  denoise             = {denoise},
+  HMM                 = {hmm},
+  num_threads         = {threads},
+  no_plot             = TRUE
+)
+"""
+
+
+def read_infercnv_scores(
+    observations_file: Any, *, reference_file: Any = None
+) -> pd.Series:
+    """Per-cell CNV score from inferCNV's output, shaped for
+    :func:`call_malignancy`.
+
+    inferCNV writes a genes x cells matrix of smoothed residual expression,
+    centred so a copy-neutral cell sits near 1. The conventional per-cell score
+    is the **mean squared deviation from 1** across genes — higher means more
+    aneuploid — which is what `call_malignancy` expects.
+
+    Squared, not absolute: a cell with a few large deviations is more plausibly
+    aneuploid than one with many tiny ones, and the mean absolute deviation
+    treats those the same.
+
+    Pass `reference_file` (``infercnv.references.txt``) to score the reference
+    cells on the same scale in the same call. They are needed — the threshold is
+    a quantile of the reference cells' own scores — and reading them separately
+    is how the two end up on different scalings.
+    """
+    def _score(path: Any) -> pd.Series:
+        frame = pd.read_csv(path, sep=r"\s+", index_col=0)
+        return ((frame - 1.0) ** 2).mean(axis=0)
+
+    scores = _score(observations_file)
+    if reference_file is not None:
+        scores = pd.concat([scores, _score(reference_file)])
+    if scores.empty:
+        raise MalignancyError(f"no cells in {observations_file}")
+    return scores.rename("cnv_score")

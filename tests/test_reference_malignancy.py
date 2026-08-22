@@ -19,9 +19,12 @@ from src.reference.malignancy import (
     MalignancyError,
     assign_cnv_roles,
     call_malignancy,
+    infercnv_reference_groups,
+    read_infercnv_scores,
     run_infercnv,
     select_cnv_reference,
     validate_normal_epithelium,
+    write_infercnv_inputs,
 )
 
 RNG = np.random.default_rng(20260818)
@@ -240,9 +243,128 @@ class TestNormalEpitheliumValidation:
             validate_normal_epithelium(calls, tissue=["normal"])
 
 
-def test_infercnv_is_an_explicit_todo():
-    with pytest.raises(NotImplementedError, match="real per-patient matrices"):
-        run_infercnv()
+class TestInferCNVWiring:
+    """The two ways this can be quietly circular, plus the hg19 trap.
+
+    inferCNV itself is not exercised here — it is R, it is slow, and it is not
+    a pip dependency. What IS testable is everything that decides whether its
+    answer means anything: which cells become the baseline, which are held back
+    to score it, and whether the coordinates match the deposit's build.
+    """
+
+    def _roles(self, n_ref=120, n_hold=40, n_query=100):
+        role = (
+            ["reference_normal_epi"] * n_ref
+            + ["holdout_normal_epi"] * n_hold
+            + ["query"] * n_query
+            + ["reference_diploid"] * 60
+        )
+        compartment = ["epithelial"] * (n_ref + n_hold + n_query) + (
+            ["immune"] * 30 + ["stromal"] * 30
+        )
+        return pd.DataFrame({"role": role, "compartment": compartment})
+
+    def _counts(self, roles, n_genes=25):
+        return RNG.poisson(3, size=(len(roles), n_genes)).astype(np.int64)
+
+    def test_the_holdout_is_never_a_reference_group(self):
+        """It exists to be scored out-of-sample. As a reference it would be
+        validating the baseline against itself."""
+        groups = infercnv_reference_groups(self._roles())
+        assert "holdout_normal_epi" not in groups
+        assert "query" not in groups
+
+    def test_diploid_compartments_stay_separate(self):
+        """inferCNV bounds the fold change by each reference category's own
+        mean, which is what stops cell-type differences reading as copy number.
+        Pooling them throws that away."""
+        groups = infercnv_reference_groups(self._roles())
+        assert "ref_immune" in groups and "ref_stromal" in groups
+        assert "reference_diploid" not in groups
+
+    def test_matched_normal_epithelium_is_the_primary_baseline(self):
+        assert "reference_normal_epi" in infercnv_reference_groups(self._roles())
+
+    def test_no_reference_refuses_rather_than_running(self):
+        roles = pd.DataFrame({
+            "role": ["query"] * 10, "compartment": ["epithelial"] * 10
+        })
+        with pytest.raises(MalignancyError, match="no reference cells"):
+            infercnv_reference_groups(roles)
+
+    def test_a_grch38_gene_file_is_refused_by_absence(self, tmp_path):
+        """Required with no default, and the error says why: this deposit is
+        hg19, and a GRCh38 file produces arm-level artifacts that look exactly
+        like real CNVs."""
+        roles = self._roles()
+        with pytest.raises(MalignancyError, match="hg19"):
+            run_infercnv(
+                self._counts(roles), [f"G{i}" for i in range(25)], roles,
+                gene_position_file=tmp_path / "missing.txt",
+                out_dir=tmp_path / "out", dry_run=True,
+            )
+
+    def test_dry_run_writes_inputs_and_returns_the_command(self, tmp_path):
+        roles = self._roles()
+        positions = tmp_path / "hg19_gene_pos.txt"
+        positions.write_text("G0\tchr1\t1\t100\n")
+        out = run_infercnv(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            gene_position_file=positions, out_dir=tmp_path / "out", dry_run=True,
+        )
+        assert out["ran"] is False
+        assert out["command"][0] == "Rscript"
+        assert out["counts"].exists() and out["annotations"].exists()
+        assert out["script"].exists()
+
+    def test_the_generated_R_names_only_reference_groups(self, tmp_path):
+        roles = self._roles()
+        positions = tmp_path / "hg19_gene_pos.txt"
+        positions.write_text("G0\tchr1\t1\t100\n")
+        out = run_infercnv(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            gene_position_file=positions, out_dir=tmp_path / "out", dry_run=True,
+        )
+        script = out["script"].read_text()
+        assert "reference_normal_epi" in script
+        assert "holdout_normal_epi" not in script
+
+    def test_the_matrix_is_genes_by_cells(self, tmp_path):
+        """inferCNV's orientation, not AnnData's. Transposed silently, this
+        would run and return nonsense."""
+        roles = self._roles()
+        paths = write_infercnv_inputs(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            out_dir=tmp_path,
+        )
+        frame = pd.read_csv(paths["counts"], sep="\t", index_col=0)
+        assert frame.shape[0] == 25
+        assert frame.shape[1] == len(roles)
+
+    def test_unusable_cells_are_dropped_not_written(self, tmp_path):
+        roles = self._roles()
+        roles.loc[:9, "role"] = "unusable"
+        paths = write_infercnv_inputs(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            out_dir=tmp_path,
+        )
+        annotations = pd.read_csv(paths["annotations"], sep="\t", header=None)
+        assert "unusable" not in set(annotations[1])
+
+    def test_scores_feed_call_malignancy(self, tmp_path):
+        """Mean squared deviation from 1, and it must land on the scale
+        call_malignancy thresholds against."""
+        observations = tmp_path / "obs.txt"
+        genes, cells = 10, 6
+        frame = pd.DataFrame(
+            np.full((genes, cells), 1.3),
+            index=[f"G{i}" for i in range(genes)],
+            columns=[f"c{i}" for i in range(cells)],
+        )
+        frame.to_csv(observations, sep=" ")
+        scores = read_infercnv_scores(observations)
+        assert len(scores) == cells
+        assert scores.iloc[0] == pytest.approx(0.09)
 
 
 def test_min_reference_cells_is_documented_not_arbitrary():

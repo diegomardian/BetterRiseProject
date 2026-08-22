@@ -87,8 +87,46 @@ if report["strategy"].iloc[0] == "diploid_only":
 PY
 
 echo "=== running inferCNV for $PATIENT ==="
-# W1: fill in once run_infercnv() is implemented. The R call needs the
-# per-patient matrix, the gene-position file, and the reference group names.
-Rscript -e "stop('W1: implement the inferCNV call — see src/reference/malignancy.py')"
+# GENE POSITIONS: this deposit is GRCh37_liftover_v28 (hg19). A GRCh38 file
+# would misplace genes and produce chromosome-arm artifacts indistinguishable
+# from real CNVs, so the path is explicit and the run fails if it is absent
+# rather than falling back to something plausible.
+GENE_POS="${BRP_GENE_POSITIONS:-${BRP_DATA_DIR:-$PROJECT_ROOT/data}/raw/gene_order_hg19.txt}"
+
+python - "$PATIENT" "$OUT_DIR/$PATIENT" "$GENE_POS" <<'PY'
+import os
+import sys
+from pathlib import Path
+
+from src.reference.ingest import (
+    assign_compartments, read_gse178341, read_gse178341_clusters,
+)
+from src.reference.malignancy import assign_cnv_roles, run_infercnv
+
+patient, out_dir, gene_pos = sys.argv[1], sys.argv[2], sys.argv[3]
+data = Path(os.environ.get("BRP_DATA_DIR", "data")) / "raw" / "GSE178341"
+
+# Patient-subset column read: the full matrix is 9 GB and one patient is a
+# fraction of it. read_gse178341 coalesces the column runs.
+adata = read_gse178341(
+    data / "GSE178341_crc10x_full_c295v4_submit.h5", patients=[patient]
+)
+clusters = read_gse178341_clusters(
+    data / "GSE178341_crc10x_full_c295v4_submit_cluster.csv.gz"
+)
+compartment = assign_compartments(clusters).reindex(adata.obs.index)
+roles, report = assign_cnv_roles(
+    compartment, tissue=adata.obs["tissue"], patient_id=adata.obs["patient_id"],
+)
+print(report.to_string(index=False))
+
+result = run_infercnv(
+    adata.X, adata.var["gene_symbol"], roles,
+    gene_position_file=gene_pos, out_dir=out_dir,
+    barcodes=adata.obs.index,
+)
+print("reference groups:", result["reference_groups"])
+print("exit", result["returncode"])
+PY
 
 echo "=== $(date) done $PATIENT ==="
