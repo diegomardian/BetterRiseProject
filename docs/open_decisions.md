@@ -668,6 +668,29 @@ analysis". **The real figure is n=36.** Consequences:
 **Corrected recommendation (see CORRECTIONS #4): (c) is right in spirit but is
 NOT free, and cannot be done by W1 alone.** Verified against the code:
 
+> ### The arithmetic, so this is not decided on intuition — 2026-08-22
+>
+> Let **X** be how many of the 36 matched patients fall below G4's mature-cell
+> threshold. The 26 unmatched patients would enter at `n_cells_mature = 0`, so
+> they are below it by construction.
+>
+> | population | size | G4 fails when |
+> |---|---|---|
+> | matched only | 36 | X ≥ **18** |
+> | all patients | 62 | X ≥ **5** |
+>
+> **The two definitions give opposite verdicts for any X between 5 and 17** — 13
+> of the 37 possible values, and the entire plausible middle of the range. This
+> is not a corner case that might bite; it is the likely outcome.
+>
+> G4's failure consequence is pre-committed: *"Non-identifiability finding with
+> diagnostics becomes the headline result, not a caveat."* So under the
+> all-patients definition, a cohort-design fact — how many patients had a normal
+> sample taken — decides what the paper is about.
+>
+> **This has to be settled before any decomposition runs.** Settled afterwards it
+> is unfalsifiable, whichever way it goes.
+
 1. **There is nowhere to record the reason.** `ESTIMABILITY` already contains
    `not_estimable`, so no schema change is needed to *emit* these rows — but
    `COLUMNS` has no reason field. In the output, "no normal arm" and "too few

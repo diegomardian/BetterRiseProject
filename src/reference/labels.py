@@ -940,6 +940,73 @@ def rung_degeneracy(
     return pd.DataFrame(rows)
 
 
+def compositional_stability(
+    counts_by_target: Any, *, min_targets: int = 3
+) -> pd.DataFrame:
+    """Is Delta(mature fraction) stable across the depth target? **The test that
+    decides whether a compositional number is identified at all.**
+
+    The depth target is a **nuisance parameter**. It exists to make cells
+    comparable, not because 3,281 UMIs means anything, and the estimand — how
+    much of the marker loss is compositional — must not depend on it. Where it
+    does, the number is not a property of the biology, and quoting it at one
+    arbitrary target presents a modelling choice as a measurement.
+
+    This is not hypothetical. On axis 1 the mature bin is a *detection gate*
+    ("no stem marker detected at depth d"), so d sets the gate. And the floor
+    does not cut the two arms equally — see :func:`differential_resolution` —
+    which on the pilot moved C165's Delta from **+0.140 at q=0.10 to −0.053 at
+    q=0.25**, a change of sign, while the other four patients held.
+
+    So the honest report is not one number. It is: the estimate, and whether it
+    survives the choice that produced it. A patient whose Delta changes sign
+    across the sweep is **not identified** on this data — which is the same
+    three-way framing the whole project rests on (compositional / intrinsic /
+    not estimable), applied one level up, to the nuisance parameter rather than
+    to cell counts.
+
+    `counts_by_target` maps depth target -> :func:`mature_cell_counts` output.
+    Returns one row per (patient, axis, rung) with the Delta at each target, its
+    range, and `sign_stable` / `identified`.
+    """
+    frames = dict(counts_by_target)
+    if len(frames) < min_targets:
+        raise LabelError(
+            f"{len(frames)} depth target(s) supplied; need at least "
+            f"{min_targets} to say anything about stability. One target cannot "
+            f"distinguish a robust estimate from an artifact of that target."
+        )
+
+    rows: list[pd.DataFrame] = []
+    for target, counts in frames.items():
+        wide = counts.pivot_table(
+            index=["patient_id", "labeling_axis", "granularity_rung"],
+            columns="tissue", values="mature_fraction", observed=True,
+        )
+        for arm in ("tumour", "normal"):
+            if arm not in wide.columns:
+                wide[arm] = np.nan
+        delta = (wide["tumour"] - wide["normal"]).rename("delta").reset_index()
+        delta["depth_target"] = float(target)
+        rows.append(delta)
+
+    long = pd.concat(rows, ignore_index=True)
+    key = ["patient_id", "labeling_axis", "granularity_rung"]
+    out = (
+        long.groupby(key, observed=True)["delta"]
+        .agg(delta_min="min", delta_max="max", delta_median="median",
+             n_targets="count")
+        .reset_index()
+    )
+    out["delta_range"] = out["delta_max"] - out["delta_min"]
+    # Sign stability, not magnitude stability. The magnitude of a detection-gate
+    # fraction legitimately moves with the gate; the DIRECTION of the
+    # compositional change should not.
+    out["sign_stable"] = (out["delta_min"] > 0) | (out["delta_max"] < 0)
+    out["identified"] = out["sign_stable"] & (out["n_targets"] >= min_targets)
+    return out
+
+
 def differential_resolution(
     counts: pd.DataFrame, *, warn_at: float = 0.10, min_reference: int = 200
 ) -> pd.DataFrame:
@@ -1165,13 +1232,60 @@ def maturity_within_depth_strata(
     return pd.DataFrame(rows)
 
 
+#: The reference criterion each axis is entitled to be judged against, as a
+#: regex over the authors' ``cl295v11SubFull`` epithelial subset names.
+#:
+#: **This is the correction to the first concordance run.** Both axes were
+#: scored against ``stem|TA-like|prolif`` — the cells axis 1 calls immature — and
+#: axis 2 came back at kappa −0.27. That was read as a failure. It is not: axis 2
+#: scores the goblet program, so it calls goblet cells immature and stem cells
+#: mature, while the stem-vs-rest criterion says the reverse. Systematic
+#: anti-agreement is the *expected* result of judging a measurement against
+#: something it never claimed to measure, and it says nothing about whether the
+#: measurement works.
+#:
+#: Each axis is now scored against the cells IT calls immature. Axis 2 stops
+#: being asked "do you find stem cells" and starts being asked "do you find
+#: goblet cells", which is the only question its markers can answer. The answer
+#: decides whether axis 2 is a usable secretory-composition axis that was
+#: mislabelled as a maturity axis, or is not measuring anything.
+AXIS_REFERENCE_PATTERN: Final[dict[str, str]] = {
+    "stem_pole": "stem|TA-like|prolif",
+    "opposite_lineage": "goblet|secretory|muc2",
+}
+
+
+def epithelial_annotation_levels(
+    labels: pd.DataFrame, annotation: Any, *, axis: str = "stem_pole"
+) -> pd.Series:
+    """The distinct annotation values among scored epithelial cells, with counts.
+
+    :data:`AXIS_REFERENCE_PATTERN` is a regex over cluster *names*, and a regex
+    that matches nothing fails silently — every cell lands on one side and kappa
+    reports a confident zero. Print this before trusting any concordance number,
+    so the pattern is checked against the strings actually present rather than
+    against what the deposit's paper called them.
+    """
+    column = label_column(axis, "lineage")
+    if column not in labels.columns:
+        raise LabelError(f"{column} not in labels")
+    values = labels[column].astype(str).to_numpy()
+    scored = ~np.isin(values, [NON_EPITHELIAL, UNRESOLVED])
+    reference = pd.Series(annotation).astype(str).to_numpy()
+    if reference.shape[0] != len(labels):
+        raise LabelError(
+            f"annotation has {reference.shape[0]} entries for {len(labels)} cells"
+        )
+    return pd.Series(reference[scored]).value_counts()
+
+
 def annotation_concordance(
     labels: pd.DataFrame,
     annotation: Any,
     *,
     axis: str = "stem_pole",
     rung: str = "lineage",
-    immature_pattern: str = "stem|TA-like|prolif",
+    immature_pattern: str | None = None,
 ) -> dict[str, Any]:
     """Does the maturity call agree with an INDEPENDENT annotation?
 
@@ -1200,6 +1314,20 @@ def annotation_concordance(
     Returns the 2x2 counts, agreement, sensitivity, specificity, and Cohen's
     kappa — kappa because raw agreement is inflated when one class dominates.
     """
+    if immature_pattern is None:
+        # Judge each axis against the criterion it actually claims. Passing one
+        # pattern for both axes is what produced axis 2's kappa of -0.27, which
+        # measured a definitional mismatch rather than the axis.
+        try:
+            immature_pattern = AXIS_REFERENCE_PATTERN[axis]
+        except KeyError:
+            raise LabelError(
+                f"no reference criterion for axis {axis!r}. Add one to "
+                f"AXIS_REFERENCE_PATTERN, or pass immature_pattern explicitly — "
+                f"but do not reuse another axis's pattern, which measures the "
+                f"mismatch between the two rather than the axis."
+            ) from None
+
     column = label_column(axis, rung)
     if column not in labels.columns:
         raise LabelError(f"{column} not in labels")
