@@ -43,7 +43,25 @@ DEFAULT_N_MADS: Final[float] = 5.0
 
 #: Hard cap, not per-batch. A dying cell's mitochondrial fraction is not
 #: expected to be protocol-relative the way library size is.
-DEFAULT_MAX_PCT_MITO: Final[float] = 20.0
+#:
+#: **50, not the conventional 20.** Measured on the pilot (results/, 2026-08-17):
+#: colonic epithelium runs at a median of 29.8% in normal tissue and 21.1% in
+#: tumour, against 4-11% for every immune and stromal compartment. A 20% cap
+#: therefore sits *below the median for normal epithelium*: it removes 59% of
+#: all epithelial cells and opens a 22.7-point tumour/normal retention gap, which
+#: lands directly on Delta(mature fraction) and inflates apparent compositional
+#: loss — a bias pointing at the prior hypothesis.
+#:
+#: Two further facts settle the value. GSE178341 is **already filtered at 50%**
+#: upstream (observed max 49.976 normal / 49.988 tumour), so a 50 cap is a no-op
+#: rather than an opinion, and double-filtering would only compound the first
+#: cut. And the mitochondrial content is genuine, not ambient: contamination is
+#: ~2.7% of counts and MT genes are ~18% of the soup, so ambient contributes
+#: about 0.5% of a cell's counts — nowhere near a 30% observed fraction.
+#:
+#: W4 uses 20 on the Lee cohorts. **They must match or justify diverging**, or
+#: the two cohorts are not comparable at the gate — see docs/open_decisions.md #12.
+DEFAULT_MAX_PCT_MITO: Final[float] = 50.0
 
 #: Absolute floors, applied on top of the per-batch MAD rule. A batch that is
 #: uniformly poor has a low median, and the MAD rule alone would happily keep
@@ -271,6 +289,48 @@ def qc_summary(metrics: pd.DataFrame, passes: pd.Series) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Doublets
 # ---------------------------------------------------------------------------
+
+
+def differential_retention(
+    metrics: pd.DataFrame, passes: pd.Series, *, warn_at: float = 0.10
+) -> pd.DataFrame:
+    """Per-patient QC retention in tumour vs normal. **Read this before filtering.**
+
+    QC is not neutral in this project. The compositional term is
+    Delta(mature fraction) between a patient's tumour and their own normal, so if
+    QC removes cells at different rates in the two arms, it moves that difference
+    directly — and mature colonocytes are exactly the fragile, high-mitochondrial
+    population a mitochondrial cap removes first.
+
+    A patient whose normal loses 20 points more than their tumour has had their
+    normal mature fraction understated, which inflates the apparent compositional
+    loss. That is a bias in the direction of the prior hypothesis, which is the
+    worst kind (README, "the bias points the wrong way").
+
+    Returns one row per patient with both retentions, their difference, and a
+    ``flagged`` column for gaps beyond `warn_at`.
+    """
+    if len(passes) != len(metrics):
+        raise QCError(f"passes has {len(passes)} entries for {len(metrics)} cells")
+    if "tissue" not in metrics.columns or "patient_id" not in metrics.columns:
+        raise QCError("metrics needs patient_id and tissue columns")
+
+    frame = metrics.loc[:, ["patient_id", "tissue"]].copy()
+    frame["passed"] = np.asarray(passes, dtype=bool)
+    wide = (
+        frame.groupby(["patient_id", "tissue"], observed=True)["passed"]
+        .mean()
+        .unstack("tissue")
+    )
+    for column in ("tumour", "normal"):
+        if column not in wide.columns:
+            wide[column] = np.nan
+
+    out = wide.loc[:, ["tumour", "normal"]].copy()
+    out.columns = ["retained_tumour", "retained_normal"]
+    out["difference"] = out["retained_tumour"] - out["retained_normal"]
+    out["flagged"] = out["difference"].abs() > warn_at
+    return out.reset_index()
 
 
 def flag_doublets(*args: Any, **kwargs: Any) -> Any:

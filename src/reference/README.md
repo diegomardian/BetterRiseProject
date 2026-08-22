@@ -1,7 +1,67 @@
 # W1 — Reference
 
-**Owner:** strongest scRNA-seq person · **Env:** `env/w1_reference.yml` → `conda activate brp-w1`
-**Branch prefix:** `w1/…` · **Blocked by:** nothing — you start day one
+**Owner:** Bode · **Env:** `env/w1_reference.yml` → `conda activate brp-w1`
+**Branch prefix:** `w1/…` · **Blocked by:** nothing
+
+> ## STATE — 2026-08-20
+>
+> Week 1 complete; week 2's handoff artifact exists. 529 tests, ruff clean.
+> Working branch `w1/ingest-gse178341`, PR #5.
+>
+> **Read `docs/open_decisions.md` first.** Seven decisions are open and every one
+> shapes numbers that weeks 3-5 will produce.
+>
+> ### The kappa is in — see decision #14 for the full write-up
+>
+> `stem_pole` scores **kappa 0.313** against the authors' annotation: fair, not
+> good, and we call 56% of their stem cells mature. Two things came with it that
+> were not the question being asked:
+>
+> - **`lineage` and `crypt_position` are the same partition on axis 1** — identical
+>   in all ten pilot arms, `crypt_middle` never appears. Axis 1's mature call is
+>   operationally *"no stem marker detected at the depth target"*: a detection
+>   gate, not a median split. `rung_degeneracy()` reports this now.
+> - **The depth flag can never clear on this axis**, because the mature bin is
+>   defined by non-detection. Choose the depth target by kappa, not by the flag.
+>   The sweep in `run_pilot.py` prints kappa per target for that reason.
+>
+> **Next action, one run:** the kappa above was measured at the sweep's *worst*
+> target (q=0.10). Rerun, read the sweep's `kappa` column, set `DEPTH_QUANTILE`
+> from it, rerun once more. `best4` is unusable at any target (sens 0.04), and
+> axis 2 cannot agree with axis 1 by construction — both are team decisions.
+>
+> ### Measured, not assumed
+>
+> | | |
+> |---|---|
+> | Cells / genes | 370,115 x 43,113 (published 371,223 — 1,108 unreconciled) |
+> | **Matched tumour + normal** | **36 of 62** — not the ~60 §8.4 assumes |
+> | **Unsorted in both arms** | **~30** — the real compositional n |
+> | Ambient contamination | median 1.6%, max 4.1% |
+> | QC retention | 91.5% |
+>
+> ### What the deposit actually is
+>
+> 10x CellRanger HDF5 v2, CSC, genes x barcodes, float64-but-integral, 764M
+> nonzeros. Feature ids `ENSG00000243485.5_4` on **GRCh37_liftover_v28 — hg19**,
+> while TCGA is GRCh38 (tell W3). Barcodes encode patient, tissue and chemistry.
+> `TA`/`TB` are two tumour regions, not a tissue type. Chemistry is mixed but
+> constant within 61 of 62 patients; `PROCESSING_TYPE` is **not** — mixed within
+> 45 of 62, and `CD45pMACS` is immune enrichment. Already mito-filtered at 50%
+> upstream, and **no unfiltered droplets exist in any public source** (#8), so
+> CellBender cannot run and the ambient arm is SoupX + DecontX.
+>
+> ### Still stubbed, all deliberately judgement over real data
+>
+> `malignancy.run_infercnv` · `qc.flag_doublets` · `ambient.run_soupx` ·
+> `ambient.run_decontx`
+>
+> ### Before any compositional number
+>
+> Malignancy calls (largest gap — the "tumour" arm still holds non-malignant
+> epithelium, so the contrast is sample-of-origin), ambient subtraction, doublet
+> removal, the 29-cell sample pooled with samples 100x larger, and the 1,108-cell
+> discrepancy.
 
 You own GSE178341 (Pelka et al. 2021): ~371k cells, 62 patients, matched normal,
 MMRp and MMRd. Everything downstream is built on what you emit.
@@ -67,3 +127,70 @@ the docstring.
 - Use backed AnnData for anything that does not need the full matrix in memory.
 - Matched normals: if they are sparse, the compositional term loses its
   reference. Check completeness in week 1, not week 4.
+
+## For W2 — consuming W1's labels
+
+`src/reference/labels.py` emits eight `label_{axis}_{rung}` columns (2 axes × 4
+rungs), one row per cell, categorical, none overwriting another.
+
+```python
+from src.reference.ingest import assign_compartments, read_gse178341, read_gse178341_clusters
+from src.reference.labels import assign_labels, cell_type_vector, maturity_summary
+from src.common.panel import tier_genes
+
+adata    = read_gse178341(h5, patients=["C122", "C165", "C107", "C138", "C162"])
+clusters = read_gse178341_clusters(cluster_csv)
+
+labels = assign_labels(
+    adata.X, adata.var["gene_symbol"],
+    compartment=assign_compartments(clusters).reindex(adata.obs.index).to_numpy(),
+    sample_id=adata.obs["sample_id"].to_numpy(),
+    target_genes=tier_genes("A"),          # REQUIRED — see below
+    index=adata.obs.index,
+)
+
+# -> the cell_type array generate_pseudobulk() expects
+cell_type = cell_type_vector(labels, "stem_pole", "lineage")   # mature -> "mature_colonocyte"
+
+# -> everything decompose_cohort() needs except gene / mean_normal / mean_tumour
+summary = maturity_summary(labels, patient_id=..., tissue=..., study_id="GSE178341")
+```
+
+**`target_genes` is required and has no default.** Which genes count as targets
+for a run is [open decision #1](../../docs/open_decisions.md), and a default would
+bury it: passing the whole panel makes axis 2 unusable, while a permissive default
+silently disables invariant 2. Consequence you will hit — **a run testing MUC2 or
+TFF3 cannot use axis 2**, because those two genes are simultaneously tier-E targets
+and axis-2 markers. Pass `axes=["stem_pole"]` for those runs.
+
+**Which bin is mature** is `RUNG_SPECS[rung].mature`, and `mature_mask()` /
+`cell_type_vector()` both read it from there. Do not hard-code a bin name — the
+rung partitions are W1's proposal, not frozen, and they will change.
+
+**The rungs are meant to disagree.** The coarsest calls all epithelium mature; the
+finest calls ~5%. That spread *is* the granularity curve (§6.2) — a single point
+estimate would present a modelling choice as a measurement.
+
+**W1 and W4 currently define the rungs differently** — see
+[open decision #13](../../docs/open_decisions.md). The interop functions above work
+regardless, but the two cohorts are not comparable until that is settled.
+
+
+## Lessons that cost real time
+
+- **Per-sample quantile binning pins the mature fraction to the quantile**, making
+  Δ(mature fraction) identically zero by construction. Cut points must come from the
+  reference (normal) arm so the tumour arm is free to differ.
+- **`np.where` evaluates both branches** — it cannot guard a division.
+- **Index alignment.** `labels` is barcode-indexed; internal frames are not. Assigning a
+  Series aligns on index, matches nothing, and yields a silent all-NaN column. Use
+  `.to_numpy()`.
+- **Never densify.** cells × genes is 8.3 GB at pilot scale and grows with the cohort.
+  `build_signature_sparse` aggregates without materialising it.
+- **Depth matching removes bias, not error.** It makes error unbiased with respect to
+  depth; it does not make it smaller.
+- **Dropout is stochastic**, so depth strata cannot separate technical from biological
+  confounding. Only concordance with an independent annotation can.
+- **Tests that check shapes and monotonicity pass while the measurement is meaningless.**
+  Test that a known injected effect is recovered — that is the test that caught the
+  quantile-pinning bug, and its absence is why the bug reached real data.

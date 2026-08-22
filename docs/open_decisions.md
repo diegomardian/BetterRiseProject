@@ -10,6 +10,75 @@ for decisions that block or shape code.
 
 ---
 
+## CORRECTIONS — 2026-08-22
+
+A verification pass over W1's own recommendations, against the other
+workstreams' branches rather than against memory. Five were wrong. They are
+corrected in place below; recorded here because several were circulated.
+
+**Raised with the other workstreams as issues, not as pushes to their branches**
+(CONTRIBUTING §2 puts `src/bulk/` and `src/estimator/` off-limits to W1):
+[#7 for W3](https://github.com/diegomardian/BetterRiseProject/issues/7) ·
+[#8 for W4](https://github.com/diegomardian/BetterRiseProject/issues/8) ·
+[#9 for W2](https://github.com/diegomardian/BetterRiseProject/issues/9).
+
+**1 · The gene index. W1 never emitted one into the repo.** The decision board
+said "W1 emits it at `config/gene_index/gene_index_1.0.0.*`". That file does not
+exist on any branch — it was written on the cluster and never committed. What
+*does* exist is **`gene_index_0.9.0`, built by W3**, when the fallback written
+into decision #2 fired as designed. It is correct: unversioned Ensembl key,
+version in its own column, symbols mapped, 60,616 genes from the GDC gene model —
+exactly decision #3. **W1 must not emit a competing 1.0.0.** See #2 below.
+
+**2 · The hg19 warning was overstated.** "A silent 8% gene loss on the join" was
+asserted, not measured. Unversioned ENSG identifiers are largely stable across
+GRCh37 and GRCh38 — that is *why* decision #3 chose them — so the expected loss
+comes from GENCODE release differences, not the assembly. It is still worth
+measuring, and `src/reference/jobs/check_gene_index.py` now does.
+
+**3 · W4's cut points are pooled, not per-sample.** #13 told W4 to switch "or the
+term is zero". That is wrong. `classify_maturity` takes a quantile of the score
+over the **whole input**, so Δ(mature fraction) is free to move. Per-sample
+quantiles were W1's bug, not W4's. The real argument for reference-arm cuts is
+different and is stated correctly in #13 now.
+
+**4 · Emitting the unmatched 26 as `not_estimable` is not free.** Two things were
+missed. The schema has **no reason field**, so "no normal arm" is indistinguishable
+in the output from "too few mature cells", and those have opposite implications.
+And `gate_g4_verdict` counts patients whose `n_cells_mature` is below threshold —
+26 guaranteed-zero rows would push a **pre-committed gate criterion** toward
+failure for a reason that has nothing to do with positivity. See #9.
+
+**5 · Telling W4 to adopt a 50% mito cap was overreach.** 29.8% is the epithelial
+median measured on **GSE178341**. W4's cohort is Lee. The transferable claim is
+"20% is a lymphocyte number and colonic epithelium runs higher", not the number.
+See #12.
+
+---
+
+## W1 status board — 2026-08-22
+
+Ranked by what breaks if they stay open. Seven are live.
+
+| # | Subject | State | Why it matters |
+|---|---|---|---|
+| **14** | Neither labelling axis is a clean maturity measure | OPEN | **Blocks composition.** Kappa read 2026-08-20: `stem_pole` **0.313** (fair), `best4` 0.03 (unusable), axis 2 negative by construction. Also found: `lineage` and `crypt_position` are the *same partition* on axis 1. Rerun the depth sweep — kappa was measured at its worst target. |
+| **13** | W1 and W4 label cells differently | OPEN | Cohorts not comparable at the week-5 gate. W4's pooled cuts do *not* zero the term — corrected reasoning in #13. |
+| **12** | Mitochondrial cap | ANSWERED for W1 (50) | W4 is on 20 (verified in `src/estimator/ingest.py`). Ask is *measure it on Lee*, not *adopt 50*. |
+| **10** | Refined tier-B test | **DRAFTED** | Pre-registration written and committed: [docs/prereg_g2_mlh1.md](prereg_g2_mlh1.md). Needs team ratification, not more drafting. |
+| **9** | The 26 unmatched patients | OPEN | 42% of the cohort. Emitting as `not_estimable` **can flip gate G4** — needs W2. Cohort artifact first. |
+| **11** | Sorted samples | OPEN | Implemented, unratified. W4 must nod to the arm asymmetry. |
+| **8** | No unfiltered droplets | ANSWERED | CellBender out; SoupX + DecontX in. W4 has the same exposure on Lee. |
+| — | CNV reference design | NEEDS SIGN-OFF | Matched normal with 30% held out. **Corrected once** — see `src/reference/malignancy.py`. |
+
+Not decisions, but outstanding and cheap: tell W3 the gene index is emitted at
+`config/gene_index/gene_index_1.0.0.*` **and that this deposit is hg19 while TCGA
+is GRCh38**; run `src/reference/jobs/pull_icbi_metadata.py`, which has never been
+run and sizes the plate-based subset — G1's fallback after #8, and the only route
+to a deeper-sequenced axis 1 for #14.
+
+---
+
 ## 1 · MUC2 and TFF3 are both targets and labels — OPEN
 
 **Raised:** scaffold, 2026-08-15 · **Owner:** W1 + W2 · **Needed by:** week 3
@@ -49,6 +118,27 @@ W1 emits S matrices on a fixed gene index; W3 emits bulk on the same index;
 integration is a join. The plan does not say who *produces* the index, and both
 need it in week 1. See [config/gene_index/README.md](../config/gene_index/README.md).
 
+**Superseded by events — see CORRECTIONS #1.** The fallback fired. W1's index
+was written on the cluster and never committed, so W3 built
+`gene_index_0.9.0` from the GDC gene model, correctly and on purpose at 0.9.0
+("provisional, superseded the moment W1 emits theirs").
+
+**Corrected recommendation: W1 does not emit a competing index.** The original
+reasoning — "single-cell features are the more constrained set" — was about which
+set constrains the *join*, and that is honoured by intersecting, not by W1 owning
+the file. Deconvolution needs each gene in both matrices, so the operative index
+is the intersection of the GDC gene model and this deposit's features.
+
+`src/reference/jobs/check_gene_index.py` measures that intersection and the panel
+coverage inside it. Then, in the meeting:
+
+- intersection close to the single-cell feature count → **adopt 0.9.0 as-is and
+  promote it to 1.0.0**, W3 owning the file. #2 closes.
+- materially smaller → **1.0.0 IS the intersection**, emitted once, by whoever the
+  team names.
+
+Either way: one index. A panel gene missing from the intersection is a reason to
+revisit the index, not to drop the gene.
 **Original recommendation: W1 emits it in week 1** from the GSE178341 feature
 table, with the written fallback *"if W1's ingest slips, W3 emits a provisional
 index from the GDC gene model and W1 conforms."*
@@ -523,6 +613,515 @@ on the downloaded `.h5` to confirm on our own bytes rather than on the metadata.
 
 ---
 
+## 9 · Only 36 of 62 patients have matched normal — OPEN
+
+**Raised:** W1, 2026-08-17 · **Owner:** W1 + W4 · **Needed by:** week 3
+
+Measured from the deposit, not assumed. `patient_cohort_table()` over all
+370,115 cells:
+
+| | matched | unmatched | total |
+|---|---|---|---|
+| MMRd | 21 | 13 | 34 |
+| MMRp | 15 | 13 | 28 |
+| **All** | **36** | **26** | **62** |
+
+The compositional term is Δ(mature fraction) against the patient's **own**
+normal, so an unmatched patient contributes to neither arm — not partially, not
+with a wide interval. Absent.
+
+execution_plan.md §8.2 listed exactly this as a week-1 check that could
+invalidate the plan, and §8.4 states "n≈60 supports the primary paired
+analysis". **The real figure is n=36.** Consequences:
+
+- The primary paired analysis is powered by 36, not 62.
+- The pre-registered MMR subgroup contrast is **21 vs 15**. §8.4 says interaction
+  contrasts need roughly 4x the primary; at n=36 that would want ~144. This
+  supports the existing commitment to report MMR as an estimate with an interval
+  rather than as a test — it does not rescue it.
+- Matching is not differential by MMR status (62% of MMRd, 54% of MMRp), so the
+  cohort is not distorted in that dimension.
+
+**The decision: what happens to the other 26?**
+
+| | Approach | Cost |
+|---|---|---|
+| a | Drop them from the decomposition entirely. | Cleanest. n=36 everywhere. Discards 42% of the cohort, including their tumour cells. |
+| b | Include them against a **pooled** normal reference, reported separately and flagged. | Uses all 62 for a weaker, clearly-labelled secondary analysis. Breaks the within-patient design, so the pooled estimate is not comparable to the paired one and must never be merged with it. |
+| c | Treat them as `estimability="not_estimable"` rows and emit them. | Fits the frozen schema and the project's own three-way framing: the honest answer for these patients is that the split is not identifiable. Makes the 26 visible in the output rather than absent from it. |
+
+**Corrected recommendation (see CORRECTIONS #4): (c) is right in spirit but is
+NOT free, and cannot be done by W1 alone.** Verified against the code:
+
+1. **There is nowhere to record the reason.** `ESTIMABILITY` already contains
+   `not_estimable`, so no schema change is needed to *emit* these rows — but
+   `COLUMNS` has no reason field. In the output, "no normal arm" and "too few
+   mature cells" become the same value. Those have opposite implications: one is
+   a cohort-design fact known in week 1, the other is a power finding. A reader
+   could not tell 26 unmatched patients from 26 depleted ones.
+2. **It can flip gate criterion G4.** `gate_g4_verdict` computes the fraction of
+   patients whose `n_cells_mature` is below `cutpoints.wide`. Unmatched patients
+   would enter with 0. Adding 26 guaranteed-below rows to 36 real ones moves that
+   fraction toward the 50% line, and G4's pre-committed failure consequence is
+   *"non-identifiability with diagnostics becomes the headline result"*. A cohort
+   fact would be reported as a positivity finding.
+
+**So, three things, in this order:**
+
+- **Now, W1 alone:** emit a **cohort-coverage artifact** — one row per patient
+  with matched status and cell counts, versioned like any other result. Full
+  visibility of the 26, no schema change, no gate contamination.
+  `patient_cohort_table()` already computes it.
+- **W2 to confirm:** G4's population is **matched patients only**. G4 asks about
+  mature-cell depletion, not about cohort matching, and mixing them makes it
+  answer a question it was not pre-committed to.
+- **Only then, if the team still wants them in the results frame:** a
+  `not_estimable_reason` column on `src/schema.py` — frozen, PR + 2 approvals +
+  written reason. Worth doing, but it is a shared change, not a W1 one.
+
+---
+
+## 10 · Pre-register the refined tier-B (MLH1) test — OPEN
+
+**Raised:** W1, 2026-08-17 · **Owner:** W1 + W2 + W4 · **Needed by:** before any
+expression is examined — the value is entirely in committing first
+
+GSE178341's metadata carries per-patient `MLH1Status` and free-text `MMR_IHC`.
+Together they turn tier B from "does MLH1 come out intrinsic on average" into a
+directional, mechanism-specific prediction with MMR status held fixed.
+
+`assign_mlh1_strata()` in [src/reference/ingest.py](../src/reference/ingest.py):
+
+| Stratum | n | matched | Predicted MLH1 intrinsic loss |
+|---|---|---|---|
+| `mlh1_methylated` | 22 | **12** | **High** — transcriptionally silenced |
+| `mlh1_intact_mmrd` | 10 | **7** | **Near zero** — MMRd via MSH2/MSH6/PMS2 |
+| `mlh1_deficient_unmethylated` | 2 | 2 | Ambiguous — report separately |
+| `mmr_proficient` | 28 | 15 | Near zero |
+
+Three things make this stronger than it looks:
+
+1. **The contrast is within MMRd.** `MLH1Meth` is strictly nested in MMRd (22 of
+   22, zero MMRp), but the 12-vs-7 comparison holds MMR status constant, so it
+   is not a restatement of the pre-registered MMR contrast.
+2. **The negative control is mechanistic.** Those 7 are MMR-deficient by the
+   same MSI-H phenotype but through other genes, leaving MLH1 transcription
+   untouched. Same disease biology, MLH1 specifically spared.
+3. **C115 and C132 are excluded from it.** Their IHC reads "MLH1 and PMS2
+   deficient" — MLH1 protein lost *without* methylation, so probably a germline
+   MLH1 variant whose transcript may or may not survive NMD. They are
+   indistinguishable from the negative-control group on `MMRStatus` and
+   `MLH1Status` alone, and would have diluted the arm where near-zero loss is
+   predicted.
+
+**The decision: adopt this as supporting evidence for G2, not as its primary
+basis.** 12 vs 7 is the ceiling and positivity (n≥50 mature cells) will reduce
+both arms — possibly to 6 vs 3, which carries no weight. G2's primary test stays
+tier separation (A compositional, B intrinsic, D neither) across all matched
+patients. This is a second, mechanistically sharper line of evidence that costs
+nothing to commit to now and is worthless if committed to later.
+
+G2 is a pre-committed gate criterion, so **this needs the team, not just W1.**
+
+---
+
+## 11 · Half the cells come from sorted samples — OPEN, AFFECTS THE COMPOSITIONAL ARM
+
+**Raised:** W1, 2026-08-17 · **Owner:** W1 + W4 · **Needed by:** before the pilot
+
+`PROCESSING_TYPE` in the metatables takes four values, and only one leaves
+cell-type composition untouched:
+
+| PROCESSING_TYPE | What it is | normal | tumour |
+|---|---|---|---|
+| `unsorted` | untouched | 67,125 | 164,612 |
+| `CD45pMACS` | **CD45+ magnetic sorting — immune enrichment** | 38,726 | 84,040 |
+| `mixUnsortCD45MACS` | deliberate mixture | 6,782 | 3,888 |
+| `LiveMACS` | viability selection | 231 | 4,711 |
+
+The compositional term is Δ(mature epithelial fraction). A CD45-enriched sample
+has had its epithelial fraction driven down **by the protocol**, so comparing it
+against an unsorted sample measures the sort, not the tumour.
+
+**Pairing does not absorb this.** Unlike chemistry, which is constant within 61
+of 62 patients, `PROCESSING_TYPE` is mixed within **45 of 62**. A patient with an
+unsorted normal and a CD45-sorted tumour would show a large apparent loss of
+epithelium that is entirely artefact — and in the direction of the prior
+hypothesis.
+
+### What it costs
+
+`PROCESSING_TYPE` is a **per-sample** property and patients have several
+samples, so this filters samples rather than dropping patients:
+
+- 36 patients matched
+- **32 have unsorted cells in both arms**
+- **30 also clear 500 tumour / 300 normal unsorted cells**
+
+So the compositional arm is **n≈30**, down from 36. Smaller than feared.
+
+### It broke the first pilot selection
+
+The original five were chosen on total counts, before this was checked:
+
+| | unsorted normal | unsorted tumour | verdict |
+|---|---|---|---|
+| C114 | **0** (all mixUnsortCD45MACS) | 1,390 | unusable — **and it was the only `mlh1_methylated` patient**, i.e. tier B's positive control |
+| C115 | **0** | **0** | unusable in both arms |
+| C140 | 1,677 | 2,417 | fine |
+| C142 | 2,038 | 2,042 | fine |
+| C162 | 6,726 | 8,103 | fine |
+
+`select_pilot.py` now computes eligibility on unsorted cells only.
+
+### The decision
+
+| | Approach | Cost |
+|---|---|---|
+| a | **Compositional estimates from `unsorted` samples only.** Sorted samples excluded from that arm. | n≈30. Clean, and the exclusion is principled rather than empirical. Recommended. |
+| b | Also allow `mixUnsortCD45MACS` if the mixing ratio is documented. | Recovers a few patients, but the ratio is not in the metadata and would have to be assumed. |
+| c | Model sorting as a covariate and keep everything. | Keeps all cells, but requires believing a linear adjustment can undo a physical enrichment. It cannot for a fraction. |
+
+**Recommendation: (a).** Also worth stating explicitly that the *intrinsic* arm
+is far less affected — per-cell expression among surviving epithelial cells does
+not depend on the mixture the way a fraction does — so sorted samples may still
+contribute there, flagged, if the extra cells are wanted. **That asymmetry needs
+W4's sign-off**, since it means the two arms of the same decomposition run on
+different cell sets.
+
+---
+
+## 12 · The 20% mitochondrial cap cuts normal harder than tumour — ANSWERED BY DATA
+
+> **For W4 (CORRECTIONS #5):** the ask is not "adopt 50". 29.8% is the epithelial
+> median measured on **GSE178341**; W4's cohort is Lee, with different chemistry
+> and dissociation. What transfers is the *reasoning* — 20% is a lymphocyte
+> number, colonic epithelium runs far higher, and a cap that cuts one arm harder
+> than the other biases the compositional term directly. **Run the same
+> per-compartment `pct_mito` breakdown on Lee and set the cap from it.** If Lee's
+> epithelium genuinely sits near 20%, keeping 20 is the right answer there, and
+> the two cohorts differing for a measured reason is fine. The two cohorts
+> differing because one number was never checked is not.
+>
+> Note also that W4's cap is a single hard threshold by design
+> (`src/estimator/ingest.py`), while W1's is per batch. That difference is
+> defensible — but it should be a decision, not an accident.
+
+> **Resolved 2026-08-17 from the pilot.** The `pct_mito` distribution settles it.
+> Colonic epithelium runs at a **median of 29.8% in normal** and 21.1% in tumour,
+> against 4–11% for every immune and stromal compartment — so a 20% cap sits
+> *below the median for normal epithelium*.
+>
+> | cap | epithelium kept | tumour/normal gap |
+> |---|---|---|
+> | 20% | 40.7% | **22.7 pts** |
+> | 30% | 66.1% | 21.7 pts |
+> | 40% | 85.9% | 11.4 pts |
+> | **50%** | **100%** | **0.0 pts** |
+>
+> And the deposit is **already filtered at 50%** upstream — observed max 49.976
+> (normal) / 49.988 (tumour) — so a 50 cap is a no-op rather than an opinion, and
+> anything lower double-filters on top of the authors' cut.
+>
+> **`DEFAULT_MAX_PCT_MITO` is now 50.0.** W4 uses 20 on the Lee cohorts and
+> **must match or justify diverging**, or the cohorts are not comparable at the
+> gate. That is the part still open.
+>
+> One correction to the original reasoning below: the mitochondrial content is
+> **not** mostly ambient. Contamination is ~2.7% of counts and MT genes are ~18%
+> of the soup, so ambient contributes roughly 0.5% of a cell's counts — nowhere
+> near a 30% observed fraction. Colonocytes are simply metabolically active,
+> which strengthens the case for the high cap rather than weakening it.
+
+
+
+**Raised:** W1, 2026-08-17 (from the pilot run) · **Owner:** W1 + W4 ·
+**Needed by:** before any compositional estimate
+
+The pilot retained **61.5% of 44,794 cells**, and `pct_mito > 20%` is doing
+almost all of the cutting — over half the cells in several samples
+(C107_N 1,022/1,814; C122_N_1_1_1 1,078/2,155; C162_T_c1_v3 2,343/4,128), while
+the MAD-based count and gene bounds cut very few.
+
+**It is not cutting the two arms equally.** Retention by tissue:
+
+| patient | normal | tumour | gap |
+|---|---|---|---|
+| C107 | 42.8% | 68.2% | **-25.4** |
+| C122 | 49.4% | 65.2% | **-15.8** |
+| C165 | 52.2% | 60.4% | -8.2 |
+| C138 | 69.9% | 79.3% | -9.4 |
+| C162 | 71.3% | 57.4% | +13.9 |
+
+Four of five patients lose substantially more of their **normal** than their
+tumour.
+
+### Why this is not an ordinary QC quibble
+
+The compositional term is Δ(mature fraction) between a patient's tumour and
+their own normal. Mature colonocytes are metabolically active, fragile, and
+carry high mitochondrial content — they are exactly what a mitochondrial cap
+removes first. Cutting normal harder than tumour **understates the normal mature
+fraction**, which **inflates the apparent compositional loss**.
+
+That is a bias in the direction of the prior hypothesis, which README's opening
+identifies as the worst kind of result. It would be produced by a QC parameter,
+not by biology.
+
+The soup profile makes the mechanism plain: **eight of the ten most abundant
+ambient genes are mitochondrial** (MT-CO2, MT-CO3, MT-CO1, MT-ATP6, MT-ND4,
+MT-RNR2, MT-CYB, MT-ND3). Much of the measured mitochondrial fraction is ambient
+contamination from lysed cells, not cell-intrinsic stress — so the cap is partly
+filtering on soup, and soup load differs by sample.
+
+### Options
+
+| | Approach | Cost |
+|---|---|---|
+| a | **Raise the cap for epithelium** to 30-50%. Colonic epithelium routinely exceeds 20% in published work; 20% is a lymphocyte-appropriate number. | Keeps more real cells. Needs a value chosen from the data rather than convention — plot the per-compartment distribution first. |
+| b | **Per-batch MAD on pct_mito**, like the count and gene bounds, instead of a hard cap. | Adapts to differing soup load. Departs from W4's hard cap, so the two cohorts diverge unless W4 follows. |
+| c | Apply the cap **after** ambient correction, so it filters on cell-intrinsic mitochondrial content rather than on soup. | Most defensible; the soup profile says the cap is partly measuring contamination. Reorders the pipeline. |
+| d | Keep 20% and carry differential retention as a stated limitation. | Cheapest, and wrong — the bias points at the conclusion. |
+
+**Recommendation: (c) then (a).** Filter mitochondria after ambient correction,
+and set the threshold from the observed per-compartment distribution rather than
+from convention. Whatever is chosen, `differential_retention()` in
+[src/reference/qc.py](../src/reference/qc.py) must show no systematic tumour /
+normal gap before any compositional number is believed. **W4 needs to match**,
+or GSE178341 and the Lee cohorts are not comparable at the gate.
+
+---
+
+## 13 · W1 and W4 label cells differently — OPEN, BLOCKS COMPARABILITY
+
+**Raised:** W1, 2026-08-17 · **Owner:** W1 + W4 (+ W2 consumes both) ·
+**Needed by:** before either cohort's decomposition is compared
+
+Both workstreams now have label code, which §4 sanctions ("same pipeline shape as
+W1 — coordinate, do not share code prematurely"). But the *definitions* diverge,
+and the mature fraction is the compositional term, so divergence is not cosmetic.
+
+| | W4 `src/estimator/labels.py` | W1 `src/reference/labels.py` |
+|---|---|---|
+| Column | `mature__{axis}__{rung}`, boolean | `label_{axis}_{rung}`, categorical |
+| epithelial rung | top 50% of score | **all epithelium** |
+| lineage | top 35% | top 50% (median split) |
+| crypt_position | top 15% | top 33% (tertiles) |
+| best4 | top 5% | top 5% (marker-gated, not score-binned) |
+| Scoring | mean raw expression | depth-normalised, z-scored per gene |
+| Cut points computed | over the whole input | **within each patient's NORMAL arm** |
+| Non-epithelial cells | caller must pre-filter | labelled `non_epithelial` explicitly |
+
+Three of these matter:
+
+1. **The rung schedule.** Different mature fractions per rung mean
+   Δ(mature fraction) is not measuring the same thing in the two cohorts, so the
+   granularity curve (§6.2) would not be comparable and the week-5 gate would be
+   comparing incomparable numbers.
+2. **Depth normalisation.** GSE178341 mixes v2 and v3 chemistry, which differ in
+   capture efficiency, so a raw-mean score ranks deep cells as more mature for
+   technical reasons. W1 normalises for this. Lee may not need it; the two should
+   still agree on whether it is done.
+3. **Where the cut points come from.** Three options, and they fail differently.
+
+   *Per-sample quantiles* are the worst and were W1's bug: a within-sample
+   quantile cannot express a between-sample difference, so the mature fraction
+   equals the quantile in every arm and Δ is **identically zero by construction**.
+   The pilot showed it — every `opposite_lineage` arm returned exactly 0.500 at
+   `lineage`, 0.333 at `crypt_position`.
+
+   *Pooled quantiles* are what W4 does today (`score.quantile(...)` over the whole
+   input). **This does not zero the term** — the cut is global, so the two arms
+   are free to differ. The problem is subtler: the threshold depends on the
+   cohort's tumour:normal cell mix, so the same biology gives a different mature
+   fraction in Pelka and in Lee. Invariant 4 has us estimate per study and then
+   meta-analyse, which requires the per-study numbers to be on a comparable scale.
+   Pooled cuts are not.
+
+   *Reference-arm cuts* — W1's current approach — take the threshold from the
+   patient's own normal and apply that absolute value to their tumour. Anchored to
+   a biologically meaningful reference, and a within-patient contrast, which is
+   what the decomposition is built on. **This is the ask of W4**, and the reason
+   is comparability across studies, not a zeroed term.
+
+W4's own docstring defers on the numbers — *"Swap them for whatever W1/W2 lands on
+once real cells are in hand; this file's job is the plumbing... not the final
+number."* So this is a handoff waiting to happen rather than a disagreement.
+
+**Recommendation: adopt W1's definitions, now that they have been run on real
+cells.** Specifically: all-epithelium at the coarsest rung (it is the lower bound
+of the granularity curve and is *supposed* to look degenerate), **cut points
+from the patient's own normal arm — not per-sample quantiles**,
+depth-normalised z-scored input, and marker-gating rather than
+score-binning for BEST4+ since that population is discrete. W1 keeps the
+categorical bin names — they carry which bin, not merely mature-or-not, which the
+granularity curve needs.
+
+**Interop already exists**, so nothing is blocked while this is decided:
+`cell_type_vector()` emits the `cell_type` array W2's `generate_pseudobulk`
+consumes (renaming whichever bin is mature to `mature_colonocyte`), and
+`maturity_summary()` emits every column `decompose_cohort` requires except
+`gene`, `mean_normal` and `mean_tumour`, which need the target gene's expression.
+Both are covered by tests that call W2's and W4's real functions rather than mocks.
+
+---
+
+## 14 · Neither labelling axis is a clean maturity measure — OPEN, BLOCKS COMPOSITION
+
+> ### UPDATE 2026-08-20 — the kappa has been read
+>
+> Options (a) and (c) below are **both implemented** (`unresolved_depth` label,
+> binomial depth matching). The run that followed says three things, and the
+> second was not anticipated.
+>
+> **1 · Axis 1 carries real but *fair* signal.** Cohen's kappa against the
+> authors' `cl295v11SubFull`, at `depth_quantile=0.10` (target 1,352 UMIs):
+>
+> | axis | rung | kappa | agreement | sens | spec |
+> |---|---|---|---|---|---|
+> | `stem_pole` | `lineage` | **0.313** | 62.1% | 0.93 | 0.44 |
+> | `stem_pole` | `crypt_position` | **0.313** | 62.1% | 0.93 | 0.44 |
+> | `stem_pole` | `best4` | 0.030 | 63.0% | 0.04 | 0.98 |
+> | `opposite_lineage` | `lineage` | −0.271 | 32.4% | 0.43 | 0.26 |
+> | `opposite_lineage` | `crypt_position` | −0.291 | 33.7% | 0.35 | 0.33 |
+>
+> 0.313 is "fair" on Landis–Koch, not "good". Backing the 2x2 out of the
+> published margins: of 10,276 scored epithelial cells the authors call **6,327
+> stem/TA-like** and 3,949 mature; we call **7,216** mature. We recover 93% of
+> their mature cells and also call **56% of their stem cells mature**. The error
+> is one-directional and it points the same way dropout does.
+>
+> **2 · `lineage` and `crypt_position` are the same partition on axis 1.**
+> Identical mature counts in all ten pilot arms (885, 765, 342, 694, 149 normal;
+> 271, 862, 137, 2354, 757 tumour), `crypt_middle` absent entirely, and the
+> per-patient "supports only 2 of 3 bins" note fired for every patient. Reading
+> `_bin_against_reference`, the mechanism is that the reference-arm quantiles
+> both land on the tied score and `searchsorted(..., side="right")` puts the
+> whole tied block on the mature side — which is also why the **normal** arm
+> reads 87–96% mature at a rung whose nominal target is 50% (and 33%).
+>
+> So axis 1's mature call is, operationally, **"no stem marker detected at 1,352
+> UMIs"** — a detection gate, not a median split and not a tertile. The
+> granularity curve has **three points on axis 1, not four**, and two of them
+> were being reported as different resolutions of the same boundary.
+> `rung_degeneracy()` now reports this rather than leaving it to be noticed.
+>
+> **3 · The depth flag cannot clear on this axis, and should stop being the
+> gate.** After thinning, every scored cell sits at the same expected depth, so
+> detection probability depends only on a marker's *fraction* of the
+> transcriptome. The route from depth to label is closed; the residual
+> association (`depth_auc` 0.378) is then a correlation between RNA content and
+> stem-marker fraction, which is what proliferating cells are expected to show.
+> `label_depth_confounding` cannot tell that from the artifact — which is the
+> reason `annotation_concordance` exists — so **the depth target must be chosen
+> by kappa, not by the flag.** The sweep now prints kappa per target.
+>
+> ### RESOLVED IN CODE 2026-08-22 — the parts W1 could settle alone
+>
+> **Depth target set to q=0.25 (3,281 UMIs).** The full sweep: kappa 0.247 /
+> 0.313 / 0.444 / 0.495 / 0.343 at q = 0.05 / 0.10 / 0.25 / 0.50 / 0.65. Kappa
+> tracking detection depth is the signature of a detection-limited measure, which
+> settles the SIGNAL-or-NOISE question in favour of signal. 0.25 dominates the
+> previous 0.10 on every axis at once, so the change is free. **The peak at 0.50
+> was deliberately not taken:** it buys +0.05 kappa for a quarter of the
+> epithelium, a depth floor removes shallow *samples* rather than a random slice,
+> and kappa is measured on the survivors — so a higher floor can raise it without
+> the labels improving. The sweep now prints a `paired` column (patients keeping
+> both arms) so that trade is visible next to the number it improves.
+>
+> **The measurement definition now travels with the number.** `maturity_summary`
+> carries `depth_target` and `mature_definition`. A mature fraction gated at one
+> depth and another gated at a different depth look comparable and are not, and
+> invariant 4 has us meta-analyse across studies.
+>
+> **"Drop `crypt_position` from axis 1" was too blunt — corrected.** The collapse
+> is a property of *this data at this depth target, per patient*, not of the rung
+> definition: at a higher target the tied block shrinks and three bins may be
+> supported. Hard-coding the removal would bake a data artifact into a frozen
+> vocabulary. Instead `maturity_summary` carries `degenerate_with`, naming the
+> coarser rung a finer one duplicated, so the granularity curve is built from
+> non-degenerate points and the collapse is visible rather than silent.
+>
+> **Still needs the team:** whether a detection gate is quotable under an honest
+> name, what happens to `best4`, and what axis 2 is for.
+>
+> **What this does not yet settle.** The kappa above was measured at the sweep's
+> *worst* setting: q=0.10 gives a 70.2% tied block, against 33.3% at q=0.50,
+> which also has the same usable fraction (33.4%) and the `depth_auc` closest to
+> 0.5. Better detection should mean better agreement. **Rerun the pilot and read
+> the kappa column of the sweep before resolving this.** If kappa rises
+> materially at q=0.50, option (b) becomes defensible on a stated-limitation
+> basis; if it stays near 0.3 at every target, axis 1 is detection-limited on 10x
+> data and option (d) is the honest answer.
+>
+> **Axis 2's negative kappa is not noise and not a bug — it is a criterion
+> mismatch, and it costs the project an argument.** Systematic anti-agreement
+> (−0.29, not ~0) is what you get when two labels disagree *by definition*: axis
+> 2 calls goblet cells immature and stem cells mature, the authors' stem-vs-rest
+> criterion says the reverse. This test therefore does not measure whether axis 2
+> works. But it does show that **README design decision 2's "agreement across
+> structurally different axes" was never a testable claim with these two axes** —
+> they cannot agree, because they do not measure the same quantity. Confirm by
+> cross-tabulating `label_opposite_lineage_lineage` against `cl295v11SubFull`
+> (expect axis-2-immature to be enriched for Goblet clusters); then either
+> re-scope axis 2 as a secretory-composition control rather than a maturity axis,
+> or replace it. **That is a decision for the team, and it is arguably larger
+> than #14 itself.**
+>
+> **`best4` should not be quoted at any resolution.** Sensitivity 0.04 — the gate
+> recovers 4% of the authors' BEST4+ cells while calling 279 cells BEST4+. It is
+> the finest rung and therefore the upper bound of the granularity curve, so its
+> failure truncates the curve at both ends.
+
+
+**Raised:** W1, 2026-08-18 (from the pilot) · **Owner:** W1 + W2 + W4 ·
+**Needed by:** before any compositional number is quoted
+
+Measured on 16,955 QC-passing epithelial cells:
+
+| axis | tied fraction | largest tied block | distinct scores |
+|---|---|---|---|
+| `stem_pole` | **44.8%** | 7,593 | 9,329 |
+| `opposite_lineage` | 13.5% | 2,296 | 14,373 |
+
+**Axis 1's mature bin IS the tied block, exactly.** 16,955 − 7,593 = 9,362, which
+is precisely the `stem_like` / `crypt_bottom` count from the same run. The
+threshold lands on the tie boundary, so "mature" on axis 1 means nothing more
+than *no stem marker was detected in this cell*. It is a detection split, not a
+graded maturity call.
+
+That is a problem because **zero counts stay zero after depth normalisation**. A
+shallower cell is likelier to have none of LGR5/ASCL2/MKI67/OLFM4/SMOC2 and so be
+called mature, and per-sample count thresholds on this deposit span 5,140 to
+162,736. `label_depth_confounding()` in
+[src/reference/labels.py](../src/reference/labels.py) measures it directly.
+
+**Axis 2 has the opposite problem**: it resolves well (13.5% tied) but measures
+*absence of the goblet program*, and "not secretory" is not "mature". On the
+pilot C162's tumour read 0.856 mature on axis 2 against 0.200 on axis 1, and
+C165's tumour read exactly 0.000 — a tumour with few goblet cells scores as
+uniformly mature.
+
+So the two axes fail in opposite ways: axis 1 is well-conceived but poorly
+resolved on this data; axis 2 is well-resolved but measuring the wrong quantity.
+README design decision 2 chose them for structural independence, which they have
+— but neither is clean, and "agreement across axes" is weakened when both are
+individually suspect.
+
+### Options
+
+| | Approach | Cost |
+|---|---|---|
+| a | **Treat unresolvable cells as unscored** — give them their own label, exclude from the mature numerator, and report the fraction as partially unidentifiable. | Most honest, and matches the project's own three-way framing. Changes what the compositional denominator means, so W4 and W2 must agree. |
+| b | Keep them as mature and carry the depth confound as a stated limitation. | Cheapest, and wrong if `label_depth_confounding()` flags — the bias would sit in the headline number. |
+| c | Restrict the analysis to cells above a depth floor where absence is informative. | Defensible; costs cells, and the floor is another arbitrary cut needing justification. |
+| d | Add axis 3 (chromatin/spatial) sooner than week 13+, since it is not transcript-based and has neither failure mode. | Expensive, but it is the only axis immune to both problems. |
+
+**Recommendation: (a), with (c) as a sensitivity analysis.** A cell with no
+detected stem markers might be genuinely differentiated or merely shallow, and
+scoring it as maximally mature is inference from absence of evidence — the exact
+move this project refuses elsewhere. **This is a scientific choice, not a default
+W1 should pick**, which is why it is here rather than in the code.
 ## 12 · `build_signature()` asserts on the whole index; W3's matrix needs panel genes — OPEN
 
 **Raised:** W3, 2026-08-17, building the provisional index · **Owner:** W1 + W3 ·

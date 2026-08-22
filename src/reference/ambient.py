@@ -44,11 +44,36 @@ from src.reference.signature import assert_no_target_leakage
 #:
 #: None of these may be panel genes; asserted at call time (CLAUDE.md invariant
 #: 2). Using a target gene to measure contamination would be circular.
+#: The epithelial set is deliberately broad. On the pilot, the original six
+#: (haemoglobin, PTPRC, IGKC, IGHG1) held under 0.2% of the soup in 10 of 23
+#: samples, because their share is dominated by how many erythrocytes and plasma
+#: cells that particular dissociation happened to contain — so those samples came
+#: back unestimable. The pan-leukocyte transcripts below are present in every
+#: sample and abundant, which stabilises the denominator.
+#:
+#: Chosen for being **constitutively** haematopoietic. Deliberately excluded:
+#: CD74 and HLA-DRA (interferon-inducible in epithelium), and the fibroblast
+#: collagens (COL1A1/COL1A2/COL3A1), which are abundant and tempting but can be
+#: switched on in partial-EMT tumour cells — exactly the state this project
+#: studies, so using them would put the measurement inside the phenomenon.
 IMPOSSIBLE_GENES: Final[dict[str, frozenset[str]]] = {
-    "epithelial": frozenset({"HBB", "HBA1", "HBA2", "PTPRC", "IGKC", "IGHG1"}),
-    "immune": frozenset({"HBB", "HBA1", "HBA2", "EPCAM", "KRT8", "KRT18"}),
-    "stromal": frozenset({"HBB", "HBA1", "HBA2", "EPCAM", "PTPRC"}),
-    "endothelial": frozenset({"HBB", "HBA1", "HBA2", "EPCAM", "PTPRC"}),
+    "epithelial": frozenset(
+        {
+            # erythroid
+            "HBB", "HBA1", "HBA2",
+            # plasma / B
+            "IGKC", "IGHG1", "MS4A1",
+            # pan-leukocyte, constitutive and highly expressed
+            "PTPRC", "SRGN", "LAPTM5", "CORO1A", "CD52", "ARHGDIB",
+            # T
+            "CD3D", "CD3E", "CD2",
+            # myeloid
+            "TYROBP", "FCER1G", "AIF1",
+        }
+    ),
+    "immune": frozenset({"HBB", "HBA1", "HBA2", "EPCAM", "KRT8", "KRT18", "KRT19"}),
+    "stromal": frozenset({"HBB", "HBA1", "HBA2", "EPCAM", "PTPRC", "KRT8"}),
+    "endothelial": frozenset({"HBB", "HBA1", "HBA2", "EPCAM", "PTPRC", "KRT8"}),
 }
 
 
@@ -105,6 +130,8 @@ def contamination_fraction(
     impossible: Any = None,
     compartment: str = "epithelial",
     soup: pd.Series | None = None,
+    min_soup_share: float = 0.002,
+    max_plausible: float = 0.95,
 ) -> float:
     """Ambient contamination in the masked cells, from impossible genes alone.
 
@@ -129,6 +156,17 @@ def contamination_fraction(
         approximation available without empty droplets. The default is
         deliberately the **whole matrix**, not the masked cells — see that
         function's note on why a single-compartment profile degenerates.
+    min_soup_share:
+        Refuse to estimate when the impossible genes hold less than this share of
+        the soup — they cannot discriminate if they are barely in it.
+    max_plausible:
+        Refuse when the raw ratio reaches this. A ratio at or above 1 says the
+        masked cells carry as much impossible-gene signal as pure soup would
+        give, which is not contamination but a **violated assumption**: doublets,
+        or cells misassigned to this compartment. Observed on C107_T_1_1_0, which
+        returned exactly 1.000 with 543 epithelial cells in a 2,737-cell sample.
+        Clipping that to 1.0 and calling it "100% ambient" would be a fabricated
+        number; refusing is the honest answer.
 
     Returns a fraction in [0, 1]. Report it per sample and log it next to the
     correction — it is the number that says whether the correction was
@@ -166,6 +204,16 @@ def contamination_fraction(
             "is not identifiable from them. Pick genes that are abundant "
             "somewhere in the tissue."
         )
+    if expected < min_soup_share:
+        raise AmbientError(
+            f"the impossible genes hold only {expected:.4%} of the soup, below the "
+            f"{min_soup_share:.4%} floor. This happens when the masked population "
+            f"dominates the sample: the pooled profile is then mostly those same "
+            f"cells, so observed and expected converge and the ratio runs to 1.0 "
+            f"regardless of the truth. Estimate the soup where the source "
+            f"populations are actually present, or report this sample as not "
+            f"estimable — do not report the 1.0."
+        )
 
     selected = matrix[mask, :]
     observed_counts = float(np.asarray(selected[:, positions].sum()).ravel().sum())
@@ -173,7 +221,16 @@ def contamination_fraction(
     if total_counts <= 0:
         raise AmbientError("masked cells have no counts")
 
-    return float(np.clip((observed_counts / total_counts) / expected, 0.0, 1.0))
+    ratio = (observed_counts / total_counts) / expected
+    if ratio >= max_plausible:
+        raise AmbientError(
+            f"raw ratio {ratio:.3f} means the masked cells hold as much "
+            f"impossible-gene signal as pure soup would give. That is not a "
+            f"contamination level — it says the impossible-gene assumption is "
+            f"violated for these cells (doublets, or a wrong compartment call). "
+            f"Report this sample as not estimable rather than as ~100% ambient."
+        )
+    return float(max(ratio, 0.0))
 
 
 def contamination_by_sample(
@@ -183,6 +240,7 @@ def contamination_by_sample(
     sample_id: Any,
     cell_mask: Any,
     compartment: str = "epithelial",
+    min_soup_share: float = 0.002,
 ) -> pd.DataFrame:
     """Per-sample contamination estimate. One row per sample.
 
@@ -202,23 +260,35 @@ def contamination_by_sample(
         in_sample[positions] = True
         selected = in_sample & mask
         if not selected.any():
-            rows.append({"sample_id": sample, "n_cells": 0, "contamination": np.nan})
+            rows.append(
+                {"sample_id": sample, "n_cells": 0, "mask_share": 0.0,
+                 "soup_share": np.nan, "contamination": np.nan}
+            )
             continue
         # Soup estimated within the sample — see the docstring above.
         soup = soup_profile_from_cells(matrix[in_sample, :], gene_names)
-        rows.append(
-            {
-                "sample_id": sample,
-                "n_cells": int(selected.sum()),
-                "contamination": contamination_fraction(
-                    matrix,
-                    gene_names,
-                    cell_mask=selected,
-                    compartment=compartment,
-                    soup=soup,
-                ),
-            }
-        )
+        genes = frozenset(IMPOSSIBLE_GENES.get(compartment, ()))
+        share = float(np.asarray(soup)[_gene_positions(gene_names, sorted(genes))].sum())
+        row = {
+            "sample_id": sample,
+            "n_cells": int(selected.sum()),
+            "mask_share": float(selected.sum() / max(int(in_sample.sum()), 1)),
+            "soup_share": share,
+        }
+        try:
+            row["contamination"] = contamination_fraction(
+                matrix,
+                gene_names,
+                cell_mask=selected,
+                compartment=compartment,
+                soup=soup,
+                min_soup_share=min_soup_share,
+            )
+        except AmbientError:
+            # Not estimable in this sample. None, never a number — the same
+            # distinction CLAUDE.md invariant 1 makes for the intrinsic term.
+            row["contamination"] = np.nan
+        rows.append(row)
     return pd.DataFrame(rows).sort_values("sample_id", ignore_index=True)
 
 
