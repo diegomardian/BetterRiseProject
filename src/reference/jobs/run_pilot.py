@@ -44,13 +44,16 @@ from src.reference.ingest import (
     read_gse178341_metadata,
 )
 from src.reference.labels import (
+    AXIS_REFERENCE_PATTERN,
     NON_EPITHELIAL,
     UNRESOLVED,
     annotation_concordance,
     assign_labels,
     axis_tie_fraction,
+    compositional_stability,
     describe_labels,
     differential_resolution,
+    epithelial_annotation_levels,
     label_column,
     label_depth_confounding,
     mature_cell_counts,
@@ -422,9 +425,18 @@ def main() -> int:
             annotation = (
                 clusters["cl295v11SubFull"].reindex(adata.obs.index).to_numpy()[keep]
             )
+            # A regex that matches nothing fails silently and reports a
+            # confident zero, so print what it has to match before trusting it.
+            print("\nauthors' epithelial subsets present (what the criteria "
+                  "must match):")
+            print(epithelial_annotation_levels(labels, annotation).to_string())
+
             print("\nis the maturity call SIGNAL or DROPOUT NOISE?")
             print("(concordance with the authors' independent annotation; kappa")
             print(" near 0 means the call carries no more information than chance)")
+            print("EACH AXIS IS SCORED AGAINST ITS OWN CLAIM:")
+            for a, pattern in AXIS_REFERENCE_PATTERN.items():
+                print(f"  {a:<18} immature = /{pattern}/")
             for axis in ("stem_pole", "opposite_lineage"):
                 for rung in ("lineage", "crypt_position", "best4"):
                     try:
@@ -487,6 +499,44 @@ def main() -> int:
                 "compositional term. A `paired` count cannot see this — a patient "
                 "can keep\n   both arms and still be cut 60 points harder on one "
                 "of them."
+            )
+
+        # Is Delta identified, or an artifact of the depth target we happened to
+        # pick? The target is a nuisance parameter and the estimand must not
+        # depend on it. C165 changed sign between two targets.
+        stability_inputs = {}
+        for q in (0.10, 0.25, 0.50):
+            target = float(np.quantile(epi_totals, q))
+            trial = assign_labels(
+                adata.X[keep], adata.var["gene_symbol"],
+                compartment=compartment.to_numpy()[keep],
+                sample_id=adata.obs["sample_id"].to_numpy()[keep],
+                target_genes=targets,
+                tissue=adata.obs["tissue"].to_numpy()[keep],
+                patient_id=adata.obs["patient_id"].to_numpy()[keep],
+                depth_target=target, seed=DEFAULT_SEED,
+                index=adata.obs.index[keep],
+            )
+            stability_inputs[target] = mature_cell_counts(
+                trial,
+                patient_id=adata.obs["patient_id"].to_numpy()[keep],
+                tissue=adata.obs["tissue"].to_numpy()[keep],
+            )
+        stability = compositional_stability(stability_inputs)
+        print("\nis Delta(mature fraction) IDENTIFIED, or an artifact of the "
+              "depth target?")
+        print("(the target is a nuisance parameter; the estimand must not "
+              "depend on it)")
+        print(stability.to_string(index=False))
+        lost = stability[~stability["identified"]]
+        if len(lost):
+            print(
+                f"\n!! {len(lost)} of {len(stability)} (patient, axis, rung) "
+                f"estimates change SIGN across the depth sweep.\n"
+                "   Those are NOT identified on this data. Report them as "
+                "not_estimable rather\n   than quoting the value at whichever "
+                "target the run happened to use — that\n   presents a modelling "
+                "choice as a measurement."
             )
 
         print("\nmature-cell counts. Cut points come from each patient's NORMAL "
