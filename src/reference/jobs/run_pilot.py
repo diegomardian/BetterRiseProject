@@ -416,6 +416,7 @@ def main() -> int:
         #
         # Validation only. Their clustering is transcriptional and may have used
         # panel genes, so it must never become a label (invariant 2).
+        concordance: dict[tuple[str, str], dict] = {}
         if "cl295v11SubFull" in clusters.columns:
             annotation = (
                 clusters["cl295v11SubFull"].reindex(adata.obs.index).to_numpy()[keep]
@@ -432,6 +433,9 @@ def main() -> int:
                     except Exception as exc:
                         print(f"  {axis:<18} {rung:<15} unavailable: {exc}")
                         continue
+                    # Carried into the W4 summary so a rung that disagreed with
+                    # an independent annotation cannot be quoted by accident.
+                    concordance[(axis, rung)] = out
                     print(f"  {axis:<18} {rung:<15} kappa {out['kappa']:>6.3f}  "
                           f"agreement {out['agreement']:.1%}  "
                           f"sens {out['sensitivity']:.2f} spec {out['specificity']:.2f}"

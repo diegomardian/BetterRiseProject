@@ -722,6 +722,7 @@ def maturity_summary(
     axes: Any = TRANSCRIPT_AXES,
     rungs: Any = None,
     depth_target: float | None = None,
+    concordance: Any = None,
 ) -> pd.DataFrame:
     """Per-patient mature fractions, shaped for W4's estimator.
 
@@ -803,6 +804,30 @@ def maturity_summary(
         lookup.get((axis, rung)) for axis, rung
         in zip(out["labeling_axis"], out["granularity_rung"], strict=True)
     ]
+
+    # Whether this (axis, rung) agreed with an independent annotation, carried on
+    # the row so a consumer can drop the rungs that did not.
+    #
+    # `concordance` is {(axis, rung): annotation_concordance(...)}. Deliberately
+    # NOT a hard-coded list of bad rungs: on the pilot `best4` scored kappa 0.030
+    # at sensitivity 0.04 — it recovers 4% of the authors' BEST4+ cells and must
+    # not be quoted — but that is a fact about BEST4 detection in this deposit,
+    # not about the rung definition. Baking it in would make a measurement into a
+    # constant, which is the same mistake as hard-coding the crypt_position
+    # collapse above.
+    if concordance:
+        keyed = {(str(a), str(r)): v for (a, r), v in dict(concordance).items()}
+        pairs = list(zip(out["labeling_axis"], out["granularity_rung"], strict=True))
+        out["kappa_vs_reference"] = [
+            keyed.get(pair, {}).get("kappa") for pair in pairs
+        ]
+        out["quotable"] = [
+            bool(keyed[pair].get("informative")) if pair in keyed else None
+            for pair in pairs
+        ]
+    else:
+        out["kappa_vs_reference"] = None
+        out["quotable"] = None
     return out.reset_index(drop=True)
 
 

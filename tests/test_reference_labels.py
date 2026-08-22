@@ -648,6 +648,65 @@ class TestTheMeasurementTravelsWithTheNumber:
         assert len(out) == len(summary) * 3
 
 
+class TestQuotabilityIsCarriedOnTheRow:
+    """A rung that disagreed with an independent annotation must not be quoted.
+
+    `best4` scored kappa 0.030 at sensitivity 0.04 on the pilot — it recovers 4%
+    of the authors' BEST4+ cells. That is a measurement, though, not a property
+    of the rung, so it rides on the row rather than being hard-coded.
+    """
+
+    def _summary(self, cohort, concordance=None):
+        matrix, compartment, sample_id, _ = cohort
+        patient = np.full(matrix.shape[0], "P1")
+        tissue = np.where(sample_id == "s1", "tumour", "normal")
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=sample_id,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+        )
+        return maturity_summary(
+            labels, patient_id=patient, tissue=tissue, study_id="S",
+            concordance=concordance,
+        )
+
+    def test_an_uninformative_rung_is_marked_unquotable(self, cohort):
+        summary = self._summary(cohort, concordance={
+            ("stem_pole", "best4"): {"kappa": 0.030, "informative": False},
+            ("stem_pole", "lineage"): {"kappa": 0.444, "informative": True},
+        })
+        best4 = summary[
+            (summary["labeling_axis"] == "stem_pole")
+            & (summary["granularity_rung"] == "best4")
+        ]
+        assert len(best4)
+        assert (best4["quotable"] == False).all()  # noqa: E712
+        assert (best4["kappa_vs_reference"] == 0.030).all()
+
+    def test_an_informative_rung_is_marked_quotable(self, cohort):
+        summary = self._summary(cohort, concordance={
+            ("stem_pole", "lineage"): {"kappa": 0.444, "informative": True},
+        })
+        lineage = summary[
+            (summary["labeling_axis"] == "stem_pole")
+            & (summary["granularity_rung"] == "lineage")
+        ]
+        assert (lineage["quotable"] == True).all()  # noqa: E712
+
+    def test_unmeasured_rungs_are_None_not_False(self, cohort):
+        """Never measured is not the same as measured and failed — the whole
+        project turns on that distinction (invariant 1)."""
+        summary = self._summary(cohort, concordance={
+            ("stem_pole", "lineage"): {"kappa": 0.444, "informative": True},
+        })
+        others = summary[summary["granularity_rung"] != "lineage"]
+        assert others["quotable"].isna().all()
+
+    def test_no_concordance_supplied_leaves_every_row_unknown(self, cohort):
+        summary = self._summary(cohort)
+        assert summary["quotable"].isna().all()
+        assert summary["kappa_vs_reference"].isna().all()
+
+
 class TestDegeneracyIsCarriedOnTheRow:
     """The granularity curve must be buildable without recomputing degeneracy.
 

@@ -19,7 +19,8 @@ corrected in place below; recorded here because several were circulated.
 **Raised with the other workstreams as issues, not as pushes to their branches**
 (CONTRIBUTING §2 puts `src/bulk/` and `src/estimator/` off-limits to W1):
 [#7 for W3](https://github.com/diegomardian/BetterRiseProject/issues/7) ·
-[#8 for W4](https://github.com/diegomardian/BetterRiseProject/issues/8).
+[#8 for W4](https://github.com/diegomardian/BetterRiseProject/issues/8) ·
+[#9 for W2](https://github.com/diegomardian/BetterRiseProject/issues/9).
 
 **1 · The gene index. W1 never emitted one into the repo.** The decision board
 said "W1 emits it at `config/gene_index/gene_index_1.0.0.*`". That file does not
@@ -64,7 +65,7 @@ Ranked by what breaks if they stay open. Seven are live.
 | **14** | Neither labelling axis is a clean maturity measure | OPEN | **Blocks composition.** Kappa read 2026-08-20: `stem_pole` **0.313** (fair), `best4` 0.03 (unusable), axis 2 negative by construction. Also found: `lineage` and `crypt_position` are the *same partition* on axis 1. Rerun the depth sweep — kappa was measured at its worst target. |
 | **13** | W1 and W4 label cells differently | OPEN | Cohorts not comparable at the week-5 gate. W4's pooled cuts do *not* zero the term — corrected reasoning in #13. |
 | **12** | Mitochondrial cap | ANSWERED for W1 (50) | W4 is on 20 (verified in `src/estimator/ingest.py`). Ask is *measure it on Lee*, not *adopt 50*. |
-| **10** | Refined tier-B test | OPEN | 12 vs 7 with MMR held fixed. **Worthless if decided after seeing results.** |
+| **10** | Refined tier-B test | **DRAFTED** | Pre-registration written and committed: [docs/prereg_g2_mlh1.md](prereg_g2_mlh1.md). Needs team ratification, not more drafting. |
 | **9** | The 26 unmatched patients | OPEN | 42% of the cohort. Emitting as `not_estimable` **can flip gate G4** — needs W2. Cohort artifact first. |
 | **11** | Sorted samples | OPEN | Implemented, unratified. W4 must nod to the arm asymmetry. |
 | **8** | No unfiltered droplets | ANSWERED | CellBender out; SoupX + DecontX in. W4 has the same exposure on Lee. |
