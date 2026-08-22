@@ -940,6 +940,59 @@ def rung_degeneracy(
     return pd.DataFrame(rows)
 
 
+def differential_resolution(
+    counts: pd.DataFrame, *, warn_at: float = 0.10
+) -> pd.DataFrame:
+    """Does the depth floor cut one arm harder than the other? **Read this
+    before quoting Delta(mature fraction) at any depth target.**
+
+    The exact analogue of :func:`src.reference.qc.differential_retention`, one
+    stage later. Depth matching drops every cell below the target as
+    ``unresolved_depth``, which is correct — a cell that could not be measured is
+    not a cell measured to be immature. But the floor does not remove a random
+    slice: it removes *shallow samples*, and a patient's tumour and normal are
+    usually sequenced to different depths.
+
+    That matters because the mature call is depth-associated. Cells that clear the
+    floor by a wide margin are systematically less "mature" on axis 1 (the mature
+    bin is the undetected block), so dropping the shallow half of one arm and none
+    of the other shifts that arm's mature fraction — and Delta between the arms is
+    the compositional term.
+
+    **Observed on the pilot at q=0.25.** C165 lost 65.2% of its normal arm to the
+    floor and 0.6% of its tumour arm, a 64.6-point gap, and its compositional term
+    *changed sign* between depth targets (+0.140 at q=0.10, −0.053 at q=0.25)
+    while the other four patients stayed stable in sign. A `paired` count cannot
+    catch this: C165 kept both arms comfortably. Asymmetry, not availability, is
+    the failure mode.
+
+    `counts` is :func:`mature_cell_counts`' output. Returns one row per
+    (patient, axis, rung) with both unresolved fractions, their difference, and
+    `flagged`.
+    """
+    required = {"patient_id", "tissue", "unresolved_fraction",
+                "labeling_axis", "granularity_rung"}
+    missing = required - set(counts.columns)
+    if missing:
+        raise LabelError(f"counts is missing column(s): {sorted(missing)}")
+
+    wide = (
+        counts.pivot_table(
+            index=["patient_id", "labeling_axis", "granularity_rung"],
+            columns="tissue", values="unresolved_fraction", observed=True,
+        )
+    )
+    for column in ("tumour", "normal"):
+        if column not in wide.columns:
+            wide[column] = np.nan
+
+    out = wide.loc[:, ["tumour", "normal"]].copy()
+    out.columns = ["unresolved_tumour", "unresolved_normal"]
+    out["difference"] = out["unresolved_tumour"] - out["unresolved_normal"]
+    out["flagged"] = out["difference"].abs() > warn_at
+    return out.reset_index()
+
+
 def label_depth_confounding(
     labels: pd.DataFrame,
     metrics: pd.DataFrame,

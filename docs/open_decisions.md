@@ -30,11 +30,25 @@ into decision #2 fired as designed. It is correct: unversioned Ensembl key,
 version in its own column, symbols mapped, 60,616 genes from the GDC gene model —
 exactly decision #3. **W1 must not emit a competing 1.0.0.** See #2 below.
 
-**2 · The hg19 warning was overstated.** "A silent 8% gene loss on the join" was
-asserted, not measured. Unversioned ENSG identifiers are largely stable across
-GRCh37 and GRCh38 — that is *why* decision #3 chose them — so the expected loss
-comes from GENCODE release differences, not the assembly. It is still worth
-measuring, and `src/reference/jobs/check_gene_index.py` now does.
+**2 · ~~The hg19 warning was overstated.~~ RETRACTED 2026-08-22 — the original
+number was right.** This correction said "a silent 8% gene loss" was asserted
+rather than measured and was "too pessimistic". W3 then measured it (`cc06981`):
+
+```
+W1 43,078 | W3 60,616 | both 39,236
+W1-only 3,842 (8.9% of W1) | W3-only 21,380 (35.3% of W3)
+```
+
+**8.9%.** The estimate was accurate and the retraction of it was not. What *was*
+right in this correction is the mechanism: the loss is GENCODE release drift
+(v28 against v36), not the assembly, which is exactly what decision #3 predicted
+and why keying on unversioned ENSG was correct. **All 23 panel genes are present
+on both indexes**, so tiers A–D are safe whichever index is adopted.
+
+W3 and W1 reached the same conclusion independently: **1.0.0 should be the
+intersection (39,236 genes)**, with each arm keeping its full matrix for its own
+work. #2 and #3 are arithmetic now, not opinion — they need ratifying, not
+deciding.
 
 **3 · W4's cut points are pooled, not per-sample.** #13 told W4 to switch "or the
 term is zero". That is wrong. `classify_maturity` takes a quantile of the score
@@ -69,6 +83,7 @@ Ranked by what breaks if they stay open. Seven are live.
 | **9** | The 26 unmatched patients | OPEN | 42% of the cohort. Emitting as `not_estimable` **can flip gate G4** — needs W2. Cohort artifact first. |
 | **11** | Sorted samples | OPEN | Implemented, unratified. W4 must nod to the arm asymmetry. |
 | **8** | No unfiltered droplets | ANSWERED | CellBender out; SoupX + DecontX in. W4 has the same exposure on Lee. |
+| **2/3** | Shared gene index | **ANSWERED** | W3 measured the overlap: 39,236 genes in both, all 23 panel genes present. 1.0.0 = the intersection. Ratify, do not re-decide. |
 | — | CNV reference design | NEEDS SIGN-OFF | Matched normal with 30% held out. **Corrected once** — see `src/reference/malignancy.py`. |
 
 Not decisions, but outstanding and cheap: tell W3 the gene index is emitted at
@@ -1044,6 +1059,46 @@ Both are covered by tests that call W2's and W4's real functions rather than moc
 >
 > **Still needs the team:** whether a detection gate is quotable under an honest
 > name, what happens to `best4`, and what axis 2 is for.
+>
+> ### CONFIRMED ON THE CLUSTER 2026-08-22 — and one new problem
+>
+> **q=0.25 was the right call, and by more than expected.** The `paired` column:
+> 5 patients at q=0.05/0.10/0.25, **3 at q=0.50, 2 at q=0.65**. The +0.05 kappa
+> at the peak costs 40% of the pilot's compositional n. Specificity also rose
+> from 0.44 to 0.62 as detection improved (sens held at 0.90), which is what a
+> detection-limited measure should do and is further evidence the signal is real.
+>
+> **The rung collapse persists at the higher target.** `stem_pole`
+> `lineage` == `crypt_position`, Jaccard 1.000. Three points on axis 1, not four.
+>
+> **NEW — the depth floor cuts the two arms unequally, and it can flip the sign
+> of the compositional term.** Unresolved fractions at q=0.25:
+>
+> | patient | normal | tumour | gap |
+> |---|---|---|---|
+> | C165 | **65.2%** | **0.6%** | **−64.6** |
+> | C138 | 58.1% | 62.6% | +4.5 |
+> | C107 | 23.1% | 40.1% | +17.0 |
+> | C122 | 39.3% | 34.1% | −5.2 |
+> | C162 | 24.2% | 13.3% | −10.9 |
+>
+> C165's Δ(mature fraction) on `stem_pole`/`lineage` was **+0.140 at q=0.10 and
+> −0.053 at q=0.25** — a sign change. The other four held their sign across both
+> targets. C165 is also the patient with the 64.6-point resolution gap and the
+> deepest tumour sample in the pilot (upper QC bound 162,736 against a normal arm
+> at 15,100), so the floor bites one arm and not the other.
+>
+> This is decision #12's problem one stage later: **the depth floor is QC by
+> another name**, and QC that cuts one arm harder than the other moves the
+> compositional term directly. A `paired` count cannot catch it — C165 kept both
+> arms comfortably. `differential_resolution()` now reports it per patient, and
+> `run_pilot.py` prints it beside the mature-cell counts.
+>
+> **What this does NOT change:** q=0.25 is still better than q=0.10 on every
+> measured axis. The floor has to exist. **What it adds to the decision:** a
+> patient with a large resolution gap should probably be excluded from the
+> compositional arm, or the target set per patient rather than globally. Neither
+> is obviously right and both are the team's call.
 >
 > **What this does not yet settle.** The kappa above was measured at the sweep's
 > *worst* setting: q=0.10 gives a 70.2% tied block, against 33.3% at q=0.50,
