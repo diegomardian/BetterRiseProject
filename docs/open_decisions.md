@@ -1045,6 +1045,46 @@ Both are covered by tests that call W2's and W4's real functions rather than moc
 > **Still needs the team:** whether a detection gate is quotable under an honest
 > name, what happens to `best4`, and what axis 2 is for.
 >
+> ### CONFIRMED ON THE CLUSTER 2026-08-22 — and one new problem
+>
+> **q=0.25 was the right call, and by more than expected.** The `paired` column:
+> 5 patients at q=0.05/0.10/0.25, **3 at q=0.50, 2 at q=0.65**. The +0.05 kappa
+> at the peak costs 40% of the pilot's compositional n. Specificity also rose
+> from 0.44 to 0.62 as detection improved (sens held at 0.90), which is what a
+> detection-limited measure should do and is further evidence the signal is real.
+>
+> **The rung collapse persists at the higher target.** `stem_pole`
+> `lineage` == `crypt_position`, Jaccard 1.000. Three points on axis 1, not four.
+>
+> **NEW — the depth floor cuts the two arms unequally, and it can flip the sign
+> of the compositional term.** Unresolved fractions at q=0.25:
+>
+> | patient | normal | tumour | gap |
+> |---|---|---|---|
+> | C165 | **65.2%** | **0.6%** | **−64.6** |
+> | C138 | 58.1% | 62.6% | +4.5 |
+> | C107 | 23.1% | 40.1% | +17.0 |
+> | C122 | 39.3% | 34.1% | −5.2 |
+> | C162 | 24.2% | 13.3% | −10.9 |
+>
+> C165's Δ(mature fraction) on `stem_pole`/`lineage` was **+0.140 at q=0.10 and
+> −0.053 at q=0.25** — a sign change. The other four held their sign across both
+> targets. C165 is also the patient with the 64.6-point resolution gap and the
+> deepest tumour sample in the pilot (upper QC bound 162,736 against a normal arm
+> at 15,100), so the floor bites one arm and not the other.
+>
+> This is decision #12's problem one stage later: **the depth floor is QC by
+> another name**, and QC that cuts one arm harder than the other moves the
+> compositional term directly. A `paired` count cannot catch it — C165 kept both
+> arms comfortably. `differential_resolution()` now reports it per patient, and
+> `run_pilot.py` prints it beside the mature-cell counts.
+>
+> **What this does NOT change:** q=0.25 is still better than q=0.10 on every
+> measured axis. The floor has to exist. **What it adds to the decision:** a
+> patient with a large resolution gap should probably be excluded from the
+> compositional arm, or the target set per patient rather than globally. Neither
+> is obviously right and both are the team's call.
+>
 > **What this does not yet settle.** The kappa above was measured at the sweep's
 > *worst* setting: q=0.10 gives a 70.2% tied block, against 33.3% at q=0.50,
 > which also has the same usable fraction (33.4%) and the `depth_auc` closest to
