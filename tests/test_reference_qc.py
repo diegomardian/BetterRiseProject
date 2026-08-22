@@ -23,6 +23,8 @@ from src.reference.qc import (
     QCError,
     apply_qc,
     cell_qc_metrics,
+    doublet_compartment_enrichment,
+    doublet_rate_by_sample,
     flag_doublets,
     qc_summary,
     qc_thresholds,
@@ -241,7 +243,108 @@ class TestSummary:
             qc_summary(m, pd.Series([True, False]))
 
 
-def test_doublet_flagging_is_an_explicit_todo():
-    """Needs real matrices; the cutoff is a judgement call, not a formula."""
-    with pytest.raises(NotImplementedError, match="per sample"):
-        flag_doublets()
+def test_doublet_flagging_is_implemented():
+    """Was an explicit TODO until the real matrices were in hand. Scrublet now
+    runs per sample; the cutoff is still a judgement call, which is why
+    `threshold` is a parameter and the automatic call can be withheld."""
+    import inspect
+
+    params = inspect.signature(flag_doublets).parameters
+    assert {"counts", "sample_id", "threshold", "min_cells"} <= set(params)
+
+
+class TestDoublets:
+    """Scrublet per sample, and the two ways the result can lie.
+
+    The deliverable is the RATE being documented. On this deposit a low rate is
+    the expected answer — Pelka et al. filtered doublets before deposition — so
+    these tests are mostly about refusing to fabricate a call when the data
+    cannot support one.
+    """
+
+    def _calls(self, n_per_sample=(300, 300), rate=0.05, seed=0):
+        rng = np.random.default_rng(seed)
+        rows = []
+        for i, n in enumerate(n_per_sample):
+            sample = f"s{i}"
+            for _ in range(n):
+                rows.append({"sample_id": sample})
+        frame = pd.DataFrame(rows)
+        frame["doublet_score"] = rng.uniform(0, 1, len(frame))
+        frame["predicted_doublet"] = frame["doublet_score"] > (1 - rate)
+        frame["threshold"] = 1 - rate
+        frame["callable"] = True
+        return frame
+
+    def test_rate_by_sample_is_a_proportion(self):
+        rates = doublet_rate_by_sample(self._calls())
+        assert rates["doublet_rate"].between(0, 1).all()
+        assert len(rates) == 2
+
+    def test_an_uncallable_sample_gets_NaN_not_zero(self):
+        """A sample too small to threshold has an UNKNOWN rate. Reporting zero
+        would read as 'we checked and there are none' (invariant 1's spirit)."""
+        calls = self._calls()
+        calls.loc[calls["sample_id"] == "s1", "callable"] = False
+        calls.loc[calls["sample_id"] == "s1", "predicted_doublet"] = False
+        rates = doublet_rate_by_sample(calls).set_index("sample_id")
+        assert np.isnan(rates.loc["s1", "doublet_rate"])
+        assert not np.isnan(rates.loc["s0", "doublet_rate"])
+
+    def test_enrichment_flags_a_compartment_that_is_over_represented(self):
+        """The check that matters: doublets concentrated in epithelium distort
+        the maturity call even at a low overall rate."""
+        calls = self._calls(n_per_sample=(400,))
+        compartment = np.array(
+            ["epithelial"] * 200 + ["immune"] * 200, dtype=object
+        )
+        calls["predicted_doublet"] = False
+        calls.iloc[:40, calls.columns.get_loc("predicted_doublet")] = True
+        report = doublet_compartment_enrichment(calls, compartment)
+        epi = report[report["compartment"] == "epithelial"].iloc[0]
+        assert epi["enrichment"] > 1.5
+        assert bool(epi["flagged"])
+
+    def test_an_even_spread_is_not_flagged(self):
+        calls = self._calls(n_per_sample=(400,))
+        compartment = np.array(
+            ["epithelial"] * 200 + ["immune"] * 200, dtype=object
+        )
+        calls["predicted_doublet"] = False
+        idx = calls.columns.get_loc("predicted_doublet")
+        calls.iloc[:20, idx] = True
+        calls.iloc[200:220, idx] = True
+        report = doublet_compartment_enrichment(calls, compartment)
+        assert not report["flagged"].any()
+
+    def test_enrichment_refuses_a_length_mismatch(self):
+        calls = self._calls(n_per_sample=(10,))
+        with pytest.raises(QCError, match="entries for"):
+            doublet_compartment_enrichment(calls, np.array(["epithelial"] * 3))
+
+    def test_enrichment_refuses_when_nothing_is_callable(self):
+        calls = self._calls(n_per_sample=(10,))
+        calls["callable"] = False
+        with pytest.raises(QCError, match="no callable cells"):
+            doublet_compartment_enrichment(calls, np.array(["epithelial"] * 10))
+
+    def test_rate_refuses_a_frame_without_the_columns(self):
+        with pytest.raises(QCError, match="missing column"):
+            doublet_rate_by_sample(pd.DataFrame({"sample_id": ["s0"]}))
+
+    def test_flag_doublets_refuses_a_length_mismatch(self):
+        """Runs without scrublet: the guard is deliberately above the import,
+        so a shape error surfaces in every environment rather than only where
+        the optional dependency happens to be installed."""
+        with pytest.raises(QCError, match="entries for"):
+            flag_doublets(np.zeros((10, 5)), ["s0"] * 3)
+
+    def test_a_tiny_sample_is_not_callable(self):
+        """Below min_cells the simulated distribution is too sparse to
+        threshold; the call is withheld rather than invented. Also runs without
+        scrublet — no sample qualifies, so the import is never reached."""
+        counts = np.random.default_rng(0).poisson(1, size=(20, 30))
+        out = flag_doublets(counts, ["s0"] * 20, min_cells=100)
+        assert not out["callable"].any()
+        assert out["doublet_score"].isna().all()
+        assert not out["predicted_doublet"].any()
