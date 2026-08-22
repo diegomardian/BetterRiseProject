@@ -30,11 +30,25 @@ into decision #2 fired as designed. It is correct: unversioned Ensembl key,
 version in its own column, symbols mapped, 60,616 genes from the GDC gene model —
 exactly decision #3. **W1 must not emit a competing 1.0.0.** See #2 below.
 
-**2 · The hg19 warning was overstated.** "A silent 8% gene loss on the join" was
-asserted, not measured. Unversioned ENSG identifiers are largely stable across
-GRCh37 and GRCh38 — that is *why* decision #3 chose them — so the expected loss
-comes from GENCODE release differences, not the assembly. It is still worth
-measuring, and `src/reference/jobs/check_gene_index.py` now does.
+**2 · ~~The hg19 warning was overstated.~~ RETRACTED 2026-08-22 — the original
+number was right.** This correction said "a silent 8% gene loss" was asserted
+rather than measured and was "too pessimistic". W3 then measured it (`cc06981`):
+
+```
+W1 43,078 | W3 60,616 | both 39,236
+W1-only 3,842 (8.9% of W1) | W3-only 21,380 (35.3% of W3)
+```
+
+**8.9%.** The estimate was accurate and the retraction of it was not. What *was*
+right in this correction is the mechanism: the loss is GENCODE release drift
+(v28 against v36), not the assembly, which is exactly what decision #3 predicted
+and why keying on unversioned ENSG was correct. **All 23 panel genes are present
+on both indexes**, so tiers A–D are safe whichever index is adopted.
+
+W3 and W1 reached the same conclusion independently: **1.0.0 should be the
+intersection (39,236 genes)**, with each arm keeping its full matrix for its own
+work. #2 and #3 are arithmetic now, not opinion — they need ratifying, not
+deciding.
 
 **3 · W4's cut points are pooled, not per-sample.** #13 told W4 to switch "or the
 term is zero". That is wrong. `classify_maturity` takes a quantile of the score
@@ -69,6 +83,7 @@ Ranked by what breaks if they stay open. Seven are live.
 | **9** | The 26 unmatched patients | OPEN | 42% of the cohort. Emitting as `not_estimable` **can flip gate G4** — needs W2. Cohort artifact first. |
 | **11** | Sorted samples | OPEN | Implemented, unratified. W4 must nod to the arm asymmetry. |
 | **8** | No unfiltered droplets | ANSWERED | CellBender out; SoupX + DecontX in. W4 has the same exposure on Lee. |
+| **2/3** | Shared gene index | **ANSWERED** | W3 measured the overlap: 39,236 genes in both, all 23 panel genes present. 1.0.0 = the intersection. Ratify, do not re-decide. |
 | — | CNV reference design | NEEDS SIGN-OFF | Matched normal with 30% held out. **Corrected once** — see `src/reference/malignancy.py`. |
 
 Not decisions, but outstanding and cheap: tell W3 the gene index is emitted at
