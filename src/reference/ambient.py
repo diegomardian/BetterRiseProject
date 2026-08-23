@@ -26,6 +26,7 @@ Matrix orientation is **cells x genes**, as in ``ingest.py`` and ``qc.py``.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Final
 
 import numpy as np
@@ -358,24 +359,181 @@ def differential_contamination(
 # ---------------------------------------------------------------------------
 
 
-def run_soupx(*args: Any, **kwargs: Any) -> Any:
-    """SoupX in degraded mode. W1, week 2.
+def _write_sparse(matrix, gene_names, barcodes, out_dir):
+    """matrix.mtx / genes.tsv / barcodes.tsv, genes x cells. Sparse throughout.
 
-    No raw droplet table exists for GSE178341, so the standard
-    ``estimateSoup()`` route is unavailable. Construct the channel with
-    ``calcSoupProfile = FALSE`` and hand it a profile from
-    :func:`soup_profile_from_cells`, computed **per sample**, via
-    ``setSoupProfile()``. ``autoEstCont()`` then derives the contamination
-    fraction from clusters and marker genes without touching empty droplets.
-
-    Cross-check whatever ``autoEstCont()`` returns against
-    :func:`contamination_fraction` — they estimate the same quantity by
-    different routes, and disagreement is informative.
+    Dense would be the size of the expression matrix per sample, written so it
+    can be read straight back — the same waste the inferCNV path already
+    avoided.
     """
-    raise NotImplementedError(
-        "W1 — SoupX needs the real matrices and a per-sample soup profile. "
-        "See docs/open_decisions.md #11."
+    from scipy import io as sio
+    from scipy import sparse
+
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    names = np.asarray([str(g) for g in gene_names], dtype=object)
+    _, first = np.unique(names, return_index=True)
+    keep = np.zeros(names.shape, dtype=bool)
+    keep[np.sort(first)] = True   # one row per symbol; SoupX keys on rownames
+
+    subset = matrix[:, keep]
+    m = subset.T if sparse.issparse(subset) else sparse.csr_matrix(
+        np.asarray(subset).T
     )
+    sio.mmwrite(str(out / "matrix.mtx"), m.tocoo())
+    (out / "genes.tsv").write_text("".join(f"{g}\n" for g in names[keep]))
+    (out / "barcodes.tsv").write_text(
+        "".join(f"{b}\n" for b in map(str, barcodes))
+    )
+    return out, names[keep]
+
+
+def run_soupx(
+    matrix: Any,
+    gene_names: Any,
+    *,
+    barcodes: Any,
+    clusters: Any,
+    soup_profile: Any,
+    out_dir: Any,
+    contamination: float | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """SoupX in degraded mode, for ONE sample. W1, week 2.
+
+    **Degraded because there is no choice.** SoupX normally estimates the soup
+    from empty droplets via ``estimateSoup()``, and open decision #8 established
+    that GSE178341 ships none — GEO ran dropletUtils upstream. The channel is
+    therefore built with ``calcSoupProfile = FALSE`` and handed a profile from
+    :func:`soup_profile_from_cells` through ``setSoupProfile()``. That is a
+    supported path, not a workaround, but it does mean the profile comes from
+    cells rather than from ambient droplets and is only as good as the
+    assumption that highly-expressed genes dominate both.
+
+    Per sample, never pooled: the soup is a property of one dissociation.
+
+    **The output is a per-gene retention table, not a corrected matrix.** Open
+    decision #16 committed to measuring rather than correcting — at a 2.2%
+    cohort median, DecontX-style correction risks absorbing genuine low-level
+    marker expression in a rare population, which is this project's signal. So
+    ``adjustCounts()`` runs, retention is computed from it, and the corrected
+    matrix is discarded. Writing 62 of them would also not fit on the project
+    filesystem.
+
+    `contamination`
+        Pass a value to fix rho instead of calling ``autoEstCont()``. Leave it
+        None and SoupX estimates rho itself from clusters and marker genes.
+        **Compare whatever comes back against
+        :func:`contamination_fraction`** — they estimate the same quantity by
+        unrelated routes, and disagreement is a result rather than something to
+        reconcile.
+    """
+    out, kept = _write_sparse(matrix, gene_names, barcodes, out_dir)
+
+    labels = np.asarray([str(c) for c in clusters], dtype=object)
+    if labels.shape[0] != matrix.shape[0]:
+        raise AmbientError(
+            f"clusters has {labels.shape[0]} entries for {matrix.shape[0]} cells"
+        )
+    if len(set(labels)) < 2 and contamination is None:
+        raise AmbientError(
+            "autoEstCont needs more than one cluster to find marker genes. "
+            "Pass contamination= to fix rho, or supply real cluster labels."
+        )
+    (out / "clusters.tsv").write_text("".join(f"{c}\n" for c in labels))
+
+    profile = pd.Series(soup_profile).reindex(kept).fillna(0.0)
+    if float(profile.sum()) <= 0:
+        raise AmbientError(
+            "the soup profile is empty over the genes in this matrix — "
+            "setSoupProfile would have nothing to work with"
+        )
+    profile.to_csv(out / "soup_profile.csv", header=["est"], index_label="gene")
+
+    script = out / "run_soupx.R"
+    script.write_text(_SOUPX_R_TEMPLATE.format(
+        out_dir=out,
+        rho=("NULL" if contamination is None else f"{float(contamination)}"),
+    ))
+    command = ["Rscript", str(script)]
+    result: dict[str, Any] = {"command": command, "out_dir": out, "script": script}
+    if dry_run:
+        result["ran"] = False
+        return result
+
+    import subprocess
+
+    lines: list[str] = []
+    with (out / "soupx_R.log").open("w") as log:
+        process = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1,
+        )
+        assert process.stdout is not None
+        for line in process.stdout:
+            print(line, end="", flush=True)
+            log.write(line)
+            lines.append(line)
+        code = process.wait()
+    result["ran"] = True
+    result["returncode"] = code
+    if code != 0:
+        raise AmbientError(
+            f"SoupX failed (exit {code}). Log: {out / 'soupx_R.log'}\n"
+            + "".join(lines[-30:])
+        )
+    return result
+
+
+#: The R side. Kept beside the reasoning rather than as a separate .R file, for
+#: the same reason as the inferCNV template: the settings ARE the judgement
+#: calls, and separating them from the docstring is how the two drift.
+_SOUPX_R_TEMPLATE = """\
+# Generated by src/reference/ambient.py:run_soupx — do not edit by hand.
+suppressPackageStartupMessages({{library(SoupX); library(Matrix)}})
+
+counts <- Matrix::readMM(file.path("{out_dir}", "matrix.mtx"))
+counts <- as(counts, "CsparseMatrix")
+rownames(counts) <- readLines(file.path("{out_dir}", "genes.tsv"))
+colnames(counts) <- readLines(file.path("{out_dir}", "barcodes.tsv"))
+clusters <- readLines(file.path("{out_dir}", "clusters.tsv"))
+names(clusters) <- colnames(counts)
+
+# calcSoupProfile = FALSE: there are no empty droplets to estimate from
+# (open decision #8), so the profile is supplied from cells instead.
+sc <- SoupChannel(counts, counts, calcSoupProfile = FALSE)
+prof <- read.csv(file.path("{out_dir}", "soup_profile.csv"), row.names = 1)
+prof$counts <- prof$est * sum(counts)
+sc <- setSoupProfile(sc, prof)
+sc <- setClusters(sc, clusters)
+
+rho <- {rho}
+if (is.null(rho)) {{
+  sc <- autoEstCont(sc, doPlot = FALSE)
+  rho <- mean(sc$metaData$rho)
+}} else {{
+  sc <- setContaminationFraction(sc, rho)
+}}
+cat("rho:", signif(rho, 4), "\n")
+
+adjusted <- adjustCounts(sc, roundToInt = FALSE)
+
+# Per-gene retention, then throw the corrected matrix away. Decision #16 is to
+# MEASURE, not correct, and 62 corrected matrices would not fit on this
+# filesystem anyway.
+before <- Matrix::rowSums(counts)
+after  <- Matrix::rowSums(adjusted)
+write.csv(
+  data.frame(
+    gene = rownames(counts),
+    counts_before = as.numeric(before),
+    counts_after  = as.numeric(after),
+    retention     = as.numeric(ifelse(before > 0, after / before, NA))
+  ),
+  file = file.path("{out_dir}", "soupx_retention.csv"), row.names = FALSE
+)
+cat("wrote soupx_retention.csv for", nrow(counts), "genes\n")
+"""
 
 
 def run_decontx(*args: Any, **kwargs: Any) -> Any:

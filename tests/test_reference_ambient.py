@@ -276,7 +276,87 @@ class TestPerSample:
             contamination_by_sample(matrix, GENES, sample_id=["a"], cell_mask=mask)
 
 
-@pytest.mark.parametrize("fn,match", [(run_soupx, "soup profile"), (run_decontx, "celda")])
-def test_correction_entry_points_are_explicit_todos(fn, match):
-    with pytest.raises(NotImplementedError, match=match):
-        fn()
+def test_decontx_is_still_an_explicit_todo():
+    """SoupX is implemented; DecontX is step 3. The second method matters —
+    execution_plan.md asks for two compared, not a winner."""
+    with pytest.raises(NotImplementedError, match="celda"):
+        run_decontx()
+
+
+class TestSoupX:
+    """Degraded mode: no empty droplets exist for this deposit (#8), so the
+    profile comes from cells via setSoupProfile()."""
+
+    def _inputs(self, n_cells=60, n_genes=30, clusters=2):
+        rng = np.random.default_rng(0)
+        matrix = rng.poisson(3, size=(n_cells, n_genes)).astype(np.int64)
+        genes = [f"G{i}" for i in range(n_genes)]
+        barcodes = [f"c{i}" for i in range(n_cells)]
+        labels = [f"k{i % clusters}" for i in range(n_cells)]
+        profile = pd.Series(1.0 / n_genes, index=genes)
+        return matrix, genes, barcodes, labels, profile
+
+    def test_dry_run_writes_every_input_sparse(self, tmp_path):
+        matrix, genes, barcodes, labels, profile = self._inputs()
+        out = run_soupx(
+            matrix, genes, barcodes=barcodes, clusters=labels,
+            soup_profile=profile, out_dir=tmp_path, dry_run=True,
+        )
+        assert out["ran"] is False
+        for name in ("matrix.mtx", "genes.tsv", "barcodes.tsv",
+                     "clusters.tsv", "soup_profile.csv", "run_soupx.R"):
+            assert (tmp_path / name).exists(), name
+
+    def test_the_R_uses_degraded_mode(self, tmp_path):
+        """calcSoupProfile = FALSE plus setSoupProfile is the only route
+        without empty droplets."""
+        matrix, genes, barcodes, labels, profile = self._inputs()
+        out = run_soupx(
+            matrix, genes, barcodes=barcodes, clusters=labels,
+            soup_profile=profile, out_dir=tmp_path, dry_run=True,
+        )
+        script = out["script"].read_text()
+        assert "calcSoupProfile = FALSE" in script
+        assert "setSoupProfile" in script
+        assert "estimateSoup" not in script
+
+    def test_it_writes_retention_not_a_corrected_matrix(self, tmp_path):
+        """Decision #16 is to measure, not correct — and 62 corrected matrices
+        would not fit on the project filesystem."""
+        matrix, genes, barcodes, labels, profile = self._inputs()
+        out = run_soupx(
+            matrix, genes, barcodes=barcodes, clusters=labels,
+            soup_profile=profile, out_dir=tmp_path, dry_run=True,
+        )
+        script = out["script"].read_text()
+        assert "soupx_retention.csv" in script
+        assert "adjustCounts" in script
+
+    def test_one_cluster_refuses_unless_rho_is_fixed(self, tmp_path):
+        """autoEstCont needs marker genes, which needs more than one cluster."""
+        matrix, genes, barcodes, _labels, profile = self._inputs(clusters=1)
+        labels = ["k0"] * matrix.shape[0]
+        with pytest.raises(AmbientError, match="more than one cluster"):
+            run_soupx(matrix, genes, barcodes=barcodes, clusters=labels,
+                      soup_profile=profile, out_dir=tmp_path, dry_run=True)
+        out = run_soupx(
+            matrix, genes, barcodes=barcodes, clusters=labels,
+            soup_profile=profile, out_dir=tmp_path, contamination=0.02,
+            dry_run=True,
+        )
+        assert "0.02" in out["script"].read_text()
+
+    def test_an_empty_profile_refuses(self, tmp_path):
+        matrix, genes, barcodes, labels, _profile = self._inputs()
+        with pytest.raises(AmbientError, match="soup profile is empty"):
+            run_soupx(
+                matrix, genes, barcodes=barcodes, clusters=labels,
+                soup_profile=pd.Series(dtype=float), out_dir=tmp_path,
+                dry_run=True,
+            )
+
+    def test_cluster_length_is_checked(self, tmp_path):
+        matrix, genes, barcodes, _labels, profile = self._inputs()
+        with pytest.raises(AmbientError, match="entries for"):
+            run_soupx(matrix, genes, barcodes=barcodes, clusters=["k0"] * 3,
+                      soup_profile=profile, out_dir=tmp_path, dry_run=True)
