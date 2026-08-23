@@ -1500,9 +1500,40 @@ signal.
    and DecontX is not — on this deposit, with this clustering. That is a
    finding about the data, not a general claim about the methods.
 
-Worth repeating on a tumour sample with a different cluster count before it goes
-in a write-up: if DecontX's over-removal scales with the number of clusters, that
-is a sharper statement than "DecontX over-corrects".
+### SECOND SAMPLE — the cluster-count hypothesis is wrong, and the real pattern is sharper
+
+C162_T_0_0_0_c1_v3, 4,128 cells, **84** clusters against C122's 55:
+
+| | C122 normal (55 clusters) | C162 tumour (84 clusters) |
+|---|---|---|
+| impossible genes | 0.8% | **1.7%** |
+| SoupX | 0.8% | **1.1%** |
+| DecontX | 8.5% | **6.7%** |
+
+**Clusters went up and DecontX's over-removal went down**, so it does not scale
+with cluster count. That hypothesis is retracted.
+
+The pattern across the two samples is more informative than the one that was
+looked for. The independent estimate **doubled**, 0.8% to 1.7%. SoupX tracked it.
+**DecontX did not move** — it returned 7-8% both times, on samples whose actual
+contamination differs by a factor of two.
+
+An estimate that does not respond to the quantity it is estimating is dominated
+by something other than the data. Whatever the mechanism, the operational
+conclusion is firmer than "DecontX over-corrects": **on this deposit DecontX's
+contamination estimate does not track contamination**, and it should not be used
+to size a correction here.
+
+One further difference worth noting rather than explaining: SoupX's
+hardest-stripped genes on the tumour sample are small RNAs — `SNORA81` (0.47),
+`Metazoa_SRP`, `7SK`, `U6`, `SNORD70`, `SNORA46` — and DecontX leaves every one
+of them untouched at retention 1.000. The two methods disagree about a whole
+class of transcript, not only about magnitude.
+
+**Two samples is two samples.** Both statements above are consistent across a
+normal and a tumour arm from different patients, chemistries and cluster counts,
+which is more than nothing and less than a result. They are recorded as
+observations to check when the cohort-wide run happens, not as established.
 
 ### A number nobody had looked at
 
