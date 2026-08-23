@@ -5,65 +5,58 @@
 **Owner:** Bode · **Env:** `env/w1_reference.yml` → `conda activate brp-w1`
 **Branch prefix:** `w1/…` · **Blocked by:** nothing
 
-> ## STATE — 2026-08-20
+> ## STATE — 2026-08-22
 >
-> Week 1 complete; week 2's handoff artifact exists. 529 tests, ruff clean.
-> Working branch `w1/ingest-gse178341`, PR #5.
+> Weeks 1–2 complete. **Malignancy calling works end to end.** 871 tests, ruff
+> clean. Working branch `w1/infercnv-mtx-loader`, PR #28 — 11 commits ahead of
+> main. Work on the branch; merging per fix cost an evening.
 >
-> **Read `docs/open_decisions.md` first.** Seven decisions are open and every one
-> shapes numbers that weeks 3-5 will produce.
+> ### Do this first
 >
-> ### The kappa is in — see decision #14 for the full write-up
+> Five `cnv_scores.csv` files are hours of compute sitting in **gitignored**
+> scratch, on a filesystem that was 84% full. The step that reads them, runs
+> `call_malignancy` + `validate_normal_epithelium` and writes a versioned
+> parquet under `results/` **does not exist yet**. Write it before anything
+> clears `data/interim`.
 >
-> `stem_pole` scores **kappa 0.313** against the authors' annotation: fair, not
-> good, and we call 56% of their stem cells mature. Two things came with it that
-> were not the question being asked:
->
-> - **`lineage` and `crypt_position` are the same partition on axis 1** — identical
->   in all ten pilot arms, `crypt_middle` never appears. Axis 1's mature call is
->   operationally *"no stem marker detected at the depth target"*: a detection
->   gate, not a median split. `rung_degeneracy()` reports this now.
-> - **The depth flag can never clear on this axis**, because the mature bin is
->   defined by non-detection. Choose the depth target by kappa, not by the flag.
->   The sweep in `run_pilot.py` prints kappa per target for that reason.
->
-> **Next action, one run:** the kappa above was measured at the sweep's *worst*
-> target (q=0.10). Rerun, read the sweep's `kappa` column, set `DEPTH_QUANTILE`
-> from it, rerun once more. `best4` is unusable at any target (sens 0.04), and
-> axis 2 cannot agree with axis 1 by construction — both are team decisions.
->
-> ### Measured, not assumed
+> ### Measured
 >
 > | | |
 > |---|---|
-> | Cells / genes | 370,115 x 43,113 (published 371,223 — 1,108 unreconciled) |
-> | **Matched tumour + normal** | **36 of 62** — not the ~60 §8.4 assumes |
-> | **Unsorted in both arms** | **~30** — the real compositional n |
-> | Ambient contamination | median 1.6%, max 4.1% |
-> | QC retention | 91.5% |
+> | Cohort | 62 patients · **36 matched** · **32 matched + unsorted** |
+> | `stem_pole` kappa | 0.444 |
+> | `opposite_lineage` kappa | **0.529** against its own criterion (−0.24 against the wrong one) |
+> | inferCNV | 39,516 genes joined · specificity **0.99–1.00** out-of-sample |
+> | Runtime | 7k cells 14 min · 22k cells ~45 min |
 >
-> ### What the deposit actually is
+> ### Left
 >
-> 10x CellRanger HDF5 v2, CSC, genes x barcodes, float64-but-integral, 764M
-> nonzeros. Feature ids `ENSG00000243485.5_4` on **GRCh37_liftover_v28 — hg19**,
-> while TCGA is GRCh38 (tell W3). Barcodes encode patient, tissue and chemistry.
-> `TA`/`TB` are two tumour regions, not a tissue type. Chemistry is mixed but
-> constant within 61 of 62 patients; `PROCESSING_TYPE` is **not** — mixed within
-> 45 of 62, and `CD45pMACS` is immune enrichment. Already mito-filtered at 50%
-> upstream, and **no unfiltered droplets exist in any public source** (#8), so
-> CellBender cannot run and the ambient arm is SoupX + DecontX.
+> Malignancy results writer · ambient correction (the only stubs) · full-scale
+> labels and S matrices · `checks.py` for G1.
 >
-> ### Still stubbed, all deliberately judgement over real data
+> **The week-2 ambient deliverable as written is impossible.** It asks for
+> "SoupX and CellBender, both, compared"; CellBender needs empty droplets that
+> exist in no public source (#8). Restate as SoupX vs DecontX first.
 >
-> `malignancy.run_infercnv` · `qc.flag_doublets` · `ambient.run_soupx` ·
-> `ambient.run_decontx`
+> ### The finding worth reading
 >
-> ### Before any compositional number
+> **Open decision #15.** inferCNV separates malignant cells by aneuploidy, and
+> MMR-deficient tumours are characteristically near-diploid — so the method is
+> expected to fail in exactly the stratum this project compares against MMRp.
+> The MMRd tumour arm would keep more non-malignant (mature) epithelium,
+> inflating its apparent mature fraction. **That bias runs along the
+> pre-registered contrast, not across it**, and no other caller fixes it —
+> CopyKAT infers copy number from expression too.
 >
-> Malignancy calls (largest gap — the "tumour" arm still holds non-malignant
-> epithelium, so the contrast is sample-of-origin), ambient subtraction, doublet
-> removal, the 29-cell sample pooled with samples 100x larger, and the 1,108-cell
-> discrepancy.
+> Directionally consistent on the pilot, not established: n=2 MMRp vs n=3 MMRd
+> with overlap. The prior is what makes it worth pre-specifying.
+>
+> ### Cluster
+>
+> **Disk, not CPU, is the constraint** — 55 GB for the whole project. Submit
+> inferCNV with **`-tc 2`**. inferCNV is **CPU-only**, despite CLAUDE.md listing
+> a GPU beside it.
+
 
 You own GSE178341 (Pelka et al. 2021): ~371k cells, 62 patients, matched normal,
 MMRp and MMRd. Everything downstream is built on what you emit.
