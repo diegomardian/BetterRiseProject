@@ -142,9 +142,19 @@ def main() -> int:
             + ", ".join(flat["patient_id"])
             + ".\n   A real copy-number change moves the smoothed residual by "
               "0.1-0.3, so this\n   matrix has been flattened and the score is "
-              "measuring residual noise.\n   Almost always denoise = TRUE, which "
-              "sets values within 1.5 SD of the\n   reference mean TO the mean. "
-              "Fix the scale before reading anything below."
+              "measuring residual noise.\n"
+              "   Two known causes, in the order they were ruled out here:\n"
+              "     - MULTIPLE reference groups. STEP 08 runs use_bounds=TRUE, "
+              "which zeroes\n       observation deviation inside the range of "
+              "the reference-group means.\n       Groups spanning different cell "
+              "types make that range wide. Check\n       ref_group_names in "
+              "run_infercnv.R — one matched-normal group is right.\n"
+              "     - denoise = TRUE, which sets values within 1.5 SD of the "
+              "reference mean\n       TO the mean. Already off by default; "
+              "turning it off alone moved the\n       pilot from 0.017 to 0.023 "
+              "and fixed nothing.\n"
+              "   `grep 'fraction exactly 1' logs/` tells them apart: bounding "
+              "leaves a\n   large fraction at exactly 1 even with denoise off."
         )
 
     broken = summary[summary["query_above_reference"] == False]  # noqa: E712
