@@ -1464,6 +1464,46 @@ not a correction — and it should be argued as one.
 alongside it** so a reader can see which patients are noisy. Revisit only if the
 gap turns out to correlate with something the analysis cares about.
 
+### CORROBORATED 2026-08-23 — SoupX and the impossible-gene estimator agree; DecontX does not
+
+First real sample, C122_N_1_1_0_c1_v2 (1,609 cells, 55 clusters):
+
+| route | contamination |
+|---|---|
+| impossible genes | **0.8%** |
+| SoupX (degraded mode) | **0.8%** — median retention 0.992 |
+| DecontX | **8.5%** — median retention 0.915 |
+
+**Two unrelated routes land on the same number. DecontX removes ten times more.**
+
+And they are not finding different genes: Spearman between the two retention
+vectors is **0.71**, and the hardest-stripped list is textbook ambient —
+`MT-ATP6`, `MT-CO3`, `RPL13`, `RPL18`, `RPS2`, `RPS23`, `TMSB4X`, `PTMA`,
+`Metazoa_SRP`. Both methods identify the same soup. They disagree on how much of
+it there is.
+
+**The likely cause is the one the docstring warned about.** DecontX defines
+contamination as counts resembling *other clusters*, and this sample has 55 of
+them. With that many, a large amount of genuine cell-type-specific expression is
+indistinguishable from cross-cluster bleed. A mature marker expressed in one
+small population looks exactly like soup to that model — which is this project's
+signal.
+
+**Three consequences:**
+
+1. **The measure-and-report decision is vindicated on data, not on argument.**
+   Correcting with DecontX would have removed ~8.5% of every gene's counts on
+   the strength of a number that two independent routes put under 1%.
+2. **The 2.2% cohort median that this decision's 10% threshold rests on is
+   corroborated**, since SoupX agrees with the estimator that produced it.
+3. **If anyone ever does want correction, SoupX is the defensible choice here**
+   and DecontX is not — on this deposit, with this clustering. That is a
+   finding about the data, not a general claim about the methods.
+
+Worth repeating on a tumour sample with a different cluster count before it goes
+in a write-up: if DecontX's over-removal scales with the number of clusters, that
+is a sharper statement than "DecontX over-corrects".
+
 ### A number nobody had looked at
 
 **Only 23 patients have both arms among the interpretable samples**, against 32
