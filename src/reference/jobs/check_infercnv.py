@@ -189,16 +189,38 @@ def main() -> int:
     # The number that actually decides whether malignancy calling is possible.
     # A tumour sample is a MIXTURE, so the median says little; what matters is
     # whether a subpopulation separates from the copy-neutral distribution.
-    weak = summary[summary["frac_query_above_holdout_p90"] < 0.20]
+    #
+    # **The null is 0.10, not zero.** By construction 10% of copy-neutral cells
+    # sit above the holdout's own 90th percentile, so the quantity to read is
+    # the enrichment over that — a patient at 0.10 has no excess at all.
+    summary["enrichment_over_null"] = summary["frac_query_above_holdout_p90"] / 0.10
+    print("\nenrichment over the 0.10 null (1.0 = no aneuploid population):")
+    print(
+        summary[["patient_id", "frac_query_above_holdout_p90",
+                 "enrichment_over_null", "tail_ratio"]].to_string(index=False)
+    )
+    weak = summary[summary["enrichment_over_null"] < 1.5]
     if len(weak):
         print(
             "\n!! " + ", ".join(weak["patient_id"])
-            + " have under 20% of tumour epithelium above the held-out\n"
-              "   normal's 90th percentile. There is no separated population to "
-              "call malignant.\n   That may be real — a near-diploid tumour, or "
-              "a sample that is mostly\n   non-malignant epithelium — but those "
-              "patients cannot carry a malignancy\n   call, and saying so is "
-              "better than thresholding noise."
+            + " show little or no aneuploid population — under 1.5x the\n"
+              "   0.10 null. Those patients cannot carry a malignancy call, and "
+              "saying so is\n   better than thresholding noise.\n"
+              "\n   THIS IS PROBABLY BIOLOGY, AND THAT IS THE PROBLEM. MMR-"
+              "deficient tumours are\n   characteristically near-diploid — few "
+              "copy-number events is what MSI-H\n   looks like — so inferCNV "
+              "will fail to separate malignant cells in exactly\n   the stratum "
+              "this project compares against MMRp. Check the MMR status of\n"
+              "   the weak patients before treating this as a technical "
+              "failure:\n\n"
+              "     python -c \"import pandas as pd,glob; "
+              "f=sorted(glob.glob('results/*/cohort_table.parquet'))[-1]; "
+              "d=pd.read_parquet(f); "
+              "print(d[['patient_id','mlh1_stratum','matched']])\"\n\n"
+              "   If the low-separation patients are the MMRd ones, malignancy "
+              "calling is\n   differentially reliable between the two arms of "
+              "the MMR contrast, and the\n   compositional term inherits that "
+              "asymmetry. That belongs in open decision #10."
         )
     else:
         print(
