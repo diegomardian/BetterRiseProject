@@ -482,22 +482,49 @@ def write_infercnv_inputs(
 
 
 def infercnv_reference_groups(roles: pd.DataFrame) -> list[str]:
-    """The group names to pass as ``ref_group_names``. **Not the query, and not
-    the holdout.**
+    """The group names to pass as ``ref_group_names``. **One group when a matched
+    normal exists — not four.**
 
-    Only ``reference_normal_epi`` and the per-compartment diploid groups are
-    references. ``query`` is what is being called; ``holdout_normal_epi`` is
-    scored out-of-sample and must never appear here, or the validation checks
-    the baseline against itself.
+    ``query`` is what is being called and ``holdout_normal_epi`` is scored
+    out-of-sample, so neither may ever appear here.
+
+    **Why a single group, reversing an earlier decision.** The first version
+    passed matched normal epithelium *plus* each diploid compartment as its own
+    category, reasoning that inferCNV's per-category bounding would suppress
+    cell-type differences being read as copy number. The bounding is real, and
+    it over-suppresses: at STEP 08 inferCNV runs
+    ``subtract_ref_expr_from_obs`` with ``use_bounds=TRUE``, which takes the
+    range of the reference-group means per gene and zeroes any observation
+    deviation falling *inside* it. Immune, stromal, endothelial and epithelial
+    means differ for ordinary cell-type reasons, so that range is wide for most
+    genes.
+
+    Measured on the pilot with four groups: **25-30% of all values became
+    exactly 1**, the interquartile range collapsed to 0.989-1.009, and tumour
+    epithelium scored *below* the diploid reference in four of five patients —
+    the reference cells keeping their cell-type deviation from the pooled mean
+    while the observations had theirs bounded away.
+
+    The defence against cell-type artifacts is a **cell-type-matched
+    reference**, which matched normal epithelium already is. Bounding across
+    dissimilar types is a weaker substitute that costs the signal.
+
+    Diploid compartments remain the reference only when a patient has no usable
+    matched normal — ``assign_cnv_roles``' ``diploid_only`` strategy — where a
+    mismatched reference is the honest cost of having no better one, and those
+    calls are flagged rather than pooled.
     """
-    groups = set()
-    for role, compartment in zip(
-        roles["role"].astype(str), roles["compartment"].astype(str), strict=True
-    ):
-        if role == "reference_normal_epi":
-            groups.add(role)
-        elif role == "reference_diploid":
-            groups.add(f"ref_{compartment}")
+    roles_seen = set(roles["role"].astype(str))
+    if "reference_normal_epi" in roles_seen:
+        return ["reference_normal_epi"]
+
+    groups = {
+        f"ref_{compartment}"
+        for role, compartment in zip(
+            roles["role"].astype(str), roles["compartment"].astype(str), strict=True
+        )
+        if role == "reference_diploid"
+    }
     if not groups:
         raise MalignancyError(
             "no reference cells in roles — assign_cnv_roles() reported no "

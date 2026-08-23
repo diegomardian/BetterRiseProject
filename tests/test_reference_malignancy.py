@@ -276,16 +276,33 @@ class TestInferCNVWiring:
         assert "holdout_normal_epi" not in groups
         assert "query" not in groups
 
-    def test_diploid_compartments_stay_separate(self):
-        """inferCNV bounds the fold change by each reference category's own
-        mean, which is what stops cell-type differences reading as copy number.
-        Pooling them throws that away."""
+    def test_matched_normal_epithelium_is_the_ONLY_reference(self):
+        """One group, not four. inferCNV's STEP 08 runs with use_bounds=TRUE,
+        which zeroes observation deviation falling inside the range of the
+        reference-group means — and immune/stromal/endothelial/epithelial means
+        differ for ordinary cell-type reasons. On the pilot that made 25-30% of
+        values exactly 1 and inverted the ordering in four of five patients."""
         groups = infercnv_reference_groups(self._roles())
-        assert "ref_immune" in groups and "ref_stromal" in groups
-        assert "reference_diploid" not in groups
+        assert groups == ["reference_normal_epi"]
 
-    def test_matched_normal_epithelium_is_the_primary_baseline(self):
-        assert "reference_normal_epi" in infercnv_reference_groups(self._roles())
+    def test_diploid_groups_are_the_fallback_when_there_is_no_matched_normal(self):
+        """A mismatched reference is the honest cost of having no better one.
+        assign_cnv_roles calls this the diploid_only strategy and flags it."""
+        roles = pd.DataFrame({
+            "role": ["query"] * 50 + ["reference_diploid"] * 60,
+            "compartment": ["epithelial"] * 50 + ["immune"] * 30 + ["stromal"] * 30,
+        })
+        groups = infercnv_reference_groups(roles)
+        assert groups == ["ref_immune", "ref_stromal"]
+
+    def test_the_diploid_fallback_still_keeps_compartments_separate(self):
+        roles = pd.DataFrame({
+            "role": ["reference_diploid"] * 3,
+            "compartment": ["immune", "stromal", "endothelial"],
+        })
+        assert infercnv_reference_groups(roles) == [
+            "ref_endothelial", "ref_immune", "ref_stromal"
+        ]
 
     def test_no_reference_refuses_rather_than_running(self):
         roles = pd.DataFrame({
@@ -330,6 +347,9 @@ class TestInferCNVWiring:
         script = out["script"].read_text()
         assert "reference_normal_epi" in script
         assert "holdout_normal_epi" not in script
+        # One reference group when a matched normal exists — passing the
+        # diploid compartments alongside it is what bounded the signal away.
+        assert "ref_immune" not in script
 
     def test_the_matrix_is_genes_by_cells(self, tmp_path):
         """inferCNV's orientation, not AnnData's. Transposed silently, this
