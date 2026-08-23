@@ -19,6 +19,8 @@ from src.reference.malignancy import (
     MalignancyError,
     assign_cnv_roles,
     call_malignancy,
+    cleanup_infercnv_run,
+    cnv_separation,
     infercnv_reference_groups,
     read_infercnv_score_table,
     read_infercnv_scores,
@@ -275,16 +277,33 @@ class TestInferCNVWiring:
         assert "holdout_normal_epi" not in groups
         assert "query" not in groups
 
-    def test_diploid_compartments_stay_separate(self):
-        """inferCNV bounds the fold change by each reference category's own
-        mean, which is what stops cell-type differences reading as copy number.
-        Pooling them throws that away."""
+    def test_matched_normal_epithelium_is_the_ONLY_reference(self):
+        """One group, not four. inferCNV's STEP 08 runs with use_bounds=TRUE,
+        which zeroes observation deviation falling inside the range of the
+        reference-group means — and immune/stromal/endothelial/epithelial means
+        differ for ordinary cell-type reasons. On the pilot that made 25-30% of
+        values exactly 1 and inverted the ordering in four of five patients."""
         groups = infercnv_reference_groups(self._roles())
-        assert "ref_immune" in groups and "ref_stromal" in groups
-        assert "reference_diploid" not in groups
+        assert groups == ["reference_normal_epi"]
 
-    def test_matched_normal_epithelium_is_the_primary_baseline(self):
-        assert "reference_normal_epi" in infercnv_reference_groups(self._roles())
+    def test_diploid_groups_are_the_fallback_when_there_is_no_matched_normal(self):
+        """A mismatched reference is the honest cost of having no better one.
+        assign_cnv_roles calls this the diploid_only strategy and flags it."""
+        roles = pd.DataFrame({
+            "role": ["query"] * 50 + ["reference_diploid"] * 60,
+            "compartment": ["epithelial"] * 50 + ["immune"] * 30 + ["stromal"] * 30,
+        })
+        groups = infercnv_reference_groups(roles)
+        assert groups == ["ref_immune", "ref_stromal"]
+
+    def test_the_diploid_fallback_still_keeps_compartments_separate(self):
+        roles = pd.DataFrame({
+            "role": ["reference_diploid"] * 3,
+            "compartment": ["immune", "stromal", "endothelial"],
+        })
+        assert infercnv_reference_groups(roles) == [
+            "ref_endothelial", "ref_immune", "ref_stromal"
+        ]
 
     def test_no_reference_refuses_rather_than_running(self):
         roles = pd.DataFrame({
@@ -329,6 +348,9 @@ class TestInferCNVWiring:
         script = out["script"].read_text()
         assert "reference_normal_epi" in script
         assert "holdout_normal_epi" not in script
+        # One reference group when a matched normal exists — passing the
+        # diploid compartments alongside it is what bounded the signal away.
+        assert "ref_immune" not in script
 
     def test_the_matrix_is_genes_by_cells(self, tmp_path):
         """inferCNV's orientation, not AnnData's. Transposed silently, this
@@ -439,6 +461,41 @@ class TestInferCNVWiring:
     def test_a_missing_score_file_says_where_to_look(self, tmp_path):
         with pytest.raises(MalignancyError, match="infercnv_R.log"):
             read_infercnv_score_table(tmp_path)
+
+    def test_cleanup_refuses_when_the_result_is_missing(self, tmp_path):
+        """A failed run keeps everything — the intermediates are how it gets
+        diagnosed, and cnv_scores.csv is the only thing that cannot be
+        recomputed without re-running the inference."""
+        (tmp_path / "01_incoming_data.infercnv_obj").write_bytes(b"x" * 1000)
+        freed = cleanup_infercnv_run(tmp_path)
+        assert freed == 0
+        assert (tmp_path / "01_incoming_data.infercnv_obj").exists()
+
+    def test_cleanup_keeps_the_result_and_the_provenance(self, tmp_path):
+        for name in ("cnv_scores.csv", "annotations.tsv", "run_infercnv.R",
+                     "infercnv_R.log", "genes.tsv", "barcodes.tsv"):
+            (tmp_path / name).write_text("x")
+        for name in ("01_incoming_data.infercnv_obj", "22_denoise.infercnv_obj",
+                     "preliminary.infercnv_obj", "matrix.mtx"):
+            (tmp_path / name).write_bytes(b"x" * 1000)
+
+        freed = cleanup_infercnv_run(tmp_path)
+        assert freed == 4000
+        assert (tmp_path / "cnv_scores.csv").exists()
+        assert (tmp_path / "annotations.tsv").exists()
+        assert (tmp_path / "run_infercnv.R").exists()
+        assert not (tmp_path / "01_incoming_data.infercnv_obj").exists()
+        assert not (tmp_path / "matrix.mtx").exists()
+
+    def test_keep_final_is_opt_in(self, tmp_path):
+        """Several hundred MB for the largest patient, times 62."""
+        (tmp_path / "cnv_scores.csv").write_text("x")
+        (tmp_path / "run.final.infercnv_obj").write_bytes(b"x" * 500)
+
+        cleanup_infercnv_run(tmp_path, keep_final=True)
+        assert (tmp_path / "run.final.infercnv_obj").exists()
+        cleanup_infercnv_run(tmp_path)
+        assert not (tmp_path / "run.final.infercnv_obj").exists()
 
     def test_scores_feed_call_malignancy(self, tmp_path):
         """Mean squared deviation from 1, and it must land on the scale
@@ -664,3 +721,115 @@ class TestGenePositions:
             + self._gene("chrX", 10, 20, "D")
         )
         assert [r[0] for r in self._parse(text)] == ["A", "C", "B", "D"]
+
+
+class TestCNVSeparation:
+    """A threshold can always be drawn. The question is whether anything is on
+    the other side of it."""
+
+    def _frame(self, query_shift, n_query=400, n_comp=200, seed=0):
+        rng = np.random.default_rng(seed)
+        score = np.concatenate([
+            rng.normal(0.002, 0.0005, n_comp),
+            rng.normal(0.002 + query_shift, 0.0005, n_query),
+        ])
+        group = ["holdout_normal_epi"] * n_comp + ["query"] * n_query
+        return score, group, ["P1"] * (n_comp + n_query)
+
+    def test_a_clearly_aneuploid_tumour_is_separable(self):
+        score, group, patient = self._frame(query_shift=0.003)
+        out = cnv_separation(score, group=group, patient_id=patient).iloc[0]
+        assert bool(out["separable"])
+        assert out["enrichment"] > 5
+
+    def test_a_near_diploid_tumour_is_not(self):
+        """MMRd tumours look like this, and it is biology rather than failure."""
+        score, group, patient = self._frame(query_shift=0.0)
+        out = cnv_separation(score, group=group, patient_id=patient).iloc[0]
+        assert not bool(out["separable"])
+        assert out["enrichment"] == pytest.approx(1.0, abs=0.4)
+        assert "below" in out["reason"]
+
+    def test_the_null_is_one_tenth_not_zero(self):
+        """By construction a tenth of copy-neutral cells sit above their own
+        90th percentile. Scoring against zero would call every patient
+        separable."""
+        score, group, patient = self._frame(query_shift=0.0)
+        out = cnv_separation(score, group=group, patient_id=patient).iloc[0]
+        assert out["fraction_above"] == pytest.approx(0.10, abs=0.05)
+
+    def test_a_missing_holdout_is_not_separable_rather_than_an_error(self):
+        score = np.full(50, 0.002)
+        out = cnv_separation(
+            score, group=["query"] * 50, patient_id=["P1"] * 50
+        ).iloc[0]
+        assert not bool(out["separable"])
+        assert "comparator" in out["reason"]
+
+    def test_patients_are_judged_independently(self):
+        s1, g1, _ = self._frame(query_shift=0.003, seed=1)
+        s2, g2, _ = self._frame(query_shift=0.0, seed=2)
+        out = cnv_separation(
+            np.concatenate([s1, s2]), group=list(g1) + list(g2),
+            patient_id=["STRONG"] * len(s1) + ["FLAT"] * len(s2),
+        ).set_index("patient_id")
+        assert bool(out.loc["STRONG", "separable"])
+        assert not bool(out.loc["FLAT", "separable"])
+
+    def test_length_mismatch_refuses(self):
+        with pytest.raises(MalignancyError, match="lengths differ"):
+            cnv_separation([1.0, 2.0], group=["query"], patient_id=["P1", "P1"])
+
+
+class TestThresholdPopulation:
+    """Which cells set the malignancy threshold, and why it is not the diploid
+    compartments any more."""
+
+    def _frame(self):
+        rng = np.random.default_rng(3)
+        # Baseline is epithelial, so the diploid compartments score HIGH for
+        # cell-type reasons while the tumour sits just above copy-neutral
+        # epithelium. This is the real pilot's shape.
+        score = np.concatenate([
+            rng.normal(0.0020, 0.0003, 200),   # diploid: high, cell-type diff
+            rng.normal(0.0009, 0.0002, 150),   # holdout normal epithelium
+            rng.normal(0.0018, 0.0006, 300),   # tumour epithelium
+        ])
+        compartment = ["immune"] * 200 + ["epithelial"] * 450
+        role = (["reference_diploid"] * 200 + ["holdout_normal_epi"] * 150
+                + ["query"] * 300)
+        return score, compartment, role, ["P1"] * 650
+
+    def test_diploid_threshold_calls_almost_nothing(self):
+        """The bug this replaced: on the pilot it called 21 of 2,259 tumour
+        cells malignant while ~20% sat above the copy-neutral 90th percentile."""
+        score, compartment, _role, patient = self._frame()
+        calls = call_malignancy(score, compartment=compartment, patient_id=patient)
+        malignant = (calls["call"].astype(str) == "malignant").sum()
+        assert malignant < 30
+
+    def test_epithelial_threshold_calls_a_sensible_fraction(self):
+        score, compartment, role, patient = self._frame()
+        calls = call_malignancy(
+            score, compartment=compartment, patient_id=patient, role=role
+        )
+        query = calls[np.asarray(role) == "query"]
+        fraction = (query["call"].astype(str) == "malignant").mean()
+        assert 0.2 < fraction < 1.0
+
+    def test_the_threshold_cells_are_labelled_reference_not_non_malignant(self):
+        """They defined the cut, so calling them non-malignant is circular."""
+        score, compartment, role, patient = self._frame()
+        calls = call_malignancy(
+            score, compartment=compartment, patient_id=patient, role=role
+        )
+        holdout = calls[np.asarray(role) == "holdout_normal_epi"]
+        assert set(holdout["call"].astype(str)) == {"reference"}
+
+    def test_role_length_is_checked(self):
+        score, compartment, _role, patient = self._frame()
+        with pytest.raises(MalignancyError, match="role has"):
+            call_malignancy(
+                score, compartment=compartment, patient_id=patient,
+                role=["query"] * 3,
+            )

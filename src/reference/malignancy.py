@@ -224,6 +224,7 @@ def call_malignancy(
     *,
     compartment: Any,
     patient_id: Any,
+    role: Any = None,
     quantile: float = MALIGNANT_QUANTILE,
     min_cells: int = MIN_REFERENCE_CELLS,
 ) -> pd.DataFrame:
@@ -256,7 +257,30 @@ def call_malignancy(
     if scores.size == 0:
         raise MalignancyError("no cells to call")
 
-    is_reference = np.isin(comp, REFERENCE_COMPARTMENTS)
+    # WHICH CELLS SET THE THRESHOLD. Pass `role` and it is the patient's own
+    # copy-neutral EPITHELIUM; without it, the diploid compartments.
+    #
+    # This matters more than it looks. Once the CNV baseline is matched normal
+    # epithelium, immune and stromal cells are no longer references — they are
+    # other cell types scored against an epithelial baseline, so they deviate
+    # for ordinary cell-type reasons and score ABOVE the tumour. Thresholding on
+    # them puts the cut above almost the entire tumour distribution: on the
+    # pilot that called 21 of 2,259 tumour epithelial cells malignant, against
+    # ~20% of them sitting above the copy-neutral 90th percentile.
+    #
+    # `holdout_normal_epi` is the right population — same cell type, same
+    # patient, copy-neutral, and never in the baseline. Note that specificity
+    # computed on those same cells is then partly circular; validate on
+    # `reference_normal_epi` instead, which is disjoint from it.
+    if role is not None:
+        role_arr = np.asarray([str(r) for r in role], dtype=object)
+        if role_arr.shape[0] != scores.shape[0]:
+            raise MalignancyError(
+                f"role has {role_arr.shape[0]} entries for {scores.shape[0]} cells"
+            )
+        is_reference = role_arr == "holdout_normal_epi"
+    else:
+        is_reference = np.isin(comp, REFERENCE_COMPARTMENTS)
     call = np.full(scores.shape, "not_called", dtype=object)
     confidence = np.full(scores.shape, np.nan, dtype=float)
     threshold = np.full(scores.shape, np.nan, dtype=float)
@@ -273,6 +297,8 @@ def call_malignancy(
         threshold[here] = cut
         confidence[epithelial] = (scores[epithelial] - cut) / spread
         call[epithelial] = np.where(scores[epithelial] > cut, "malignant", "non_malignant")
+        # Cells that DEFINED the threshold are labelled reference, not
+        # non_malignant — calling them non-malignant would be circular.
         call[reference] = "reference"
 
     return pd.DataFrame(
@@ -285,6 +311,88 @@ def call_malignancy(
             "call": pd.Categorical(call, categories=CALLS),
         }
     )
+
+
+#: Fraction of a copy-neutral population expected above its own 90th percentile.
+#: The null for :func:`cnv_separation`, and it is 0.10 rather than 0 — a patient
+#: sitting at 0.10 has no excess aneuploid population at all.
+SEPARATION_NULL: Final[float] = 0.10
+
+#: Enrichment over that null below which no malignancy call is made. 1.5x is a
+#: judgement, not a derivation: it says the aneuploid population must be half
+#: again what chance produces before a threshold is drawn through it.
+MIN_SEPARATION_ENRICHMENT: Final[float] = 1.5
+
+
+def cnv_separation(
+    cnv_score: Any,
+    *,
+    group: Any,
+    patient_id: Any,
+    comparator: str = "holdout_normal_epi",
+    query: str = "query",
+    null: float = SEPARATION_NULL,
+    min_enrichment: float = MIN_SEPARATION_ENRICHMENT,
+) -> pd.DataFrame:
+    """Is there an aneuploid population to call at all? Per patient.
+
+    **The precondition for malignancy calling, and it is not always met.**
+    :func:`call_malignancy` will happily threshold any distribution; this asks
+    whether there is anything on the other side of the threshold.
+
+    Compares the query against the patient's **held-out normal epithelium** —
+    same cell type, same patient, never in the CNV baseline, so the only
+    difference left is copy number. Not against the diploid compartments: once
+    the baseline is matched normal epithelium, immune and stromal cells deviate
+    from it for ordinary cell-type reasons, and comparing to them measures the
+    wrong thing.
+
+    The statistic is the fraction of query cells above the comparator's 90th
+    percentile, read as enrichment over a null of **0.10** — by construction a
+    tenth of copy-neutral cells sit above their own 90th percentile.
+
+    **Expect this to fail for some patients, and expect it to fail
+    non-randomly.** MMR-deficient tumours are characteristically near-diploid,
+    so there is genuinely no aneuploid population to find. That is a fact about
+    the tumour, not a defect in the run, and it is why `separable` is reported
+    rather than a threshold being lowered until something appears. See open
+    decision #15 — the failures are expected to concentrate in one arm of a
+    pre-registered contrast.
+    """
+    scores = np.asarray(cnv_score, dtype=float)
+    groups = np.asarray([str(g) for g in group], dtype=object)
+    patients = np.asarray([str(p) for p in patient_id], dtype=object)
+    if not (scores.shape[0] == groups.shape[0] == patients.shape[0]):
+        raise MalignancyError(
+            f"lengths differ: cnv_score {scores.shape[0]}, group "
+            f"{groups.shape[0]}, patient_id {patients.shape[0]}"
+        )
+
+    rows = []
+    for patient in pd.unique(patients):
+        here = patients == patient
+        q = scores[here & (groups == query)]
+        c = scores[here & (groups == comparator)]
+        if q.size == 0 or c.size == 0:
+            rows.append({
+                "patient_id": patient, "n_query": int(q.size),
+                "n_comparator": int(c.size), "fraction_above": float("nan"),
+                "enrichment": float("nan"), "separable": False,
+                "reason": "no query or no held-out comparator",
+            })
+            continue
+        cut = float(np.quantile(c, 1.0 - null))
+        fraction = float((q > cut).mean())
+        enrichment = fraction / null if null else float("nan")
+        separable = bool(enrichment >= min_enrichment)
+        rows.append({
+            "patient_id": patient, "n_query": int(q.size),
+            "n_comparator": int(c.size), "fraction_above": fraction,
+            "enrichment": enrichment, "separable": separable,
+            "reason": "" if separable else
+                      f"enrichment {enrichment:.2f}x below {min_enrichment}x",
+        })
+    return pd.DataFrame(rows)
 
 
 def validate_normal_epithelium(
@@ -482,22 +590,49 @@ def write_infercnv_inputs(
 
 
 def infercnv_reference_groups(roles: pd.DataFrame) -> list[str]:
-    """The group names to pass as ``ref_group_names``. **Not the query, and not
-    the holdout.**
+    """The group names to pass as ``ref_group_names``. **One group when a matched
+    normal exists — not four.**
 
-    Only ``reference_normal_epi`` and the per-compartment diploid groups are
-    references. ``query`` is what is being called; ``holdout_normal_epi`` is
-    scored out-of-sample and must never appear here, or the validation checks
-    the baseline against itself.
+    ``query`` is what is being called and ``holdout_normal_epi`` is scored
+    out-of-sample, so neither may ever appear here.
+
+    **Why a single group, reversing an earlier decision.** The first version
+    passed matched normal epithelium *plus* each diploid compartment as its own
+    category, reasoning that inferCNV's per-category bounding would suppress
+    cell-type differences being read as copy number. The bounding is real, and
+    it over-suppresses: at STEP 08 inferCNV runs
+    ``subtract_ref_expr_from_obs`` with ``use_bounds=TRUE``, which takes the
+    range of the reference-group means per gene and zeroes any observation
+    deviation falling *inside* it. Immune, stromal, endothelial and epithelial
+    means differ for ordinary cell-type reasons, so that range is wide for most
+    genes.
+
+    Measured on the pilot with four groups: **25-30% of all values became
+    exactly 1**, the interquartile range collapsed to 0.989-1.009, and tumour
+    epithelium scored *below* the diploid reference in four of five patients —
+    the reference cells keeping their cell-type deviation from the pooled mean
+    while the observations had theirs bounded away.
+
+    The defence against cell-type artifacts is a **cell-type-matched
+    reference**, which matched normal epithelium already is. Bounding across
+    dissimilar types is a weaker substitute that costs the signal.
+
+    Diploid compartments remain the reference only when a patient has no usable
+    matched normal — ``assign_cnv_roles``' ``diploid_only`` strategy — where a
+    mismatched reference is the honest cost of having no better one, and those
+    calls are flagged rather than pooled.
     """
-    groups = set()
-    for role, compartment in zip(
-        roles["role"].astype(str), roles["compartment"].astype(str), strict=True
-    ):
-        if role == "reference_normal_epi":
-            groups.add(role)
-        elif role == "reference_diploid":
-            groups.add(f"ref_{compartment}")
+    roles_seen = set(roles["role"].astype(str))
+    if "reference_normal_epi" in roles_seen:
+        return ["reference_normal_epi"]
+
+    groups = {
+        f"ref_{compartment}"
+        for role, compartment in zip(
+            roles["role"].astype(str), roles["compartment"].astype(str), strict=True
+        )
+        if role == "reference_diploid"
+    }
     if not groups:
         raise MalignancyError(
             "no reference cells in roles — assign_cnv_roles() reported no "
@@ -516,11 +651,13 @@ def run_infercnv(
     barcodes: Any = None,
     cutoff: float = INFERCNV_CUTOFF_10X,
     window_length: int = INFERCNV_WINDOW,
-    denoise: bool = True,
+    denoise: bool = False,
     hmm: bool = False,
     analysis_mode: str = "subclusters",
     threads: int = 8,
     seed: int = 20260101,
+    cleanup: bool = True,
+    keep_final: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Run inferCNV for ONE patient. W1, weeks 2-3.
@@ -543,6 +680,20 @@ def run_infercnv(
         exactly where this project needs it, since a mature-looking tumour cell
         with few CNVs is the case that decides compositional vs intrinsic.
         Slower. That is the trade being made deliberately.
+    `denoise`
+        **Off by default, and that is a correction.** Denoising sets every value
+        within 1.5 SD of the reference mean *to* the mean. It is a plotting aid
+        — it makes heatmaps legible — and it destroys the quantity this pipeline
+        actually uses, because the per-cell score is the mean squared deviation
+        from 1 and denoising sets most of those deviations to zero.
+
+        The pilot ran with it on and produced scores around 3e-4, implying
+        per-gene deviations of ~0.017 where a real copy-number change moves the
+        smoothed residual by 0.1-0.3. Four of five patients also came back with
+        tumour epithelium scoring *below* the diploid reference, which is
+        consistent with denoising being applied to the observations while the
+        reference keeps its noise. Turn it on only if someone wants the
+        heatmaps, and do not score off a denoised object.
     `hmm`
         **Off by default.** The HMM produces discrete CNV state calls and
         roughly triples the runtime, and this pipeline does not use them:
@@ -611,22 +762,36 @@ def run_infercnv(
 
     import subprocess
 
-    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    # STREAMED, not captured. subprocess.run(capture_output=True) buffers until
+    # the process exits, which for a run measured in hours means no way to tell
+    # a working job from a stuck one until it is over. Each line is echoed as it
+    # arrives — so `tail -f` on the SGE job log follows inferCNV live — and kept
+    # for the saved log and the error message.
+    log_path = out / "infercnv_R.log"
+    lines: list[str] = []
+    with log_path.open("w") as log:
+        log.write(f"$ {' '.join(command)}\n\n")
+        process = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1,
+        )
+        assert process.stdout is not None
+        for line in process.stdout:
+            print(line, end="", flush=True)
+            log.write(line)
+            log.flush()
+            lines.append(line)
+        returncode = process.wait()
+
     result["ran"] = True
-    result["returncode"] = completed.returncode
-    result["stdout"] = completed.stdout
-    result["stderr"] = completed.stderr
+    result["returncode"] = returncode
+    result["stdout"] = "".join(lines)
+    result["stderr"] = ""
 
-    # Keep the whole R log next to the results. inferCNV's own progress output
-    # is the record of what it did, and a run whose log lives only in a Python
-    # variable cannot be checked afterwards.
-    (out / "infercnv_R.log").write_text(
-        f"$ {' '.join(command)}\n\n{completed.stdout}\n{completed.stderr}"
-    )
-
-    if completed.returncode != 0:
+    if returncode != 0:
+        tail = "".join(lines[-40:])
         raise MalignancyError(
-            f"inferCNV failed (exit {completed.returncode}).\n{completed.stderr[-2000:]}"
+            f"inferCNV failed (exit {returncode}). Full log: {log_path}\n{tail}"
         )
 
     # Echo the lines that say whether the run means anything, rather than
@@ -634,10 +799,67 @@ def run_infercnv(
     # gene-order intersection is the one that matters: a large drop means the
     # symbol join failed, and inferCNV does not error on that — it infers from
     # whatever survived.
-    for line in completed.stdout.splitlines():
+    for line in lines:
         if line.startswith(("matrix:", "after gene-order intersection:")):
-            print(f"  {line}")
+            print(f"  {line.rstrip()}")
+
+    if cleanup:
+        result["freed_bytes"] = cleanup_infercnv_run(out, keep_final=keep_final)
     return result
+
+
+#: Files a finished run must keep. Everything else inferCNV writes is a staged
+#: intermediate it uses to resume a crashed run, and nothing downstream reads
+#: them.
+INFERCNV_KEEP: Final[tuple[str, ...]] = (
+    "cnv_scores.csv",      # the result
+    "annotations.tsv",     # the roles, needed to join reference vs query
+    "genes.tsv",
+    "barcodes.tsv",
+    "run_infercnv.R",      # provenance: the exact settings used
+    "infercnv_R.log",      # provenance: what inferCNV actually did
+    "infercnv_subclusters.observation_groupings.txt",
+)
+
+
+def cleanup_infercnv_run(out_dir: Any, *, keep_final: bool = False) -> int:
+    """Delete a finished run's intermediates. Returns bytes freed.
+
+    **Not tidiness — feasibility.** inferCNV writes every pipeline stage to disk
+    so a crashed run can resume, and on this data each stage is the size of the
+    expression matrix. One pilot patient produced ~16 GB across five patients,
+    and the project filesystem has 55 GB in total. A 62-patient run would fill
+    it somewhere around patient fifteen.
+
+    Refuses to delete anything if ``cnv_scores.csv`` is missing, because that is
+    the only artifact that cannot be recomputed without re-running the
+    inference. A run that failed keeps everything, so it can be diagnosed.
+
+    ``run.final.infercnv_obj`` is deleted by default. It is the only route to
+    recomputing the score without re-running, which sounds worth keeping until
+    you multiply it by 62 patients — for the largest it is several hundred MB.
+    Pass `keep_final` when disk allows and you expect the score definition to
+    change.
+    """
+    out = Path(out_dir)
+    if not (out / "cnv_scores.csv").exists():
+        print(f"note: {out.name} has no cnv_scores.csv — keeping everything so "
+              f"the failure can be diagnosed.")
+        return 0
+
+    keep = set(INFERCNV_KEEP)
+    if keep_final:
+        keep.add("run.final.infercnv_obj")
+
+    freed = 0
+    for path in out.iterdir():
+        if path.name in keep or not path.is_file():
+            continue
+        freed += path.stat().st_size
+        path.unlink()
+    if freed:
+        print(f"  cleaned {out.name}: freed {freed / 1e9:.1f} GB")
+    return freed
 
 
 #: The R side. Kept as a template rather than a checked-in .R file so the
@@ -692,6 +914,16 @@ result <- infercnv::run(
 # absolute: a cell with a few large deviations is more plausibly aneuploid than
 # one with many tiny ones, and the absolute deviation treats those the same.
 expr <- result@expr.data
+
+# Diagnostics, so the score's scale can be checked rather than assumed. A
+# copy-neutral cell sits near 1 and a real copy-number change moves the smoothed
+# residual by 0.1-0.3. If the spread here is an order of magnitude smaller, or
+# most values are exactly 1, the matrix has been flattened — which is what
+# denoise = TRUE does — and the score is measuring residual noise.
+cat("expr range:", signif(range(expr), 4), "\n")
+cat("expr quantiles:", signif(quantile(expr, c(0.01, 0.25, 0.5, 0.75, 0.99)), 4), "\n")
+cat("fraction exactly 1:", signif(mean(expr == 1), 4), "\n")
+
 scores <- colMeans((expr - 1)^2)
 write.csv(
   data.frame(cell = names(scores), cnv_score = as.numeric(scores)),

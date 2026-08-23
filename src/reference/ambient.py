@@ -318,7 +318,13 @@ def run_soupx(*args: Any, **kwargs: Any) -> Any:
 
 
 def run_decontx(*args: Any, **kwargs: Any) -> Any:
-    """DecontX (``bioconductor-celda``). W1, week 2. Not yet in env/w1_reference.yml.
+    """DecontX (``bioconductor-celda``). W1, week 2. **The second method.**
+
+    execution_plan.md line 167 originally asked for "SoupX and CellBender, both,
+    compared". That was restated on 2026-08-22: CellBender requires unfiltered
+    droplets and open decision #8 established that none exist in any public
+    source for this deposit — GEO ran dropletUtils upstream. DecontX takes its
+    place and the deliverable is unchanged, two methods compared.
 
     The second method for the week-2 comparison, replacing CellBender. Needs no
     empty droplets — it models each cell as a mixture of its own cluster's
