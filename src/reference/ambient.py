@@ -292,6 +292,67 @@ def contamination_by_sample(
     return pd.DataFrame(rows).sort_values("sample_id", ignore_index=True)
 
 
+def differential_contamination(
+    contamination: pd.DataFrame, *, warn_at: float = 0.05
+) -> pd.DataFrame:
+    """Is the soup dirtier in tumour than in matched normal? **Per patient.**
+
+    The third instance of one question. :func:`src.reference.qc.
+    differential_retention` asks it of the mitochondrial cap and
+    ``labels.differential_resolution`` asks it of the depth floor: **anything
+    that affects the two arms unequally moves Delta(mature fraction), because
+    that difference IS the compositional term.**
+
+    Ambient RNA is the same shape of problem and worse in one respect. Soup is
+    enriched for whatever is abundant in the dissociation, and a tumour sample's
+    abundant populations differ from its matched normal's — so an asymmetry here
+    is expected rather than surprising, and it does not cancel.
+
+    Which way it biases depends on what is in the soup. Ambient *mature* marker
+    transcripts give immature cells false mature counts; ambient stem markers do
+    the reverse. Either way a patient whose tumour arm is materially dirtier
+    than their normal arm has a Delta that is partly a dissociation artifact.
+
+    Returns one row per patient with both arms' contamination, the gap, and
+    `flagged`. **If this flags widely, open decision #16's exclusion rule should
+    be per-patient on the gap rather than per-sample on the level** — a patient
+    whose two arms are equally dirty is far less compromised than one whose arms
+    differ by ten points, even at a higher absolute level.
+    """
+
+    required = {"sample_id", "contamination"}
+    missing = required - set(contamination.columns)
+    if missing:
+        raise AmbientError(f"contamination is missing column(s): {sorted(missing)}")
+
+    frame = contamination.copy()
+    if "tissue" not in frame.columns or "patient_id" not in frame.columns:
+        from src.reference.ingest import parse_barcode
+
+        parsed = [parse_barcode(f"{s}_id-AAAA") for s in frame["sample_id"]]
+        frame["patient_id"] = [p["patient_id"] for p in parsed]
+        frame["tissue"] = [p["tissue"] for p in parsed]
+
+    wide = frame.pivot_table(
+        index="patient_id", columns="tissue", values="contamination",
+        aggfunc="median", observed=True,
+    )
+    for arm in ("tumour", "normal"):
+        if arm not in wide.columns:
+            wide[arm] = float("nan")
+
+    out = wide.loc[:, ["tumour", "normal"]].copy()
+    out.columns = ["contamination_tumour", "contamination_normal"]
+    out["difference"] = out["contamination_tumour"] - out["contamination_normal"]
+    out["flagged"] = out["difference"].abs() > warn_at
+    # Both arms needed. A patient with one arm has no compositional term at all
+    # (open decision #9), so their asymmetry is undefined rather than zero.
+    out["both_arms"] = (
+        out["contamination_tumour"].notna() & out["contamination_normal"].notna()
+    )
+    return out.reset_index()
+
+
 # ---------------------------------------------------------------------------
 # Correction
 # ---------------------------------------------------------------------------

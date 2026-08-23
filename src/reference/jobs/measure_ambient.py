@@ -37,7 +37,10 @@ import pandas as pd  # noqa: E402
 from src.common.io import write_versioned_table  # noqa: E402
 from src.common.panel import tier_genes  # noqa: E402
 from src.common.provenance import DEFAULT_SEED, set_global_seeds  # noqa: E402
-from src.reference.ambient import contamination_by_sample  # noqa: E402
+from src.reference.ambient import (  # noqa: E402
+    contamination_by_sample,
+    differential_contamination,
+)
 from src.reference.ingest import (  # noqa: E402
     assign_compartments,
     read_gse178341,
@@ -191,6 +194,32 @@ def main() -> int:
     out = attach_processing_type(out, obs, metadata)
 
     reliable = _report(out)
+
+    # Third instance of one question: does this affect the two arms unequally?
+    # Delta(mature fraction) IS the difference between them, so anything
+    # asymmetric moves it directly.
+    asym = differential_contamination(reliable if len(reliable) else out)
+    paired = asym[asym["both_arms"]]
+    print("\n" + "=" * 60)
+    print("IS THE SOUP DIRTIER IN TUMOUR THAN IN MATCHED NORMAL?")
+    print("=" * 60)
+    if len(paired):
+        print(paired.reindex(
+            paired["difference"].abs().sort_values(ascending=False).index
+        ).head(10).to_string(index=False))
+        flagged = paired[paired["flagged"]]
+        direction = float(paired["difference"].median())
+        print(f"\n{len(flagged)} of {len(paired)} patients differ by more than "
+              f"5 points; median tumour-minus-normal {direction:+.1%}")
+        if len(flagged) > len(paired) / 4:
+            print(
+                "   Widespread asymmetry. Open decision #16's exclusion rule "
+                "should then be\n   PER-PATIENT ON THE GAP rather than "
+                "per-sample on the level: two equally\n   dirty arms are far "
+                "less compromised than two arms ten points apart."
+            )
+    else:
+        print("no patient has both arms among the interpretable samples")
 
     print(f"\ntargets checked against (invariant 2): {sorted(tier_genes('A'))}")
     path = write_versioned_table(
