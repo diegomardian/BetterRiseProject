@@ -410,6 +410,22 @@ class TestSoupX:
         )
         assert "0.02" in out["script"].read_text()
 
+    def test_duplicate_symbols_in_the_profile_are_summed(self, tmp_path):
+        """soup_profile_from_cells is indexed by gene SYMBOL, and this deposit
+        maps several Ensembl IDs onto one symbol. reindex() refuses a duplicated
+        index outright — this failed on the first real sample."""
+        matrix, genes, barcodes, labels = self._inputs()[:4]
+        profile = pd.Series(
+            [0.02] * (len(genes) + 3),
+            index=list(genes) + genes[:3],   # three symbols duplicated
+        )
+        run_soupx(matrix, genes, barcodes=barcodes, clusters=labels,
+                  soup_profile=profile, out_dir=tmp_path, dry_run=True)
+        written = pd.read_csv(tmp_path / "soup_profile.csv", index_col=0)
+        assert not written.index.has_duplicates
+        # Summed, not dropped — the profile is a share of one soup.
+        assert written.loc[genes[0], "est"] == pytest.approx(0.04)
+
     def test_an_empty_profile_refuses(self, tmp_path):
         matrix, genes, barcodes, labels, _profile = self._inputs()
         with pytest.raises(AmbientError, match="soup profile is empty"):

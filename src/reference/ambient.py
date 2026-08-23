@@ -521,7 +521,15 @@ def run_soupx(
         )
     (out / "clusters.tsv").write_text("".join(f"{c}\n" for c in labels))
 
-    profile = pd.Series(soup_profile).reindex(kept).fillna(0.0)
+    # Collapse duplicate symbols BEFORE reindexing. soup_profile_from_cells
+    # returns a Series indexed by gene symbol, and this deposit maps several
+    # Ensembl IDs onto one symbol — so the index has duplicates and reindex()
+    # refuses outright. Summing is the right collapse: the profile is a share
+    # of the soup, and two rows for one symbol are two parts of the same share.
+    profile = pd.Series(soup_profile)
+    if profile.index.has_duplicates:
+        profile = profile.groupby(level=0).sum()
+    profile = profile.reindex(kept).fillna(0.0)
     if float(profile.sum()) <= 0:
         raise AmbientError(
             "the soup profile is empty over the genes in this matrix — "
