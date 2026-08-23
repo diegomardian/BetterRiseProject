@@ -276,11 +276,73 @@ class TestPerSample:
             contamination_by_sample(matrix, GENES, sample_id=["a"], cell_mask=mask)
 
 
-def test_decontx_is_still_an_explicit_todo():
-    """SoupX is implemented; DecontX is step 3. The second method matters —
-    execution_plan.md asks for two compared, not a winner."""
-    with pytest.raises(NotImplementedError, match="celda"):
-        run_decontx()
+class TestDecontX:
+    """The second method, and it exists because CellBender cannot run on a
+    deposit with no empty droplets (#8)."""
+
+    def _inputs(self, n_cells=60, n_genes=30, clusters=2):
+        rng = np.random.default_rng(1)
+        matrix = rng.poisson(3, size=(n_cells, n_genes)).astype(np.int64)
+        return (
+            matrix,
+            [f"G{i}" for i in range(n_genes)],
+            [f"c{i}" for i in range(n_cells)],
+            [f"k{i % clusters}" for i in range(n_cells)],
+        )
+
+    def test_dry_run_writes_its_inputs(self, tmp_path):
+        matrix, genes, barcodes, labels = self._inputs()
+        out = run_decontx(matrix, genes, barcodes=barcodes, clusters=labels,
+                          out_dir=tmp_path, dry_run=True)
+        assert out["ran"] is False
+        for name in ("matrix.mtx", "genes.tsv", "barcodes.tsv",
+                     "clusters.tsv", "run_decontx.R"):
+            assert (tmp_path / name).exists(), name
+
+    def test_it_asks_for_no_empty_droplets(self, tmp_path):
+        """The entire reason it replaces CellBender."""
+        matrix, genes, barcodes, labels = self._inputs()
+        out = run_decontx(matrix, genes, barcodes=barcodes, clusters=labels,
+                          out_dir=tmp_path, dry_run=True)
+        script = out["script"].read_text()
+        assert "decontX(" in script
+        # The ARGUMENT, not the word — the template's comment explains why it
+        # is absent, and a bare substring check catches its own explanation.
+        assert "background =" not in script
+        assert "background=" not in script
+
+    def test_it_emits_retention_and_per_cell_contamination(self, tmp_path):
+        matrix, genes, barcodes, labels = self._inputs()
+        script = run_decontx(
+            matrix, genes, barcodes=barcodes, clusters=labels,
+            out_dir=tmp_path, dry_run=True,
+        )["script"].read_text()
+        assert "decontx_retention.csv" in script
+        assert "decontx_contamination.csv" in script
+
+    def test_one_cluster_refuses(self, tmp_path):
+        """Contamination is defined as counts resembling OTHER clusters, so one
+        cluster leaves nothing to compare against."""
+        matrix, genes, barcodes, _ = self._inputs()
+        with pytest.raises(AmbientError, match="other clusters|OTHER clusters"):
+            run_decontx(matrix, genes, barcodes=barcodes,
+                        clusters=["k0"] * matrix.shape[0], out_dir=tmp_path,
+                        dry_run=True)
+
+    def test_cluster_length_is_checked(self, tmp_path):
+        matrix, genes, barcodes, _ = self._inputs()
+        with pytest.raises(AmbientError, match="entries for"):
+            run_decontx(matrix, genes, barcodes=barcodes, clusters=["k0"] * 3,
+                        out_dir=tmp_path, dry_run=True)
+
+    def test_it_is_seeded(self, tmp_path):
+        """Invariant 10 — every result carries a fixed seed."""
+        matrix, genes, barcodes, labels = self._inputs()
+        script = run_decontx(
+            matrix, genes, barcodes=barcodes, clusters=labels,
+            out_dir=tmp_path, seed=4242, dry_run=True,
+        )["script"].read_text()
+        assert "set.seed(4242)" in script
 
 
 class TestSoupX:
