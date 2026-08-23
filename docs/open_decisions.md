@@ -1332,6 +1332,33 @@ copy number from expression. A genuinely near-diploid tumour has no aneuploid
 population to find. This is an **information** limit, not a method choice, and
 "try another caller" is not a mitigation.
 
+### Two things the first real run exposed — 2026-08-23
+
+**1 · `MALIGNANT_QUANTILE = 0.99` is a judgement, not a constant, and it is
+conservative.** Malignant fractions on the pilot: C107 5.4%, C122 3.1%, C138
+7.1%, C162 10.8%. Internally consistent — C107 has ~20% of query cells above the
+copy-neutral 90th percentile and ~5% above the 99th — but low for colorectal
+tumour samples, where a large share of tumour-sample epithelium is usually
+malignant.
+
+The cost of under-calling is not symmetric with over-calling here. **The
+malignant set defines the tumour arm**, so a conservative threshold shrinks the
+denominator of every compositional estimate and pushes patients toward
+`not_estimable` on mature-cell counts — which then interacts with G4. The
+threshold should be reported as a **sensitivity across quantiles**, the way the
+depth target now is, rather than fixed at 0.99 and forgotten.
+
+**2 · The specificity check has become nearly circular.** The threshold is the
+99th percentile of copy-neutral epithelium, so a specificity near 0.99 on other
+copy-neutral epithelium is what arithmetic predicts, not evidence. Observed:
+0.989–0.999 across four patients. It now confirms the threshold was *applied*
+correctly and nothing more.
+
+Recovering an independent check means **splitting the held-out normal epithelium
+in two** — one half sets the threshold, the other validates. At
+`HOLDOUT_FRACTION = 0.30` that leaves 15% each, which C165 (117 held-out cells)
+cannot spare. So it is a real trade and a team decision, not a code fix.
+
 ### Options
 
 | | Approach | Cost |
