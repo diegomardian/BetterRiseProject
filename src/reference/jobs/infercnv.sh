@@ -33,6 +33,12 @@
 # 8 cores x 8G = 64 GB. The inputs are written sparse, so the memory goes to
 # inferCNV's own smoothing rather than to holding a dense 22,000 x 43,113
 # matrix. num_threads in the R call matches `-pe omp`.
+# DISK is the binding constraint, not CPU or memory. inferCNV writes every
+# pipeline stage so a crashed run can resume, and each stage is the size of the
+# expression matrix — the largest pilot patient produced ~16 GB. The project
+# filesystem holds 55 GB in total, so a 62-patient run without cleanup fills it
+# around patient fifteen. run_infercnv() deletes the intermediates as soon as
+# cnv_scores.csv exists; a FAILED run keeps everything so it can be diagnosed.
 #$ -pe omp 8
 #$ -l h_rt=24:00:00
 #$ -l mem_per_core=8G
@@ -135,6 +141,20 @@ result = run_infercnv(
 )
 print("reference groups:", result["reference_groups"])
 print("exit", result["returncode"])
+
+# Fail the task if the disk is nearly full, rather than letting the NEXT array
+# task start and die halfway through writing a 1.6 GB stage file. A run that
+# stops early is recoverable; one that fills the filesystem takes the other
+# tasks down with it.
+import shutil
+free_gb = shutil.disk_usage(out_dir).free / 1e9
+print(f"disk free after cleanup: {free_gb:.1f} GB")
+if free_gb < 20:
+    raise SystemExit(
+        f"only {free_gb:.1f} GB free — stopping before the next patient. "
+        f"inferCNV needs roughly 15-20 GB of scratch for a large patient even "
+        f"with cleanup between stages."
+    )
 PY
 
 echo "=== $(date) done $PATIENT ==="

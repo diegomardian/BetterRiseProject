@@ -521,6 +521,8 @@ def run_infercnv(
     analysis_mode: str = "subclusters",
     threads: int = 8,
     seed: int = 20260101,
+    cleanup: bool = True,
+    keep_final: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Run inferCNV for ONE patient. W1, weeks 2-3.
@@ -651,7 +653,64 @@ def run_infercnv(
     for line in lines:
         if line.startswith(("matrix:", "after gene-order intersection:")):
             print(f"  {line.rstrip()}")
+
+    if cleanup:
+        result["freed_bytes"] = cleanup_infercnv_run(out, keep_final=keep_final)
     return result
+
+
+#: Files a finished run must keep. Everything else inferCNV writes is a staged
+#: intermediate it uses to resume a crashed run, and nothing downstream reads
+#: them.
+INFERCNV_KEEP: Final[tuple[str, ...]] = (
+    "cnv_scores.csv",      # the result
+    "annotations.tsv",     # the roles, needed to join reference vs query
+    "genes.tsv",
+    "barcodes.tsv",
+    "run_infercnv.R",      # provenance: the exact settings used
+    "infercnv_R.log",      # provenance: what inferCNV actually did
+    "infercnv_subclusters.observation_groupings.txt",
+)
+
+
+def cleanup_infercnv_run(out_dir: Any, *, keep_final: bool = False) -> int:
+    """Delete a finished run's intermediates. Returns bytes freed.
+
+    **Not tidiness — feasibility.** inferCNV writes every pipeline stage to disk
+    so a crashed run can resume, and on this data each stage is the size of the
+    expression matrix. One pilot patient produced ~16 GB across five patients,
+    and the project filesystem has 55 GB in total. A 62-patient run would fill
+    it somewhere around patient fifteen.
+
+    Refuses to delete anything if ``cnv_scores.csv`` is missing, because that is
+    the only artifact that cannot be recomputed without re-running the
+    inference. A run that failed keeps everything, so it can be diagnosed.
+
+    ``run.final.infercnv_obj`` is deleted by default. It is the only route to
+    recomputing the score without re-running, which sounds worth keeping until
+    you multiply it by 62 patients — for the largest it is several hundred MB.
+    Pass `keep_final` when disk allows and you expect the score definition to
+    change.
+    """
+    out = Path(out_dir)
+    if not (out / "cnv_scores.csv").exists():
+        print(f"note: {out.name} has no cnv_scores.csv — keeping everything so "
+              f"the failure can be diagnosed.")
+        return 0
+
+    keep = set(INFERCNV_KEEP)
+    if keep_final:
+        keep.add("run.final.infercnv_obj")
+
+    freed = 0
+    for path in out.iterdir():
+        if path.name in keep or not path.is_file():
+            continue
+        freed += path.stat().st_size
+        path.unlink()
+    if freed:
+        print(f"  cleaned {out.name}: freed {freed / 1e9:.1f} GB")
+    return freed
 
 
 #: The R side. Kept as a template rather than a checked-in .R file so the

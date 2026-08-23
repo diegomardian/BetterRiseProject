@@ -19,6 +19,7 @@ from src.reference.malignancy import (
     MalignancyError,
     assign_cnv_roles,
     call_malignancy,
+    cleanup_infercnv_run,
     infercnv_reference_groups,
     read_infercnv_score_table,
     read_infercnv_scores,
@@ -439,6 +440,41 @@ class TestInferCNVWiring:
     def test_a_missing_score_file_says_where_to_look(self, tmp_path):
         with pytest.raises(MalignancyError, match="infercnv_R.log"):
             read_infercnv_score_table(tmp_path)
+
+    def test_cleanup_refuses_when_the_result_is_missing(self, tmp_path):
+        """A failed run keeps everything — the intermediates are how it gets
+        diagnosed, and cnv_scores.csv is the only thing that cannot be
+        recomputed without re-running the inference."""
+        (tmp_path / "01_incoming_data.infercnv_obj").write_bytes(b"x" * 1000)
+        freed = cleanup_infercnv_run(tmp_path)
+        assert freed == 0
+        assert (tmp_path / "01_incoming_data.infercnv_obj").exists()
+
+    def test_cleanup_keeps_the_result_and_the_provenance(self, tmp_path):
+        for name in ("cnv_scores.csv", "annotations.tsv", "run_infercnv.R",
+                     "infercnv_R.log", "genes.tsv", "barcodes.tsv"):
+            (tmp_path / name).write_text("x")
+        for name in ("01_incoming_data.infercnv_obj", "22_denoise.infercnv_obj",
+                     "preliminary.infercnv_obj", "matrix.mtx"):
+            (tmp_path / name).write_bytes(b"x" * 1000)
+
+        freed = cleanup_infercnv_run(tmp_path)
+        assert freed == 4000
+        assert (tmp_path / "cnv_scores.csv").exists()
+        assert (tmp_path / "annotations.tsv").exists()
+        assert (tmp_path / "run_infercnv.R").exists()
+        assert not (tmp_path / "01_incoming_data.infercnv_obj").exists()
+        assert not (tmp_path / "matrix.mtx").exists()
+
+    def test_keep_final_is_opt_in(self, tmp_path):
+        """Several hundred MB for the largest patient, times 62."""
+        (tmp_path / "cnv_scores.csv").write_text("x")
+        (tmp_path / "run.final.infercnv_obj").write_bytes(b"x" * 500)
+
+        cleanup_infercnv_run(tmp_path, keep_final=True)
+        assert (tmp_path / "run.final.infercnv_obj").exists()
+        cleanup_infercnv_run(tmp_path)
+        assert not (tmp_path / "run.final.infercnv_obj").exists()
 
     def test_scores_feed_call_malignancy(self, tmp_path):
         """Mean squared deviation from 1, and it must land on the scale
