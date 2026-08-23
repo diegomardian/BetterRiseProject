@@ -64,9 +64,22 @@ GROUP_MEANING: dict[str, tuple[str, str, str]] = {
     "query": ("epithelial", "query", "tumour"),
 }
 
-#: Groups that should carry the LOWEST scores — they defined the baseline.
-REFERENCE_GROUPS = ("ref_immune", "ref_stromal", "ref_endothelial",
-                    "reference_normal_epi")
+#: The comparator, and it is NOT the diploid compartments.
+#:
+#: Once the baseline is matched normal epithelium alone, immune/stromal/
+#: endothelial cells are no longer references — they are other cell types being
+#: scored against an epithelial baseline, so they deviate for cell-type reasons
+#: that have nothing to do with copy number. Comparing tumour epithelium to them
+#: measures the epithelial-vs-immune difference, not aneuploidy.
+#:
+#: `holdout_normal_epi` is the right comparator: the same cell type as the
+#: query, from the same patient, never in the baseline. The difference between
+#: it and the query is copy number and nothing else.
+COMPARATOR = "holdout_normal_epi"
+
+#: Reported for context, never used as the comparator. Expected to be HIGH
+#: against an epithelial baseline; that is cell-type difference, not a problem.
+NON_COMPARATOR_GROUPS = ("ref_immune", "ref_stromal", "ref_endothelial")
 
 
 def main() -> int:
@@ -98,26 +111,29 @@ def main() -> int:
             continue
 
         medians = table.groupby("group", observed=True)["cnv_score"].median()
-        reference = table[table["group"].isin(REFERENCE_GROUPS)]["cnv_score"]
         query = table[table["group"] == "query"]["cnv_score"]
-        holdout = table[table["group"] == "holdout_normal_epi"]["cnv_score"]
+        holdout = table[table["group"] == COMPARATOR]["cnv_score"]
+        if not len(query) or not len(holdout):
+            print(f"{patient:<8} missing query or {COMPARATOR} — cannot compare")
+            continue
 
-        ordered = (
-            bool(query.median() > reference.median())
-            if len(query) and len(reference) else None
-        )
-        # A score this small means the residuals were flattened before it was
-        # computed — denoise = TRUE does exactly that — and the ordering below
-        # is then being read off noise.
-        implied = float(reference.median()) ** 0.5 if len(reference) else float("nan")
+        # The MEDIAN query cell is not expected to be malignant. The tumour
+        # sample contains substantial non-malignant epithelium — that is the
+        # whole reason malignancy calling exists — so the median is diluted by
+        # it. What has to separate is the upper tail: a subpopulation clearly
+        # above the copy-neutral distribution.
+        tail = float(query.quantile(0.90))
+        holdout_tail = float(holdout.quantile(0.90))
         rows.append({
             "patient_id": patient,
             "n_cells": len(table),
-            "implied_per_gene_dev": implied,
-            "median_reference": float(reference.median()) if len(reference) else float("nan"),
-            "median_holdout": float(holdout.median()) if len(holdout) else float("nan"),
-            "median_query": float(query.median()) if len(query) else float("nan"),
-            "query_above_reference": ordered,
+            "holdout_median": float(holdout.median()),
+            "query_median": float(query.median()),
+            "holdout_p90": holdout_tail,
+            "query_p90": tail,
+            "tail_ratio": tail / holdout_tail if holdout_tail else float("nan"),
+            "median_above": bool(query.median() > holdout.median()),
+            "frac_query_above_holdout_p90": float((query > holdout_tail).mean()),
         })
 
         print(f"\n--- {patient} — {len(table):,} cells ---")
@@ -134,7 +150,9 @@ def main() -> int:
 
     # Scale first: an inverted ordering on a flattened matrix is a symptom, and
     # chasing the reference groups when the real problem is the score's scale
-    # wastes a day.
+    # wastes a day. Scale is judged on the QUERY's tail, not on copy-neutral
+    # cells — normal epithelium is supposed to sit near 1.
+    summary["implied_per_gene_dev"] = summary["query_p90"] ** 0.5
     flat = summary[summary["implied_per_gene_dev"] < 0.05]
     if len(flat):
         print(
@@ -157,22 +175,37 @@ def main() -> int:
               "leaves a\n   large fraction at exactly 1 even with denoise off."
         )
 
-    broken = summary[summary["query_above_reference"] == False]  # noqa: E712
+    broken = summary[~summary["median_above"]]
     if len(broken):
         print(
             "\n!! " + ", ".join(broken["patient_id"])
-            + " score tumour epithelium BELOW the diploid reference.\n"
-              "   That is not a threshold problem and no cutoff will fix it — it "
-              "means the\n   reference groups reached inferCNV mislabelled, or "
-              "the gene order file is\n   wrong for this build. Every downstream "
-              "call from these patients would be\n   confidently backwards. Stop "
-              "and find the cause."
+            + " score tumour epithelium at or BELOW their own held-out normal\n"
+              "   epithelium — same cell type, same patient, so the only "
+              "difference left is\n   copy number. Either those tumours carry "
+              "little detectable CNV, or the\n   reference groups reached "
+              "inferCNV mislabelled."
+        )
+
+    # The number that actually decides whether malignancy calling is possible.
+    # A tumour sample is a MIXTURE, so the median says little; what matters is
+    # whether a subpopulation separates from the copy-neutral distribution.
+    weak = summary[summary["frac_query_above_holdout_p90"] < 0.20]
+    if len(weak):
+        print(
+            "\n!! " + ", ".join(weak["patient_id"])
+            + " have under 20% of tumour epithelium above the held-out\n"
+              "   normal's 90th percentile. There is no separated population to "
+              "call malignant.\n   That may be real — a near-diploid tumour, or "
+              "a sample that is mostly\n   non-malignant epithelium — but those "
+              "patients cannot carry a malignancy\n   call, and saying so is "
+              "better than thresholding noise."
         )
     else:
         print(
-            "\n   Tumour epithelium scores above the diploid reference in every "
-            "patient.\n   That is the ordering aneuploidy predicts, and it is "
-            "the cheapest evidence\n   that the reference groups arrived intact."
+            "\n   Every patient has a tumour subpopulation separated from its "
+            "own copy-neutral\n   epithelium. That is what malignancy calling "
+            "needs, and it is measured\n   against the cell-type-matched "
+            "holdout rather than against other cell types."
         )
 
     # THE out-of-sample check. execution_plan.md §4 lists it as the "done when"
