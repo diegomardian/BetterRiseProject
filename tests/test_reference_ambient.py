@@ -23,8 +23,10 @@ from src.common.panel import panel_genes
 from src.reference.ambient import (
     IMPOSSIBLE_GENES,
     AmbientError,
+    compare_retention,
     contamination_by_sample,
     contamination_fraction,
+    retention_agreement,
     run_decontx,
     run_soupx,
     soup_profile_from_cells,
@@ -422,3 +424,65 @@ class TestSoupX:
         with pytest.raises(AmbientError, match="entries for"):
             run_soupx(matrix, genes, barcodes=barcodes, clusters=["k0"] * 3,
                       soup_profile=profile, out_dir=tmp_path, dry_run=True)
+
+
+class TestRetentionComparison:
+    """The week-2 deliverable is a comparison, not a winner."""
+
+    def _pair(self, decontx_scale=2.0, n=40, shuffle=False):
+        genes = [f"G{i}" for i in range(n)]
+        soupx = pd.DataFrame({
+            "gene": genes,
+            "retention": [1 - 0.01 * i for i in range(n)],
+        })
+        order = list(range(n))[::-1] if shuffle else list(range(n))
+        decontx = pd.DataFrame({
+            "gene": genes,
+            "retention": [1 - 0.01 * decontx_scale * order[i] for i in range(n)],
+        })
+        return soupx, decontx
+
+    def test_agreement_on_which_genes_is_ranked_not_absolute(self):
+        """DecontX strips twice as hard here, but ranks genes identically. That
+        is a different kind of agreement from ranking them differently, and
+        Spearman is what separates the two."""
+        soupx, decontx = self._pair(decontx_scale=2.0)
+        out = retention_agreement(compare_retention(soupx, decontx, sample_id="S"))
+        assert out["spearman"] > 0.99
+        assert out["agree"]
+        # ...and the magnitude difference survives as its own number.
+        assert out["median_difference"] > 0
+
+    def test_opposite_rankings_do_not_agree(self):
+        soupx, decontx = self._pair(shuffle=True)
+        out = retention_agreement(compare_retention(soupx, decontx, sample_id="S"))
+        assert out["spearman"] < 0
+        assert not out["agree"]
+
+    def test_only_shared_genes_are_compared(self):
+        soupx, decontx = self._pair()
+        decontx = decontx.iloc[:10]
+        out = compare_retention(soupx, decontx, sample_id="S")
+        assert len(out) == 10
+
+    def test_no_shared_genes_refuses(self):
+        soupx, decontx = self._pair()
+        decontx = decontx.assign(gene=[f"X{i}" for i in range(len(decontx))])
+        with pytest.raises(AmbientError, match="no genes in common"):
+            compare_retention(soupx, decontx)
+
+    def test_missing_columns_refuse(self):
+        soupx, decontx = self._pair()
+        with pytest.raises(AmbientError, match="missing column"):
+            compare_retention(soupx.drop(columns=["retention"]), decontx)
+
+    def test_too_few_genes_to_correlate_refuses(self):
+        soupx, decontx = self._pair(n=2)
+        with pytest.raises(AmbientError, match="too few"):
+            retention_agreement(compare_retention(soupx, decontx))
+
+    def test_the_sample_is_carried_through(self):
+        """Per sample, never pooled — the soup belongs to one dissociation."""
+        soupx, decontx = self._pair()
+        out = compare_retention(soupx, decontx, sample_id="C122_N_1_1_0_c1_v2")
+        assert set(out["sample_id"]) == {"C122_N_1_1_0_c1_v2"}

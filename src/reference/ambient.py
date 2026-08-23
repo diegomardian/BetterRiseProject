@@ -359,6 +359,85 @@ def differential_contamination(
 # ---------------------------------------------------------------------------
 
 
+def compare_retention(
+    soupx: pd.DataFrame, decontx: pd.DataFrame, *, sample_id: str = ""
+) -> pd.DataFrame:
+    """Join two methods' per-gene retention. **One row per gene per sample.**
+
+    The week-2 deliverable is "per-gene retention table; correlation between
+    methods reported" — a comparison, not a winner.
+
+    **Per sample, not averaged across them.** A gene that loses 40% of its
+    counts in one dissociation and 2% in another is a different finding from one
+    that consistently loses 20%, and a cohort mean erases the difference. The
+    soup is a property of a single dissociation, so its effect on a given gene
+    is too.
+
+    Retention is `counts_after / counts_before`, so **1.0 means untouched and
+    lower means more removed**. A gene both methods strip hard is soup by
+    agreement; a gene only one strips is a disagreement worth looking at before
+    either number is trusted.
+    """
+
+    for name, frame in (("soupx", soupx), ("decontx", decontx)):
+        missing = {"gene", "retention"} - set(frame.columns)
+        if missing:
+            raise AmbientError(f"{name} is missing column(s): {sorted(missing)}")
+
+    out = soupx[["gene", "retention"]].rename(
+        columns={"retention": "retention_soupx"}
+    ).merge(
+        decontx[["gene", "retention"]].rename(
+            columns={"retention": "retention_decontx"}
+        ),
+        on="gene", how="inner",
+    )
+    if out.empty:
+        raise AmbientError(
+            "no genes in common between the two retention tables — check both "
+            "ran on the same matrix"
+        )
+    out["difference"] = out["retention_soupx"] - out["retention_decontx"]
+    out["sample_id"] = sample_id
+    return out
+
+
+def retention_agreement(comparison: pd.DataFrame) -> dict[str, Any]:
+    """How much the two methods agree, per sample. Spearman, not Pearson.
+
+    Retention is bounded at 1 and piles up there — most genes are barely
+    touched — so the distribution is heavily skewed and a Pearson correlation
+    would be dominated by a handful of hard-stripped genes. Rank correlation
+    asks the question that matters: **do the two methods strip the same genes
+    hardest**, whatever the absolute amounts.
+
+    `median_difference` carries the sign separately, because two methods can
+    rank genes identically while one removes twice as much.
+    """
+
+    frame = comparison.dropna(subset=["retention_soupx", "retention_decontx"])
+    if len(frame) < 3:
+        raise AmbientError(
+            f"only {len(frame)} gene(s) with both estimates — too few to "
+            f"correlate"
+        )
+    spearman = float(
+        frame["retention_soupx"].corr(frame["retention_decontx"], method="spearman")
+    )
+    return {
+        "sample_id": frame["sample_id"].iloc[0] if "sample_id" in frame else "",
+        "n_genes": int(len(frame)),
+        "spearman": spearman,
+        "median_retention_soupx": float(frame["retention_soupx"].median()),
+        "median_retention_decontx": float(frame["retention_decontx"].median()),
+        "median_difference": float(frame["difference"].median()),
+        # Agreement on WHICH genes, not on how much. Two methods can rank
+        # identically while one removes twice as much, and that is a different
+        # kind of disagreement from ranking them differently.
+        "agree": bool(spearman > 0.5),
+    }
+
+
 def _write_sparse(matrix, gene_names, barcodes, out_dir):
     """matrix.mtx / genes.tsv / barcodes.tsv, genes x cells. Sparse throughout.
 
