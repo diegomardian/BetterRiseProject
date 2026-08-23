@@ -1436,14 +1436,42 @@ MT-CO2/CO3/CO1, IGKC and MALAT1, not by panel genes, which is reassuring but
 unmeasured cohort-wide. When that is measured, it should replace this threshold
 rather than supplement it — and **that replacement must also be pre-committed.**
 
-### Open, and it may change the shape of the rule
+### ANSWERED 2026-08-23 — the asymmetry is real but has no direction
 
-**Is contamination higher in tumour than in matched normal?** Four of the worst
-five samples are `_T`. If contamination is systematically asymmetric within a
-patient, it biases Δ(mature fraction) directly — the same question
-`differential_retention` asks of the mito cap and `differential_resolution` asks
-of the depth floor. If the asymmetry is real, the exclusion rule should be
-**per-patient on the gap**, not per-sample on the level.
+**Measured, 23 patients with both arms interpretable:** 6 differ by more than 5
+points, and the median tumour-minus-normal is **+1.5%**. The flagged patients
+split evenly — C106 +12.3, C155 −12.1, C140 +9.2, C132 −8.8, C135 −5.3, C130
++5.2.
+
+**Retracting the inference that prompted this.** "Four of the worst five samples
+are tumour" was an artifact of reading the top five rows of a sorted table; it is
+not a cohort pattern. Tumour samples are not systematically dirtier.
+
+That distinction matters more than the flag count:
+
+- **Systematic** asymmetry would bias the cohort-level compositional estimate in
+  a known direction — the serious case.
+- **Random** asymmetry inflates per-patient error and widens intervals without
+  biasing the mean.
+
+This is the second. So the case for switching #16 to a gap-based rule is
+**weaker than anticipated and rests on variance, not bias**. Six patients carry
+a >5-point gap and their individual Δ is correspondingly noisy; excluding them
+buys precision, not correctness. That is a judgement about how much n to spend,
+not a correction — and it should be argued as one.
+
+**Recommendation: keep the 10% level rule as committed, and report the gap
+alongside it** so a reader can see which patients are noisy. Revisit only if the
+gap turns out to correlate with something the analysis cares about.
+
+### A number nobody had looked at
+
+**Only 23 patients have both arms among the interpretable samples**, against 32
+matched-and-unsorted. Nine lose an arm to the ≥20-epithelial-cell floor or to an
+unestimable ratio. If the ambient exclusions then remove more, the compositional
+n falls further — and 23 is already well below the 36 that decision #9 reports
+and the ~60 §8.4 assumed. **Whatever the final rule, the paired n it leaves
+should be stated in the same sentence as the rule.**
 
 ---
 
