@@ -1961,3 +1961,51 @@ two independent cohorts.
 Cohorts are **not pooled** (invariant 4) — estimated separately, reported side
 by side, using the same test code so a difference could not come from the
 analysis. See [the note](../results/notes/w3.8_replication_gse39582.md).
+
+---
+
+## 19 · G4's population is MATCHED PATIENTS ONLY — DECIDED 2026-08-23
+
+**Raised:** W1 in issue #9 · **Owner:** W2 (`src/harness/positivity.py`) ·
+**Decided:** 2026-08-23, before any decomposition result existed
+
+W1 asked whether the 26 GSE178341 patients with no normal arm should enter G4 as
+`n_cells_mature = 0`. **They should not.** `gate_g4_verdict` now takes matched
+patients only, and `n_unmatched_patients` is a **required** keyword — no default,
+because a default is how the wrong population gets used without anyone choosing.
+
+The numbers, on the real 36/26 split with a plausible 6 genuinely-depleted
+patients:
+
+| population | below threshold | fraction | verdict |
+|---|---|---|---|
+| matched only (36) | 6 | 16.7% | **PASS** |
+| mixed (62) | 32 | 51.6% | **FAIL** |
+
+Mixing flips the gate. And it flips it on a **cohort-design fact** — how many
+patients had a normal sample taken — while G4's pre-committed consequence would
+report it as a **positivity finding** about mature-cell depletion. Different
+claims; only one is about biology.
+
+The coverage fact is not lost: the verdict returns `n_unmatched_excluded`,
+`n_patients_in_cohort` and `matched_fraction`, so it travels with the result
+instead of disappearing. W1's cohort-coverage artifact remains the primary
+record.
+
+**This is the third instance of one bug shape in two days** — a cutoff computed
+over a mixed population, producing a plausible wrong number that leans toward the
+hypothesis. W4 found two (pooled MAD retention cutting epithelium for being
+epithelial; label thresholds drawn over non-epithelial cells). This one was
+latent rather than active, because nothing had called it with real data yet.
+
+W2 audited the rest of `src/harness/` for the same shape and found no other
+instance: every other aggregation is computed *within* a defined group — per arm,
+per mature mask, per grid point, per bin — rather than pooled and then applied to
+a subgroup. `calibration._bin_edges` bins for reporting only, and coverage is
+computed within each bin. `interval` resamples one patient's own cells.
+
+**Housekeeping:** this file now has **eight duplicate section numbers**
+(9, 10, 11, 12, 13, 14, 15, 16 each appear twice) because three workstreams took
+the next free number independently. Cross-references by number are ambiguous.
+This entry takes 19 to avoid adding a ninth. A renumbering pass is needed and
+nobody objected when W2 offered — see X-1 in the handoff doc.
