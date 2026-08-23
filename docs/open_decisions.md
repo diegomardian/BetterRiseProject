@@ -84,6 +84,7 @@ Ranked by what breaks if they stay open. Seven are live.
 | **11** | Sorted samples | OPEN | Implemented, unratified. W4 must nod to the arm asymmetry. |
 | **8** | No unfiltered droplets | ANSWERED | CellBender out; SoupX + DecontX in. W4 has the same exposure on Lee. |
 | **2/3** | Shared gene index | **ANSWERED** | W3 measured the overlap: 39,236 genes in both, all 23 panel genes present. 1.0.0 = the intersection. Ratify, do not re-decide. |
+| **15** | CNV calling may fail differentially by MMR status | OPEN | Near-diploid MMRd tumours give inferCNV nothing to find. Bias runs **along** the pre-registered contrast. |
 | — | CNV reference design | NEEDS SIGN-OFF | Matched normal with 30% held out. **Corrected once** — see `src/reference/malignancy.py`. |
 
 Not decisions, but outstanding and cheap: tell W3 the gene index is emitted at
@@ -1282,6 +1283,71 @@ suite **459 passed, 2 skipped**, `ruff` clean.
 module and W1's test. The patch exists so the decision is a review rather than a
 rewrite — and so that "we agreed on (b)" and "(b) is in the tree" do not end up
 three weeks apart.
+
+---
+
+## 15 · CNV-based malignancy calling may fail differentially by MMR status — OPEN, AFFECTS THE PRE-REGISTERED CONTRAST
+
+**Raised:** W1, 2026-08-22 (from the inferCNV pilot) · **Owner:** W1 + W4 +
+whoever owns G2 · **Needed by:** before the MMR contrast is computed
+
+inferCNV separates malignant from normal epithelium by aneuploidy. **MMR-
+deficient tumours are characteristically near-diploid** — chromosomal stability
+is what MSI-H looks like, and it is one of the oldest results in the field. So
+the method is expected to work *worse* in MMRd than in MMRp, and MMRd-vs-MMRp is
+a pre-registered contrast.
+
+Aneuploid fraction on the pilot, as enrichment over the 0.10 null (the fraction
+of a patient's tumour epithelium above its own held-out normal epithelium's 90th
+percentile):
+
+| patient | stratum | enrichment |
+|---|---|---|
+| C162 | **MMRp** | **7.4x** |
+| C138 | MMRd, MLH1-intact | 2.9x |
+| C107 | **MMRp** | 2.0x |
+| C122 | MMRd, methylated | 1.7x |
+| C165 | MMRd, MLH1-intact | **0.65x** — below the null |
+
+**This is directionally consistent and NOT established.** Two MMRp against three
+MMRd, and C107 (MMRp, 2.0x) sits between two MMRd patients. Nothing here would
+survive a significance test and none is claimed. What makes it worth recording
+is that the biological prior is independent of these five points.
+
+### Why it matters more than a QC wrinkle
+
+If malignant cells cannot be separated in MMRd tumours, the MMRd "tumour" arm
+retains more non-malignant epithelium. Non-malignant epithelium is *mature*, so
+its retention **inflates the apparent mature fraction in MMRd tumours** — making
+them look less compositionally depleted than they are.
+
+That is a bias running **along** the axis being tested, not across it. A bias
+that differs between arms of a pre-registered contrast is the one kind that
+cannot be argued away as noise.
+
+### It is not fixable by a better tool
+
+CopyKAT has the same limitation, because it is the same measurement: both infer
+copy number from expression. A genuinely near-diploid tumour has no aneuploid
+population to find. This is an **information** limit, not a method choice, and
+"try another caller" is not a mitigation.
+
+### Options
+
+| | Approach | Cost |
+|---|---|---|
+| a | **Emit malignancy calls with per-patient confidence, and mark patients with no separated population as `not_estimable` for the malignant/normal distinction.** | The project's own three-way framing, applied one level down. Costs patients from the malignant-only analysis, and the loss is not random — which is the point, and must be reported. |
+| b | Run the decomposition twice — malignancy-filtered and unfiltered — and report whether conclusions differ by MMR stratum. | Cheap, and it measures the exposure directly rather than assuming it. Doubles the result rows. |
+| c | Use sample-of-origin instead of malignancy calls, as today. | No differential bias, but the tumour arm keeps its non-malignant epithelium in every patient, which is the gap the whole malignancy stage exists to close. |
+| d | Ignore it. | The MMR contrast then carries an unquantified bias in a known direction. |
+
+**Recommendation: (a) plus (b).** (a) is honest about which patients can carry
+the distinction; (b) turns the residual exposure into a measured sensitivity
+rather than a caveat. Together they cost one extra run and no credibility.
+
+**Confirm at full scale before acting on it.** 36 matched patients, ~21 MMRd and
+15 MMRp, is enough to see whether the association is real. Look at it once, on
+the full cohort, and pre-specify that here rather than after.
 
 ---
 
