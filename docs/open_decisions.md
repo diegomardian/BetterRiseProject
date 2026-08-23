@@ -84,6 +84,7 @@ Ranked by what breaks if they stay open. Seven are live.
 | **11** | Sorted samples | OPEN | Implemented, unratified. W4 must nod to the arm asymmetry. |
 | **8** | No unfiltered droplets | ANSWERED | CellBender out; SoupX + DecontX in. W4 has the same exposure on Lee. |
 | **2/3** | Shared gene index | **ANSWERED** | W3 measured the overlap: 39,236 genes in both, all 23 panel genes present. 1.0.0 = the intersection. Ratify, do not re-decide. |
+| **16** | Ambient: measure not correct; exclude >10% | **PRE-COMMITTED** | Median 2.2%, but 9 of 84 samples above 10%. Threshold set before counting its cost. |
 | **15** | CNV calling may fail differentially by MMR status | OPEN | Near-diploid MMRd tumours give inferCNV nothing to find. Bias runs **along** the pre-registered contrast. |
 | — | CNV reference design | NEEDS SIGN-OFF | Matched normal with 30% held out. **Corrected once** — see `src/reference/malignancy.py`. |
 
@@ -1375,6 +1376,74 @@ rather than a caveat. Together they cost one extra run and no credibility.
 **Confirm at full scale before acting on it.** 36 matched patients, ~21 MMRd and
 15 MMRp, is enough to see whether the association is real. Look at it once, on
 the full cohort, and pre-specify that here rather than after.
+
+---
+
+## 16 · Ambient contamination: measure, do not correct — and exclude above 10% — PRE-COMMITTED 2026-08-23
+
+**Raised:** W1 · **Owner:** W1 + W2 · **Status:** threshold committed **before**
+counting what it costs
+
+Measured across all 62 patients, 84 unsorted samples with >=20 epithelial cells
+(`results/2026-08-23_*/ambient_contamination.parquet`):
+
+| | |
+|---|---|
+| median | **2.2%** |
+| 75th | 4.7% |
+| 90th | **10.2%** |
+| 95th | 13.8% |
+| max | **19.4%** (C132_N) |
+
+The five-patient pilot sat near the median and **understated the tail**.
+
+### Two decisions, and the second is the one that needs pre-committing
+
+**1 · Measure and report; do not correct.** At a 2.2% median, correction removes
+very little and risks more than it removes: DecontX defines contamination as
+counts resembling other clusters, so it can absorb genuine low-level expression
+of a marker in a rare population — precisely this project's signal. SoupX and
+DecontX still run, and the **per-gene retention table and their correlation**
+remain the week-2 deliverable. What changes is that their output is reported as
+a diagnostic rather than applied to the counts.
+
+**2 · Exclude samples above 10% contamination from the compositional arm.**
+
+The threshold is **10%**, and the reason is not the cost:
+
+- Above roughly a tenth of counts being ambient, the per-cell marker detection
+  that axis 1's maturity call depends on is materially perturbed. That call is a
+  **detection gate** at a matched depth of 3,281 UMIs, so ~330 ambient counts
+  per cell is not a rounding error in it.
+- Having chosen not to correct, a sample whose ambient share approaches the
+  effects being estimated cannot be rescued by a caveat.
+- 10% is where the cohort's own distribution turns: it is the 90th percentile,
+  and the gap from 75th (4.7%) to 90th (10.2%) is where samples stop resembling
+  each other.
+
+**This is committed before counting the patients it removes**, for the same
+reason G1's threshold is: a threshold chosen after seeing its cost is not a
+threshold. Nine of 84 samples exceed it; how many *patients* that costs — and
+whether it costs them their matched arm — is to be reported, not to be used to
+revise the number.
+
+### The sharper criterion, once it exists
+
+Total contamination is a proxy. What actually threatens this project is
+**target-gene soup share** — ambient GUCA2A gives an immature cell false mature
+counts and inflates the intrinsic term. The pilot's soup was dominated by
+MT-CO2/CO3/CO1, IGKC and MALAT1, not by panel genes, which is reassuring but
+unmeasured cohort-wide. When that is measured, it should replace this threshold
+rather than supplement it — and **that replacement must also be pre-committed.**
+
+### Open, and it may change the shape of the rule
+
+**Is contamination higher in tumour than in matched normal?** Four of the worst
+five samples are `_T`. If contamination is systematically asymmetric within a
+patient, it biases Δ(mature fraction) directly — the same question
+`differential_retention` asks of the mito cap and `differential_resolution` asks
+of the depth floor. If the asymmetry is real, the exclusion rule should be
+**per-patient on the gap**, not per-sample on the level.
 
 ---
 
