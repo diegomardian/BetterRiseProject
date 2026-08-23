@@ -2,8 +2,19 @@
 #
 # inferCNV, one array task per patient. W1, weeks 2-3.
 #
-#   qsub -t 1-5 src/reference/jobs/infercnv.sh patients_pilot.txt
-#   qsub -t 1-62 src/reference/jobs/infercnv.sh patients_all.txt
+#   qsub -t 1-5  -tc 2 src/reference/jobs/infercnv.sh patients_pilot.txt
+#   qsub -t 1-62 -tc 2 src/reference/jobs/infercnv.sh patients_all.txt
+#
+# **USE -tc.** Cleanup runs when a patient FINISHES, so concurrent array tasks
+# each hold their own intermediates at once. Without a limit SGE may start ten
+# tasks, and ten times the peak footprint does not fit on a 55 GB filesystem —
+# they would fail together, late, having wasted hours.
+#
+#   -tc 1  ~21 h   ~16 GB peak
+#   -tc 2  ~10 h   ~32 GB peak   <- recommended
+#   -tc 4   ~5 h   ~64 GB peak   <- does not fit
+#
+# Measured on the pilot: C122 (7k cells) 14 min, C162 (22k cells) ~45 min.
 #
 # The patient list is one ID per line; SGE_TASK_ID picks the line.
 #
