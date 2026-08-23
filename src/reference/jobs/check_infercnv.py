@@ -106,9 +106,14 @@ def main() -> int:
             bool(query.median() > reference.median())
             if len(query) and len(reference) else None
         )
+        # A score this small means the residuals were flattened before it was
+        # computed — denoise = TRUE does exactly that — and the ordering below
+        # is then being read off noise.
+        implied = float(reference.median()) ** 0.5 if len(reference) else float("nan")
         rows.append({
             "patient_id": patient,
             "n_cells": len(table),
+            "implied_per_gene_dev": implied,
             "median_reference": float(reference.median()) if len(reference) else float("nan"),
             "median_holdout": float(holdout.median()) if len(holdout) else float("nan"),
             "median_query": float(query.median()) if len(query) else float("nan"),
@@ -126,6 +131,21 @@ def main() -> int:
     print("DO THE SCORES ORDER THE WAY BIOLOGY REQUIRES?")
     print("=" * 66)
     print(summary.to_string(index=False))
+
+    # Scale first: an inverted ordering on a flattened matrix is a symptom, and
+    # chasing the reference groups when the real problem is the score's scale
+    # wastes a day.
+    flat = summary[summary["implied_per_gene_dev"] < 0.05]
+    if len(flat):
+        print(
+            "\n!! implied per-gene deviation is under 0.05 for "
+            + ", ".join(flat["patient_id"])
+            + ".\n   A real copy-number change moves the smoothed residual by "
+              "0.1-0.3, so this\n   matrix has been flattened and the score is "
+              "measuring residual noise.\n   Almost always denoise = TRUE, which "
+              "sets values within 1.5 SD of the\n   reference mean TO the mean. "
+              "Fix the scale before reading anything below."
+        )
 
     broken = summary[summary["query_above_reference"] == False]  # noqa: E712
     if len(broken):

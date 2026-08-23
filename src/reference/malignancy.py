@@ -516,7 +516,7 @@ def run_infercnv(
     barcodes: Any = None,
     cutoff: float = INFERCNV_CUTOFF_10X,
     window_length: int = INFERCNV_WINDOW,
-    denoise: bool = True,
+    denoise: bool = False,
     hmm: bool = False,
     analysis_mode: str = "subclusters",
     threads: int = 8,
@@ -545,6 +545,20 @@ def run_infercnv(
         exactly where this project needs it, since a mature-looking tumour cell
         with few CNVs is the case that decides compositional vs intrinsic.
         Slower. That is the trade being made deliberately.
+    `denoise`
+        **Off by default, and that is a correction.** Denoising sets every value
+        within 1.5 SD of the reference mean *to* the mean. It is a plotting aid
+        — it makes heatmaps legible — and it destroys the quantity this pipeline
+        actually uses, because the per-cell score is the mean squared deviation
+        from 1 and denoising sets most of those deviations to zero.
+
+        The pilot ran with it on and produced scores around 3e-4, implying
+        per-gene deviations of ~0.017 where a real copy-number change moves the
+        smoothed residual by 0.1-0.3. Four of five patients also came back with
+        tumour epithelium scoring *below* the diploid reference, which is
+        consistent with denoising being applied to the observations while the
+        reference keeps its noise. Turn it on only if someone wants the
+        heatmaps, and do not score off a denoised object.
     `hmm`
         **Off by default.** The HMM produces discrete CNV state calls and
         roughly triples the runtime, and this pipeline does not use them:
@@ -765,6 +779,16 @@ result <- infercnv::run(
 # absolute: a cell with a few large deviations is more plausibly aneuploid than
 # one with many tiny ones, and the absolute deviation treats those the same.
 expr <- result@expr.data
+
+# Diagnostics, so the score's scale can be checked rather than assumed. A
+# copy-neutral cell sits near 1 and a real copy-number change moves the smoothed
+# residual by 0.1-0.3. If the spread here is an order of magnitude smaller, or
+# most values are exactly 1, the matrix has been flattened — which is what
+# denoise = TRUE does — and the score is measuring residual noise.
+cat("expr range:", signif(range(expr), 4), "\n")
+cat("expr quantiles:", signif(quantile(expr, c(0.01, 0.25, 0.5, 0.75, 0.99)), 4), "\n")
+cat("fraction exactly 1:", signif(mean(expr == 1), 4), "\n")
+
 scores <- colMeans((expr - 1)^2)
 write.csv(
   data.frame(cell = names(scores), cnv_score = as.numeric(scores)),
