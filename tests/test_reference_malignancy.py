@@ -779,3 +779,57 @@ class TestCNVSeparation:
     def test_length_mismatch_refuses(self):
         with pytest.raises(MalignancyError, match="lengths differ"):
             cnv_separation([1.0, 2.0], group=["query"], patient_id=["P1", "P1"])
+
+
+class TestThresholdPopulation:
+    """Which cells set the malignancy threshold, and why it is not the diploid
+    compartments any more."""
+
+    def _frame(self):
+        rng = np.random.default_rng(3)
+        # Baseline is epithelial, so the diploid compartments score HIGH for
+        # cell-type reasons while the tumour sits just above copy-neutral
+        # epithelium. This is the real pilot's shape.
+        score = np.concatenate([
+            rng.normal(0.0020, 0.0003, 200),   # diploid: high, cell-type diff
+            rng.normal(0.0009, 0.0002, 150),   # holdout normal epithelium
+            rng.normal(0.0018, 0.0006, 300),   # tumour epithelium
+        ])
+        compartment = ["immune"] * 200 + ["epithelial"] * 450
+        role = (["reference_diploid"] * 200 + ["holdout_normal_epi"] * 150
+                + ["query"] * 300)
+        return score, compartment, role, ["P1"] * 650
+
+    def test_diploid_threshold_calls_almost_nothing(self):
+        """The bug this replaced: on the pilot it called 21 of 2,259 tumour
+        cells malignant while ~20% sat above the copy-neutral 90th percentile."""
+        score, compartment, _role, patient = self._frame()
+        calls = call_malignancy(score, compartment=compartment, patient_id=patient)
+        malignant = (calls["call"].astype(str) == "malignant").sum()
+        assert malignant < 30
+
+    def test_epithelial_threshold_calls_a_sensible_fraction(self):
+        score, compartment, role, patient = self._frame()
+        calls = call_malignancy(
+            score, compartment=compartment, patient_id=patient, role=role
+        )
+        query = calls[np.asarray(role) == "query"]
+        fraction = (query["call"].astype(str) == "malignant").mean()
+        assert 0.2 < fraction < 1.0
+
+    def test_the_threshold_cells_are_labelled_reference_not_non_malignant(self):
+        """They defined the cut, so calling them non-malignant is circular."""
+        score, compartment, role, patient = self._frame()
+        calls = call_malignancy(
+            score, compartment=compartment, patient_id=patient, role=role
+        )
+        holdout = calls[np.asarray(role) == "holdout_normal_epi"]
+        assert set(holdout["call"].astype(str)) == {"reference"}
+
+    def test_role_length_is_checked(self):
+        score, compartment, _role, patient = self._frame()
+        with pytest.raises(MalignancyError, match="role has"):
+            call_malignancy(
+                score, compartment=compartment, patient_id=patient,
+                role=["query"] * 3,
+            )

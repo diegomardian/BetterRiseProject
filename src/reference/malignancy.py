@@ -224,6 +224,7 @@ def call_malignancy(
     *,
     compartment: Any,
     patient_id: Any,
+    role: Any = None,
     quantile: float = MALIGNANT_QUANTILE,
     min_cells: int = MIN_REFERENCE_CELLS,
 ) -> pd.DataFrame:
@@ -256,7 +257,30 @@ def call_malignancy(
     if scores.size == 0:
         raise MalignancyError("no cells to call")
 
-    is_reference = np.isin(comp, REFERENCE_COMPARTMENTS)
+    # WHICH CELLS SET THE THRESHOLD. Pass `role` and it is the patient's own
+    # copy-neutral EPITHELIUM; without it, the diploid compartments.
+    #
+    # This matters more than it looks. Once the CNV baseline is matched normal
+    # epithelium, immune and stromal cells are no longer references — they are
+    # other cell types scored against an epithelial baseline, so they deviate
+    # for ordinary cell-type reasons and score ABOVE the tumour. Thresholding on
+    # them puts the cut above almost the entire tumour distribution: on the
+    # pilot that called 21 of 2,259 tumour epithelial cells malignant, against
+    # ~20% of them sitting above the copy-neutral 90th percentile.
+    #
+    # `holdout_normal_epi` is the right population — same cell type, same
+    # patient, copy-neutral, and never in the baseline. Note that specificity
+    # computed on those same cells is then partly circular; validate on
+    # `reference_normal_epi` instead, which is disjoint from it.
+    if role is not None:
+        role_arr = np.asarray([str(r) for r in role], dtype=object)
+        if role_arr.shape[0] != scores.shape[0]:
+            raise MalignancyError(
+                f"role has {role_arr.shape[0]} entries for {scores.shape[0]} cells"
+            )
+        is_reference = role_arr == "holdout_normal_epi"
+    else:
+        is_reference = np.isin(comp, REFERENCE_COMPARTMENTS)
     call = np.full(scores.shape, "not_called", dtype=object)
     confidence = np.full(scores.shape, np.nan, dtype=float)
     threshold = np.full(scores.shape, np.nan, dtype=float)
@@ -273,6 +297,8 @@ def call_malignancy(
         threshold[here] = cut
         confidence[epithelial] = (scores[epithelial] - cut) / spread
         call[epithelial] = np.where(scores[epithelial] > cut, "malignant", "non_malignant")
+        # Cells that DEFINED the threshold are labelled reference, not
+        # non_malignant — calling them non-malignant would be circular.
         call[reference] = "reference"
 
     return pd.DataFrame(

@@ -99,8 +99,13 @@ def main() -> int:
         tissue = [m[2] for m in meaning]
         patients = [patient] * len(table)
 
+        # role= puts the threshold on the patient's own copy-neutral
+        # epithelium. Without it the cut comes from the diploid compartments,
+        # which now score ABOVE the tumour because the CNV baseline is
+        # epithelial — and almost nothing gets called.
         calls = call_malignancy(
-            table["cnv_score"], compartment=compartment, patient_id=patients
+            table["cnv_score"], compartment=compartment, patient_id=patients,
+            role=role,
         )
         separation = cnv_separation(
             table["cnv_score"], group=table["group"], patient_id=patients
@@ -116,13 +121,19 @@ def main() -> int:
             )
             print(f"{patient:<8} NOT CALLED — {separation.iloc[0]['reason']}")
 
+        # Validate on reference_normal_epi, NOT on the holdout — the holdout set
+        # the threshold, so scoring it would be circular and would report ~99%
+        # specificity by construction. reference_normal_epi is disjoint from it
+        # and is also copy-neutral epithelium. It defined the CNV baseline, so
+        # this is optimistic; it is the best disjoint population available and
+        # the optimism is stated rather than hidden.
+        validation_role = [
+            "holdout_normal_epi" if r == "reference_normal_epi" else r
+            for r in role
+        ]
         try:
             validation = validate_normal_epithelium(
-                call_malignancy(
-                    table["cnv_score"], compartment=compartment,
-                    patient_id=patients,
-                ),
-                tissue=tissue, role=role,
+                calls, tissue=tissue, role=validation_role
             )
             specificity = float(validation.iloc[0]["specificity"])
             passed = bool(validation.iloc[0]["passed"])
@@ -135,7 +146,7 @@ def main() -> int:
 
         row = separation.iloc[0].to_dict()
         row.update({
-            "specificity_holdout": specificity,
+            "specificity_reference_epi": specificity,
             "specificity_passed": passed,
             "n_malignant": int((calls["call"].astype(str) == "malignant").sum()),
             "n_non_malignant": int(
@@ -152,7 +163,7 @@ def main() -> int:
 
     print("\nper patient:")
     print(summary[["patient_id", "n_query", "enrichment", "separable",
-                   "specificity_holdout", "n_malignant"]].to_string(index=False))
+                   "specificity_reference_epi", "n_malignant"]].to_string(index=False))
 
     n_sep = int(summary["separable"].sum())
     print(f"\n{n_sep} of {len(summary)} patients have a separable aneuploid "
