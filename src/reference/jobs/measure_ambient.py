@@ -56,64 +56,7 @@ UNSORTED = "unsorted"
 MIN_EPITHELIAL = 20
 
 
-def main() -> int:
-    set_global_seeds(DEFAULT_SEED)
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--patients", nargs="*", default=None)
-    parser.add_argument("--allow-dirty", action="store_true")
-    args = parser.parse_args()
-
-    data = Path(os.environ.get("BRP_DATA_DIR", "data")) / "raw" / "GSE178341"
-    h5 = data / "GSE178341_crc10x_full_c295v4_submit.h5"
-    clusters = read_gse178341_clusters(
-        data / "GSE178341_crc10x_full_c295v4_submit_cluster.csv.gz"
-    )
-    metadata = read_gse178341_metadata(
-        data / "GSE178341_crc10x_full_c295v4_submit_metatables.csv.gz"
-    )
-
-    obs, _var = read_gse178341_index(h5)
-    patients = args.patients or sorted(obs["patient_id"].unique())
-    print(f"{len(patients)} patients")
-
-    # Per patient, not all at once: the full matrix is 9 GB and the estimator
-    # only ever needs one sample's cells.
-    frames = []
-    for i, patient in enumerate(patients, 1):
-        adata = read_gse178341(h5, patients=[patient])
-        compartment = assign_compartments(clusters).reindex(adata.obs.index)
-        epithelial = (compartment == "epithelial").to_numpy()
-        if not epithelial.any():
-            print(f"[{i}/{len(patients)}] {patient} — no epithelium, skipped")
-            continue
-
-        frame = contamination_by_sample(
-            adata.X, adata.var["gene_symbol"],
-            sample_id=adata.obs["sample_id"],
-            cell_mask=epithelial,
-        )
-        frame["patient_id"] = patient
-        frames.append(frame)
-        usable = frame[frame["n_cells"] >= MIN_EPITHELIAL]["contamination"]
-        median = float(usable.median()) if len(usable) else float("nan")
-        print(f"[{i}/{len(patients)}] {patient} — {len(frame)} samples, "
-              f"median {median:.1%}")
-
-    if not frames:
-        raise SystemExit("no patient produced an estimate")
-    out = pd.concat(frames, ignore_index=True)
-
-    # PROCESSING_TYPE decides which rows are interpretable at all.
-    processing = (
-        metadata[["PROCESSING_TYPE"]].reset_index().drop_duplicates()
-        if "PROCESSING_TYPE" in metadata.columns else None
-    )
-    if processing is not None:
-        key = processing.columns[0]
-        out = out.merge(
-            processing.rename(columns={key: "sample_id"}), on="sample_id", how="left"
-        )
-
+def _report(out):
     reliable = out[
         (out["n_cells"] >= MIN_EPITHELIAL)
         & (out.get("PROCESSING_TYPE", UNSORTED) == UNSORTED)
@@ -150,6 +93,104 @@ def main() -> int:
             )
     else:
         print("no reliable samples — check PROCESSING_TYPE joined correctly")
+    return reliable
+
+
+
+def attach_processing_type(frame, obs, metadata):
+    """Join PROCESSING_TYPE onto a per-sample frame.
+
+    **Via obs, not directly.** ``read_gse178341_metadata`` is indexed by
+    *barcode*, not by sample — a first version renamed that index to
+    `sample_id`, matched nothing, and reported every sample as uninterpretable
+    while the underlying numbers were fine. `obs` carries both, so joining
+    through it is the only version that cannot silently miss.
+    """
+    if "PROCESSING_TYPE" not in metadata.columns:
+        print("note: metadata has no PROCESSING_TYPE — cannot separate sorted "
+              "from unsorted samples")
+        return frame
+    joined = obs.join(metadata[["PROCESSING_TYPE"]], how="left")
+    per_sample = (
+        joined.groupby("sample_id", observed=True)["PROCESSING_TYPE"]
+        .agg(lambda x: x.dropna().iloc[0] if x.notna().any() else None)
+        .rename("PROCESSING_TYPE")
+        .reset_index()
+    )
+    out = frame.merge(per_sample, on="sample_id", how="left")
+    matched = int(out["PROCESSING_TYPE"].notna().sum())
+    print(f"PROCESSING_TYPE joined for {matched} of {len(out)} samples")
+    if matched == 0:
+        raise SystemExit(
+            "PROCESSING_TYPE matched no sample. Every contamination estimate "
+            "would be treated as uninterpretable, so stopping rather than "
+            "reporting 'no reliable samples' over numbers that are fine."
+        )
+    return out
+
+
+def main() -> int:
+    set_global_seeds(DEFAULT_SEED)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--patients", nargs="*", default=None)
+    parser.add_argument("--allow-dirty", action="store_true")
+    # Re-summarise an existing table instead of re-reading the 9 GB matrix.
+    # The per-sample estimates do not change; only the sorted/unsorted split
+    # and the printed summary do.
+    parser.add_argument("--summarise", metavar="PARQUET", default=None)
+    args = parser.parse_args()
+
+    data = Path(os.environ.get("BRP_DATA_DIR", "data")) / "raw" / "GSE178341"
+    h5 = data / "GSE178341_crc10x_full_c295v4_submit.h5"
+    clusters = read_gse178341_clusters(
+        data / "GSE178341_crc10x_full_c295v4_submit_cluster.csv.gz"
+    )
+    metadata = read_gse178341_metadata(
+        data / "GSE178341_crc10x_full_c295v4_submit_metatables.csv.gz"
+    )
+
+    obs, _var = read_gse178341_index(h5)
+
+    if args.summarise:
+        out = pd.read_parquet(args.summarise)
+        out = out.drop(columns=["PROCESSING_TYPE"], errors="ignore")
+        out = attach_processing_type(out, obs, metadata)
+        _report(out)
+        return 0
+
+    patients = args.patients or sorted(obs["patient_id"].unique())
+    print(f"{len(patients)} patients")
+
+    # Per patient, not all at once: the full matrix is 9 GB and the estimator
+    # only ever needs one sample's cells.
+    frames = []
+    for i, patient in enumerate(patients, 1):
+        adata = read_gse178341(h5, patients=[patient])
+        compartment = assign_compartments(clusters).reindex(adata.obs.index)
+        epithelial = (compartment == "epithelial").to_numpy()
+        if not epithelial.any():
+            print(f"[{i}/{len(patients)}] {patient} — no epithelium, skipped")
+            continue
+
+        frame = contamination_by_sample(
+            adata.X, adata.var["gene_symbol"],
+            sample_id=adata.obs["sample_id"],
+            cell_mask=epithelial,
+        )
+        frame["patient_id"] = patient
+        frames.append(frame)
+        usable = frame[frame["n_cells"] >= MIN_EPITHELIAL]["contamination"]
+        median = float(usable.median()) if len(usable) else float("nan")
+        print(f"[{i}/{len(patients)}] {patient} — {len(frame)} samples, "
+              f"median {median:.1%}")
+
+    if not frames:
+        raise SystemExit("no patient produced an estimate")
+    out = pd.concat(frames, ignore_index=True)
+
+    out = attach_processing_type(out, obs, metadata)
+
+    reliable = _report(out)
 
     print(f"\ntargets checked against (invariant 2): {sorted(tier_genes('A'))}")
     path = write_versioned_table(
