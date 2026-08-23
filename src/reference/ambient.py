@@ -326,9 +326,8 @@ def run_decontx(*args: Any, **kwargs: Any) -> Any:
     source for this deposit — GEO ran dropletUtils upstream. DecontX takes its
     place and the deliverable is unchanged, two methods compared.
 
-    The second method for the week-2 comparison, replacing CellBender. Needs no
-    empty droplets — it models each cell as a mixture of its own cluster's
-    distribution and contamination from the others.
+    Needs no empty droplets — it models each cell as a mixture of its own
+    cluster's distribution and contamination from the others.
 
     Caveat to carry into the write-up: because it defines contamination as
     counts resembling other clusters, it can absorb genuine low-level expression
@@ -338,5 +337,5 @@ def run_decontx(*args: Any, **kwargs: Any) -> Any:
     """
     raise NotImplementedError(
         "W1 — DecontX needs the real matrices and cluster assignments. "
-        "Add bioconductor-celda to env/w1_reference.yml first."
+        "bioconductor-celda is already pinned in env/w1_reference.yml."
     )
