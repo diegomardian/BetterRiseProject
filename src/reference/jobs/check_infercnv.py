@@ -14,10 +14,19 @@ Four questions, in increasing order of how much they tell you:
    baseline, so scoring it is an out-of-sample test — the one execution_plan.md
    asks for by name ("normal epithelium not misread as tumour").
 
-Question 3 is the one worth waiting for. A run can finish, produce a
-well-formed CSV, and have the tumour cells scoring *below* the reference —
-which would mean the reference groups were mislabelled, and every downstream
-number would be confidently backwards.
+**Questions 3 and 4 are both needed, and 4 alone is not enough.** That is not
+obvious, and it is the reason this script runs both.
+
+execution_plan.md §4 names question 4 — "normal epithelium not misread as
+tumour" — as the "done when" for this stage. But the threshold in
+`call_malignancy` is a quantile of the *reference* cells' own scores, so if the
+reference groups arrive mislabelled the threshold inverts along with them. On a
+deliberately inverted fixture, tumour epithelium scored below the diploid
+reference and question 4 still reported **98% specificity and passed**, while
+every call was backwards.
+
+Question 3 catches that, because it asks about the ordering rather than about a
+count either side of a line that moved.
 
     python src/reference/jobs/check_infercnv.py
     python src/reference/jobs/check_infercnv.py --dir /path/to/infercnv
@@ -34,7 +43,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 import pandas as pd  # noqa: E402
 
-from src.reference.malignancy import read_infercnv_score_table  # noqa: E402
+from src.reference.malignancy import (  # noqa: E402
+    MalignancyError,
+    call_malignancy,
+    read_infercnv_score_table,
+    validate_normal_epithelium,
+)
+
+#: The group each cell was written with, taken back apart. The name encodes role
+#: and compartment together — convenient for inferCNV, and it has to be undone
+#: here because call_malignancy thresholds on compartment while
+#: validate_normal_epithelium selects on role.
+GROUP_MEANING: dict[str, tuple[str, str, str]] = {
+    # group -> (compartment, role, tissue)
+    "ref_immune": ("immune", "reference_diploid", "unknown"),
+    "ref_stromal": ("stromal", "reference_diploid", "unknown"),
+    "ref_endothelial": ("endothelial", "reference_diploid", "unknown"),
+    "reference_normal_epi": ("epithelial", "reference_normal_epi", "normal"),
+    "holdout_normal_epi": ("epithelial", "holdout_normal_epi", "normal"),
+    "query": ("epithelial", "query", "tumour"),
+}
 
 #: Groups that should carry the LOWEST scores — they defined the baseline.
 REFERENCE_GROUPS = ("ref_immune", "ref_stromal", "ref_endothelial",
@@ -87,14 +115,14 @@ def main() -> int:
             "query_above_reference": ordered,
         })
 
-        print(f"\\n--- {patient} — {len(table):,} cells ---")
+        print(f"\n--- {patient} — {len(table):,} cells ---")
         print(medians.rename("median_cnv_score").to_string())
 
     if not rows:
-        raise SystemExit("\\nno run produced a readable score table")
+        raise SystemExit("\nno run produced a readable score table")
 
     summary = pd.DataFrame(rows)
-    print("\\n" + "=" * 66)
+    print("\n" + "=" * 66)
     print("DO THE SCORES ORDER THE WAY BIOLOGY REQUIRES?")
     print("=" * 66)
     print(summary.to_string(index=False))
@@ -102,26 +130,84 @@ def main() -> int:
     broken = summary[summary["query_above_reference"] == False]  # noqa: E712
     if len(broken):
         print(
-            "\\n!! " + ", ".join(broken["patient_id"])
-            + " score tumour epithelium BELOW the diploid reference.\\n"
+            "\n!! " + ", ".join(broken["patient_id"])
+            + " score tumour epithelium BELOW the diploid reference.\n"
               "   That is not a threshold problem and no cutoff will fix it — it "
-              "means the\\n   reference groups reached inferCNV mislabelled, or "
-              "the gene order file is\\n   wrong for this build. Every downstream "
-              "call from these patients would be\\n   confidently backwards. Stop "
+              "means the\n   reference groups reached inferCNV mislabelled, or "
+              "the gene order file is\n   wrong for this build. Every downstream "
+              "call from these patients would be\n   confidently backwards. Stop "
               "and find the cause."
         )
     else:
         print(
-            "\\n   Tumour epithelium scores above the diploid reference in every "
-            "patient.\\n   That is the ordering aneuploidy predicts, and it is "
-            "the cheapest evidence\\n   that the reference groups arrived intact."
+            "\n   Tumour epithelium scores above the diploid reference in every "
+            "patient.\n   That is the ordering aneuploidy predicts, and it is "
+            "the cheapest evidence\n   that the reference groups arrived intact."
         )
 
+    # THE out-of-sample check. execution_plan.md §4 lists it as the "done when"
+    # for this stage: normal epithelium must not be misread as tumour. The
+    # held-out 30% never entered the baseline, so this is genuinely out of
+    # sample — validating on baseline cells would be circular.
+    print("\n" + "=" * 66)
+    print("IS NORMAL EPITHELIUM BEING MISREAD AS TUMOUR?")
+    print("(held-out cells only — they never entered the CNV baseline)")
+    print("=" * 66)
+    validations = []
+    for run in runs:
+        try:
+            table = read_infercnv_score_table(run)
+        except Exception:  # noqa: BLE001 - already reported above
+            continue
+        if "group" not in table.columns or table["group"].isna().all():
+            continue
+
+        meaning = table["group"].map(GROUP_MEANING)
+        if meaning.isna().any():
+            unknown = sorted(set(table.loc[meaning.isna(), "group"].astype(str)))
+            print(f"{run.name:<8} unrecognised group(s) {unknown} — skipping")
+            continue
+
+        try:
+            calls = call_malignancy(
+                table["cnv_score"],
+                compartment=[m[0] for m in meaning],
+                patient_id=[run.name] * len(table),
+            )
+            validations.append(
+                validate_normal_epithelium(
+                    calls,
+                    tissue=[m[2] for m in meaning],
+                    role=[m[1] for m in meaning],
+                )
+            )
+        except MalignancyError as exc:
+            print(f"{run.name:<8} cannot validate — {exc}")
+
+    if validations:
+        report = pd.concat(validations, ignore_index=True)
+        print(report.to_string(index=False))
+        failed = report[~report["passed"]]
+        if len(failed):
+            print(
+                "\n!! " + ", ".join(failed["patient_id"])
+                + " call held-out NORMAL epithelium malignant too often.\n"
+                  "   execution_plan.md §4 says stop here. Every downstream "
+                  "compositional and\n   intrinsic number would be computed over "
+                  "a tumour arm contaminated with\n   normal cells, or a normal "
+                  "arm stripped of them."
+            )
+        else:
+            print(
+                "\n   Every patient clears the specificity floor, on cells the "
+                "baseline never saw.\n   This is the check §4 names as the "
+                "'done when' for malignancy calling."
+            )
+
     print(
-        "\\nNEXT: call_malignancy() thresholds these per patient against the\\n"
-        "reference cells' own scores, then validate_normal_epithelium() scores\\n"
-        "the held-out normal epithelium — the out-of-sample check that\\n"
-        "execution_plan.md asks for by name."
+        "\nNEXT: write these calls to a versioned parquet under results/ before\n"
+        "anything clears data/interim — cnv_scores.csv is gitignored and the run\n"
+        "is hours of compute."
     )
     return 0
 
