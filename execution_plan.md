@@ -164,7 +164,7 @@ The split works because each stream owns a distinct data artifact with a frozen 
 |----|------|-----------|
 | 1 | Ingest, QC (per-study thresholds, not global), doublet detection (scDblFinder or Scrublet) | Cell counts by patient and tissue tabulated; QC thresholds documented with rationale |
 | 1–2 | Pilot subset: 5 patients through the full pipeline | Handed to W2 by end of week 2 |
-| 2 | Ambient correction: SoupX and CellBender, both, compared | Per-gene retention table; correlation between methods reported |
+| 2 | Ambient correction: **SoupX and DecontX**, both, compared | Per-gene retention table; correlation between methods reported. **Restated 2026-08-22: was SoupX and CellBender.** CellBender requires unfiltered droplets, and open decision #8 established that none exist in any public source for GSE178341 — GEO ran dropletUtils upstream. DecontX (`bioconductor-celda`) replaces it: it needs no empty droplets, modelling each cell as a mixture of its own cluster's distribution and contamination from the others. The deliverable is unchanged — two methods, compared. |
 | 2–3 | Malignant vs. normal epithelium: inferCNV, CopyKAT as cross-check | Per-cell malignancy call with confidence; normal epithelium not misread as tumour |
 | 3–4 | Cell labels, axes 1 and 2, all four granularity rungs | Labels stored as separate columns, never overwriting each other |
 | 4–5 | Build S matrices — including stromal, immune, endothelial columns | Versioned parquet, fixed gene index, one per rung |
@@ -174,7 +174,7 @@ The split works because each stream owns a distinct data artifact with a frozen 
 
 - GSE178341 supplementary structure is awkward — budget a day just for parsing. Verify you have raw counts, not normalised values.
 - inferCNV on 371k cells is slow. Subsample per patient, or run per-patient in parallel.
-- CellBender wants a GPU. Without one, budget overnight runs.
+- ~~CellBender wants a GPU. Without one, budget overnight runs.~~ **CellBender cannot run on this deposit at all** — no unfiltered droplets exist publicly (decision #8). DecontX replaces it and is CPU-only. Note also that inferCNV is CPU-only, so the single-cell arm needs no GPU whatever; the constraint that actually binds is **disk**, and the project filesystem is 55 GB.
 - Use backed AnnData for anything that does not need the full matrix in memory.
 
 ### W2 — Method
@@ -313,7 +313,7 @@ W2 and W3 jointly run bulk deconvolution on TCGA with the full-signature S — f
 | Task | Realistic requirement |
 |------|------------------------|
 | GSE178341 full load | 32 GB RAM (backed mode makes 16 GB workable but painful) |
-| CellBender | GPU strongly preferred; CPU means overnight per sample batch |
+| ~~CellBender~~ → DecontX | CellBender is unusable here (no empty droplets, decision #8). DecontX is CPU-only and runs per sample. |
 | inferCNV, 371k cells | Hours to a day; parallelise per patient |
 | Bootstrap × rungs × axes × tiers | Embarrassingly parallel; the combinatorics are the cost, not any single fit |
 | TCGA-COAD/READ bulk | Trivial by comparison — laptop-fine |

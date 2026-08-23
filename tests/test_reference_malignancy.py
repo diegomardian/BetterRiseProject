@@ -20,6 +20,7 @@ from src.reference.malignancy import (
     assign_cnv_roles,
     call_malignancy,
     cleanup_infercnv_run,
+    cnv_separation,
     infercnv_reference_groups,
     read_infercnv_score_table,
     read_infercnv_scores,
@@ -720,3 +721,61 @@ class TestGenePositions:
             + self._gene("chrX", 10, 20, "D")
         )
         assert [r[0] for r in self._parse(text)] == ["A", "C", "B", "D"]
+
+
+class TestCNVSeparation:
+    """A threshold can always be drawn. The question is whether anything is on
+    the other side of it."""
+
+    def _frame(self, query_shift, n_query=400, n_comp=200, seed=0):
+        rng = np.random.default_rng(seed)
+        score = np.concatenate([
+            rng.normal(0.002, 0.0005, n_comp),
+            rng.normal(0.002 + query_shift, 0.0005, n_query),
+        ])
+        group = ["holdout_normal_epi"] * n_comp + ["query"] * n_query
+        return score, group, ["P1"] * (n_comp + n_query)
+
+    def test_a_clearly_aneuploid_tumour_is_separable(self):
+        score, group, patient = self._frame(query_shift=0.003)
+        out = cnv_separation(score, group=group, patient_id=patient).iloc[0]
+        assert bool(out["separable"])
+        assert out["enrichment"] > 5
+
+    def test_a_near_diploid_tumour_is_not(self):
+        """MMRd tumours look like this, and it is biology rather than failure."""
+        score, group, patient = self._frame(query_shift=0.0)
+        out = cnv_separation(score, group=group, patient_id=patient).iloc[0]
+        assert not bool(out["separable"])
+        assert out["enrichment"] == pytest.approx(1.0, abs=0.4)
+        assert "below" in out["reason"]
+
+    def test_the_null_is_one_tenth_not_zero(self):
+        """By construction a tenth of copy-neutral cells sit above their own
+        90th percentile. Scoring against zero would call every patient
+        separable."""
+        score, group, patient = self._frame(query_shift=0.0)
+        out = cnv_separation(score, group=group, patient_id=patient).iloc[0]
+        assert out["fraction_above"] == pytest.approx(0.10, abs=0.05)
+
+    def test_a_missing_holdout_is_not_separable_rather_than_an_error(self):
+        score = np.full(50, 0.002)
+        out = cnv_separation(
+            score, group=["query"] * 50, patient_id=["P1"] * 50
+        ).iloc[0]
+        assert not bool(out["separable"])
+        assert "comparator" in out["reason"]
+
+    def test_patients_are_judged_independently(self):
+        s1, g1, _ = self._frame(query_shift=0.003, seed=1)
+        s2, g2, _ = self._frame(query_shift=0.0, seed=2)
+        out = cnv_separation(
+            np.concatenate([s1, s2]), group=list(g1) + list(g2),
+            patient_id=["STRONG"] * len(s1) + ["FLAT"] * len(s2),
+        ).set_index("patient_id")
+        assert bool(out.loc["STRONG", "separable"])
+        assert not bool(out.loc["FLAT", "separable"])
+
+    def test_length_mismatch_refuses(self):
+        with pytest.raises(MalignancyError, match="lengths differ"):
+            cnv_separation([1.0, 2.0], group=["query"], patient_id=["P1", "P1"])

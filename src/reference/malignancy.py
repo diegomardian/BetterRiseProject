@@ -287,6 +287,88 @@ def call_malignancy(
     )
 
 
+#: Fraction of a copy-neutral population expected above its own 90th percentile.
+#: The null for :func:`cnv_separation`, and it is 0.10 rather than 0 — a patient
+#: sitting at 0.10 has no excess aneuploid population at all.
+SEPARATION_NULL: Final[float] = 0.10
+
+#: Enrichment over that null below which no malignancy call is made. 1.5x is a
+#: judgement, not a derivation: it says the aneuploid population must be half
+#: again what chance produces before a threshold is drawn through it.
+MIN_SEPARATION_ENRICHMENT: Final[float] = 1.5
+
+
+def cnv_separation(
+    cnv_score: Any,
+    *,
+    group: Any,
+    patient_id: Any,
+    comparator: str = "holdout_normal_epi",
+    query: str = "query",
+    null: float = SEPARATION_NULL,
+    min_enrichment: float = MIN_SEPARATION_ENRICHMENT,
+) -> pd.DataFrame:
+    """Is there an aneuploid population to call at all? Per patient.
+
+    **The precondition for malignancy calling, and it is not always met.**
+    :func:`call_malignancy` will happily threshold any distribution; this asks
+    whether there is anything on the other side of the threshold.
+
+    Compares the query against the patient's **held-out normal epithelium** —
+    same cell type, same patient, never in the CNV baseline, so the only
+    difference left is copy number. Not against the diploid compartments: once
+    the baseline is matched normal epithelium, immune and stromal cells deviate
+    from it for ordinary cell-type reasons, and comparing to them measures the
+    wrong thing.
+
+    The statistic is the fraction of query cells above the comparator's 90th
+    percentile, read as enrichment over a null of **0.10** — by construction a
+    tenth of copy-neutral cells sit above their own 90th percentile.
+
+    **Expect this to fail for some patients, and expect it to fail
+    non-randomly.** MMR-deficient tumours are characteristically near-diploid,
+    so there is genuinely no aneuploid population to find. That is a fact about
+    the tumour, not a defect in the run, and it is why `separable` is reported
+    rather than a threshold being lowered until something appears. See open
+    decision #15 — the failures are expected to concentrate in one arm of a
+    pre-registered contrast.
+    """
+    scores = np.asarray(cnv_score, dtype=float)
+    groups = np.asarray([str(g) for g in group], dtype=object)
+    patients = np.asarray([str(p) for p in patient_id], dtype=object)
+    if not (scores.shape[0] == groups.shape[0] == patients.shape[0]):
+        raise MalignancyError(
+            f"lengths differ: cnv_score {scores.shape[0]}, group "
+            f"{groups.shape[0]}, patient_id {patients.shape[0]}"
+        )
+
+    rows = []
+    for patient in pd.unique(patients):
+        here = patients == patient
+        q = scores[here & (groups == query)]
+        c = scores[here & (groups == comparator)]
+        if q.size == 0 or c.size == 0:
+            rows.append({
+                "patient_id": patient, "n_query": int(q.size),
+                "n_comparator": int(c.size), "fraction_above": float("nan"),
+                "enrichment": float("nan"), "separable": False,
+                "reason": "no query or no held-out comparator",
+            })
+            continue
+        cut = float(np.quantile(c, 1.0 - null))
+        fraction = float((q > cut).mean())
+        enrichment = fraction / null if null else float("nan")
+        separable = bool(enrichment >= min_enrichment)
+        rows.append({
+            "patient_id": patient, "n_query": int(q.size),
+            "n_comparator": int(c.size), "fraction_above": fraction,
+            "enrichment": enrichment, "separable": separable,
+            "reason": "" if separable else
+                      f"enrichment {enrichment:.2f}x below {min_enrichment}x",
+        })
+    return pd.DataFrame(rows)
+
+
 def validate_normal_epithelium(
     calls: pd.DataFrame,
     *,
