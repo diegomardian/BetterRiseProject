@@ -11,6 +11,10 @@ The acceptance criteria are guesses about your side, not requirements on how you
 get there — if one is wrong or costlier than it looks, say so rather than
 building the wrong thing.
 
+> **W4 replied on 2026-08-23 and W2 answered** — see
+> [reply_w2_to_w4.md](reply_w2_to_w4.md). The W4 section below is superseded
+> by it; the W1 sections are still current.
+
 **Correction up front.** An earlier draft of this said the pilot had not been
 run, on the evidence that nothing in `results/` was W1's. That was wrong:
 `src/reference/jobs/run_pilot.py` exists, ten pilot arms have been run, and the

@@ -1,6 +1,8 @@
 # W4 — Estimator & replication
 
-> **W2 needs two things from you** — see [docs/handoff_w2_to_w1_w4.md](../../docs/handoff_w2_to_w1_w4.md).
+> **W2 → W4 reply, 2026-08-23** — your three asks accepted, your five questions
+> answered: [docs/reply_w2_to_w4.md](../../docs/reply_w2_to_w4.md).
+> Original ask: [docs/handoff_w2_to_w1_w4.md](../../docs/handoff_w2_to_w1_w4.md).
 
 **Owner:** strongest methods implementer · **Env:** `env/w4_estimator.yml` → `conda activate brp-w4`
 **Branch prefix:** `w4/…` · **Blocked by:** your own cohort only
