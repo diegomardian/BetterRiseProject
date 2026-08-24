@@ -110,7 +110,7 @@ def main() -> int:
     targets = sorted(tier_genes("A"))
     print(f"{len(patients)} patients · targets {targets}")
 
-    counts_all, degeneracy_all = [], []
+    counts_all, degeneracy_all, skipped = [], [], []
     for i, patient in enumerate(patients, 1):
         adata = read_gse178341(h5, patients=[patient])
         compartment = assign_compartments(clusters).reindex(adata.obs.index)
@@ -128,6 +128,19 @@ def main() -> int:
         if keep.sum() < 50:
             print(f"[{i}/{len(patients)}] {patient} — {int(keep.sum())} usable "
                   f"cells, skipped")
+            continue
+
+        # No normal epithelium means no reference arm, so no cut points and no
+        # compositional term (#9). That is the expected state for the 26
+        # unmatched patients, and for anyone whose normal arm was ambient-
+        # excluded (#16) — a fact about the cohort, not an error. Skipped and
+        # counted, so the loss stays visible rather than crashing the run.
+        is_epi = compartment.to_numpy()[keep] == "epithelial"
+        is_normal = adata.obs["tissue"].to_numpy()[keep] == "normal"
+        if not (is_epi & is_normal).any():
+            print(f"[{i}/{len(patients)}] {patient} — no normal epithelium, "
+                  f"skipped (no reference arm: #9)")
+            skipped.append({"patient_id": patient, "reason": "no normal epithelium"})
             continue
 
         labels = assign_labels(
@@ -163,6 +176,11 @@ def main() -> int:
     if not counts_all:
         raise SystemExit("no patient produced labels")
     counts = pd.concat(counts_all, ignore_index=True)
+
+    if skipped:
+        print(f"\n{len(skipped)} patient(s) skipped for want of a reference "
+              f"arm — expected for the 26 unmatched (#9):")
+        print("  " + ", ".join(x["patient_id"] for x in skipped))
 
     print("\n" + "=" * 60)
     print("PAIRED n UNDER EACH TUMOUR-ARM DEFINITION")
