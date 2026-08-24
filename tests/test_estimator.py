@@ -205,19 +205,19 @@ def test_negative_cell_count_is_an_error_not_a_verdict():
 
 
 def test_gate_g4_passes_when_most_patients_are_estimable():
-    v = gate_g4_verdict([200, 150, 80, 60, 5])
+    v = gate_g4_verdict([200, 150, 80, 60, 5], n_unmatched_patients=0)
     assert v["passes"] and v["fraction_below"] == pytest.approx(0.2)
 
 
 def test_gate_g4_fails_and_names_the_pre_committed_consequence():
-    v = gate_g4_verdict([2, 3, 4, 200])
+    v = gate_g4_verdict([2, 3, 4, 200], n_unmatched_patients=0)
     assert not v["passes"]
     assert "headline" in v["consequence"]
 
 
 def test_gate_g4_needs_patients():
     with pytest.raises(ValueError):
-        gate_g4_verdict([])
+        gate_g4_verdict([], n_unmatched_patients=0)
 
 
 # ---------------------------------------------------------------------------
@@ -369,3 +369,47 @@ def test_attach_intrinsic_ci_output_validates_against_the_frozen_schema():
     ci = bootstrap_over_patients(summary, n_boot=30, seed=0)
     merged = attach_intrinsic_ci(point, ci)
     validate_results(coerce_results(merged))
+
+
+# ---------------------------------------------------------------------------
+# G4's population — issue #9, decided 2026-08-23 before any result existed
+# ---------------------------------------------------------------------------
+
+
+def test_g4_requires_the_population_to_be_stated():
+    """No default. A default is how the wrong population gets used without
+    anyone choosing it, and the choice is unfalsifiable once results exist."""
+    with pytest.raises(TypeError):
+        gate_g4_verdict([200, 150, 80])  # type: ignore[call-arg]
+
+
+def test_g4_excludes_unmatched_patients_from_the_fraction():
+    """The GSE178341 shape: 36 matched, 26 without a normal arm.
+
+    Counting the 26 as zero-mature would add 26 guaranteed-below rows to 36 real
+    ones and push fraction_below toward the 50% line on a cohort-design fact.
+    """
+    matched = [200] * 30 + [1] * 6  # 6/36 genuinely below = 16.7%
+    with_unmatched = gate_g4_verdict(matched, n_unmatched_patients=26)
+    assert with_unmatched["n_patients"] == 36
+    assert with_unmatched["fraction_below"] == pytest.approx(6 / 36)
+    assert with_unmatched["passes"]
+
+    # The mistake this guards against, shown explicitly.
+    if_mixed = gate_g4_verdict(matched + [0] * 26, n_unmatched_patients=0)
+    assert if_mixed["fraction_below"] == pytest.approx(32 / 62)
+    assert not if_mixed["passes"]  # fails the gate on cohort design alone
+
+
+def test_g4_still_reports_the_coverage_fact():
+    """Excluded from the fraction, not from the record."""
+    v = gate_g4_verdict([200] * 36, n_unmatched_patients=26)
+    assert v["population"] == "matched_only"
+    assert v["n_unmatched_excluded"] == 26
+    assert v["n_patients_in_cohort"] == 62
+    assert v["matched_fraction"] == pytest.approx(36 / 62)
+
+
+def test_g4_rejects_a_negative_unmatched_count():
+    with pytest.raises(ValueError, match="negative"):
+        gate_g4_verdict([200], n_unmatched_patients=-1)
