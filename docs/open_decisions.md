@@ -85,7 +85,7 @@ Ranked by what breaks if they stay open. Seven are live.
 | **8** | No unfiltered droplets | ANSWERED | CellBender out; SoupX + DecontX in. W4 has the same exposure on Lee. |
 | **2/3** | Shared gene index | **ANSWERED** | W3 measured the overlap: 39,236 genes in both, all 23 panel genes present. 1.0.0 = the intersection. Ratify, do not re-decide. |
 | **16** | Ambient: measure not correct; exclude >10% | **PRE-COMMITTED** | Median 2.2%, but 9 of 84 samples above 10%. Threshold set before counting its cost. |
-| **15** | CNV calling may fail differentially by MMR status | OPEN | Near-diploid MMRd tumours give inferCNV nothing to find. Bias runs **along** the pre-registered contrast. |
+| **15** | CNV calling fails differentially by MMR status | **CONFIRMED** | 62-patient run: **15/15 MMRp separable, 15/20 MMRd**, monotone across four strata, 3x enrichment gap. Bias runs **along** the pre-registered contrast. |
 | — | CNV reference design | NEEDS SIGN-OFF | Matched normal with 30% held out. **Corrected once** — see `src/reference/malignancy.py`. |
 
 Not decisions, but outstanding and cheap: tell W3 the gene index is emitted at
@@ -1314,6 +1314,49 @@ percentile):
 MMRd, and C107 (MMRp, 2.0x) sits between two MMRd patients. Nothing here would
 survive a significance test and none is claimed. What makes it worth recording
 is that the biological prior is independent of these five points.
+
+### CONFIRMED AT FULL SCALE — 2026-08-24
+
+62 patients through inferCNV. Restricted to the **36 with a matched normal**, so
+a patient failing for want of a comparator is not counted as failing for
+biology:
+
+| stratum | separable | rate | median enrichment |
+|---|---|---|---|
+| `mmr_proficient` | 15 / 15 | **100%** | **7.38** |
+| `mlh1_methylated` | 10 / 12 | 83% | 2.50 |
+| `mlh1_intact_mmrd` | 4 / 6 | 67% | 2.26 |
+| `mlh1_deficient_unmethylated` | 1 / 2 | 50% | 1.52 |
+
+**Every MMR-proficient patient separates. None fails.** The MMRd strata fall away
+monotonically, and the median aneuploid enrichment in MMRp is **~3x** the
+methylated stratum's.
+
+**The statistics, stated honestly.** All five separability failures land outside
+MMRp; under random assignment that has probability **0.048** one-sided. The
+direction was pre-specified in this document before the run, so a one-sided read
+is legitimate — but n=35 and the two-sided p is not significant. The stronger
+evidence is not the 2x2: it is that **four strata order monotonically, on both
+the rate and the enrichment, in the direction an independent literature
+predicts**. A single test on a collapsed table throws that away.
+
+**So the concern this decision was opened on is real.** It is no longer a
+prediction from MSI biology; it is measured in this cohort.
+
+### Two consequences that now need deciding, not noting
+
+1. **The MMRd arm loses ~25% of its patients to `not_called`, and the survivors
+   are weaker.** Median enrichment 2.5 against MMRp's 7.4 means the surviving
+   MMRd calls sit closer to their threshold — so the MMRd arm is both smaller
+   *and* noisier, in a contrast where it is compared against an arm that lost
+   nobody.
+2. **Any comparison of malignancy-filtered results between MMR strata is
+   confounded by this**, and no downstream method removes it. The filtered MMRd
+   arm is a biased subsample of MMRd; the filtered MMRp arm is all of MMRp.
+
+The sensitivity run proposed below — decomposition with and without malignancy
+filtering — stops being optional. It is the only way to see how much of any MMR
+difference is this artifact.
 
 ### Why it matters more than a QC wrinkle
 
