@@ -23,6 +23,7 @@ from src.common.panel import panel_genes
 from src.reference.ambient import (
     IMPOSSIBLE_GENES,
     AmbientError,
+    ambient_exclusions,
     compare_retention,
     contamination_by_sample,
     contamination_fraction,
@@ -502,3 +503,34 @@ class TestRetentionComparison:
         soupx, decontx = self._pair()
         out = compare_retention(soupx, decontx, sample_id="C122_N_1_1_0_c1_v2")
         assert set(out["sample_id"]) == {"C122_N_1_1_0_c1_v2"}
+
+
+class TestAmbientExclusions:
+    """#16's threshold was fixed before this existed. The function reports what
+    it costs; it does not offer to revise the number."""
+
+    def _frame(self):
+        return pd.DataFrame({
+            "sample_id": ["clean", "dirty", "unmeasured"],
+            "contamination": [0.02, 0.19, None],
+        })
+
+    def test_above_the_threshold_is_excluded(self):
+        out = ambient_exclusions(self._frame()).set_index("sample_id")
+        assert bool(out.loc["dirty", "excluded"])
+        assert not bool(out.loc["clean", "excluded"])
+
+    def test_an_unmeasurable_sample_is_kept_not_excluded(self):
+        """'We could not tell' is not 'too dirty'. Excluding it would silently
+        remove the sparsest samples, which can least afford to lose cells."""
+        out = ambient_exclusions(self._frame()).set_index("sample_id")
+        assert not bool(out.loc["unmeasured", "excluded"])
+        assert "kept" in out.loc["unmeasured", "reason"]
+
+    def test_the_threshold_is_the_committed_one(self):
+        from src.reference.ambient import MAX_CONTAMINATION
+        assert MAX_CONTAMINATION == 0.10
+
+    def test_every_exclusion_carries_a_reason(self):
+        out = ambient_exclusions(self._frame())
+        assert (out.loc[out["excluded"], "reason"] != "").all()

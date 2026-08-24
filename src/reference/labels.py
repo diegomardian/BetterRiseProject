@@ -603,6 +603,41 @@ def mature_mask(labels: pd.DataFrame, axis: str, rung: str) -> np.ndarray:
     return (labels[column].astype(str) == RUNG_SPECS[rung].mature).to_numpy()
 
 
+#: What each axis measures, in the words its own concordance supports.
+#:
+#: **Axis 2 is not a maturity axis and reporting it as one is the error this
+#: fixes.** Scored against its own criterion it reaches kappa 0.529 — higher
+#: than axis 1's 0.444 — so it measures the goblet program well. It was only
+#: ever a *maturity* proxy by the argument that "not secretory" implies "on the
+#: absorptive path", and that argument does not survive contact with the data:
+#: axis 2 calls stem cells mature, because stem cells are not goblet.
+#:
+#: The frozen config (`config/labeling_axes.yaml`) names the axes and their
+#: genes and is not touched here. What changes is that the interpretation
+#: travels with the numbers, so a consumer cannot read axis 2's
+#: `differentiated` bin as "mature".
+AXIS_INTERPRETATION: Final[dict[str, str]] = {
+    "stem_pole": "distance from the stem pole; mature = no stem marker detected",
+    "opposite_lineage": "goblet/secretory program; NOT a maturity axis",
+}
+
+#: How the tumour arm is defined. **Open decision #15 and prereg amendment 1.**
+#:
+#: `filtered` counts only epithelial cells called malignant. Precise, and
+#: differentially biased: CNV calling separates 15/15 MMR-proficient patients
+#: against 15/20 MMRd, and within callable patients calls 3.4x fewer MMRd cells
+#: malignant. Both follow from MMRd tumours being near-diploid.
+#:
+#: `unfiltered` counts all epithelium from tumour samples. Imprecise — it
+#: retains non-malignant epithelium, which is mature — but the imprecision is
+#: the SAME in both strata, and a consistent bias cancels in a difference where
+#: a differential one does not.
+#:
+#: Neither is the real one. The amendment reports both and pre-commits to
+#: treating disagreement as "not identifiable" rather than choosing.
+TUMOUR_ARMS: Final[tuple[str, ...]] = ("filtered", "unfiltered")
+
+
 def mature_cell_counts(
     labels: pd.DataFrame,
     *,
@@ -610,14 +645,26 @@ def mature_cell_counts(
     tissue: Any,
     axes: Any = TRANSCRIPT_AXES,
     rungs: Any = None,
+    malignant: Any = None,
+    tumour_arm: str = "unfiltered",
 ) -> pd.DataFrame:
     """Mature-cell counts per (patient, tissue, axis, rung). Long form.
+
+    `tumour_arm` selects which cells constitute the tumour arm — see
+    :data:`TUMOUR_ARMS`, open decision #15, and
+    `docs/prereg_amendment_1_mmr_tumour_arm.md`. ``"filtered"`` requires
+    `malignant`, a per-cell boolean from
+    :func:`src.reference.malignancy.call_malignancy`, and drops tumour-sample
+    epithelium not called malignant. **Report both definitions; do not pick
+    one.**
 
     This is `n_cells_mature` in the frozen output schema, and it is what decides
     positivity — whether a patient's intrinsic term is estimable at all. The
     thresholds themselves belong to W2 (`src/harness/positivity.py`); this
     supplies the counts, deliberately without applying them.
     """
+    if tumour_arm not in TUMOUR_ARMS:
+        raise LabelError(f"tumour_arm must be one of {TUMOUR_ARMS}, got {tumour_arm!r}")
     rungs = list(rungs) if rungs is not None else granularity_rungs()
     keys = pd.DataFrame(
         {
@@ -625,6 +672,24 @@ def mature_cell_counts(
             "tissue": [str(t) for t in tissue],
         }
     )
+    # Drop non-malignant tumour epithelium under the filtered definition. Normal
+    # arm untouched: its epithelium is supposed to be non-malignant, and
+    # filtering it would remove the reference the contrast is against.
+    drop = np.zeros(len(keys), dtype=bool)
+    if tumour_arm == "filtered":
+        if malignant is None:
+            raise LabelError(
+                "tumour_arm='filtered' needs `malignant` — a per-cell boolean "
+                "from call_malignancy(). Without it the filtered arm cannot be "
+                "distinguished from the unfiltered one, which is the whole "
+                "point of reporting both (prereg amendment 1)."
+            )
+        is_malignant = np.asarray(malignant, dtype=bool)
+        if is_malignant.shape[0] != len(keys):
+            raise LabelError(
+                f"malignant has {is_malignant.shape[0]} entries for {len(keys)} cells"
+            )
+        drop = (keys["tissue"].to_numpy() == "tumour") & ~is_malignant
     if len(keys) != len(labels):
         raise LabelError(f"patient_id has {len(keys)} entries for {len(labels)} cells")
 
@@ -636,8 +701,9 @@ def mature_cell_counts(
             # indexed by barcode, so assigning a Series here aligns on index,
             # matches nothing, and silently yields an all-NaN column.
             column = labels[label_column(axis, rung)].astype(str).to_numpy()
-            epithelial = column != NON_EPITHELIAL
-            unresolved = column == UNRESOLVED
+            epithelial = (column != NON_EPITHELIAL) & ~drop
+            unresolved = (column == UNRESOLVED) & ~drop
+            mature = mature & ~drop
             grouped = (
                 keys.assign(mature=mature, epithelial=epithelial, unresolved=unresolved)
                 .groupby(["patient_id", "tissue"], observed=True)
@@ -650,6 +716,8 @@ def mature_cell_counts(
             )
             grouped["labeling_axis"] = axis
             grouped["granularity_rung"] = rung
+            grouped["tumour_arm"] = tumour_arm
+            grouped["axis_measures"] = AXIS_INTERPRETATION.get(axis, "")
             # Denominator is the RESOLVED epithelium. Cells dropped by depth
             # matching are reported separately rather than counted as immature —
             # a cell that could not be measured is not a cell measured to be

@@ -293,6 +293,48 @@ def contamination_by_sample(
     return pd.DataFrame(rows).sort_values("sample_id", ignore_index=True)
 
 
+#: Contamination above which a sample leaves the compositional arm.
+#: **Open decision #16, committed 2026-08-23 before counting what it removes.**
+#: Above roughly a tenth of counts being ambient, the per-cell marker detection
+#: that axis 1's maturity call depends on is materially perturbed — that call is
+#: a detection gate at a matched depth of ~3,300 UMIs, so ~330 ambient counts is
+#: not a rounding error in it. Having chosen not to correct, a sample whose
+#: ambient share approaches the effects being estimated cannot be rescued by a
+#: caveat.
+MAX_CONTAMINATION: Final[float] = 0.10
+
+
+def ambient_exclusions(
+    contamination: pd.DataFrame, *, threshold: float = MAX_CONTAMINATION
+) -> pd.DataFrame:
+    """Which samples leave the compositional arm, and what that costs.
+
+    **The threshold was fixed before this was written** (#16). A threshold
+    chosen after seeing how many patients it removes is not a threshold, so this
+    reports the cost rather than offering to revise the number.
+
+    Samples with no estimate are **kept**, not excluded. An unmeasurable
+    contamination is not a high one, and treating "we could not tell" as "too
+    dirty" would silently remove the sparsest samples — which are already the
+    ones least able to spare cells.
+
+    Returns one row per sample with `excluded` and the reason.
+    """
+
+    missing = {"sample_id", "contamination"} - set(contamination.columns)
+    if missing:
+        raise AmbientError(f"contamination is missing column(s): {sorted(missing)}")
+
+    out = contamination.loc[:, ["sample_id", "contamination"]].copy()
+    measured = out["contamination"].notna()
+    out["excluded"] = measured & (out["contamination"] > threshold)
+    out["reason"] = np.where(
+        out["excluded"], f"contamination above {threshold:.0%}",
+        np.where(measured, "", "no estimate — kept, not excluded"),
+    )
+    return out
+
+
 def differential_contamination(
     contamination: pd.DataFrame, *, warn_at: float = 0.05
 ) -> pd.DataFrame:
