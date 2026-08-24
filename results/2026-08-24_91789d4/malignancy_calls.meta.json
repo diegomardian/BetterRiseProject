@@ -1,0 +1,33 @@
+{
+  "date": "2026-08-24",
+  "utc_timestamp": "2026-08-24T20:13:29+00:00",
+  "git_sha": "91789d4d82eb685471a3376e54bf4b92c68ebf1a",
+  "git_sha_short": "91789d4",
+  "git_branch": "main",
+  "git_dirty": false,
+  "seed": 20260101,
+  "python": "3.11.15",
+  "platform": "Linux-4.18.0-553.153.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "scanpy_version": "1.10.2",
+  "anndata_version": "0.10.8",
+  "notes": "Per-cell malignancy calls from inferCNV. Patients without a separable aneuploid population carry not_called rather than a threshold drawn through noise (open decision #15).",
+  "name": "malignancy_calls",
+  "n_rows": 370115,
+  "columns": [
+    "patient_id",
+    "compartment",
+    "cnv_score",
+    "threshold",
+    "confidence",
+    "call",
+    "cell",
+    "role",
+    "tissue"
+  ],
+  "table_kind": "harness",
+  "n_patients": 62,
+  "n_separable": 30,
+  "n_cells": 370115
+}

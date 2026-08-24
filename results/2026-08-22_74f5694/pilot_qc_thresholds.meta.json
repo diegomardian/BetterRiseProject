@@ -1,0 +1,29 @@
+{
+  "date": "2026-08-22",
+  "utc_timestamp": "2026-08-22T20:45:56+00:00",
+  "git_sha": "74f569498c4ac5c0c0e03dc92b7c5ae550f25c00",
+  "git_sha_short": "74f5694",
+  "git_branch": "main",
+  "git_dirty": false,
+  "seed": 20260101,
+  "python": "3.11.15",
+  "platform": "Linux-4.18.0-553.157.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "scanpy_version": "1.10.2",
+  "anndata_version": "0.10.8",
+  "notes": "five-patient pilot: C122, C165, C107, C138, C162",
+  "name": "pilot_qc_thresholds",
+  "n_rows": 69,
+  "columns": [
+    "batch",
+    "metric",
+    "lower",
+    "upper",
+    "method",
+    "rationale",
+    "n_cells",
+    "n_failed"
+  ],
+  "table_kind": "harness"
+}
