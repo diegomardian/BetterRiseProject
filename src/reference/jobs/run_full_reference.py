@@ -51,7 +51,11 @@ from src.reference.labels import (  # noqa: E402
     mature_cell_counts,
     rung_degeneracy,
 )
-from src.reference.qc import apply_qc, cell_qc_metrics  # noqa: E402
+from src.reference.qc import (  # noqa: E402
+    apply_qc,
+    cell_qc_metrics,
+    qc_thresholds,
+)
 
 S_MATRIX_VERSION = "1.0.0"
 GENE_INDEX_VERSION = "1.0.0"
@@ -112,7 +116,9 @@ def main() -> int:
         compartment = assign_compartments(clusters).reindex(adata.obs.index)
         metrics = cell_qc_metrics(adata.X, adata.var["gene_symbol"],
                                   batch=adata.obs["sample_id"])
-        keep = apply_qc(metrics).to_numpy()
+        # Thresholds per batch, then applied — every judgement lives in
+        # qc_thresholds() so what got applied stays auditable from the table.
+        keep = apply_qc(metrics, qc_thresholds(metrics)).to_numpy()
 
         # Unsorted only (#11), minus the ambient exclusions (#16).
         joined = adata.obs.join(metadata, how="left")
