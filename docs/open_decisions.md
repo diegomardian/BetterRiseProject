@@ -1620,6 +1620,64 @@ should be stated in the same sentence as the rule.**
 
 ---
 
+## 17 · G1's threshold, committed before any G1 number exists — PRE-COMMITTED 2026-08-25
+
+**Raised:** W1 · **Owner:** W1 + whoever owns the gate · **Status:** committed
+before `checks.py` was written, let alone run
+
+G1 asks whether the residual signal is ambient RNA rather than biology. Ambient
+counts are enriched for whatever is abundant, so **if a gene's apparent loss
+tracks its abundance, the loss is a property of the soup and not of the tumour.**
+
+### The statistic
+
+Spearman correlation between **gene abundance** (mean expression across the
+cohort) and **apparent loss** (Δ per-cell mean, tumour minus normal), computed
+**within each panel tier separately** — A (compositional targets), B (intrinsic
+targets), D (neither, the negative control).
+
+Spearman rather than Pearson for the same reason as the retention comparison:
+abundance spans orders of magnitude and a handful of very high genes would
+otherwise decide the answer.
+
+### The pre-committed thresholds
+
+**G1 FAILS if either holds:**
+
+1. **|ρ| > 0.5 in tier D.** Tier D genes are chosen to have no differentiation
+   story. A strong abundance-loss relationship *there* has no biological reading
+   left — it is the soup, measured.
+2. **The three tier correlations fall within 0.2 of one another.** That is what
+   "tracks abundance across all tiers" means: if A, B and D behave alike, the
+   panel is measuring abundance and the tier structure — which is the whole
+   falsification design — carries no information.
+
+**G1 PASSES if** tier D is flat (|ρ| ≤ 0.5) **and** tiers A and B separate from
+D by more than 0.2.
+
+### Why these numbers
+
+0.5 is the same rank-correlation line already used for method agreement in #16,
+so the project uses one meaning of "these two things track each other" rather
+than a different one per test. 0.2 is the smallest separation that survives
+n≈8 genes per tier — below that, tier differences are not distinguishable from
+noise at this panel size, and pretending otherwise would manufacture a pass.
+
+**Neither number was chosen by looking at a G1 result, because none exists.**
+When `checks.py` runs, its output is compared against this and the comparison is
+reported whichever way it goes.
+
+### What a failure would mean
+
+Not that the project is wrong — that **this cohort cannot separate the signal
+from the soup**, and the honest report is the non-identifiability, with the
+diagnostics, as the result. That is the same consequence G4 carries, and the
+same three-way framing the whole project rests on.
+
+Recorded here rather than in code so the commitment has a date and a diff.
+
+---
+
 ## Closed
 
 *(none yet — move entries here with the date and the decision, do not delete them)*
