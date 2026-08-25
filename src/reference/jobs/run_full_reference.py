@@ -140,7 +140,19 @@ def main() -> int:
         if not (is_epi & is_normal).any():
             print(f"[{i}/{len(patients)}] {patient} — no normal epithelium, "
                   f"skipped (no reference arm: #9)")
-            skipped.append({"patient_id": patient, "reason": "no normal epithelium"})
+            # WHY the reference arm is missing decides which rule to report it
+            # against, and they are not interchangeable: no normal sample at all
+            # is a cohort fact (#9); a normal sample that was CD45-sorted (#11)
+            # or ambient-excluded (#16) is a cost of a rule W1 chose. Calling
+            # all of them "unmatched" hides what the rules cost.
+            had_normal_sample = bool(
+                (adata.obs["tissue"].to_numpy() == "normal").any()
+            )
+            if not had_normal_sample:
+                reason = "no normal sample at all (#9, unmatched)"
+            else:
+                reason = "normal arm lost to sorted-only (#11) or ambient (#16)"
+            skipped.append({"patient_id": patient, "reason": reason})
             continue
 
         labels = assign_labels(
@@ -178,9 +190,19 @@ def main() -> int:
     counts = pd.concat(counts_all, ignore_index=True)
 
     if skipped:
-        print(f"\n{len(skipped)} patient(s) skipped for want of a reference "
-              f"arm — expected for the 26 unmatched (#9):")
-        print("  " + ", ".join(x["patient_id"] for x in skipped))
+        frame = pd.DataFrame(skipped)
+        print(f"\n{len(frame)} patient(s) skipped for want of a reference arm, "
+              f"BY CAUSE:")
+        for reason, group in frame.groupby("reason"):
+            print(f"  {len(group):>3}  {reason}")
+            print(f"       {', '.join(group['patient_id'])}")
+        print(
+            "\n  These are not interchangeable. A patient with no normal sample "
+            "was never\n  available (#9); one whose normal arm was sorted-only "
+            "(#11) or ambient-excluded\n  (#16) is a COST OF A RULE W1 chose, "
+            "and #16 requires that cost be reported\n  in the same breath as the "
+            "threshold."
+        )
 
     print("\n" + "=" * 60)
     print("PAIRED n UNDER EACH TUMOUR-ARM DEFINITION")
