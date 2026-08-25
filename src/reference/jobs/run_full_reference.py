@@ -33,12 +33,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+from scipy import sparse  # noqa: E402
 
 from src.common.io import write_versioned_table  # noqa: E402
-from src.common.panel import tier_genes  # noqa: E402
+from src.common.panel import granularity_rungs, tier_genes  # noqa: E402
+from src.common.paths import s_matrix_path  # noqa: E402
 from src.common.provenance import DEFAULT_SEED, set_global_seeds  # noqa: E402
 from src.reference.ambient import ambient_exclusions  # noqa: E402
+from src.reference.gene_index import read_gene_index  # noqa: E402
 from src.reference.ingest import (  # noqa: E402
     assign_compartments,
     read_gse178341,
@@ -46,8 +50,11 @@ from src.reference.ingest import (  # noqa: E402
     read_gse178341_metadata,
 )
 from src.reference.labels import (  # noqa: E402
+    NON_EPITHELIAL,
     TUMOUR_ARMS,
+    UNRESOLVED,
     assign_labels,
+    label_column,
     mature_cell_counts,
     rung_degeneracy,
 )
@@ -56,6 +63,7 @@ from src.reference.qc import (  # noqa: E402
     cell_qc_metrics,
     qc_thresholds,
 )
+from src.reference.signature import build_signature_sparse  # noqa: E402
 
 S_MATRIX_VERSION = "1.0.0"
 GENE_INDEX_VERSION = "1.0.0"
@@ -111,6 +119,14 @@ def main() -> int:
     print(f"{len(patients)} patients · targets {targets}")
 
     counts_all, degeneracy_all, skipped = [], [], []
+    # S matrices need every patient's cells at once, and 370k x 43k will not
+    # densify. Accumulate the SUMMED counts per cell type per patient — a
+    # genes x cell-types matrix, a few MB — and build the signature from the
+    # total at the end. Summing raw counts is the right pooling: the signature
+    # is a mean expression profile, so a cell contributes in proportion to its
+    # depth whichever patient it came from.
+    pooled: dict[str, dict[str, np.ndarray]] = {r: {} for r in granularity_rungs()}
+    pooled_genes: list[str] | None = None
     for i, patient in enumerate(patients, 1):
         adata = read_gse178341(h5, patients=[patient])
         compartment = assign_compartments(clusters).reindex(adata.obs.index)
@@ -183,6 +199,26 @@ def main() -> int:
                 malignant=malignant, tumour_arm=arm,
             ))
         degeneracy_all.append(rung_degeneracy(labels).assign(patient_id=patient))
+
+        # Accumulate for the S matrices. Non-epithelial cells take their
+        # compartment — §2.1 error 3 needs stromal, immune AND endothelial
+        # columns — and epithelium that depth matching could not score gets its
+        # own column rather than being folded into a bin it was never assigned.
+        if pooled_genes is None:
+            pooled_genes = [str(g) for g in adata.var["gene_symbol"]]
+        block = adata.X[keep]
+        comp_here = compartment.to_numpy()[keep]
+        for rung in granularity_rungs():
+            column = labels[label_column("stem_pole", rung)].astype(str).to_numpy()
+            cell_type = np.where(
+                column == NON_EPITHELIAL, comp_here,
+                np.where(column == UNRESOLVED, "epithelial_unscored", column),
+            )
+            for name in pd.unique(cell_type):
+                rows = cell_type == name
+                totals = np.asarray(block[rows].sum(axis=0)).ravel()
+                store = pooled[rung]
+                store[name] = store.get(name, 0) + totals
         print(f"[{i}/{len(patients)}] {patient} — {int(keep.sum()):,} cells")
 
     if not counts_all:
@@ -234,10 +270,47 @@ def main() -> int:
         )
         print(f"wrote {path}")
 
+    # --- S matrices, pooled across the cohort ------------------------------
+    print("\n" + "=" * 60)
+    print(f"S MATRICES at {S_MATRIX_VERSION}")
+    print("=" * 60)
+    try:
+        index = read_gene_index(GENE_INDEX_VERSION)
+    except Exception as exc:  # noqa: BLE001
+        print(f"!! no gene index {GENE_INDEX_VERSION}: {exc}\n"
+              f"   S matrices skipped — they must sit on the shared index or "
+              f"integration is a negotiation, not a join.")
+    else:
+        for rung, store in pooled.items():
+            if not store:
+                continue
+            names = sorted(store)
+            # One pseudo-cell per cell type, carrying that type's summed counts.
+            summed = sparse.csr_matrix(np.vstack([store[n] for n in names]))
+            try:
+                s_matrix = build_signature_sparse(
+                    summed, pooled_genes, names,
+                    target_genes=targets, gene_index=index,
+                    n_genes=SIGNATURE_GENES,
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"  {rung:<16} skipped — {exc}")
+                continue
+            path = s_matrix_path(rung, S_MATRIX_VERSION)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            s_matrix.to_parquet(path)
+            print(f"  {rung:<16} {s_matrix.shape[0]} genes x "
+                  f"{s_matrix.shape[1]} columns -> {path.name}")
+        print(
+            "\n  Hand these to W2 with the mature-cell counts. They live under "
+            "data/ which is\n  gitignored, so they travel by manifest or by "
+            "copy — not by git."
+        )
+
     print(
-        f"\nNEXT: S matrices at {S_MATRIX_VERSION} on gene index "
-        f"{GENE_INDEX_VERSION}, then checks.py for G1 —\nand commit G1's "
-        "threshold before looking at anything, as #16's was."
+        f"\nNEXT: checks.py for G1 on gene index "
+        f"{GENE_INDEX_VERSION} — and commit G1's threshold before\nlooking at "
+        "anything, as #16's was."
     )
     return 0
 
