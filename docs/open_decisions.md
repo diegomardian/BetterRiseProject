@@ -1629,6 +1629,32 @@ G1 asks whether the residual signal is ambient RNA rather than biology. Ambient
 counts are enriched for whatever is abundant, so **if a gene's apparent loss
 tracks its abundance, the loss is a property of the soup and not of the tumour.**
 
+### CORRECTION 2026-08-25 — this changed G1's statistic, and said so late
+
+**execution_plan.md §4 specifies G1 as "post-correction *retention* vs total
+abundance".** The version below uses abundance vs **apparent loss**. That is a
+different measurement and the substitution was not flagged when it was written.
+Recording it now rather than letting it stand.
+
+They answer different questions, and both are worth having:
+
+- **Retention vs abundance** (the plan's) asks whether *the correction* is
+  abundance-driven. On this cohort it is close to tautological — soup is
+  enriched for abundant genes, so a correction that removes soup will strip
+  abundant genes hardest, and finding that tells you little.
+- **Loss vs abundance** (below) asks whether *the project's signal* is
+  abundance-driven. That is the question G1's own stated consequence is about:
+  "if retention tracks abundance across all tiers, the residual signal is soup."
+
+**Recommendation: run both, report both, and let the plan's version be the
+named gate criterion.** Substituting a better statistic for a pre-registered one
+is exactly the move this project refuses elsewhere; adding a second is not.
+Where they disagree, that disagreement is the finding.
+
+The thresholds below apply to whichever is being read. **The team should ratify
+this before `checks.py` runs**, because after it runs the choice is
+unfalsifiable.
+
 ### The statistic
 
 Spearman correlation between **gene abundance** (mean expression across the
