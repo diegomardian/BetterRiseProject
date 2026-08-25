@@ -1578,6 +1578,37 @@ normal and a tumour arm from different patients, chemistries and cluster counts,
 which is more than nothing and less than a result. They are recorded as
 observations to check when the cohort-wide run happens, not as established.
 
+### WHAT THE THRESHOLD COST — 2026-08-25, measured
+
+The rule was committed before this was counted. Here is the count.
+
+| arm lost | patients | cause |
+|---|---|---|
+| normal | C112, C114, C116, C155 | sorted-only (#11) or ambient (#16) |
+| tumour | C106, C140 | **ambient (#16)** — tumour samples at 14.6% and 10.4% |
+
+**Six patients leave the paired cohort: 34 usable become 28.**
+
+Both tumour-arm losses are squarely #16's: those samples exceeded 10% and were
+excluded, so the patients retain a normal arm and have no tumour to compare it
+against. They are not "unmatched" and must not be reported as such.
+
+**The paired n W1 delivers is 28** — against 32 matched-and-unsorted, 36 matched,
+and the ~60 §8.4 assumed. Each reduction has a different cause and a different
+remedy, and collapsing them into one number is how a cohort quietly shrinks:
+
+| n | what it counts |
+|---|---|
+| 62 | patients in the deposit |
+| 36 | with a matched normal sample (#9) |
+| 32 | matched **and** unsorted in both arms (#11) |
+| 28 | **and** both arms under 10% contamination (#16) |
+
+Whether 28 is enough is a separate question from whether the threshold is right,
+and it should be argued separately. Lowering the threshold to recover C106 and
+C140 would be revising a rule to buy back two patients after seeing their
+names — which is the move this decision was pre-committed to prevent.
+
 ### A number nobody had looked at
 
 **Only 23 patients have both arms among the interpretable samples**, against 32
