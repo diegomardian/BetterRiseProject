@@ -85,7 +85,7 @@ Ranked by what breaks if they stay open. Seven are live.
 | **8** | No unfiltered droplets | ANSWERED | CellBender out; SoupX + DecontX in. W4 has the same exposure on Lee. |
 | **2/3** | Shared gene index | **ANSWERED** | W3 measured the overlap: 39,236 genes in both, all 23 panel genes present. 1.0.0 = the intersection. Ratify, do not re-decide. |
 | **16** | Ambient: measure not correct; exclude >10% | **PRE-COMMITTED** | Median 2.2%, but 9 of 84 samples above 10%. Threshold set before counting its cost. |
-| **15** | CNV calling may fail differentially by MMR status | OPEN | Near-diploid MMRd tumours give inferCNV nothing to find. Bias runs **along** the pre-registered contrast. |
+| **15** | CNV calling fails differentially by MMR status | **CONFIRMED** | 62-patient run: **15/15 MMRp separable, 15/20 MMRd**, monotone across four strata, 3x enrichment gap. Bias runs **along** the pre-registered contrast. |
 | — | CNV reference design | NEEDS SIGN-OFF | Matched normal with 30% held out. **Corrected once** — see `src/reference/malignancy.py`. |
 
 Not decisions, but outstanding and cheap: tell W3 the gene index is emitted at
@@ -1581,6 +1581,49 @@ MMRd, and C107 (MMRp, 2.0x) sits between two MMRd patients. Nothing here would
 survive a significance test and none is claimed. What makes it worth recording
 is that the biological prior is independent of these five points.
 
+### CONFIRMED AT FULL SCALE — 2026-08-24
+
+62 patients through inferCNV. Restricted to the **36 with a matched normal**, so
+a patient failing for want of a comparator is not counted as failing for
+biology:
+
+| stratum | separable | rate | median enrichment |
+|---|---|---|---|
+| `mmr_proficient` | 15 / 15 | **100%** | **7.38** |
+| `mlh1_methylated` | 10 / 12 | 83% | 2.50 |
+| `mlh1_intact_mmrd` | 4 / 6 | 67% | 2.26 |
+| `mlh1_deficient_unmethylated` | 1 / 2 | 50% | 1.52 |
+
+**Every MMR-proficient patient separates. None fails.** The MMRd strata fall away
+monotonically, and the median aneuploid enrichment in MMRp is **~3x** the
+methylated stratum's.
+
+**The statistics, stated honestly.** All five separability failures land outside
+MMRp; under random assignment that has probability **0.048** one-sided. The
+direction was pre-specified in this document before the run, so a one-sided read
+is legitimate — but n=35 and the two-sided p is not significant. The stronger
+evidence is not the 2x2: it is that **four strata order monotonically, on both
+the rate and the enrichment, in the direction an independent literature
+predicts**. A single test on a collapsed table throws that away.
+
+**So the concern this decision was opened on is real.** It is no longer a
+prediction from MSI biology; it is measured in this cohort.
+
+### Two consequences that now need deciding, not noting
+
+1. **The MMRd arm loses ~25% of its patients to `not_called`, and the survivors
+   are weaker.** Median enrichment 2.5 against MMRp's 7.4 means the surviving
+   MMRd calls sit closer to their threshold — so the MMRd arm is both smaller
+   *and* noisier, in a contrast where it is compared against an arm that lost
+   nobody.
+2. **Any comparison of malignancy-filtered results between MMR strata is
+   confounded by this**, and no downstream method removes it. The filtered MMRd
+   arm is a biased subsample of MMRd; the filtered MMRp arm is all of MMRp.
+
+The sensitivity run proposed below — decomposition with and without malignancy
+filtering — stops being optional. It is the only way to see how much of any MMR
+difference is this artifact.
+
 ### Why it matters more than a QC wrinkle
 
 If malignant cells cannot be separated in MMRd tumours, the MMRd "tumour" arm
@@ -1729,6 +1772,108 @@ not a correction — and it should be argued as one.
 **Recommendation: keep the 10% level rule as committed, and report the gap
 alongside it** so a reader can see which patients are noisy. Revisit only if the
 gap turns out to correlate with something the analysis cares about.
+
+### CORROBORATED 2026-08-23 — SoupX and the impossible-gene estimator agree; DecontX does not
+
+First real sample, C122_N_1_1_0_c1_v2 (1,609 cells, 55 clusters):
+
+| route | contamination |
+|---|---|
+| impossible genes | **0.8%** |
+| SoupX (degraded mode) | **0.8%** — median retention 0.992 |
+| DecontX | **8.5%** — median retention 0.915 |
+
+**Two unrelated routes land on the same number. DecontX removes ten times more.**
+
+And they are not finding different genes: Spearman between the two retention
+vectors is **0.71**, and the hardest-stripped list is textbook ambient —
+`MT-ATP6`, `MT-CO3`, `RPL13`, `RPL18`, `RPS2`, `RPS23`, `TMSB4X`, `PTMA`,
+`Metazoa_SRP`. Both methods identify the same soup. They disagree on how much of
+it there is.
+
+**The likely cause is the one the docstring warned about.** DecontX defines
+contamination as counts resembling *other clusters*, and this sample has 55 of
+them. With that many, a large amount of genuine cell-type-specific expression is
+indistinguishable from cross-cluster bleed. A mature marker expressed in one
+small population looks exactly like soup to that model — which is this project's
+signal.
+
+**Three consequences:**
+
+1. **The measure-and-report decision is vindicated on data, not on argument.**
+   Correcting with DecontX would have removed ~8.5% of every gene's counts on
+   the strength of a number that two independent routes put under 1%.
+2. **The 2.2% cohort median that this decision's 10% threshold rests on is
+   corroborated**, since SoupX agrees with the estimator that produced it.
+3. **If anyone ever does want correction, SoupX is the defensible choice here**
+   and DecontX is not — on this deposit, with this clustering. That is a
+   finding about the data, not a general claim about the methods.
+
+### SECOND SAMPLE — the cluster-count hypothesis is wrong, and the real pattern is sharper
+
+C162_T_0_0_0_c1_v3, 4,128 cells, **84** clusters against C122's 55:
+
+| | C122 normal (55 clusters) | C162 tumour (84 clusters) |
+|---|---|---|
+| impossible genes | 0.8% | **1.7%** |
+| SoupX | 0.8% | **1.1%** |
+| DecontX | 8.5% | **6.7%** |
+
+**Clusters went up and DecontX's over-removal went down**, so it does not scale
+with cluster count. That hypothesis is retracted.
+
+The pattern across the two samples is more informative than the one that was
+looked for. The independent estimate **doubled**, 0.8% to 1.7%. SoupX tracked it.
+**DecontX did not move** — it returned 7-8% both times, on samples whose actual
+contamination differs by a factor of two.
+
+An estimate that does not respond to the quantity it is estimating is dominated
+by something other than the data. Whatever the mechanism, the operational
+conclusion is firmer than "DecontX over-corrects": **on this deposit DecontX's
+contamination estimate does not track contamination**, and it should not be used
+to size a correction here.
+
+One further difference worth noting rather than explaining: SoupX's
+hardest-stripped genes on the tumour sample are small RNAs — `SNORA81` (0.47),
+`Metazoa_SRP`, `7SK`, `U6`, `SNORD70`, `SNORA46` — and DecontX leaves every one
+of them untouched at retention 1.000. The two methods disagree about a whole
+class of transcript, not only about magnitude.
+
+**Two samples is two samples.** Both statements above are consistent across a
+normal and a tumour arm from different patients, chemistries and cluster counts,
+which is more than nothing and less than a result. They are recorded as
+observations to check when the cohort-wide run happens, not as established.
+
+### WHAT THE THRESHOLD COST — 2026-08-25, measured
+
+The rule was committed before this was counted. Here is the count.
+
+| arm lost | patients | cause |
+|---|---|---|
+| normal | C112, C114, C116, C155 | sorted-only (#11) or ambient (#16) |
+| tumour | C106, C140 | **ambient (#16)** — tumour samples at 14.6% and 10.4% |
+
+**Six patients leave the paired cohort: 34 usable become 28.**
+
+Both tumour-arm losses are squarely #16's: those samples exceeded 10% and were
+excluded, so the patients retain a normal arm and have no tumour to compare it
+against. They are not "unmatched" and must not be reported as such.
+
+**The paired n W1 delivers is 28** — against 32 matched-and-unsorted, 36 matched,
+and the ~60 §8.4 assumed. Each reduction has a different cause and a different
+remedy, and collapsing them into one number is how a cohort quietly shrinks:
+
+| n | what it counts |
+|---|---|
+| 62 | patients in the deposit |
+| 36 | with a matched normal sample (#9) |
+| 32 | matched **and** unsorted in both arms (#11) |
+| 28 | **and** both arms under 10% contamination (#16) |
+
+Whether 28 is enough is a separate question from whether the threshold is right,
+and it should be argued separately. Lowering the threshold to recover C106 and
+C140 would be revising a rule to buy back two patients after seeing their
+names — which is the move this decision was pre-committed to prevent.
 
 ### A number nobody had looked at
 

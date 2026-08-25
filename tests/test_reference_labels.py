@@ -22,6 +22,7 @@ import pytest
 
 from src.common.panel import axis_genes, panel_genes
 from src.reference.labels import (
+    AXIS_INTERPRETATION,
     AXIS_REFERENCE_PATTERN,
     BEST4_MARKERS,
     NON_EPITHELIAL,
@@ -1856,3 +1857,70 @@ class TestAnnotationConcordance:
         labels, _ = self._labels(separable=True)
         with pytest.raises(LabelError, match="entries for"):
             annotation_concordance(labels, ["cE01 (Stem/TA-like)"])
+
+
+class TestTumourArmDefinition:
+    """Open decision #15 and prereg amendment 1: report both definitions,
+    do not pick one."""
+
+    def _cohort(self, n=200):
+        rng = np.random.default_rng(5)
+        matrix = rng.poisson(4, size=(n, len(GENES))).astype(np.int64)
+        tissue = np.array(["normal"] * (n // 2) + ["tumour"] * (n - n // 2),
+                          dtype=object)
+        patient = np.full(n, "P1", dtype=object)
+        compartment = np.full(n, "epithelial", dtype=object)
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["lineage"],
+        )
+        return labels, patient, tissue, n
+
+    def test_filtered_needs_malignancy_calls(self):
+        labels, patient, tissue, _ = self._cohort()
+        with pytest.raises(LabelError, match="needs `malignant`"):
+            mature_cell_counts(labels, patient_id=patient, tissue=tissue,
+                               axes=["stem_pole"], rungs=["lineage"],
+                               tumour_arm="filtered")
+
+    def test_filtering_shrinks_only_the_tumour_arm(self):
+        """The normal arm's epithelium is supposed to be non-malignant —
+        filtering it would remove the reference the contrast is against."""
+        labels, patient, tissue, n = self._cohort()
+        malignant = (tissue == "tumour") & (np.arange(n) % 2 == 0)
+        unf = mature_cell_counts(labels, patient_id=patient, tissue=tissue,
+                                 axes=["stem_pole"], rungs=["lineage"]
+                                 ).set_index("tissue")
+        fil = mature_cell_counts(labels, patient_id=patient, tissue=tissue,
+                                 axes=["stem_pole"], rungs=["lineage"],
+                                 malignant=malignant, tumour_arm="filtered"
+                                 ).set_index("tissue")
+        assert fil.loc["normal", "n_cells_epithelial"] == unf.loc["normal", "n_cells_epithelial"]
+        assert fil.loc["tumour", "n_cells_epithelial"] < unf.loc["tumour", "n_cells_epithelial"]
+
+    def test_the_definition_is_recorded_on_every_row(self):
+        """A mature fraction is not comparable to one computed under the other
+        definition, so which was used has to travel with it."""
+        labels, patient, tissue, _ = self._cohort()
+        out = mature_cell_counts(labels, patient_id=patient, tissue=tissue,
+                                 axes=["stem_pole"], rungs=["lineage"])
+        assert set(out["tumour_arm"]) == {"unfiltered"}
+
+    def test_an_unknown_definition_refuses(self):
+        labels, patient, tissue, _ = self._cohort()
+        with pytest.raises(LabelError, match="tumour_arm must be"):
+            mature_cell_counts(labels, patient_id=patient, tissue=tissue,
+                               tumour_arm="malignant_only")
+
+    def test_axis_two_is_not_reported_as_a_maturity_axis(self):
+        """It reaches kappa 0.529 against its OWN criterion and calls stem cells
+        mature. Reporting its `differentiated` bin as maturity is the error."""
+        assert "NOT a maturity axis" in AXIS_INTERPRETATION["opposite_lineage"]
+        assert set(TRANSCRIPT_AXES) <= set(AXIS_INTERPRETATION)
+
+    def test_what_the_axis_measures_rides_on_the_row(self):
+        labels, patient, tissue, _ = self._cohort()
+        out = mature_cell_counts(labels, patient_id=patient, tissue=tissue,
+                                 axes=["stem_pole"], rungs=["lineage"])
+        assert (out["axis_measures"] != "").all()

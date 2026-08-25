@@ -5,57 +5,49 @@
 **Owner:** Bode · **Env:** `env/w1_reference.yml` → `conda activate brp-w1`
 **Branch prefix:** `w1/…` · **Blocked by:** nothing
 
-> ## STATE — 2026-08-22
+> ## STATE — 2026-08-24
 >
-> Weeks 1–2 complete. **Malignancy calling works end to end.** 871 tests, ruff
-> clean. Working branch `w1/infercnv-mtx-loader`, PR #28 — 11 commits ahead of
-> main. Work on the branch; merging per fix cost an evening.
+> **Every stage runs end to end at full scale except labels and S matrices.**
+> 909 tests. Branch `w1/infercnv-mtx-loader`; results on `w1/full-malignancy`.
 >
-> ### Do this first
+> ### Next task
 >
-> Five `cnv_scores.csv` files are hours of compute sitting in **gitignored**
-> scratch, on a filesystem that was 84% full. The step that reads them, runs
-> `call_malignancy` + `validate_normal_epithelium` and writes a versioned
-> parquet under `results/` **does not exist yet**. Write it before anything
-> clears `data/interim`.
+> Full-scale labels and S matrices at **1.0.0**. Everything it needs now exists.
+> `run_pilot.py` does five patients; the full version must also run **both
+> tumour-arm definitions** (prereg amendment 1), apply `ambient_exclusions` at
+> the committed 10% threshold and report the paired n it leaves, and carry
+> `quotable` / `degenerate_with` / `axis_measures` through. Then `checks.py` for
+> G1, with its threshold committed before looking.
 >
-> ### Measured
+> ### Measured at full scale
 >
 > | | |
 > |---|---|
-> | Cohort | 62 patients · **36 matched** · **32 matched + unsorted** |
-> | `stem_pole` kappa | 0.444 |
-> | `opposite_lineage` kappa | **0.529** against its own criterion (−0.24 against the wrong one) |
-> | inferCNV | 39,516 genes joined · specificity **0.99–1.00** out-of-sample |
-> | Runtime | 7k cells 14 min · 22k cells ~45 min |
+> | Cohort | 62 patients · 36 matched · **23 with both arms ambient-interpretable** |
+> | `stem_pole` | kappa 0.444 — mature means *no stem marker detected at 3,281 UMIs* |
+> | `opposite_lineage` | kappa **0.529 against its own criterion** — a goblet axis, **not** maturity |
+> | `best4` | kappa 0.045 — **do not quote** |
+> | inferCNV | 39,516 genes · specificity 0.99–1.00 · **30/62 separable** |
+> | Ambient | median **2.2%**, 9 of 84 above 10% |
 >
-> ### Left
+> ### The finding that shapes everything downstream
 >
-> Malignancy results writer · ambient correction (the only stubs) · full-scale
-> labels and S matrices · `checks.py` for G1.
+> **Open decision #15, confirmed.** MMR-proficient tumours separate **15/15**;
+> MMRd **15/20** — and within *callable* patients MMRd yields **3.4× fewer**
+> cells called malignant. Both follow from MMRd tumours being near-diploid, and
+> no other caller escapes it. The bias runs **along** the pre-registered MMR
+> contrast rather than across it.
 >
-> **The week-2 ambient deliverable as written is impossible.** It asks for
-> "SoupX and CellBender, both, compared"; CellBender needs empty droplets that
-> exist in no public source (#8). Restate as SoupX vs DecontX first.
->
-> ### The finding worth reading
->
-> **Open decision #15.** inferCNV separates malignant cells by aneuploidy, and
-> MMR-deficient tumours are characteristically near-diploid — so the method is
-> expected to fail in exactly the stratum this project compares against MMRp.
-> The MMRd tumour arm would keep more non-malignant (mature) epithelium,
-> inflating its apparent mature fraction. **That bias runs along the
-> pre-registered contrast, not across it**, and no other caller fixes it —
-> CopyKAT infers copy number from expression too.
->
-> Directionally consistent on the pilot, not established: n=2 MMRp vs n=3 MMRd
-> with overlap. The prior is what makes it worth pre-specifying.
+> `docs/prereg_amendment_1_mmr_tumour_arm.md` responds: report the contrast under
+> **both** tumour-arm definitions, and treat disagreement as *not identifiable*
+> rather than choosing. Written before any expression was examined — **that
+> timing is the whole of its credibility.**
 >
 > ### Cluster
 >
-> **Disk, not CPU, is the constraint** — 55 GB for the whole project. Submit
-> inferCNV with **`-tc 2`**. inferCNV is **CPU-only**, despite CLAUDE.md listing
-> a GPU beside it.
+> Disk is the constraint, not CPU — 55 GB for the project. inferCNV `-tc 1` at
+> ~25 GB free. inferCNV is **CPU-only** despite CLAUDE.md listing a GPU.
+
 
 
 You own GSE178341 (Pelka et al. 2021): ~371k cells, 62 patients, matched normal,
