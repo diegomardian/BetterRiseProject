@@ -1622,6 +1622,25 @@ should be stated in the same sentence as the rule.**
 
 ## 17 · G1's threshold, committed before any G1 number exists — PRE-COMMITTED 2026-08-25
 
+> ### ⚠ SUPERSEDED IN PART — see [Amendment 2](prereg_amendment_2_g1_tier_d.md), 2026-08-25
+>
+> **The statistic below cannot be computed against the frozen panel.** #17
+> justifies its 0.2 threshold with "n≈8 genes per tier". `config/panel.yaml` has
+> 4 genes in tier A, 3 in tier B and **1 in tier D** — and a Spearman correlation
+> over one gene is undefined, not merely noisy. Threshold 1, "|ρ| > 0.5 in tier
+> D", is not evaluable, and tier D is the half of the gate that carries the
+> falsification logic.
+>
+> Found by reading the panel, **before `checks.py` had ever been run against
+> expression**. Amendment 2 proposes moving the correlation genome-wide and
+> locating the panel genes on it by residual percentile — with one gene you
+> cannot compute a correlation, but you can compute a percentile — and commits
+> three replacement thresholds.
+>
+> Until the team ratifies it, `g1_verdict()` returns `not_estimable` and G1 is
+> undecided. **Everything below stands as the record of what was committed
+> first**; it is not edited, because the ordering is the point.
+
 **Raised:** W1 · **Owner:** W1 + whoever owns the gate · **Status:** committed
 before `checks.py` was written, let alone run
 
