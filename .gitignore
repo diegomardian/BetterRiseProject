@@ -32,6 +32,17 @@ results/**/scratch/
 results/**/*.tmp
 
 # ---------------------------------------------------------------------------
+# Scheduler logs. Per-run, large, and not a result — the provenance sidecar
+# beside each parquet is the durable record, not the SGE stdout. Job scripts
+# write here via `#$ -o logs/`, so it fills up on every submission.
+# ---------------------------------------------------------------------------
+logs/
+*.o[0-9]*
+*.e[0-9]*
+*.po[0-9]*
+*.pe[0-9]*
+
+# ---------------------------------------------------------------------------
 # Python
 # ---------------------------------------------------------------------------
 __pycache__/
