@@ -244,8 +244,6 @@ def score_markers(
             "genes to pass is open decision #1: the narrow reading is the target "
             "set for THIS run, not the whole panel."
         )
-    assert_no_target_leakage(markers, target_genes, context=context)
-
     positions, found = _positions(gene_names, markers)
     if positions.size == 0:
         raise LabelError(
@@ -253,6 +251,11 @@ def score_markers(
             f"naming — this deposit carries symbols in var['gene_symbol'] and "
             f"Ensembl IDs in the index (open decision #3)."
         )
+
+    # AFTER the naming check: an invariant checked against identifiers the
+    # matrix has never seen tests nothing, and the naming diagnosis is more
+    # actionable.
+    assert_no_target_leakage(markers, target_genes, context=context)
     missing = sorted(set(map(str, markers)) - set(found))
 
     subset = expression[:, positions]

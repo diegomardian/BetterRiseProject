@@ -143,13 +143,39 @@ class TestWriteAndRead:
 def test_the_index_is_what_build_signature_consumes(tmp_path):
     """build_signature() asserts target genes are absent from the index it is
     handed. Confirm the emitted form is directly usable."""
-    from src.reference.signature import assert_no_target_leakage
+    from src.reference.signature import (
+        LeakageError,
+        LeakageGuardError,
+        assert_no_target_leakage,
+    )
 
     index, mapping, _ = build_gene_index(var_table())
     write_gene_index(index, mapping, version="1.0.0", config_dir=tmp_path)
     loaded = read_gene_index("1.0.0", config_dir=tmp_path)
-    # Ensembl-keyed, so symbol-named panel genes cannot collide with it.
-    assert_no_target_leakage(loaded, panel_genes(), context="the shared gene index")
+
+    # This test previously asserted the guard PASSED here, reasoning that
+    # "Ensembl-keyed, so symbol-named panel genes cannot collide with it."
+    # That is the bug (issue #35): the guard could not collide, so it could not
+    # fire, and GUCA2A shipped in all four 0.1.0-pilot S matrices while every
+    # call site reported success. A check that cannot fail must refuse.
+    with pytest.raises(LeakageGuardError, match="cannot check invariant 2"):
+        assert_no_target_leakage(loaded, panel_genes(), context="the shared gene index")
+
+    # Given the translation it can do its job — and on an index built from a
+    # table that carries a panel gene, it must fire.
+    alias = dict(
+        zip(
+            mapping["gene_symbol"].astype(str),
+            mapping["ensembl_id"].astype(str),
+            strict=True,
+        )
+    )
+    present = [g for g in panel_genes() if g in alias and alias[g] in set(loaded)]
+    if present:
+        with pytest.raises(LeakageError, match="invariant 2"):
+            assert_no_target_leakage(
+                loaded, present, context="the shared gene index", alias_map=alias
+            )
 
 
 class TestIntersection:

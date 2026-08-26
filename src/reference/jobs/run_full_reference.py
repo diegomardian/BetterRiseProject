@@ -63,7 +63,11 @@ from src.reference.qc import (  # noqa: E402
     cell_qc_metrics,
     qc_thresholds,
 )
-from src.reference.signature import build_signature_sparse  # noqa: E402
+from src.reference.signature import (  # noqa: E402
+    LeakageError,
+    LeakageGuardError,
+    build_signature_sparse,
+)
 
 S_MATRIX_VERSION = "1.0.0"
 GENE_INDEX_VERSION = "1.0.0"
@@ -127,6 +131,11 @@ def main() -> int:
     # depth whichever patient it came from.
     pooled: dict[str, dict[str, np.ndarray]] = {r: {} for r in granularity_rungs()}
     pooled_genes: list[str] | None = None
+    # Symbol -> unversioned Ensembl, for the invariant-2 guard. The S matrix
+    # is keyed on the shared index, which is Ensembl (decision #3), while the
+    # panel is written as symbols — so the guard needs the translation or it
+    # compares two spaces and passes without testing anything (issue #35).
+    target_alias: dict[str, str] = {}
     for i, patient in enumerate(patients, 1):
         adata = read_gse178341(h5, patients=[patient])
         compartment = assign_compartments(clusters).reindex(adata.obs.index)
@@ -205,7 +214,26 @@ def main() -> int:
         # columns — and epithelium that depth matching could not score gets its
         # own column rather than being folded into a bin it was never assigned.
         if pooled_genes is None:
-            pooled_genes = [str(g) for g in adata.var["gene_symbol"]]
+            # ENSEMBL, not symbols. build_signature_sparse intersects these
+            # against the shared gene index, which is unversioned Ensembl ids
+            # (decision #3). Passing symbols makes that intersection empty, and
+            # the empty case is caught below and printed as "skipped" — so the
+            # S matrices silently never build. run_pilot.py:585 had this right.
+            pooled_genes = [str(g) for g in adata.var["ensembl_id"]]
+            target_alias = {
+                str(sym): str(eid)
+                for sym, eid in zip(
+                    adata.var["gene_symbol"], adata.var["ensembl_id"], strict=True
+                )
+                if str(sym) in set(targets)
+            }
+            unresolved_targets = sorted(set(targets) - set(target_alias))
+            if unresolved_targets:
+                raise SystemExit(
+                    f"target gene(s) {unresolved_targets} have no Ensembl id in "
+                    f"this deposit, so invariant 2 cannot be enforced for them. "
+                    f"Refusing to build S matrices that cannot be checked."
+                )
         block = adata.X[keep]
         comp_here = compartment.to_numpy()[keep]
         for rung in granularity_rungs():
@@ -291,8 +319,15 @@ def main() -> int:
                 s_matrix = build_signature_sparse(
                     summed, pooled_genes, names,
                     target_genes=targets, gene_index=index,
-                    n_genes=SIGNATURE_GENES,
+                    n_genes=SIGNATURE_GENES, alias_map=target_alias,
                 )
+            except (LeakageError, LeakageGuardError):
+                # NEVER swallowed. A target in the reference matrix makes a
+                # silenced mature cell readable as an absent one — the whole
+                # premise — and a guard that could not run is no better. Both
+                # printed as "skipped" is how the 0.1.0-pilot matrices shipped
+                # with the whole of tier A in them (issue #35).
+                raise
             except Exception as exc:  # noqa: BLE001
                 print(f"  {rung:<16} skipped — {exc}")
                 continue

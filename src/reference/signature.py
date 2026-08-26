@@ -9,7 +9,8 @@ the reason this function asserts rather than warns.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+import re
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 import numpy as np
@@ -29,18 +30,88 @@ class LeakageError(AssertionError):
     """A target gene reached the reference matrix or the labels."""
 
 
+#: An unversioned Ensembl gene id. Deliberately anchored and strict: the point
+#: is to tell two identifier SPACES apart, not to validate an id.
+_ENSEMBL_ID = re.compile(r"^ENSG\d+$")
+
+
+class LeakageGuardError(AssertionError):
+    """The invariant-2 check could not be performed, so it was not performed.
+
+    Distinct from :class:`LeakageError`, which means a target *did* leak. This
+    means the comparison was meaningless — symbols against Ensembl ids — and a
+    silent pass would have been indistinguishable from a real one.
+    """
+
+
+def _identifier_space(values: Iterable[str]) -> str:
+    """``"ensembl"``, ``"symbol"`` or ``"mixed"``."""
+    flags = {bool(_ENSEMBL_ID.match(str(v))) for v in values}
+    if flags == {True}:
+        return "ensembl"
+    if flags == {False}:
+        return "symbol"
+    return "mixed"
+
+
+def _translate_targets(
+    targets: set[str], alias_map: Mapping[str, str]
+) -> set[str]:
+    """Map target symbols into the genes' identifier space.
+
+    A symbol absent from `alias_map` is dropped **loudly**: it cannot be checked
+    for, and silently dropping it would restore the vacuous pass this guard
+    exists to prevent.
+    """
+    missing = sorted(t for t in targets if t not in alias_map)
+    if missing:
+        raise LeakageGuardError(
+            f"{len(missing)} target gene(s) have no entry in alias_map and so "
+            f"cannot be checked for: {missing}. Invariant 2 would go "
+            f"unenforced for exactly the genes the panel is built on."
+        )
+    return {str(alias_map[t]) for t in targets}
+
+
 def assert_no_target_leakage(
     genes: Iterable[str],
     target_genes: Iterable[str],
     *,
     context: str,
+    alias_map: Mapping[str, str] | None = None,
 ) -> None:
     """Hard stop if any target gene appears in ``genes``. CLAUDE.md invariant 2.
 
     Call this from label construction too, not only from build_signature.
+
+    ``alias_map`` maps target symbols to the identifier form ``genes`` uses —
+    required when the two are in different spaces, because the comparison is
+    otherwise vacuous rather than clean. See :class:`LeakageGuardError`.
     """
-    targets = set(target_genes)
-    leaked = sorted(targets & set(genes))
+    targets = {str(g) for g in target_genes}
+    gene_set = {str(g) for g in genes}
+
+    # A guard that cannot fire is worse than no guard: it reports success.
+    # `targets` are panel SYMBOLS; `genes` may be symbols or unversioned
+    # Ensembl ids depending on the caller. Intersecting across the two spaces
+    # is always empty, so every call site passes unconditionally and the
+    # invariant goes unenforced while reading as enforced. Observed: GUCA2A and
+    # the whole of tier A in the committed 0.1.0-pilot S matrices (issue #35).
+    if targets and gene_set:
+        spaces = {_identifier_space(gene_set), _identifier_space(targets)}
+        if spaces == {"ensembl", "symbol"}:
+            if alias_map is None:
+                raise LeakageGuardError(
+                    f"cannot check invariant 2 for {context}: the genes are "
+                    f"{_identifier_space(gene_set)} identifiers and the targets "
+                    f"are {_identifier_space(targets)}. Intersecting the two is "
+                    f"empty whatever the data, so this check would pass without "
+                    f"testing anything. Pass alias_map= to translate, or hand "
+                    f"both sides the same identifier form."
+                )
+            targets = _translate_targets(targets, alias_map)
+
+    leaked = sorted(targets & gene_set)
     if leaked:
         raise LeakageError(
             f"{len(leaked)} target gene(s) leaked into {context}: {leaked}. "
@@ -332,6 +403,7 @@ def build_signature_sparse(
     n_genes: int = 1000,
     require_non_epithelial: bool = True,
     already_normalised: bool = False,
+    alias_map: Mapping[str, str] | None = None,
 ) -> pd.DataFrame:
     """:func:`build_signature` for a sparse matrix. Same guards, no densification.
 
@@ -361,7 +433,9 @@ def build_signature_sparse(
             f"cell_type has {len(cell_type)} entries for {matrix.shape[0]} cells"
         )
 
-    assert_no_target_leakage(gene_index, targets, context="the shared gene index")
+    assert_no_target_leakage(
+        gene_index, targets, context="the shared gene index", alias_map=alias_map
+    )
 
     names = [str(g) for g in gene_names]
     index_set = set(gene_index)
@@ -373,7 +447,9 @@ def build_signature_sparse(
             "(open decision #3)."
         )
     usable = [g for g, k in zip(names, keep, strict=True) if k]
-    assert_no_target_leakage(usable, targets, context="the reference gene pool")
+    assert_no_target_leakage(
+        usable, targets, context="the reference gene pool", alias_map=alias_map
+    )
 
     types = sorted({str(c) for c in cell_type})
     if require_non_epithelial:
@@ -391,11 +467,15 @@ def build_signature_sparse(
 
     means, rates = _group_aggregates(subset, usable, cell_type)
     markers = select_markers_from_aggregates(means, rates, n_genes=n_genes)
-    assert_no_target_leakage(markers, targets, context="the selected marker set")
+    assert_no_target_leakage(
+        markers, targets, context="the selected marker set", alias_map=alias_map
+    )
 
     profiles = means.loc[:, markers].T
     profiles.index.name = "gene"
     profiles.columns.name = "cell_type"
     profiles = profiles.reindex([g for g in gene_index if g in profiles.index])
-    assert_no_target_leakage(profiles.index, targets, context="the emitted S matrix")
+    assert_no_target_leakage(
+        profiles.index, targets, context="the emitted S matrix", alias_map=alias_map
+    )
     return profiles
