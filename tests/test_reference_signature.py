@@ -244,7 +244,6 @@ class TestSparsePath:
 
     def test_every_guard_still_runs(self):
         from src.reference.signature import (
-            LeakageError,
             LeakageGuardError,
             build_signature_sparse,
         )
@@ -256,22 +255,26 @@ class TestSparsePath:
                 matrix, genes, labels, target_genes=["GUCA2A"],
                 gene_index=genes, n_genes=600,
             )
-        # Translated, it catches a real leak in Ensembl space.
-        with pytest.raises(LeakageError, match="invariant 2"):
-            build_signature_sparse(
-                matrix, genes, labels, target_genes=["GUCA2A"],
-                gene_index=genes, n_genes=600,
-                alias_map={"GUCA2A": genes[0]},
-            )
+        # Translated, the target is FILTERED from the index rather than
+        # rejected (open decision #12) — the index carries panel genes on
+        # purpose. What invariant 2 forbids is the target reaching the matrix.
+        signature = build_signature_sparse(
+            matrix, genes, labels, target_genes=["GUCA2A"],
+            gene_index=genes, n_genes=600,
+            alias_map={"GUCA2A": genes[0]},
+        )
+        assert genes[0] not in set(signature.index)
         with pytest.raises(ValueError, match="target_genes is empty"):
             build_signature_sparse(
                 matrix, genes, labels, target_genes=[], gene_index=genes, n_genes=600
             )
-        with pytest.raises(LeakageError, match="invariant 2"):
-            build_signature_sparse(
-                matrix, genes, labels, target_genes=[genes[0]],
-                gene_index=genes, n_genes=600,
-            )
+        # Same space, no alias needed: the target is filtered from the index
+        # (decision #12) rather than refused.
+        same_space = build_signature_sparse(
+            matrix, genes, labels, target_genes=[genes[0]],
+            gene_index=genes, n_genes=600,
+        )
+        assert genes[0] not in set(same_space.index)
         epithelial_only = ["mature_colonocyte"] * len(labels)
         with pytest.raises(ValueError, match="missing compartment"):
             build_signature_sparse(
