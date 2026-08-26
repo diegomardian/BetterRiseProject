@@ -1952,3 +1952,71 @@ two independent cohorts.
 Cohorts are **not pooled** (invariant 4) — estimated separately, reported side
 by side, using the same test code so a difference could not come from the
 analysis. See [the note](../results/notes/w3.8_replication_gse39582.md).
+
+---
+
+## 20 · `unresolved_fraction` is measured, means "bounded not measured", and gates nothing — OPEN
+
+**Raised:** W1, 2026-08-25 · **Owner:** W2 (`src/harness/positivity.py`) · **Needs:** the weekly
+
+Numbered 20, not 18 or 19, to stay clear of the duplicate-numbering collision
+flagged at the top of this file — W3 already holds #17 and #18.
+
+### What was measured
+
+From `results/2026-08-25_9e3ca1a/mature_cell_counts_full.parquet`, 928 rows,
+30 patients (28 paired, plus C106 and C140 with one arm each):
+
+```
+unresolved_fraction   mean 0.310   median 0.257   max 0.923
+rows with n_cells_resolved < 50      108 / 696   (excluding the epithelial rung)
+C165 normal arm                      90.7% unresolved
+C119 tumour                          n_cells_resolved = 0, mature_fraction NaN
+```
+
+### The gap
+
+`src/reference/labels.py` computes `unresolved_fraction` and says what it means:
+*"How much of the epithelium the fraction could not speak for. A large value
+means the fraction is **bounded, not measured**."*
+
+**Nothing anywhere consumes it.** Grepped across `src/`: the only other
+`unresolved` hits are W3's unrelated panel resolution and W1's own pilot job.
+
+`classify_estimability()` gates on `n_cells_mature` alone, which protects the
+**intrinsic** arm — too few mature cells and you cannot ask about expression
+within them. There is no matching gate on the **compositional** arm. A
+`mature_fraction` of 0.92 computed on 9% of the epithelium is reported the same
+way as one computed on 90%, and `classify_estimability`'s own docstring says
+*"The compositional term is still estimable in that case — do not drop the row."*
+
+The zero case is safe: `n_cells_resolved = 0` forces `n_cells_mature = 0`, which
+falls below `wide=20` and classifies `not_estimable`. C119 is handled. **It is
+the middle of the range that is not** — enough mature cells to pass the gate,
+too few resolved cells for the fraction to mean much.
+
+### Why it may not be benign
+
+The unresolved cells are not missing at random. They are the cells whose labels
+are ambiguous, and on a maturity axis that means intermediate and transitional
+states — precisely the cells whose classification determines the fraction.
+
+### What was checked and did NOT hold
+
+**Tumour is not systematically harder to label.** `unresolved_fraction` is
+constant within patient x arm, so the 168 paired rows are 28 patients counted six
+times each. Tumour exceeds normal in 102/168 rows = **17 of 28 patients**,
+binomial p ~ 0.34. Testing on rows rather than patients inflates that sixfold and
+would have produced a spurious directional bias — CLAUDE.md invariant 5's
+principle applied one level up.
+
+### Recommendation
+
+A second cutpoint on `n_cells_resolved` (or equivalently on
+`unresolved_fraction`), pre-committed before it is applied, carrying the
+compositional term the way `Cutpoints` carries the intrinsic one. **W1 is not
+proposing the number** — `src/harness/positivity.py` is W2's file under
+CONTRIBUTING §2, and the threshold should be chosen by whoever owns the gate.
+
+W1 supplies `n_cells_resolved` and `unresolved_fraction` in the frozen output
+already, so no W1 change is needed to act on this.
