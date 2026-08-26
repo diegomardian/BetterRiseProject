@@ -137,6 +137,89 @@ def check_panel_coverage(mapping: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def read_shared_index(path: Path | str) -> list[str]:
+    """Read another arm's emitted index — one unversioned Ensembl ID per line."""
+    lines = [
+        line.strip()
+        for line in Path(path).read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    if not lines:
+        raise GeneIndexError(f"{path} holds no identifiers")
+    versioned = [g for g in lines if "." in g]
+    if versioned:
+        raise GeneIndexError(
+            f"{path} carries versioned identifiers ({versioned[0]!r} and "
+            f"{len(versioned) - 1} more). Decision #3 keys the shared index on "
+            f"UNVERSIONED Ensembl IDs; strip the suffix before intersecting."
+        )
+    return lines
+
+
+def intersect_gene_index(
+    mapping: pd.DataFrame, shared: list[str]
+) -> tuple[list[str], pd.DataFrame, dict[str, Any]]:
+    """Intersect this deposit's features with another arm's index.
+
+    **The operative index for deconvolution is the intersection**, not either
+    side's full feature set — open decision #2, corrected. A gene present in
+    only one matrix cannot be deconvolved from the other.
+
+    The decisive argument is CLAUDE.md invariant 1, in its general form. A gene
+    in the bulk index with no single-cell counts has an **unknown** signature,
+    not a zero one. Carrying it on the shared index and filling the S-matrix row
+    with zeros asserts "this cell type does not express this gene", which is a
+    measurement nobody made. `None` is not `0.0`, and an absent row is not a
+    silent row.
+
+    **Sorted ascending**, matching the convention `gene_index_0.9.0.txt` already
+    uses, so the output is byte-identical whichever arm runs it. That is what
+    makes the ownership question in #2 stop mattering: the file is reproducible
+    from two committed inputs rather than owned by whoever ran it first.
+
+    Raises if any frozen panel gene fails to survive the join — #2 says a panel
+    gene missing from the intersection is "a reason to revisit the index, not to
+    drop the gene", so this refuses rather than emitting a quietly weaker panel.
+    """
+    ours = mapping["ensembl_id"].astype(str)
+    shared_set = set(shared)
+    keep = sorted(set(ours) & shared_set)
+    if not keep:
+        raise GeneIndexError(
+            "the two indices share no identifier — check both are unversioned "
+            "Ensembl IDs on the same key"
+        )
+
+    out_mapping = (
+        mapping[ours.isin(shared_set)]
+        .sort_values("ensembl_id", kind="stable")
+        .reset_index(drop=True)
+    )
+
+    coverage = check_panel_coverage(out_mapping)
+    lost = coverage[~coverage["found"] & (coverage["source"] == "panel")]
+    if len(lost):
+        raise GeneIndexError(
+            f"{len(lost)} frozen panel gene(s) do not survive the intersection: "
+            f"{sorted(lost['gene_symbol'])}. Decision #2: a panel gene missing "
+            f"from the intersection is a reason to revisit the index, not to "
+            f"drop the gene. Refusing to emit."
+        )
+
+    report: dict[str, Any] = {
+        "n_ours": int(ours.nunique()),
+        "n_shared": len(shared_set),
+        "n_intersection": len(keep),
+        "n_ours_only": int(ours.nunique() - len(keep)),
+        "n_shared_only": len(shared_set) - len(keep),
+        "panel_found": int(
+            (coverage["found"] & (coverage["source"] == "panel")).sum()
+        ),
+        "panel_total": int((coverage["source"] == "panel").sum()),
+    }
+    return keep, out_mapping, report
+
+
 def write_gene_index(
     index: list[str],
     mapping: pd.DataFrame,
