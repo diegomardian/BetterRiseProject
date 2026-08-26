@@ -12,12 +12,15 @@
 >
 > ### Next task
 >
-> Full-scale labels and S matrices at **1.0.0**. Everything it needs now exists.
-> `run_pilot.py` does five patients; the full version must also run **both
-> tumour-arm definitions** (prereg amendment 1), apply `ambient_exclusions` at
-> the committed 10% threshold and report the paired n it leaves, and carry
-> `quotable` / `degenerate_with` / `axis_measures` through. Then `checks.py` for
-> G1, with its threshold committed before looking.
+> **`checks.py` for G1.** Its threshold is committed (#17) — implement, do not
+> revise. Run **both** statistics: retention-vs-abundance (the plan's named
+> criterion) and loss-vs-abundance. Spearman within each tier; FAIL if |ρ| > 0.5
+> in tier D or if the three tiers fall within 0.2 of each other.
+>
+> Also outstanding: **`1.0.0` must be the intersection** — W1 and W3 both measured
+> 39,236 genes with 23/23 panel genes surviving, so decision #2 is arithmetic.
+> Until someone emits it the S matrices cannot be final. **#13** is the last open
+> decision, with W4.
 >
 > ### Measured at full scale
 >
