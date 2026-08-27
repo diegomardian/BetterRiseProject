@@ -113,6 +113,32 @@ classify_estimability(3)          # 'not_estimable'  -> intrinsic MUST be None
 gate_g4_verdict([120, 80, 4, 2])  # the G4 numbers, with the pre-committed consequence
 ```
 
+### There are two cutpoints, on two different counts
+
+Decision #22 gives the **compositional** arm its own gate, on `n_cells_resolved`
+— the denominator `mature_fraction` is computed on — at the same 50/20. Without
+it a fraction computed on 9% of the epithelium reads identically to one computed
+on 90% (issue #36).
+
+```python
+from src.harness import estimability_verdicts, classify_counts_frame
+estimability_verdicts(n_cells_mature=3, n_cells_resolved=800)
+# intrinsic 'not_estimable', compositional 'ok' — two claims, not one
+classify_counts_frame(w1_mature_cell_counts)   # both columns, per row
+```
+
+**Do not fold them into one verdict by taking the worse.** "The fraction is
+imprecise" and "there are too few mature cells to ask about expression" are
+different findings and the second is the contribution. `src/schema.py` is frozen
+and its `estimability` enum can only carry the intrinsic one, so the
+compositional verdict lives in harness tables and the gate memo until the gate
+decides otherwise.
+
+Mature cells are a subset of resolved cells, so the compositional gate only ever
+binds where the intrinsic gate has **already** flagged the row — 0 rows against
+108 on W1's full counts table. The caveat published with the pre-commitment said
+the opposite; decision #22 carries the correction and the numbers.
+
 ## What you adjudicate at the gate
 
 | Gate | Your role |

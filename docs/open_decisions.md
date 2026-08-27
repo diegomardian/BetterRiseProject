@@ -2201,3 +2201,133 @@ computed within each bin. `interval` resamples one patient's own cells.
 the next free number independently. Cross-references by number are ambiguous.
 This entry takes 19 to avoid adding a ninth. A renumbering pass is needed and
 nobody objected when W2 offered — see X-1 in the handoff doc.
+
+---
+
+## 22 · The compositional arm gets its own cutpoint, on `n_cells_resolved` — PRE-COMMITTED 2026-08-27
+
+**Raised:** W1 in [#36](https://github.com/diegomardian/BetterRiseProject/issues/36),
+recorded on their branch as decision #20 · **Owner:** W2
+(`src/harness/positivity.py`) · **Pre-committed:** 2026-08-27, on the issue,
+before the rule was applied to anything · **Bears on:** G4
+
+### Why the number is 22 and not the 21 that was announced
+
+The pre-commitment comment on #36 said "landing as decision #21". W1 had already
+taken 21 — *Invariant 2 should read BROAD for the reference matrix and NARROW for
+labels* — on `w1/decision-17-g1-threshold` at `7905753`, **25 minutes earlier**,
+and had implemented it in code at `c826a0c`. W1 has precedence and this entry
+moves to 22.
+
+Only the index moved. **The rule and its numbers are exactly what was committed
+in public**, which is the part that has to be immovable.
+
+Both entries were written the same evening, in different repositories-of-record,
+by two workstreams each correctly following the "use ≥20" convention. That is the
+duplicate-numbering problem from #19's housekeeping note arriving in the range
+that was supposed to be safe from it. It is now a ninth collision avoided by
+hand. The renumbering pass should also assign numbers from one place.
+
+### The rule
+
+`classify_compositional_estimability(n_cells_resolved)`, same shape and same
+numbers as the intrinsic rule:
+
+| `n_cells_resolved` | verdict |
+|---|---|
+| ≥ 50 | `ok` |
+| 20–49 | `wide_interval` |
+| < 20 | `not_estimable` |
+
+Symmetry with the intrinsic cutpoint is the honest default rather than a new
+invention. `not_estimable` on this arm means the **compositional** term is
+undefined for the row, which is a different claim from the intrinsic
+`not_estimable`; invariant 1 governs both, and undefined is `None`.
+
+### The quantity is a count, not `unresolved_fraction`
+
+The interval on a proportion is driven by the count in its denominator, not by
+the share excluded. 40-of-60 and 400-of-600 have the same `unresolved_fraction`
+and very different precision. Same reason the intrinsic cutpoint is
+`n_cells_mature` and not a ratio.
+
+### What it actually binds on — the caveat as recorded was inverted
+
+The pre-commitment carried a caveat, and the caveat was wrong. It said the two
+cutpoints are not independent, and concluded that the compositional gate "can
+only ever bind on rows where the intrinsic arm is *already* `ok`... That makes it
+a narrower change than it looks."
+
+The premise is right and the conclusion is its exact inverse. Mature cells are a
+**subset** of resolved cells, so `n_cells_mature ≤ n_cells_resolved` always.
+Therefore `n_cells_mature ≥ 50` **implies** `n_cells_resolved ≥ 50`: wherever the
+intrinsic arm is `ok`, the compositional arm is `ok` too, necessarily. The
+compositional gate can only ever bind on rows the intrinsic gate has **already**
+flagged.
+
+Counted on `results/2026-08-25_9e3ca1a/mature_cell_counts_full.parquet` — 928
+rows, of which 696 outside the epithelial rung, whose `mature_fraction` is 1.0 by
+construction:
+
+| | compositional gate binds |
+|---|---|
+| intrinsic arm `ok` | **0 rows** |
+| intrinsic arm `wide_interval` or `not_estimable` | **108 rows** |
+
+Zero rows have `n_cells_mature > n_cells_resolved`, so the nesting is a fact
+about this data and not only about the definitions.
+
+So the rule adds a second, independent reason to distrust 108 rows that were
+already flagged, and it rescues nothing. That is worth having — "the fraction is
+imprecise" and "there are too few mature cells to ask about expression" are
+different findings — but it is a **smaller** change than the caveat implied, and
+smaller in the opposite direction.
+
+### What this rule does NOT reach, stated so it is not assumed
+
+#36's stated exposure was "the middle of the range — enough mature cells to clear
+`ok=50`, too few resolved cells for the fraction to carry much." **On a count
+cutpoint that set is structurally empty.** Reaching it needs a cutpoint on
+`unresolved_fraction`, which is a separate decision and is deliberately not taken
+here.
+
+Its size on this cohort, measured, so the residual is bounded rather than
+hand-waved: of the 400 non-epithelial-rung rows that pass both count gates, **4
+rows in 2 patients (C124, C130) have more than half the epithelium unresolved**;
+none exceed 60%. #36's worst case, C165 normal at 90.7% unresolved, *is* reached — 26 resolved
+cells puts it in `wide_interval` — but by the count, not by the fraction, and
+its intrinsic arm was already `wide_interval` or worse on every rung.
+
+**DECLINED, 2026-08-27, with the number attached.** Four rows in two patients,
+none above 60% unresolved, does not justify a third gate. Declining is recorded
+here rather than left open so that the gate cannot be surprised by it, and so
+that the reason is on record as *a measured size* and not as an oversight.
+
+What would reopen it, stated now so the answer is not chosen against a result:
+
+- any cohort or re-labelling where more than **5% of both-arms-`ok` rows** exceed
+  50% unresolved — it is 1.0% (4/400) here;
+- any row passing both count gates above **60% unresolved** — there are none here,
+  and that is the whole reason a fraction gate is redundant on this cohort;
+- W1 closing [#14](#14--neither-labelling-axis-is-a-clean-maturity-measure--open-blocks-composition)
+  in a way that moves cells between resolved and unresolved, since every number
+  above is conditional on the current labelling.
+
+The unresolved cells are still not missing at random — #36 is right that they are
+the intermediate and transitional states, which is exactly the population whose
+classification sets the fraction. That argument survives the decline. It is an
+argument for reporting `unresolved_fraction` alongside every compositional term,
+which W1 already emits, and not for a third threshold that would bind on four
+rows.
+
+### Where the verdict lives
+
+`src/schema.py` is frozen and `estimability` is a single enum, so it cannot say
+"intrinsic ok, compositional wide". The compositional verdict therefore travels
+in the harness tables and the gate memo — `estimability_verdicts()` and
+`classify_counts_frame()` in `src/harness/positivity.py` — and not on disk per
+row. A frozen-schema PR follows only if the gate decides it needs to be there.
+
+**Do not fold the two into one column by taking the worse of them.** The second
+segment is this project's contribution and merging it into a precision flag
+throws it away.
