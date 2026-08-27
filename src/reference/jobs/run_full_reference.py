@@ -186,6 +186,17 @@ def main() -> int:
         if keep.sum() < 50:
             print(f"[{i}/{len(patients)}] {patient} — {int(keep.sum())} usable "
                   f"cells, skipped")
+            # RECORDED, not just printed. This branch used to `continue` without
+            # appending, so six patients (C115, C118, C132, C146, C169, C173)
+            # were skipped and then absent from the by-cause table: the summary
+            # accounted for 26 of 32 skips and 62 = 22 + 4 + 30 did not add up.
+            # Same failure as conflating #9 with #11/#16 — a loss that is
+            # printed once in a scrolling log but missing from the summary is a
+            # loss nobody will find later.
+            skipped.append({
+                "patient_id": patient,
+                "reason": "fewer than 50 cells survived QC (not a reference-arm problem)",
+            })
             continue
 
         # No normal epithelium means no reference arm, so no cut points and no
@@ -288,8 +299,7 @@ def main() -> int:
 
     if skipped:
         frame = pd.DataFrame(skipped)
-        print(f"\n{len(frame)} patient(s) skipped for want of a reference arm, "
-              f"BY CAUSE:")
+        print(f"\n{len(frame)} of {len(patients)} patient(s) skipped, BY CAUSE:")
         for reason, group in frame.groupby("reason"):
             print(f"  {len(group):>3}  {reason}")
             print(f"       {', '.join(group['patient_id'])}")
@@ -412,9 +422,11 @@ def main() -> int:
             )
             print(f"  {'':<16} provenance -> {versioned}")
         print(
-            "\n  Hand these to W2 with the mature-cell counts. They live under "
-            "data/ which is\n  gitignored, so they travel by manifest or by "
-            "copy — not by git."
+            "\n  Hand these to W2 with the mature-cell counts. Two copies "
+            "each: the handoff\n  file under data/processed/ where W2 and W3 "
+            "already look, and a versioned\n  copy under results/ carrying a "
+            "git sha and a seed (invariant 10). COMMIT the\n  results/ copy — "
+            "it is the only one that can be tied to the code that made it."
         )
 
     print(
