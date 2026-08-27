@@ -341,9 +341,19 @@ mean the answer is true.
 
 ## 8 · What this memo needs before the gate
 
-1. Every run above, on real cells. Blocked on
-   [open_decisions #8](open_decisions.md) — the `lee_io` raw-count accessor,
-   proposed on `w2/lee-raw-counts` and waiting on W4.
+1. Every run above, on real cells. **This entry named the wrong blocker.**
+   [open_decisions #8](open_decisions.md) is **CLOSED** — `w2/lee-raw-counts`
+   merged at `9513186` and W4 reviewed it retrospectively on 2026-08-22
+   ("correct, and it is the option this entry recommended"). The accessor has
+   not been waiting on anyone since. What is actually missing is the **data**:
+   `data/raw/` is gitignored and the 687 files in `data/manifest.csv` are not on
+   every machine, so the harness has nothing to run against locally. That is a
+   logistics problem, not a decision, and it should be stated as one.
+
+   W4's review of #8 closed with a wish: *"W4 would rather it were an assertion
+   than a note, but the assertion belongs on the consumer, which is W2's
+   module."* That assertion now exists — see §5.4 of the handoff and
+   `reference_profiles`'s `ReferenceSeamError`.
 2. A denser calibration grid between 5 and 50 mature cells.
 3. G4 numbers, which need real per-patient mature-cell counts. **The gate's
    precision at the real cohort sizes is no longer open — see §9.** What is

@@ -98,8 +98,23 @@ Two things to carry forward: the numbers are a **lower bound** (labels are not
 perturbed, only expression), and the two known artefacts push in **opposite**
 directions — bulk attenuation shrinks the intrinsic term, ambient inflates it.
 
-**With that, every unblocked item on §5 is done.** What is left is 5, 6 and 8,
-and all three want real cells.
+**With that, every unblocked item on §5 is done.** What is left is 5, 6 and 8.
+
+**And their blocker is not the one §5 records.** The table says task 5 is blocked
+by "cell-level raw counts", and the gate memo's §8 said the `lee_io` accessor was
+"waiting on W4". Neither is true: [open_decisions #8](open_decisions.md) is
+**closed**, `w2/lee-raw-counts` merged at `9513186`, and W4 reviewed it on
+2026-08-22 — *"correct, and it is the option this entry recommended."*
+
+What is missing is the **data**. `data/raw/` is gitignored and the 687 files in
+`data/manifest.csv` are not present on every machine, so there is nothing local
+to run the harness against. That is logistics, not a decision, and whoever picks
+this up should ask for the files rather than re-litigating an accessor that
+landed four days ago.
+
+W4's review of #8 ended with a wish — *"W4 would rather it were an assertion than
+a note, but the assertion belongs on the consumer, which is W2's module."* That
+assertion now exists: `ReferenceSeamError`.
 
 **Still blocked on PR #33** (open, W1's, needs a review): `bakeoff.py:79` and the
 #35 regression test cannot be written against `main`, because `alias_map` does
