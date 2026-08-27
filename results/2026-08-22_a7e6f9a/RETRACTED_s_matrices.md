@@ -57,5 +57,9 @@ copy — not by git.
 >
 > **A run testing tier B, C or D against them violates invariant 2**, and the
 > guard will not catch it, because those genes were never passed as targets.
-> G2 spans tier A, B and D — so G2 cannot use one of these matrices for all
-> three arms as things stand. Raised for the weekly.
+>
+> Measured on the four: `best4` happens to contain neither MLH1 nor MS4A12, so
+> it is in fact clean for all three of G2's genes. The other three rungs carry
+> **MS4A12** and are not. **That is luck, not design** — marker selection simply
+> did not rank MLH1 into the top 800, and nothing guarantees it will not on a
+> different rung, cohort or `n_genes`. See decision #21.
