@@ -2298,8 +2298,27 @@ none exceed 60%. #36's worst case, C165 normal at 90.7% unresolved, *is* reached
 cells puts it in `wide_interval` — but by the count, not by the fraction, and
 its intrinsic arm was already `wide_interval` or worse on every rung.
 
-Whether 4 rows in 2 patients justifies a third cutpoint is a real question and it
-should be answered before the gate, not after. Recorded as open.
+**DECLINED, 2026-08-27, with the number attached.** Four rows in two patients,
+none above 60% unresolved, does not justify a third gate. Declining is recorded
+here rather than left open so that the gate cannot be surprised by it, and so
+that the reason is on record as *a measured size* and not as an oversight.
+
+What would reopen it, stated now so the answer is not chosen against a result:
+
+- any cohort or re-labelling where more than **5% of both-arms-`ok` rows** exceed
+  50% unresolved — it is 1.0% (4/400) here;
+- any row passing both count gates above **60% unresolved** — there are none here,
+  and that is the whole reason a fraction gate is redundant on this cohort;
+- W1 closing [#14](#14--neither-labelling-axis-is-a-clean-maturity-measure--open-blocks-composition)
+  in a way that moves cells between resolved and unresolved, since every number
+  above is conditional on the current labelling.
+
+The unresolved cells are still not missing at random — #36 is right that they are
+the intermediate and transitional states, which is exactly the population whose
+classification sets the fraction. That argument survives the decline. It is an
+argument for reporting `unresolved_fraction` alongside every compositional term,
+which W1 already emits, and not for a third threshold that would bind on four
+rows.
 
 ### Where the verdict lives
 

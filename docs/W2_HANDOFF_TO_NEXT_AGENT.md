@@ -56,8 +56,9 @@ that were already flagged, and rescues nothing.
 for the fraction to carry much — is *structurally empty* under a count cutpoint.
 Reaching it needs a cutpoint on `unresolved_fraction`. Measured size on this
 cohort: **4 rows in 2 patients (C124, C130) pass both count gates with more than
-half the epithelium unresolved**; none above 60%. Worth a third pre-commitment or
-worth declining in writing — but not worth discovering at the gate.
+half the epithelium unresolved**; none above 60%. **Declined in writing** in #22,
+with the three conditions that would reopen it — so it is a measured size on the
+record rather than something the gate discovers.
 
 ---
 

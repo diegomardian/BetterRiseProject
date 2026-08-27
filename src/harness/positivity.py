@@ -181,9 +181,9 @@ def estimability_verdicts(
     range" exposure issue #36 raised — enough mature cells to clear ``ok``, too
     few resolved cells for the fraction to carry much — because on a **count**
     cutpoint that set is structurally empty. Reaching it would need a cutpoint on
-    ``unresolved_fraction``, which is a separate decision and is deliberately not
-    taken here: 4 rows in 2 patients pass both count gates with more than half
-    the epithelium unresolved.
+    ``unresolved_fraction``, which decision #22 **declines** with the number
+    attached: 4 rows in 2 patients pass both count gates with more than half the
+    epithelium unresolved, none above 60%. #22 lists what would reopen it.
 
     Raises ``ValueError`` if ``n_cells_mature > n_cells_resolved``. That cannot
     happen for a row built by ``mature_cell_counts`` and means the caller passed
