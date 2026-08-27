@@ -81,11 +81,32 @@ CONTROLS_COLUMNS: Final = (
     "seed",
 )
 
+#: One row per (world, replicate). W2's ratification of prereg Amendment 2
+#: (issue #37): five simulated worlds with known answers, and the verdict the
+#: proposed G1 returns on each. ``rho_decision_17`` is the superseded statistic,
+#: carried alongside so the two are read against the same truth.
+G1_AMENDMENT_COLUMNS: Final = (
+    "world",
+    "replicate",
+    "verdict",
+    "expected_pass_low",
+    "expected_pass_high",
+    "rho_decision_17",
+    "rho_g1a",
+    "tier_a_median_pct",
+    "tier_d_pct",
+    "separation",
+    "n_genes_kept",
+    "n_genes",
+    "seed",
+)
+
 _SHAPES: Final = {
     "attenuation": ATTENUATION_COLUMNS,
     "bakeoff": BAKEOFF_COLUMNS,
     "calibration": CALIBRATION_COLUMNS,
     "controls": CONTROLS_COLUMNS,
+    "g1_amendment": G1_AMENDMENT_COLUMNS,
 }
 
 
