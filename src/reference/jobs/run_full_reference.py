@@ -369,6 +369,48 @@ def main() -> int:
             s_matrix.to_parquet(path)
             print(f"  {rung:<16} {s_matrix.shape[0]} genes x "
                   f"{s_matrix.shape[1]} columns -> {path.name}")
+
+            # AND a versioned copy carrying provenance. CONTRIBUTING §4:
+            # "Results *do* go in git ... never `df.to_parquet()` directly — so
+            # every file carries a git sha and a seed."
+            #
+            # The bare to_parquet above writes to data/processed/, which is
+            # gitignored, and records NOTHING. The four 0.1.0-pilot S matrices
+            # are the only results in the repo with no .meta.json sidecar —
+            # every other artifact beside them has one — so the W1 -> W2 handoff
+            # was the single result nobody could tie to a commit or a seed.
+            # That is CLAUDE.md invariant 10, and it went unnoticed because the
+            # pilot copies were placed in results/ by hand.
+            #
+            # The handoff path is left exactly where it was: s_matrix_path()
+            # lives in shared src/common/paths.py and W2/W3 read from it, so
+            # moving it is not W1's call to make alone.
+            #
+            # reset_index() because write_versioned_table writes index=False,
+            # which would silently drop the gene rows.
+            versioned = write_versioned_table(
+                s_matrix.rename_axis("gene").reset_index(),
+                f"S_matrix_{rung}_{S_MATRIX_VERSION}",
+                seed=DEFAULT_SEED, allow_dirty=args.allow_dirty,
+                notes=(
+                    f"Reference (S) matrix, {rung} rung, on gene index "
+                    f"{GENE_INDEX_VERSION}. Pooled across the cohort. Excludes "
+                    f"the WHOLE frozen panel (decision #21), not tier A alone, "
+                    f"so it is valid for a run testing any panel gene. Handoff "
+                    f"copy at {path}."
+                ),
+                extra_meta={
+                    "rung": rung,
+                    "gene_index_version": GENE_INDEX_VERSION,
+                    "s_matrix_version": S_MATRIX_VERSION,
+                    "n_genes": int(s_matrix.shape[0]),
+                    "n_cell_types": int(s_matrix.shape[1]),
+                    "cell_types": [str(c) for c in s_matrix.columns],
+                    "n_targets_excluded": len(matrix_targets),
+                    "labelling_axis": "stem_pole",
+                },
+            )
+            print(f"  {'':<16} provenance -> {versioned}")
         print(
             "\n  Hand these to W2 with the mature-cell counts. They live under "
             "data/ which is\n  gitignored, so they travel by manifest or by "
