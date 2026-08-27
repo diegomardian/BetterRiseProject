@@ -254,6 +254,36 @@ def classify_counts_frame(
     return out
 
 
+def wilson_interval(n_successes: int, n_trials: int, *, alpha: float = 0.05) -> tuple[float, float]:
+    """Wilson score interval on a proportion. Stdlib only, on purpose.
+
+    Wilson rather than the normal approximation because G4's counts are small
+    and its proportions land near the ends — 6 of 36 — where the textbook
+    interval runs below zero and misstates coverage badly. Wilson stays inside
+    [0, 1] and holds its coverage down to single-digit counts, which is the
+    regime this cohort is actually in.
+
+    ``statistics.NormalDist`` rather than scipy so that the cutpoints module
+    keeps no runtime third-party import: W4 imports from here, and a gate rule
+    that drags in a numerical stack is a gate rule people reimplement.
+    """
+    from statistics import NormalDist
+
+    if n_trials <= 0:
+        raise ValueError(f"n_trials={n_trials} must be positive")
+    if not 0 <= n_successes <= n_trials:
+        raise ValueError(f"n_successes={n_successes} outside [0, {n_trials}]")
+    if not 0 < alpha < 1:
+        raise ValueError(f"alpha={alpha} outside (0, 1)")
+
+    z = NormalDist().inv_cdf(1 - alpha / 2)
+    p = n_successes / n_trials
+    denominator = 1 + z * z / n_trials
+    centre = (p + z * z / (2 * n_trials)) / denominator
+    half = z * ((p * (1 - p) / n_trials + z * z / (4 * n_trials**2)) ** 0.5) / denominator
+    return max(0.0, centre - half), min(1.0, centre + half)
+
+
 def gate_g4_verdict(
     n_cells_mature: Sequence[int],
     cutpoints: Cutpoints = CUTPOINTS,
@@ -306,7 +336,29 @@ def gate_g4_verdict(
     frac = below / n
     passes = frac < NON_IDENTIFIABILITY_HEADLINE_FRACTION
     total = n + n_unmatched_patients
+
+    # The pre-committed rule is `frac < 0.50` and it is NOT changed here. What
+    # is added is whether n supports the verdict at all: at 36 matched patients
+    # a clean call needs 12 or fewer below, and at SMC's 10 it needs 1 or fewer.
+    # Reporting `passes` without this is a point estimate presented as a fact.
+    ci_low, ci_high = wilson_interval(below, n)
+    resolvable = not (ci_low < NON_IDENTIFIABILITY_HEADLINE_FRACTION < ci_high)
     return {
+        "fraction_below_ci_low": ci_low,
+        "fraction_below_ci_high": ci_high,
+        "resolvable": resolvable,
+        "precision": (
+            f"the 95% interval on fraction_below is "
+            f"[{ci_low:.1%}, {ci_high:.1%}] at n={n}"
+            + (
+                ""
+                if resolvable
+                else f" and it CONTAINS the "
+                f"{NON_IDENTIFIABILITY_HEADLINE_FRACTION:.0%} line, so this "
+                f"verdict is a point estimate the cohort cannot resolve. "
+                f"Report it as indeterminate rather than as {'PASS' if passes else 'FAIL'}."
+            )
+        ),
         "population": "matched_only",
         "n_patients": n,
         "n_unmatched_excluded": n_unmatched_patients,
