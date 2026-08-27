@@ -16,7 +16,8 @@ Date: 2026-08-16 · Owner: W2 · Reads against
 |---|---|---|
 | **G1** ambient correction | **changed twice — premise and statistic; W2 has ratified the new statistic, see §0** | MA-vs-percentile per prereg amendment 2. The harness can say the criterion discriminates; it starts from corrected cells and still cannot test the correction itself. |
 | **G3** estimator recovers known ground truth | **preliminary PASS**, synthetic | Oracle arm recovers the known split within 1% wherever the mature compartment is non-empty; interval coverage 0.90–1.00 above 20 mature cells |
-| **G4** <50% of patients below threshold | **cannot answer yet** | Needs real patient-level mature-cell counts. `gate_g4_verdict()` is implemented and waiting on data. |
+| **G4** <50% of patients below threshold | **cannot answer yet — but the cohort can support the question, see §9** | Needs real patient-level mature-cell counts. `gate_g4_verdict()` is implemented, now reports a Wilson interval and a `resolvable` flag, and is waiting on data. At 36 matched patients the effective decision line is 33%, not 50%; at SMC's 10 it is 10% and G4 is not answerable. |
+| **Ambient sensitivity** (feeds G1) | **measured**, synthetic | §10 — at the 10% exclusion cap real terms retain 94% and a compositional-only world acquires an intrinsic term worth 4.6% of its compositional one. The artefact is one-directional. |
 | **G2** control tiers separate | **not yet run** | Needs W1's pilot |
 
 ---
@@ -151,10 +152,13 @@ later either.
 corrected cells and has no view on whether the correction worked. Everything
 above is about whether the *criterion* can distinguish worlds — which is a
 question the harness can answer, and the one that was open. What it still cannot
-say is which world this cohort is in. Quantifying how much intrinsic signal
-survives a given level of simulated ambient contamination would turn "degraded
-correction" into a number; that is not built and not in week-5 scope, and it
-remains the obvious next harness job if the gate wants it.
+say is which world this cohort is in.
+
+Quantifying how much intrinsic signal survives a given level of simulated
+ambient contamination — the job §0 kept flagging as the obvious next one — **is
+now built: see §10.** At the 10% exclusion cap, ambient manufactures an apparent
+intrinsic term worth about 5% of a real one, and it **cannot** manufacture a
+compositional term at all. "Degraded correction" now has a number attached to it.
 
 ---
 
@@ -337,12 +341,222 @@ mean the answer is true.
 
 ## 8 · What this memo needs before the gate
 
-1. Every run above, on real cells. Blocked on
-   [open_decisions #8](open_decisions.md) — the `lee_io` raw-count accessor,
-   proposed on `w2/lee-raw-counts` and waiting on W4.
+1. Every run above, on real cells. **This entry named the wrong blocker.**
+   [open_decisions #8](open_decisions.md) is **CLOSED** — `w2/lee-raw-counts`
+   merged at `9513186` and W4 reviewed it retrospectively on 2026-08-22
+   ("correct, and it is the option this entry recommended"). The accessor has
+   not been waiting on anyone since. What is actually missing is the **data**:
+   `data/raw/` is gitignored and the 687 files in `data/manifest.csv` are not on
+   every machine, so the harness has nothing to run against locally. That is a
+   logistics problem, not a decision, and it should be stated as one.
+
+   W4's review of #8 closed with a wish: *"W4 would rather it were an assertion
+   than a note, but the assertion belongs on the consumer, which is W2's
+   module."* That assertion now exists — see §5.4 of the handoff and
+   `reference_profiles`'s `ReferenceSeamError`.
 2. A denser calibration grid between 5 and 50 mature cells.
-3. G4 numbers, which need real per-patient mature-cell counts.
+3. G4 numbers, which need real per-patient mature-cell counts. **The gate's
+   precision at the real cohort sizes is no longer open — see §9.** What is
+   still needed is the counts themselves.
 4. G2, which needs W1's pilot.
 5. W4's view on [open_decisions #9](open_decisions.md) — the `doubly_robust`
    weighting folds the interaction into both arms, which invariant 7 forbids.
    Unresolved, and it changes what the decomposition reports.
+
+---
+
+## 9 · What the gate costs at the real cohort sizes — done, and it changes one verdict's status
+
+Everything downstream of the plan was designed for roughly **60 patients**. The
+cohorts are smaller: **GSE178341 has 36 matched of 62**, **SMC has 10 paired, not
+23**. W2 promised W4 this re-costing twice and had not done it. It is done.
+
+Two quantities are affected and they are not interchangeable.
+
+### 9.1 · G4's verdict — a proportion against a pre-committed line
+
+G4 asks whether fewer than 50% of patients are below the positivity threshold.
+That is a proportion, so its precision is binomial in the number of *patients*,
+and 50% is the point where a proportion is least precisely estimated.
+
+`gate_g4_verdict()` now returns a Wilson interval on `fraction_below` and a
+`resolvable` flag beside `passes`. **The 0.50 rule is unchanged** — moving a
+pre-committed line after seeing what n does to it is the move this project
+refuses everywhere else. What changes is that "PASS" and "PASS, and this cohort
+could not have said otherwise" stop reading as the same sentence.
+
+| cohort | n | clean PASS needs | effective line | rule says |
+|---|---|---|---|---|
+| SMC paired | 10 | ≤ **1** patient below | **10.0%** | 50% |
+| GSE178341 matched | 36 | ≤ 12 | 33.3% | 50% |
+| the plan's assumption | 60 | ≤ 22 | 36.7% | 50% |
+
+**Decision #19's PASS survives.** It recorded 6 of 36 matched patients below
+threshold — 16.7%, 95% CI [7.9%, 31.9%]. A defensible PASS at n = 36 allows up to
+12, so that verdict clears with room to spare. This was the thing worth checking
+and it came back clean.
+
+**G4 is not answerable on SMC alone.** At n = 10 a defensible PASS needs 1 or
+fewer of 10 patients below threshold; at 2 the interval already straddles the
+line. Anything SMC says about G4 is a point estimate its own size cannot support,
+and the gate should treat it as such rather than as a second opinion.
+
+**One correction to decision #19's own table.** It reported the mixed population
+as `32/62 = 51.6% FAIL`. Read with an interval that is [39.4%, 63.6%] — it
+**contains the 50% line**, so the mixed verdict is *indeterminate*, not a clean
+FAIL. Decision #19 is still right and for the reason it gave: mixing populations
+reports a cohort-design fact as a positivity finding. But "mixing flips the gate"
+overstates it. Mixing flips the *point estimate* and produces a verdict the
+cohort cannot resolve, which is a weaker claim than the table implied.
+
+**What more patients do and do not buy.** P(G4 returns PASS), exact binomial:
+
+| true fraction below | n=10 | n=36 | n=60 |
+|---|---|---|---|
+| 0.35 | 0.751 | 0.954 | 0.988 |
+| 0.45 | 0.504 | 0.670 | 0.742 |
+| **0.50** | **0.377** | **0.434** | **0.449** |
+| 0.60 | 0.166 | 0.083 | 0.044 |
+
+More patients sharpen the verdict *away* from the line, not *on* it. If the truth
+sits near 50%, no cohort this project can reach turns G4 into a decision
+procedure — the pre-committed consequence is what makes it one.
+
+### 9.2 · The cohort band on the decomposition terms
+
+Measured through W4's own `bootstrap_over_patients`, not from a formula, because
+the estimator nulls the intrinsic term below the positivity cutpoint and a
+formula does not know that. 15 replicate cohorts per size, 300 bootstrap draws,
+seed 4242:
+
+| term | n=36 vs plan | n=10 vs plan |
+|---|---|---|
+| compositional | ×1.22 | ×2.05 |
+| intrinsic | ×1.23 | ×2.02 |
+| interaction | ×1.27 | ×2.15 |
+| *1/√n prediction* | *×1.29* | *×2.45* |
+
+All three widen together, close to and slightly under the 1/√n expectation. So
+the shortfall from 60 to 36 costs about a quarter of the interval width — real,
+survivable, and much smaller than the G4 effect in §9.1.
+
+**A finding that did not survive replication, recorded because it nearly went in
+the memo.** At 5 replicates the interaction term appeared to degrade faster than
+the other two (×1.69 and ×3.50 rather than ×1.27 and ×2.15), which would have
+been a genuinely interesting claim about the term invariant 7 keeps separate. At
+15 replicates it is gone: the three terms are indistinguishable. The first run
+was noise, and it was noise pointing at an interesting conclusion, which is the
+kind this project has learned to re-run before quoting.
+
+### 9.3 · What follows for the gate
+
+- **G4 should be read off GSE178341 matched patients only**, which is already
+  decision #19, and now for a second and independent reason: SMC cannot resolve
+  it and pooling the two would import that.
+- **A G4 verdict should be quoted with its interval.** The machinery does this
+  now; the memo and any results table should carry `resolvable` alongside
+  `passes`.
+- **The gate should be told that the effective line is 33%, not 50%**, at the
+  cohort it will actually decide on.
+
+`src/harness/gate_cost.py`, `tests/test_gate_cost.py`, [`results/2026-08-26_09f0bc3/gate_cost_at_real_n.parquet`](../results/2026-08-26_09f0bc3/gate_cost_at_real_n.parquet).
+
+---
+
+## 10 · "Degraded correction" is now a number — the ambient sensitivity sweep
+
+§0.1 says GSE178341 ships no unfiltered droplets, so CellBender cannot run and
+the gate is choosing between *degraded correction* and *no correction*. §0 has
+been calling that "degraded" without saying how much, and flagged the sweep as
+the obvious next harness job. It is built.
+
+**This does not say whether this cohort's correction worked.** The harness starts
+from corrected cells and cannot know. It says what a given level of *residual*
+contamination does to a decomposition whose truth is known — which is the
+question that makes the choice decidable.
+
+### The mechanism, and why the answer is not symmetric
+
+Ambient RNA is the sample's own average expression, redistributed across every
+barcode. So the soup in a **normal** sample is rich in mature-colonocyte
+transcripts, and the soup in a **depleted tumour** is not.
+
+Take a tumour whose loss is purely compositional — mature cells gone, survivors
+untouched, true intrinsic term exactly zero. Contamination pulls each arm's
+mature cells toward *their own arm's* soup, the normal arm's soup is richer, and
+the mature-cell means separate **where the truth says they must not**. A
+compositional-only world acquires an apparent intrinsic term.
+
+### The numbers, at decision #16's 10% exclusion cap
+
+A sample at exactly 10% is *kept*, so this is the worst case the cohort tolerates
+by design rather than a hypothetical. 20 replicates, seed 20260827.
+
+| world | term | truth | at 10% ambient |
+|---|---|---|---|
+| compositional only | compositional | −17.54 | −16.49 — **94% retained** |
+| compositional only | **intrinsic** | **exactly 0** | **−0.79 — manufactured, 4.6% of the compositional term** |
+| compositional only | interaction | exactly 0 | +0.60 — manufactured, 3.4% |
+| intrinsic only | intrinsic | −15.18 | −14.27 — **94% retained** |
+| intrinsic only | **compositional** | **exactly 0** | **exactly 0.0000 — nothing manufactured** |
+| both | all three | — | 94–96% retained |
+
+### Two findings, and the second is the useful one
+
+**1 · Real terms are attenuated by about 6% at the 10% cap**, and about 18% at
+30%. Contamination shrinks a true signal; it does not annihilate or flip one.
+That is a mild cost and it is the same for all three terms.
+
+**2 · The artefact is one-directional, and structurally so.** Contamination
+manufactures **intrinsic** signal out of **compositional** truth, and *never the
+reverse* — the compositional term stays at exactly 0.0000 at every level tested.
+That is not luck. The compositional term is a function of the mature-fraction
+*difference*, contamination moves means rather than fractions, so where the two
+arms share a mature fraction the term is identically zero however much soup is
+added. **Ambient can invent silencing. It cannot invent depletion.**
+
+The manufactured intrinsic term grows smoothly: 1.6% of the compositional term at
+2% ambient, 2.8% at 5%, **4.6% at 10%**, 6.3% at 15%, 12.1% at 30% — against a
+1.2% floor from sampling noise alone.
+
+### What this means for the gate
+
+- **The 10% exclusion threshold is well placed.** At the cap, ambient
+  manufactures an intrinsic term worth about 5% of a real one. That is small
+  enough not to change a conclusion and large enough that it should be stated
+  next to any intrinsic estimate, not buried.
+- **The two known artefacts push in opposite directions.** Invariant 6's bulk
+  attenuation shrinks the intrinsic term (toward "compositional", which is the
+  prior hypothesis). Ambient inflates it (toward "intrinsic"). They do not
+  compound, and a result that survives both is stronger than one tested against
+  either.
+- **G1's premise change is survivable at this level.** Choosing *no correction*
+  over *degraded correction* costs roughly 5% of the intrinsic term in
+  manufactured signal at the worst contamination the cohort admits. That is a
+  number the gate can weigh against the risk of a correction nobody can validate.
+
+### The bound, stated so it is not assumed away
+
+Contamination here perturbs **expression, not labels**. Enough soup also pushes
+cells across a maturity threshold, which would move the *fractions* as well as
+the means, and that is W1's axis question rather than W2's. **Every number above
+is therefore a lower bound on ambient's total damage.** Simulating the label
+effect here would hide W1's uncertainty inside a W2 number, which is worse than
+leaving the bound visible.
+
+### One bug this nearly shipped, recorded because the shape recurs
+
+The first version decided "the truth is zero here" by testing whether the clean
+term was near zero. In a compositional-only world the *realised* intrinsic term
+is zero **plus sampling noise** — about −0.05 against a compositional term of
+−17.5 — so the test called it non-zero, formed a retention ratio against a
+near-zero denominator, and reported a confident **2.38×** where the honest
+statement is "the truth is zero and 0.79 appeared". The flag now comes from the
+regime's **design** (`AmbientRegime.parametric_zero_terms`), and
+`summarise_ambient` refuses a sweep that has lost it.
+
+That is the same error as scoring coverage against realised rather than
+parametric truth (§3 of the handoff), one module along, and it produced a number
+that looked like a finding.
+
+`src/harness/ambient_sensitivity.py`, `tests/test_ambient_sensitivity.py`, [`results/2026-08-26_09f0bc3/ambient_sensitivity_sweep.parquet`](../results/2026-08-26_09f0bc3/ambient_sensitivity_sweep.parquet).

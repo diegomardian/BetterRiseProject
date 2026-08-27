@@ -22,6 +22,7 @@ from src.harness.attenuation import (
     summarise_sweep,
 )
 from src.harness.bulk_recovery import (
+    ReferenceSeamError,
     attenuated_mature_mean,
     attenuation_ratio,
     reference_profiles,
@@ -218,8 +219,38 @@ def test_reference_profiles_can_exclude_the_target(cohort):
     assert TARGET not in sig.index
     assert set(sig.columns) == set(TYPES)
     # GUCA2A is mature-restricted, so it must dominate there when included.
-    full = reference_profiles(counts, ctypes, GENES)
+    # include_targets is stated, not defaulted — this is the target-profile
+    # matrix, and the seam refuses a call that does not say which one it wants.
+    full = reference_profiles(counts, ctypes, GENES, include_targets=True)
     assert full.loc[TARGET, MATURE] > 10 * full.loc[TARGET, "stem"]
+
+
+def test_reference_profiles_refuses_a_call_that_does_not_say_which_matrix():
+    """The seam handoff §5 task 4 named: ``LeeCohort.raw_counts`` carries the
+    panel on purpose, so the old ``exclude_genes=()`` default put an
+    invariant-2 violation one forgotten keyword away, silently."""
+    counts = np.zeros((4, 3))
+    ctypes = ["a", "a", "b", "b"]
+    genes = ["G1", "G2", "G3"]
+
+    with pytest.raises(ReferenceSeamError, match="which matrix"):
+        reference_profiles(counts, ctypes, genes)
+
+    # An empty exclusion list excludes nothing and reads as enforcement.
+    with pytest.raises(ReferenceSeamError, match="empty"):
+        reference_profiles(counts, ctypes, genes, exclude_genes=[])
+
+    # The two matrices are not the same matrix.
+    with pytest.raises(ReferenceSeamError, match="contradict"):
+        reference_profiles(
+            counts, ctypes, genes, exclude_genes=["G1"], include_targets=True
+        )
+
+    # Both stated intents still work.
+    assert "G1" not in reference_profiles(
+        counts, ctypes, genes, exclude_genes=["G1"]
+    ).index
+    assert "G1" in reference_profiles(counts, ctypes, genes, include_targets=True).index
 
 
 def test_attenuated_mean_recovers_the_truth_when_everything_is_known():

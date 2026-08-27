@@ -2202,6 +2202,26 @@ the next free number independently. Cross-references by number are ambiguous.
 This entry takes 19 to avoid adding a ninth. A renumbering pass is needed and
 nobody objected when W2 offered — see X-1 in the handoff doc.
 
+### CORRECTION 2026-08-27 — "mixing flips the gate" overstates it
+
+The table above reports the mixed population as `32/62 = 51.6% FAIL`. Re-costed
+with an interval (`gate_cost.py`, handoff §5 task 3), that is **[39.4%, 63.6%] —
+which contains the 50% line**. The mixed verdict is therefore *indeterminate*,
+not a clean FAIL.
+
+**The decision does not change and neither does its reason.** Mixing populations
+reports a cohort-design fact — how many patients had a normal sample taken — as a
+positivity finding about mature-cell depletion. That argument is about what is
+being measured and does not depend on precision at all.
+
+What was overstated is the framing. Mixing flips the *point estimate* and yields
+a verdict the cohort cannot resolve; it does not flip a FAIL into a PASS, because
+there was never a resolvable FAIL there to flip. The matched verdict, by
+contrast, is clean: 6/36 = 16.7%, 95% CI [7.9%, 31.9%], and a defensible PASS at
+n=36 allows up to 12 patients below threshold.
+
+Recorded rather than quietly edited, because the original number was circulated.
+
 ---
 
 ## 22 · The compositional arm gets its own cutpoint, on `n_cells_resolved` — PRE-COMMITTED 2026-08-27

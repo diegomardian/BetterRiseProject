@@ -1,0 +1,123 @@
+{
+  "date": "2026-08-26",
+  "utc_timestamp": "2026-08-27T03:14:23+00:00",
+  "git_sha": "09f0bc32f3f120d0ce106c77e096bb93c2c11e3e",
+  "git_sha_short": "09f0bc3",
+  "git_branch": "w2/g1-amendment-ratification",
+  "git_dirty": false,
+  "seed": 4242,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "name": "gate_cost_at_real_n",
+  "n_rows": 21,
+  "columns": [
+    "cohort",
+    "n_patients",
+    "true_fraction_below",
+    "p_gate_says_pass",
+    "largest_clean_pass",
+    "effective_decision_line"
+  ],
+  "table_kind": "harness",
+  "harness_table_kind": "gate_cost",
+  "purpose": "Re-costing the week-5 gate at the cohort sizes that exist (handoff section 5 task 3, promised to W4 twice).",
+  "cohort_sizes": {
+    "smc_paired": 10,
+    "gse178341_matched": 36,
+    "plan_assumed": 60
+  },
+  "cohort_sources": {
+    "smc_paired": "10 paired, not the 23 the plan assumed",
+    "gse178341_matched": "36 matched of 62; ~26 have no normal arm",
+    "plan_assumed": "what everything downstream was designed against"
+  },
+  "g4_rule": "fraction_below < 0.50 - PRE-COMMITTED, unchanged by this re-costing",
+  "largest_clean_pass": {
+    "smc_paired": 1,
+    "gse178341_matched": 12,
+    "plan_assumed": 22
+  },
+  "effective_decision_line": {
+    "smc_paired": 0.1,
+    "gse178341_matched": 0.3333333333333333,
+    "plan_assumed": 0.36666666666666664
+  },
+  "decision_19_verdict": {
+    "matched": "6/36 = 16.7%, CI [7.9%, 31.9%] - PASS, resolvable",
+    "mixed": "32/62 = 51.6%, CI [39.4%, 63.6%] - contains 0.50, INDETERMINATE rather than the clean FAIL originally recorded"
+  },
+  "cohort_band_widening": [
+    {
+      "cohort": "smc_paired",
+      "n_patients": 10,
+      "term": "compositional",
+      "ci_width": 1.0264580404473835,
+      "ratio_vs_plan": 2.0522650132509117
+    },
+    {
+      "cohort": "gse178341_matched",
+      "n_patients": 36,
+      "term": "compositional",
+      "ci_width": 0.6090141119189534,
+      "ratio_vs_plan": 1.2176419349032428
+    },
+    {
+      "cohort": "plan_assumed",
+      "n_patients": 60,
+      "term": "compositional",
+      "ci_width": 0.5001586217276159,
+      "ratio_vs_plan": 1.0
+    },
+    {
+      "cohort": "smc_paired",
+      "n_patients": 10,
+      "term": "interaction",
+      "ci_width": 0.6107125509637852,
+      "ratio_vs_plan": 2.1521277943190396
+    },
+    {
+      "cohort": "gse178341_matched",
+      "n_patients": 36,
+      "term": "interaction",
+      "ci_width": 0.3601049296200322,
+      "ratio_vs_plan": 1.26899607136538
+    },
+    {
+      "cohort": "plan_assumed",
+      "n_patients": 60,
+      "term": "interaction",
+      "ci_width": 0.2837715086324706,
+      "ratio_vs_plan": 1.0
+    },
+    {
+      "cohort": "smc_paired",
+      "n_patients": 10,
+      "term": "intrinsic",
+      "ci_width": 0.9025950108412177,
+      "ratio_vs_plan": 2.0247823591552376
+    },
+    {
+      "cohort": "gse178341_matched",
+      "n_patients": 36,
+      "term": "intrinsic",
+      "ci_width": 0.5491689456478317,
+      "ratio_vs_plan": 1.2319452024305753
+    },
+    {
+      "cohort": "plan_assumed",
+      "n_patients": 60,
+      "term": "intrinsic",
+      "ci_width": 0.44577384169713463,
+      "ratio_vs_plan": 1.0
+    }
+  ],
+  "band_settings": {
+    "n_boot": 300,
+    "n_replicates": 15,
+    "weighting": "normal"
+  },
+  "did_not_replicate": "At 5 replicates the interaction term appeared to widen faster than the other two (x1.69/x3.50). At 15 it does not. Recorded so nobody re-derives it as a discovery."
+}
