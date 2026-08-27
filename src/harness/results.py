@@ -114,6 +114,23 @@ GATE_COST_COLUMNS: Final = (
     "effective_decision_line",
 )
 
+#: One row per (regime, ambient fraction, replicate, term). Handoff §5 task 7 —
+#: what residual ambient contamination does to a decomposition whose truth is
+#: known. ``truth_is_zero`` comes from the regime's DESIGN, never from the
+#: realised value; see AmbientRegime.parametric_zero_terms for why that matters.
+AMBIENT_COLUMNS: Final = (
+    "regime",
+    "ambient_fraction",
+    "replicate",
+    "weighting",
+    "term",
+    "truth_is_zero",
+    "value_clean",
+    "value_contaminated",
+    "n_cells_mature",
+    "seed",
+)
+
 _SHAPES: Final = {
     "attenuation": ATTENUATION_COLUMNS,
     "bakeoff": BAKEOFF_COLUMNS,
@@ -121,6 +138,7 @@ _SHAPES: Final = {
     "controls": CONTROLS_COLUMNS,
     "g1_amendment": G1_AMENDMENT_COLUMNS,
     "gate_cost": GATE_COST_COLUMNS,
+    "ambient": AMBIENT_COLUMNS,
 }
 
 

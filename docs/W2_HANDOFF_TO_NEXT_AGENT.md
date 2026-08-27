@@ -83,6 +83,24 @@ gate memo §0.2. Also: `scipy.stats.spearmanr` on one observation returns `nan`,
 and `abs(nan) > 0.5` is `False`, so decision #17 would not have errored on tier D
 — it would have *passed* it.
 
+**§5 task 7 — the ambient-sensitivity sweep for G1. Done**
+(`src/harness/ambient_sensitivity.py`, gate memo §10). This was the job §0 of the
+memo kept naming as "the obvious next one".
+
+At decision #16's 10% exclusion cap: real terms retain **94%**, and a
+compositional-only world acquires an intrinsic term worth **4.6%** of its
+compositional one. The artefact is **one-directional and structurally so** —
+ambient can invent silencing, it cannot invent depletion, because the
+compositional term is a function of the mature-fraction *difference* and
+contamination moves means rather than fractions.
+
+Two things to carry forward: the numbers are a **lower bound** (labels are not
+perturbed, only expression), and the two known artefacts push in **opposite**
+directions — bulk attenuation shrinks the intrinsic term, ambient inflates it.
+
+**With that, every unblocked item on §5 is done.** What is left is 5, 6 and 8,
+and all three want real cells.
+
 **Still blocked on PR #33** (open, W1's, needs a review): `bakeoff.py:79` and the
 #35 regression test cannot be written against `main`, because `alias_map` does
 not exist there yet.

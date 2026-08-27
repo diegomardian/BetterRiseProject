@@ -41,7 +41,7 @@ the three numbers the week-5 cutpoints are derived from.
 | [pseudobulk.py](pseudobulk.py) | **done** — patient holdout, composition draw, multiplicative shift on integer counts |
 | [controls.py](controls.py) | **done** — within-patient permutation, housekeeping negatives |
 | [positivity.py](positivity.py) | **done** — two cutpoints (intrinsic provisional, compositional pre-committed as #22), plus G4 with a Wilson interval and a `resolvable` flag |
-| [results.py](results.py) | **done** — six harness table shapes, written via `src.common.io` |
+| [results.py](results.py) | **done** — seven harness table shapes, written via `src.common.io` |
 | [deconvolve/](deconvolve/) | protocol, NNLS baseline and ν-SVR **done**; MuSiC wk 3–4; CIBERSORTx, BayesPrism staged |
 | [attenuation.py](attenuation.py) | **done** — the §2.2 sweep, oracle + bulk arms |
 | [bulk_recovery.py](bulk_recovery.py) | **done** — the thing invariant 6 forbids, measured rather than used. `reference_profiles` now refuses a call that does not say which of the two matrices it is building |
@@ -50,6 +50,7 @@ the three numbers the week-5 cutpoints are derived from.
 | [interval.py](interval.py) | **done** — per-patient CI; read its docstring on invariant 5 |
 | [g1_amendment.py](g1_amendment.py) | **done** — W2's ratification of prereg amendment 2 (#37): five worlds, can the proposed G1 fail? |
 | [gate_cost.py](gate_cost.py) | **done** — the gate re-costed at 10 and 36 patients rather than the plan's 60 |
+| [ambient_sensitivity.py](ambient_sensitivity.py) | **done** — what residual soup does to a known decomposition; the artefact is one-directional |
 | `ingest.py` | unblocked once W4 merges `w2/lee-raw-counts` (open_decisions #8) |
 
 ## The two arms, and why both

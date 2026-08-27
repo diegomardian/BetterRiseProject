@@ -17,6 +17,7 @@ Date: 2026-08-16 · Owner: W2 · Reads against
 | **G1** ambient correction | **changed twice — premise and statistic; W2 has ratified the new statistic, see §0** | MA-vs-percentile per prereg amendment 2. The harness can say the criterion discriminates; it starts from corrected cells and still cannot test the correction itself. |
 | **G3** estimator recovers known ground truth | **preliminary PASS**, synthetic | Oracle arm recovers the known split within 1% wherever the mature compartment is non-empty; interval coverage 0.90–1.00 above 20 mature cells |
 | **G4** <50% of patients below threshold | **cannot answer yet — but the cohort can support the question, see §9** | Needs real patient-level mature-cell counts. `gate_g4_verdict()` is implemented, now reports a Wilson interval and a `resolvable` flag, and is waiting on data. At 36 matched patients the effective decision line is 33%, not 50%; at SMC's 10 it is 10% and G4 is not answerable. |
+| **Ambient sensitivity** (feeds G1) | **measured**, synthetic | §10 — at the 10% exclusion cap real terms retain 94% and a compositional-only world acquires an intrinsic term worth 4.6% of its compositional one. The artefact is one-directional. |
 | **G2** control tiers separate | **not yet run** | Needs W1's pilot |
 
 ---
@@ -151,10 +152,13 @@ later either.
 corrected cells and has no view on whether the correction worked. Everything
 above is about whether the *criterion* can distinguish worlds — which is a
 question the harness can answer, and the one that was open. What it still cannot
-say is which world this cohort is in. Quantifying how much intrinsic signal
-survives a given level of simulated ambient contamination would turn "degraded
-correction" into a number; that is not built and not in week-5 scope, and it
-remains the obvious next harness job if the gate wants it.
+say is which world this cohort is in.
+
+Quantifying how much intrinsic signal survives a given level of simulated
+ambient contamination — the job §0 kept flagging as the obvious next one — **is
+now built: see §10.** At the 10% exclusion cap, ambient manufactures an apparent
+intrinsic term worth about 5% of a real one, and it **cannot** manufacture a
+compositional term at all. "Degraded correction" now has a number attached to it.
 
 ---
 
@@ -446,3 +450,103 @@ kind this project has learned to re-run before quoting.
   cohort it will actually decide on.
 
 `src/harness/gate_cost.py`, `tests/test_gate_cost.py`.
+
+---
+
+## 10 · "Degraded correction" is now a number — the ambient sensitivity sweep
+
+§0.1 says GSE178341 ships no unfiltered droplets, so CellBender cannot run and
+the gate is choosing between *degraded correction* and *no correction*. §0 has
+been calling that "degraded" without saying how much, and flagged the sweep as
+the obvious next harness job. It is built.
+
+**This does not say whether this cohort's correction worked.** The harness starts
+from corrected cells and cannot know. It says what a given level of *residual*
+contamination does to a decomposition whose truth is known — which is the
+question that makes the choice decidable.
+
+### The mechanism, and why the answer is not symmetric
+
+Ambient RNA is the sample's own average expression, redistributed across every
+barcode. So the soup in a **normal** sample is rich in mature-colonocyte
+transcripts, and the soup in a **depleted tumour** is not.
+
+Take a tumour whose loss is purely compositional — mature cells gone, survivors
+untouched, true intrinsic term exactly zero. Contamination pulls each arm's
+mature cells toward *their own arm's* soup, the normal arm's soup is richer, and
+the mature-cell means separate **where the truth says they must not**. A
+compositional-only world acquires an apparent intrinsic term.
+
+### The numbers, at decision #16's 10% exclusion cap
+
+A sample at exactly 10% is *kept*, so this is the worst case the cohort tolerates
+by design rather than a hypothetical. 20 replicates, seed 20260827.
+
+| world | term | truth | at 10% ambient |
+|---|---|---|---|
+| compositional only | compositional | −17.54 | −16.49 — **94% retained** |
+| compositional only | **intrinsic** | **exactly 0** | **−0.79 — manufactured, 4.6% of the compositional term** |
+| compositional only | interaction | exactly 0 | +0.60 — manufactured, 3.4% |
+| intrinsic only | intrinsic | −15.18 | −14.27 — **94% retained** |
+| intrinsic only | **compositional** | **exactly 0** | **exactly 0.0000 — nothing manufactured** |
+| both | all three | — | 94–96% retained |
+
+### Two findings, and the second is the useful one
+
+**1 · Real terms are attenuated by about 6% at the 10% cap**, and about 18% at
+30%. Contamination shrinks a true signal; it does not annihilate or flip one.
+That is a mild cost and it is the same for all three terms.
+
+**2 · The artefact is one-directional, and structurally so.** Contamination
+manufactures **intrinsic** signal out of **compositional** truth, and *never the
+reverse* — the compositional term stays at exactly 0.0000 at every level tested.
+That is not luck. The compositional term is a function of the mature-fraction
+*difference*, contamination moves means rather than fractions, so where the two
+arms share a mature fraction the term is identically zero however much soup is
+added. **Ambient can invent silencing. It cannot invent depletion.**
+
+The manufactured intrinsic term grows smoothly: 1.6% of the compositional term at
+2% ambient, 2.8% at 5%, **4.6% at 10%**, 6.3% at 15%, 12.1% at 30% — against a
+1.2% floor from sampling noise alone.
+
+### What this means for the gate
+
+- **The 10% exclusion threshold is well placed.** At the cap, ambient
+  manufactures an intrinsic term worth about 5% of a real one. That is small
+  enough not to change a conclusion and large enough that it should be stated
+  next to any intrinsic estimate, not buried.
+- **The two known artefacts push in opposite directions.** Invariant 6's bulk
+  attenuation shrinks the intrinsic term (toward "compositional", which is the
+  prior hypothesis). Ambient inflates it (toward "intrinsic"). They do not
+  compound, and a result that survives both is stronger than one tested against
+  either.
+- **G1's premise change is survivable at this level.** Choosing *no correction*
+  over *degraded correction* costs roughly 5% of the intrinsic term in
+  manufactured signal at the worst contamination the cohort admits. That is a
+  number the gate can weigh against the risk of a correction nobody can validate.
+
+### The bound, stated so it is not assumed away
+
+Contamination here perturbs **expression, not labels**. Enough soup also pushes
+cells across a maturity threshold, which would move the *fractions* as well as
+the means, and that is W1's axis question rather than W2's. **Every number above
+is therefore a lower bound on ambient's total damage.** Simulating the label
+effect here would hide W1's uncertainty inside a W2 number, which is worse than
+leaving the bound visible.
+
+### One bug this nearly shipped, recorded because the shape recurs
+
+The first version decided "the truth is zero here" by testing whether the clean
+term was near zero. In a compositional-only world the *realised* intrinsic term
+is zero **plus sampling noise** — about −0.05 against a compositional term of
+−17.5 — so the test called it non-zero, formed a retention ratio against a
+near-zero denominator, and reported a confident **2.38×** where the honest
+statement is "the truth is zero and 0.79 appeared". The flag now comes from the
+regime's **design** (`AmbientRegime.parametric_zero_terms`), and
+`summarise_ambient` refuses a sweep that has lost it.
+
+That is the same error as scoring coverage against realised rather than
+parametric truth (§3 of the handoff), one module along, and it produced a number
+that looked like a finding.
+
+`src/harness/ambient_sensitivity.py`, `tests/test_ambient_sensitivity.py`.
