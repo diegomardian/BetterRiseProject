@@ -1114,6 +1114,32 @@ Both are covered by tests that call W2's and W4's real functions rather than moc
 > is a threshold collision on most patients rather than an identity, so it is
 > fixable by moving a cut point rather than by dropping a rung.
 >
+> **MECHANISM FOUND — 2026-08-26.** The collapse is structural, not a threshold
+> coincidence. `run_full_reference` prints, for ~27 of the 30 analysed patients:
+>
+> ```
+> note: group 'C122' supports only 2 of 3 bins — scores are tied across a
+>       quantile boundary. Using ('crypt_bottom', 'crypt_top').
+> ```
+>
+> `src/reference/labels.py:378-383` falls back to `(bins[0], bins[-1])` when the
+> tertile cut points come back equal. The maturity score is tied across the 33rd
+> and 67th percentiles on almost every patient — a large atom in the score
+> distribution, most likely cells sharing a score because the marker set is small
+> and many are zero.
+>
+> So **`crypt_position` is a two-bin split on ~90% of patients**, which is the
+> same construction as `lineage` (median split, two bins). They agree 61.7% of
+> the time because most of the time they are the same thing, not because two
+> thresholds happened to land together.
+>
+> This changes the fix. Moving a cut point does not help if the score cannot
+> support three bins; what is needed is either a score with enough resolution to
+> separate tertiles, or an honest reduction of the granularity curve to three
+> points. **Recorded, not decided** — it bears on
+> [#38](https://github.com/diegomardian/BetterRiseProject/issues/38), where W1
+> has already asked W4 not to adopt these two thresholds.
+>
 > `best4` is confirmed genuinely distinct (Jaccard 0.035 against everything),
 > and `epithelial` is confirmed degenerate by construction — **222 of 232 rows
 > at `mature_fraction` exactly 1.000**, which is what the coarsest rung is
