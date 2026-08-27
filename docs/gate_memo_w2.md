@@ -449,7 +449,7 @@ kind this project has learned to re-run before quoting.
 - **The gate should be told that the effective line is 33%, not 50%**, at the
   cohort it will actually decide on.
 
-`src/harness/gate_cost.py`, `tests/test_gate_cost.py`.
+`src/harness/gate_cost.py`, `tests/test_gate_cost.py`, [`results/2026-08-26_09f0bc3/gate_cost_at_real_n.parquet`](../results/2026-08-26_09f0bc3/gate_cost_at_real_n.parquet).
 
 ---
 
@@ -549,4 +549,4 @@ That is the same error as scoring coverage against realised rather than
 parametric truth (§3 of the handoff), one module along, and it produced a number
 that looked like a finding.
 
-`src/harness/ambient_sensitivity.py`, `tests/test_ambient_sensitivity.py`.
+`src/harness/ambient_sensitivity.py`, `tests/test_ambient_sensitivity.py`, [`results/2026-08-26_09f0bc3/ambient_sensitivity_sweep.parquet`](../results/2026-08-26_09f0bc3/ambient_sensitivity_sweep.parquet).

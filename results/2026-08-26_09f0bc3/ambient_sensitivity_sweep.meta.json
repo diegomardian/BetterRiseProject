@@ -1,0 +1,153 @@
+{
+  "date": "2026-08-26",
+  "utc_timestamp": "2026-08-27T03:14:25+00:00",
+  "git_sha": "09f0bc32f3f120d0ce106c77e096bb93c2c11e3e",
+  "git_sha_short": "09f0bc3",
+  "git_branch": "w2/g1-amendment-ratification",
+  "git_dirty": false,
+  "seed": 20260827,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "name": "ambient_sensitivity_sweep",
+  "n_rows": 1260,
+  "columns": [
+    "regime",
+    "ambient_fraction",
+    "replicate",
+    "weighting",
+    "term",
+    "truth_is_zero",
+    "value_clean",
+    "value_contaminated",
+    "n_cells_mature",
+    "seed"
+  ],
+  "table_kind": "harness",
+  "harness_table_kind": "ambient",
+  "purpose": "Handoff section 5 task 7: what residual ambient contamination does to a decomposition whose truth is known. Turns G1's 'degraded correction' into a number.",
+  "grid": [
+    0.0,
+    0.02,
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.3
+  ],
+  "w1_exclusion_threshold": 0.1,
+  "w1_exclusion_source": "decision #16, pre-committed 2026-08-23",
+  "n_replicates": 20,
+  "n_cells": 1500,
+  "regimes": {
+    "compositional_only": "mature cells gone, survivors untouched. True intrinsic is EXACTLY zero, so whatever appears under contamination is manufactured",
+    "intrinsic_only": "mature cells present and silenced. True compositional is exactly zero; this is the arm the project's contribution rests on",
+    "both": "the realistic mixture, where the interaction term is also non-zero"
+  },
+  "at_the_10pct_cap": [
+    {
+      "regime": "both",
+      "term": "compositional",
+      "ambient_fraction": 0.1,
+      "n_replicates": 20,
+      "truth_is_zero": false,
+      "median_clean": -14.619375000000002,
+      "median_contaminated": -13.74125,
+      "median_retention": 0.9414241379382472,
+      "median_manufactured": NaN
+    },
+    {
+      "regime": "both",
+      "term": "interaction",
+      "ambient_fraction": 0.1,
+      "n_replicates": 20,
+      "truth_is_zero": false,
+      "median_clean": 7.311111111111112,
+      "median_contaminated": 7.092569444444444,
+      "median_retention": 0.9638693355243804,
+      "median_manufactured": NaN
+    },
+    {
+      "regime": "both",
+      "term": "intrinsic",
+      "ambient_fraction": 0.1,
+      "n_replicates": 20,
+      "truth_is_zero": false,
+      "median_clean": -11.69777777777778,
+      "median_contaminated": -11.348111111111113,
+      "median_retention": 0.9638693355243803,
+      "median_manufactured": NaN
+    },
+    {
+      "regime": "compositional_only",
+      "term": "compositional",
+      "ambient_fraction": 0.1,
+      "n_replicates": 20,
+      "truth_is_zero": false,
+      "median_clean": -17.543250000000004,
+      "median_contaminated": -16.489500000000003,
+      "median_retention": 0.9414241379382471,
+      "median_manufactured": NaN
+    },
+    {
+      "regime": "compositional_only",
+      "term": "interaction",
+      "ambient_fraction": 0.1,
+      "n_replicates": 20,
+      "truth_is_zero": true,
+      "median_clean": 0.037500000000001074,
+      "median_contaminated": 0.5960000000000005,
+      "median_retention": NaN,
+      "median_manufactured": 0.03409314199278201
+    },
+    {
+      "regime": "compositional_only",
+      "term": "intrinsic",
+      "ambient_fraction": 0.1,
+      "n_replicates": 20,
+      "truth_is_zero": true,
+      "median_clean": -0.05000000000000142,
+      "median_contaminated": -0.7946666666666673,
+      "median_retention": NaN,
+      "median_manufactured": 0.04545752265704267
+    },
+    {
+      "regime": "intrinsic_only",
+      "term": "compositional",
+      "ambient_fraction": 0.1,
+      "n_replicates": 20,
+      "truth_is_zero": true,
+      "median_clean": 0.0,
+      "median_contaminated": 0.0,
+      "median_retention": NaN,
+      "median_manufactured": 0.0
+    },
+    {
+      "regime": "intrinsic_only",
+      "term": "interaction",
+      "ambient_fraction": 0.1,
+      "n_replicates": 20,
+      "truth_is_zero": true,
+      "median_clean": -0.0,
+      "median_contaminated": -0.0,
+      "median_retention": NaN,
+      "median_manufactured": 0.0
+    },
+    {
+      "regime": "intrinsic_only",
+      "term": "intrinsic",
+      "ambient_fraction": 0.1,
+      "n_replicates": 20,
+      "truth_is_zero": false,
+      "median_clean": -15.178666666666667,
+      "median_contaminated": -14.265666666666668,
+      "median_retention": 0.9405225048646091,
+      "median_manufactured": NaN
+    }
+  ],
+  "headline": "Real terms retain ~94% at the 10% cap. A compositional-only world acquires an intrinsic term worth 4.6% of its compositional one. The reverse NEVER happens: ambient can invent silencing, it cannot invent depletion, because the compositional term is a function of the mature-fraction difference and contamination moves means.",
+  "lower_bound": "Contamination perturbs EXPRESSION, not LABELS. Enough soup also moves cells across a maturity threshold, changing the fractions too. That is W1's axis question. Every number here is therefore a lower bound on ambient's total damage.",
+  "not_a_g1_result": "Simulation. The harness starts from corrected cells and cannot say whether this cohort's correction worked."
+}
