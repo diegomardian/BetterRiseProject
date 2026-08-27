@@ -40,14 +40,16 @@ the three numbers the week-5 cutpoints are derived from.
 | [truth.py](truth.py) | **done** — analytic Kitagawa terms, parametric and realised truth, identity assertion |
 | [pseudobulk.py](pseudobulk.py) | **done** — patient holdout, composition draw, multiplicative shift on integer counts |
 | [controls.py](controls.py) | **done** — within-patient permutation, housekeeping negatives |
-| [positivity.py](positivity.py) | **done**, provisional cutpoints pending week-5 calibration |
-| [results.py](results.py) | **done** — four harness table shapes, written via `src.common.io` |
+| [positivity.py](positivity.py) | **done** — two cutpoints (intrinsic provisional, compositional pre-committed as #22), plus G4 with a Wilson interval and a `resolvable` flag |
+| [results.py](results.py) | **done** — six harness table shapes, written via `src.common.io` |
 | [deconvolve/](deconvolve/) | protocol, NNLS baseline and ν-SVR **done**; MuSiC wk 3–4; CIBERSORTx, BayesPrism staged |
 | [attenuation.py](attenuation.py) | **done** — the §2.2 sweep, oracle + bulk arms |
-| [bulk_recovery.py](bulk_recovery.py) | **done** — the thing invariant 6 forbids, measured rather than used |
+| [bulk_recovery.py](bulk_recovery.py) | **done** — the thing invariant 6 forbids, measured rather than used. `reference_profiles` now refuses a call that does not say which of the two matrices it is building |
 | [calibration.py](calibration.py) | **done** — cutpoints derived from pre-registered criteria; needs CIs attached |
 | [bakeoff.py](bakeoff.py) | **done** — ranking, plus the signature-width comparison |
 | [interval.py](interval.py) | **done** — per-patient CI; read its docstring on invariant 5 |
+| [g1_amendment.py](g1_amendment.py) | **done** — W2's ratification of prereg amendment 2 (#37): five worlds, can the proposed G1 fail? |
+| [gate_cost.py](gate_cost.py) | **done** — the gate re-costed at 10 and 36 patients rather than the plan's 60 |
 | `ingest.py` | unblocked once W4 merges `w2/lee-raw-counts` (open_decisions #8) |
 
 ## The two arms, and why both
@@ -138,6 +140,24 @@ Mature cells are a subset of resolved cells, so the compositional gate only ever
 binds where the intrinsic gate has **already** flagged the row — 0 rows against
 108 on W1's full counts table. The caveat published with the pre-commitment said
 the opposite; decision #22 carries the correction and the numbers.
+
+## `reference_profiles` will not guess which matrix you want
+
+The counts frames in this project **carry the panel on purpose** —
+`LeeCohort.raw_counts` has to, because the generator applies a multiplicative
+shift to the target gene. That made an invariant-2 violation one forgotten
+keyword away, silently, back when `exclude_genes` defaulted to `()`.
+
+There is no safe default, so there is no default:
+
+```python
+reference_profiles(counts, cell_type, genes, exclude_genes=[target])  # fractions
+reference_profiles(counts, cell_type, genes, include_targets=True)    # target profile
+reference_profiles(counts, cell_type, genes)                          # ReferenceSeamError
+```
+
+An empty `exclude_genes` is refused too, for the reason `build_signature`
+refuses an empty target set: it excludes nothing while reading as enforcement.
 
 ## What you adjudicate at the gate
 

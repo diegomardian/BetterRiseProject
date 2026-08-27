@@ -43,19 +43,75 @@ import numpy as np
 import pandas as pd
 
 
+class ReferenceSeamError(ValueError):
+    """``reference_profiles`` was called without saying which matrix it is.
+
+    Not a leak — nothing has leaked yet. It means the call cannot be checked
+    against invariant 2 because the caller did not state its intent, and the
+    default would have been the unsafe one.
+    """
+
+
 def reference_profiles(
     counts: np.ndarray,
     cell_type: Sequence[str],
     genes: Sequence[str],
     *,
-    exclude_genes: Sequence[str] = (),
+    exclude_genes: Sequence[str] | None = None,
+    include_targets: bool = False,
 ) -> pd.DataFrame:
     """Mean profile per cell type: genes x cell types.
 
-    ``exclude_genes`` drops the targets, for the matrix that will be used to
-    estimate fractions. Leave it empty when you want the target gene's own
-    profile — see the module docstring on invariant 2.
+    THE CALLER MUST SAY WHICH OF THE TWO MATRICES IT WANTS
+    ------------------------------------------------------
+    This function builds both, and they have opposite requirements under
+    invariant 2:
+
+    - **the fractions reference** — pass ``exclude_genes=[target, ...]``. The
+      deconvolution must not be informed by the gene under test.
+    - **the target gene's own per-cell-type profile** — pass
+      ``include_targets=True``. That is not leakage, it is what a reference is:
+      a prior on where the gene lives, learned from *training* patients outside
+      the sample being estimated. See the module docstring.
+
+    Neither is a default, and passing neither raises
+    :class:`ReferenceSeamError`. ``exclude_genes=()`` used to be the signature's
+    default, which meant a caller who simply forgot got the target genes in
+    their deconvolution reference and no complaint — invariant 2 violated by
+    omission. ``LeeCohort.raw_counts`` deliberately carries the panel so that
+    W2's generator can apply a multiplicative shift to it, so the unsafe call
+    was one keystroke away and nothing would have said so.
+
+    An **empty** ``exclude_genes`` is refused for the same reason
+    ``build_signature`` refuses an empty target set: it silently disables the
+    invariant for exactly the genes the panel is built on.
     """
+    if include_targets and exclude_genes:
+        raise ReferenceSeamError(
+            f"include_targets=True and exclude_genes={list(exclude_genes)} "
+            f"contradict each other. The target-gene profile keeps the targets; "
+            f"the fractions reference drops them. Build them in two calls."
+        )
+    if not include_targets:
+        if exclude_genes is None:
+            raise ReferenceSeamError(
+                "reference_profiles needs to know which matrix this is. Pass "
+                "exclude_genes=[target] for the reference that estimates "
+                "fractions (CLAUDE.md invariant 2 — the deconvolution must not "
+                "be informed by the gene under test), or include_targets=True "
+                "for the target gene's own per-cell-type profile. There is no "
+                "safe default: the counts frames in this project carry the "
+                "panel on purpose."
+            )
+        if len(list(exclude_genes)) == 0:
+            raise ReferenceSeamError(
+                "exclude_genes is empty, which excludes nothing and disables "
+                "invariant 2 for exactly the genes the panel is built on. Pass "
+                "the target genes, or include_targets=True if you meant the "
+                "target profile."
+            )
+
+    exclude_genes = () if exclude_genes is None else exclude_genes
     cell_type = np.asarray(cell_type)
     genes = list(genes)
     drop = set(exclude_genes)

@@ -51,6 +51,42 @@ resolved cells, so the implication runs the other way: on W1's 928-row
 arm is `ok` and **108** where it is not. It adds a second reason to distrust rows
 that were already flagged, and rescues nothing.
 
+### Since then, same day
+
+**§5 task 3 — the gate re-costed at real n. Done** (`src/harness/gate_cost.py`,
+gate memo §9). This was promised to W4 twice.
+
+- **Decision #19's PASS survives**: 6/36 = 16.7%, CI [7.9%, 31.9%]; a defensible
+  PASS at n=36 allows up to 12 below threshold. This was the thing worth checking.
+- **G4 is not answerable on SMC.** At n=10 a defensible PASS needs ≤1 of 10.
+- `gate_g4_verdict` now returns a Wilson interval and a `resolvable` flag beside
+  `passes`. **The 0.50 rule is unchanged** — the point is that "PASS" and "PASS,
+  and this cohort could not have said otherwise" stop reading the same.
+- Correction posted to decision #19: the mixed verdict (32/62 = 51.6%) has CI
+  [39.4%, 63.6%], which contains 0.50, so it is *indeterminate*, not the clean
+  FAIL recorded. The decision is unchanged; its framing was overstated.
+- Cohort band widening is mild: ×1.2 at n=36, ×2.0 at n=10, all three terms
+  together, slightly under 1/√n.
+
+**§5 task 4 — the `raw_counts` seam. Done.** `reference_profiles` had
+`exclude_genes=()` as its default, so a caller who forgot got the panel in their
+deconvolution reference and no complaint. It now refuses a call that does not say
+which of the two matrices it is building, and an empty `exclude_genes` too. The
+new guard **fired on an existing test** that used the unsafe default, which is
+the best evidence it can fire at all.
+
+**Issue #37 — a new one, addressed to W2, and it was the largest job.** W1 cannot
+ratify its own pre-registration, so the harness did it: `g1_amendment.py`, five
+worlds with known truth. The amendment is sound and is ratified — but the
+finding is that **threshold 2's power depends on an unstated premise**. See
+gate memo §0.2. Also: `scipy.stats.spearmanr` on one observation returns `nan`,
+and `abs(nan) > 0.5` is `False`, so decision #17 would not have errored on tier D
+— it would have *passed* it.
+
+**Still blocked on PR #33** (open, W1's, needs a review): `bakeoff.py:79` and the
+#35 regression test cannot be written against `main`, because `alias_map` does
+not exist there yet.
+
 **One thing left open by it**, and it is a genuine decision rather than a task:
 #36's stated exposure — enough mature cells to clear `ok`, too few resolved cells
 for the fraction to carry much — is *structurally empty* under a count cutpoint.
