@@ -1,7 +1,9 @@
 # Amendment 2 to G1 — the statistic cannot fail informatively, and tier D holds one gene
 
-**Written:** 2026-08-25 · **Author:** W1 (Bode) · **Status:** proposed, needs the
-team · **Amends:** decision #17 in [`docs/open_decisions.md`](open_decisions.md)
+**Written:** 2026-08-25 · **Author:** W1 (Bode) · **Status:** **RATIFIED by W2
+2026-08-27** ([#37](https://github.com/diegomardian/BetterRiseProject/issues/37)),
+conditional on §4a below; open pending a second reader on W2's #40 ·
+**Amends:** decision #17 in [`docs/open_decisions.md`](open_decisions.md)
 and G1 in `execution_plan.md` §4
 
 > **No G1 number exists.** `src/reference/checks.py` was written today and has
@@ -71,7 +73,15 @@ The frozen panel, `config/panel.yaml`, unchanged since week 0:
 survives n≈8 genes per tier."* **No tier has eight genes. Tier D has one.**
 
 - **A Spearman correlation over one gene does not exist.** Not "is noisy" — is
-  undefined. Threshold 1 cannot be evaluated at all.
+  undefined.
+- **And it fails in the passing direction.** W2 sharpened this during
+  ratification, and it is worse than "cannot be evaluated": `scipy.stats.spearmanr`
+  on one observation returns **`nan` and does not raise**, and `abs(nan) > 0.5`
+  is `False`. So #17's rule — *fail if |ρ| > 0.5 in tier D* — would not have
+  errored. **It would have returned PASS**, for the one tier whose entire job is
+  to be able to fail. Same defect as the leakage guard in issue #35, this time
+  inside the gate. `checks.py` never reaches `spearmanr` for a tier below
+  `MIN_GENES_PER_TIER`, and a test pins that.
 - Threshold 2 needs three correlations; two of the three are unestimable.
 - Tier A at n=4 is computable but barely: the statistic takes only 11 distinct
   values (−1.0 to 1.0 in steps of 0.2) and across 24 permutations its smallest
@@ -154,6 +164,51 @@ Tier B is **reported but not gate-bearing**. MLH1 is broadly expressed across
 colonic epithelium, so its compositional term is structurally near zero (panel
 tier B, `role`) and its M carries a different meaning from tier A's. n=3 could
 not support a threshold in any case.
+
+### 4a · The premise G1's power rests on — W2's ratification condition
+
+**Threshold 2 asks MS4A12's within-bin percentile to be ≥ 0.50, and a gene that
+is unchanged against an unchanged background sits at 0.50 by definition.**
+
+W2 measured the consequence across five worlds with known truth, 60 replicates
+each (`src/harness/g1_amendment.py`):
+
+| world | truth | P(PASS) | owed |
+|---|---|---|---|
+| broad loss, tier A hardest, MS4A12 kept | claim is true | **1.000** | PASS |
+| **tier A gone, nothing else moves** | **also true** | **0.517** | PASS |
+| every gene loses 30% | no biology | 0.017 | FAIL |
+| loss is abundance and nothing else | pure soup | 0.017 | FAIL |
+| MS4A12 lost as hard as tier A | tiers don't separate | 0.000 | FAIL |
+
+Null false-pass rate 2.6%. Per threshold: tier A 5.1%, tier D **50.1%**,
+separation 21.2%.
+
+**So G1's power is not a property of G1.** It depends on there being a broad loss
+background for the retained control to stand out against. Against one, MS4A12
+sits at 0.890 ± 0.015 and P(PASS) = 1.000. Without one — a world where the
+project's claim is true but *only* tier A moves — the gate is a coin flip.
+
+That premise is the project's own and probably holds. **It was never stated**, and
+it is stated here because if it fails, G1 rejects a true signal half the time for
+reasons that have nothing to do with ambient RNA.
+
+**A G1 FAIL must be read with this attached.** Amendment 2 made tier D
+*computable*; it did not make n = 1 *powerful*. That is not a reason to reject it
+— what it replaces returned ρ ≈ −1 on a null and silently passed tier D — but it
+is a limit that belongs beside the thresholds rather than in a footnote.
+
+**No numbers were changed during ratification.** Adjusting a pre-committed
+threshold while ratifying it is the move this amendment exists to prevent; W2's
+test pins 0.20 / 0.50 / 0.30 so neither side can drift them later.
+
+### One property on the credit side
+
+Within-bin percentiles are **invariant to library-size normalisation** — maximum
+movement 0.016 under CP10K — because a global rescale of one arm shifts every M
+by the same constant and leaves within-bin ranks untouched. A mean-based rule
+would not have been. W2 found this; it was not claimed here, and it is a real
+advantage of the rank construction.
 
 ### Why 0.20, 0.50 and 0.30
 
