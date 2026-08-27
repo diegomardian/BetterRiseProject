@@ -1,5 +1,9 @@
 # W2 — Method
 
+> **Taking over W2?** Start with
+> [docs/W2_HANDOFF_TO_NEXT_AGENT.md](../../docs/W2_HANDOFF_TO_NEXT_AGENT.md) —
+> current state, what is left, and the mistakes worth not repeating.
+
 **Owner:** strongest ML/stats person · **Env:** `env/w2_harness.yml` → `conda activate brp-w2`
 **Branch prefix:** `w2/…` · **Blocked by:** W1's five-patient pilot, end of week 2
 

@@ -24,9 +24,27 @@ kappa is measured. Apologies — the ask below is narrower as a result.
 
 # W1 — one artifact, one team decision
 
-## W1-A · The S matrices — **DELIVERED AND ACCEPTED** (PR #17, 2026-08-22)
+## W1-A · The S matrices — **ACCEPTANCE WITHDRAWN 2026-08-26, see issue #35**
 
-All four passed every published check. Nothing to redo on the matrices themselves.
+> **The check below was wrong and could not have failed.** It compared
+> `panel_genes()` — symbols — against an S-matrix index that is Ensembl IDs, so
+> the intersection was between two disjoint namespaces and returned `none` for
+> all four matrices. It would have returned `none` if every panel gene were
+> present, which is what actually happened.
+>
+> Verified in Ensembl space: **GUCA2A (`ENSG00000197766`), CDX2, SFRP1 and SFRP2
+> are in all four matrices**; `best4` additionally carries GUCA2B, CA7 and OTOP2.
+> That is a real invariant-2 violation, and W2 signed it off.
+>
+> The deeper defect is that `assert_no_target_leakage` is namespace-blind — it
+> intersects two iterables of strings and cannot tell that one side is symbols
+> and the other Ensembl. `build_signature` calls it four times and all four
+> passed. A guard that cannot fail is worse than no guard. Fix tracked in #35.
+>
+> The rest of the table below still holds: sizes, compartments and index
+> membership were checked in the right namespace.
+
+All four passed the *other* published checks. The leakage row is retracted.
 
 | rung | genes x types | 500–2000 | no target leak | non-epithelial cols | on shared index |
 |---|---|---|---|---|---|
