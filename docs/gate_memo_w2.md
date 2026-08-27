@@ -91,7 +91,8 @@ function of abundance and nothing else, G1a returns **|ρ| = 0.94**; on genuine
 biology it returns **0.08**. It discriminates.
 
 **Confirmed — the three thresholds discriminate.** 60 replicates per world,
-seed 20260827, written to versioned parquet:
+seed 20260827,
+[`results/2026-08-26_e77907b/g1_amendment_ratification.parquet`](../results/2026-08-26_e77907b/g1_amendment_ratification.parquet):
 
 | world | truth | P(PASS) | owed |
 |---|---|---|---|

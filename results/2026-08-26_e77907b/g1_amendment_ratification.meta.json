@@ -1,0 +1,90 @@
+{
+  "date": "2026-08-26",
+  "utc_timestamp": "2026-08-27T02:36:17+00:00",
+  "git_sha": "e77907ba5c4ff2db110ffd2d96ac6df063b6da92",
+  "git_sha_short": "e77907b",
+  "git_branch": "w2/g1-amendment-ratification",
+  "git_dirty": false,
+  "seed": 20260827,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "name": "g1_amendment_ratification",
+  "n_rows": 300,
+  "columns": [
+    "world",
+    "replicate",
+    "verdict",
+    "expected_pass_low",
+    "expected_pass_high",
+    "rho_decision_17",
+    "rho_g1a",
+    "tier_a_median_pct",
+    "tier_d_pct",
+    "separation",
+    "n_genes_kept",
+    "n_genes",
+    "seed"
+  ],
+  "table_kind": "harness",
+  "harness_table_kind": "g1_amendment",
+  "purpose": "W2's ratification of prereg amendment 2 (issue #37): can the proposed G1 both pass and fail, for the right reasons?",
+  "n_replicates": 60,
+  "n_genes": 20000,
+  "n_cells": 3000,
+  "n_abundance_bins": 20,
+  "thresholds": {
+    "tier_a_max_median": 0.2,
+    "tier_d_min": 0.5,
+    "min_separation": 0.3
+  },
+  "thresholds_source": "prereg amendment 2 \u00a74, W1, committed 2026-08-25",
+  "null_pass_rates": {
+    "p_threshold_1_tier_a": 0.05059,
+    "p_threshold_2_tier_d": 0.50117,
+    "p_threshold_3_separation": 0.21234,
+    "p_g1_passes_on_a_null": 0.02557,
+    "n_trials": 100000.0
+  },
+  "worlds": {
+    "uniform_loss": {
+      "expected_pass_rate": [
+        0.0,
+        0.15
+      ],
+      "why": "every gene loses 30%; tier A is not lost more than its abundance peers, so the project's premise is unsupported and PASS would be wrong"
+    },
+    "broad_loss_tier_d_retained": {
+      "expected_pass_rate": [
+        0.95,
+        1.0
+      ],
+      "why": "the world the project claims \u2014 broad loss, tier A hardest, MS4A12 maintained against it. A gate that cannot pass here is as useless as one that cannot fail"
+    },
+    "isolated_tier_a_loss": {
+      "expected_pass_rate": [
+        0.35,
+        0.65
+      ],
+      "why": "tier A gone and NOTHING else moves. Also a true signal, and the gate is a coin flip on it \u2014 see AMENDMENT_2_POWER_CAVEAT"
+    },
+    "pure_soup": {
+      "expected_pass_rate": [
+        0.0,
+        0.1
+      ],
+      "why": "loss is a function of abundance and nothing else \u2014 the ambient artefact G1 exists to catch"
+    },
+    "tiers_drift_together": {
+      "expected_pass_rate": [
+        0.0,
+        0.02
+      ],
+      "why": "config/panel.yaml's falsification rule: if the tiers return the same answer, no biological claim may be made"
+    }
+  },
+  "caveat": "Threshold 2's power depends on a broad loss background for the retained control to stand out against. P(PASS)=0.517 on isolated_tier_a_loss, a world where the project's claim is true.",
+  "not_a_g1_result": "Simulation only. src/reference/checks.py returns not_estimable until the team ratifies."
+}
