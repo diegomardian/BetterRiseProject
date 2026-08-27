@@ -204,6 +204,53 @@ To settle at the weekly:
    attributed to version drift rather than to reference filtering.
 3. Promote to `gene_index_1.0.0` in its own commit; retire 0.9.0.
 
+### EMITTED — 2026-08-25
+
+Both arms agreed in writing and nobody committed the file, so `config/gene_index/`
+held only `0.9.0` for three days while
+`src/reference/jobs/run_full_reference.py` — which hard-codes
+`GENE_INDEX_VERSION = "1.0.0"` — printed *"no gene index 1.0.0 … S matrices
+skipped"* on every run. The decision was not the bottleneck; the commit was.
+
+`config/gene_index/gene_index_1.0.0.{txt,map.tsv}`, built by
+[`src/bulk/shared_index.py`](../src/bulk/shared_index.py):
+
+| Side | Genes | On both | Lost |
+|---|---|---|---|
+| bulk (W3, GENCODE v36) | 60,616 | 39,236 | 21,380 · 35.3% |
+| reference (W1, GSE178341) | 43,113 | 39,236 | 3,877 · 9.0% |
+| **shared index 1.0.0** | **39,236** | 39,236 | 0 |
+
+It is 0.9.0 **filtered**, not rebuilt — same symbols, gene types,
+`symbol_ambiguous` and `on_panel`, same order — so identifier decisions keep one
+source of truth. **23/23 panel genes survive**, and the emitter refuses to write
+an index that has lost one. W1's own `check_gene_index.py --version 1.0.0` now
+reports `bulk only 0 (0.0%)`: nothing on the shared index is undeconvolvable,
+which was the whole argument for the intersection over either native set.
+
+0.9.0 stays committed — results reference it through the sha they were written
+under, and deleting it makes those unreproducible. It is superseded, not retired.
+
+> **This does not unblock the S matrices, and what it uncovered is worse.**
+> Two things, both measured, both raised as an issue because `src/reference/` is
+> W1's:
+>
+> 1. `run_full_reference.py:208` passes `adata.var["gene_symbol"]` as
+>    `gene_names` while the index is Ensembl-keyed, so `build_signature_sparse`
+>    raises *"no gene in the matrix appears on the shared gene index"* — the
+>    error this decision's own §3 predicted. `run_pilot.py` used
+>    `var["ensembl_id"]` and was right; the full-scale job regressed.
+> 2. **Every invariant-2 guard is inert in Ensembl space.**
+>    `assert_no_target_leakage` intersects target *symbols* with a *gene-id*
+>    list. `set(["GUCA2A"]) & set(["ENSG00000197273"])` is empty, so all four
+>    call sites pass unconditionally — and **GUCA2A is in all four committed
+>    pilot S matrices**, with `S_matrix_best4` carrying all four tier-A targets.
+>
+> Note this makes `docs/decision_12_signature_filter.patch` insufficient as
+> written: it filters `gene_index` by `targets` and is inert for the same
+> reason. The guard has to resolve panel symbols into the index's key space
+> first, which is what `resolve_symbols` and the 1.0.0 map are for.
+
 ---
 
 ## 3 · Symbol vs. Ensembl ID on the shared index — ADOPTED AS RECOMMENDED
