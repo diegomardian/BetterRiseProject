@@ -9,6 +9,58 @@ was wrong, it says so — those entries are the most useful ones.
 
 ---
 
+## 0 · Status since this document was written — 2026-08-26, incoming W2
+
+Appended rather than edited into §5, so the handoff stays the record of what was
+known when it was handed over. Two of its priorities have moved.
+
+**§5 task 1 (#35, the namespace-blind guard) is mostly not W2's any more.** W1
+implemented it on `w1/decision-17-g1-threshold`, **PR #33, still open, with
+`diegomardian` as the requested reviewer.** `assert_no_target_leakage` now
+detects each side's identifier space, raises the new `LeakageGuardError` when
+they differ and no `alias_map` is given, and refuses to drop an untranslatable
+target symbol. The `except Exception` in the S-matrix build that made a leak and
+an unfirable guard both read as `{rung} skipped` is re-raising. The four
+`0.1.0-pilot` S matrices are retracted on that branch.
+
+What is still W2's out of task 1:
+
+- **`src/harness/bakeoff.py:79`** passes `signature.index` with symbol
+  `target_genes` — the same vacuous call, in W2's own file. Its fixtures are
+  symbol-keyed so its tests stay green; against a real Ensembl S matrix it will
+  raise `LeakageGuardError` once #33 lands. W1 flagged it rather than touching it
+  (CONTRIBUTING §2). It needs an `alias_map` from `config/gene_index/*.map.tsv`.
+- The regression test W2 promised on #35 — an Ensembl id in a symbol-indexed
+  matrix, required to raise.
+
+**§5 task 2 (#36, the compositional cutpoint) is implemented** — see decision
+**#22** in `docs/open_decisions.md`, `classify_compositional_estimability` /
+`estimability_verdicts` / `classify_counts_frame` in `src/harness/positivity.py`,
+tests in `tests/test_positivity.py`.
+
+The values are exactly as pre-committed on #36 (`n_cells_resolved`: ok ≥50, wide
+20–49, not_estimable <20). **The decision number is not**: it was announced as
+#21, and W1 had taken 21 twenty-five minutes earlier for the broad/narrow
+invariant-2 reading. Only the index moved.
+
+**The caveat published with that pre-commitment was inverted, and the correction
+is the useful part.** It claimed the compositional gate "can only ever bind on
+rows where the intrinsic arm is already `ok`". Mature cells are a subset of
+resolved cells, so the implication runs the other way: on W1's 928-row
+`mature_cell_counts_full.parquet` the gate binds on **0** rows where the intrinsic
+arm is `ok` and **108** where it is not. It adds a second reason to distrust rows
+that were already flagged, and rescues nothing.
+
+**One thing left open by it**, and it is a genuine decision rather than a task:
+#36's stated exposure — enough mature cells to clear `ok`, too few resolved cells
+for the fraction to carry much — is *structurally empty* under a count cutpoint.
+Reaching it needs a cutpoint on `unresolved_fraction`. Measured size on this
+cohort: **4 rows in 2 patients (C124, C130) pass both count gates with more than
+half the epithelium unresolved**; none above 60%. Worth a third pre-commitment or
+worth declining in writing — but not worth discovering at the gate.
+
+---
+
 ## 1 · Start here — the five-minute orientation
 
 ```bash

@@ -3,17 +3,29 @@
 If a tumour has essentially no mature cells left, "how much does each mature
 cell make" is not a hard question, it is an undefined one.
 
-The values below are PROVISIONAL (execution_plan.md §4, W2 week 5). They are
-replaced by cutpoints derived from where CI width crosses a stated threshold on
-the simulation harness — derived, not chosen. When W2 recalibrates, edit
-``CUTPOINTS`` here and nothing else: W4 imports this function rather than
-reimplementing the rule.
+There are **two** cutpoints, on two different counts, because there are two arms:
+
+- the **intrinsic** arm gates on ``n_cells_mature`` — ``CUTPOINTS``,
+  ``classify_estimability``. PROVISIONAL (execution_plan.md §4, W2 week 5):
+  replaced by values derived from where CI width crosses a stated threshold on
+  the simulation harness — derived, not chosen. When W2 recalibrates, edit
+  ``CUTPOINTS`` here and nothing else; W4 imports the function rather than
+  reimplementing the rule.
+- the **compositional** arm gates on ``n_cells_resolved`` —
+  ``COMPOSITIONAL_CUTPOINTS``, ``classify_compositional_estimability``.
+  Pre-committed as decision #22, not provisional.
+
+They are reported separately and must not be folded into one verdict; see
+``estimability_verdicts``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Literal, NamedTuple
+from typing import TYPE_CHECKING, Literal, NamedTuple
+
+if TYPE_CHECKING:  # pandas is not a runtime dependency of the cutpoints
+    import pandas as pd
 
 
 class Cutpoints(NamedTuple):
@@ -60,6 +72,186 @@ def classify_estimability(n_cells_mature: int, cutpoints: Cutpoints = CUTPOINTS)
     if n_cells_mature >= cutpoints.wide:
         return "wide_interval"
     return "not_estimable"
+
+
+# ---------------------------------------------------------------------------
+# The compositional arm — decision #22, pre-committed 2026-08-27
+# ---------------------------------------------------------------------------
+#
+# ``classify_estimability`` gates the INTRINSIC arm on ``n_cells_mature``: too
+# few mature cells and "how much does each mature cell make" is undefined. There
+# was no matching gate on the COMPOSITIONAL arm, so a ``mature_fraction`` of
+# 0.92 computed on 9% of the epithelium read identically to one computed on 90%
+# (issue #36, raised by W1 as decision #20).
+#
+# The quantity is ``n_cells_resolved``, not ``unresolved_fraction``. The interval
+# on a proportion is driven by the count in its denominator, not by the share
+# excluded: 40-of-60 and 400-of-600 share an ``unresolved_fraction`` and have
+# very different precision. Same reason the intrinsic cutpoint is a count.
+#
+# The numbers are the intrinsic arm's, unchanged. Symmetry is the honest default
+# rather than a new invention, and the threshold was fixed in public on issue #36
+# before it was applied to anything.
+
+#: Decision #22. Same shape and same numbers as the intrinsic rule, applied to
+#: the count in the denominator of ``mature_fraction``. Recalibrate this
+#: separately from ``CUTPOINTS`` only with a written reason — the two answer
+#: different questions and the symmetry is a default, not a finding.
+COMPOSITIONAL_CUTPOINTS: Cutpoints = Cutpoints(
+    ok=50, wide=20, source="decision #22, pre-committed 2026-08-27 (issue #36)"
+)
+
+
+def classify_compositional_estimability(
+    n_cells_resolved: int, cutpoints: Cutpoints = COMPOSITIONAL_CUTPOINTS
+) -> Estimability:
+    """Map a resolved-epithelium count to an estimability value for the fraction.
+
+    >>> classify_compositional_estimability(120)
+    'ok'
+    >>> classify_compositional_estimability(30)
+    'wide_interval'
+    >>> classify_compositional_estimability(3)
+    'not_estimable'
+
+    ``n_cells_resolved`` is ``n_cells_epithelial - n_cells_unresolved`` from
+    :func:`src.reference.labels.mature_cell_counts` — the denominator
+    ``mature_fraction`` is actually computed on. A cell that could not be
+    labelled is not a cell measured to be immature (open decision #14), so it is
+    excluded from that denominator rather than counted as a failure to mature.
+    This cutpoint is what stops the exclusion from being silent.
+
+    ``not_estimable`` here means the **compositional** term is undefined for the
+    row. That is a different claim from the intrinsic ``not_estimable`` that
+    :func:`classify_estimability` returns, and CLAUDE.md invariant 1 governs
+    both: undefined is ``None``, never ``0.0``.
+    """
+    if n_cells_resolved < 0:
+        raise ValueError(f"n_cells_resolved={n_cells_resolved} is negative")
+    if n_cells_resolved >= cutpoints.ok:
+        return "ok"
+    if n_cells_resolved >= cutpoints.wide:
+        return "wide_interval"
+    return "not_estimable"
+
+
+def estimability_verdicts(
+    n_cells_mature: int,
+    n_cells_resolved: int,
+    *,
+    intrinsic_cutpoints: Cutpoints = CUTPOINTS,
+    compositional_cutpoints: Cutpoints = COMPOSITIONAL_CUTPOINTS,
+) -> dict[str, object]:
+    """Both arms' verdicts for one (patient, tissue, axis, rung) row.
+
+    WHY THIS IS NOT ONE VALUE
+    -------------------------
+    ``src/schema.py`` is frozen and ``estimability`` is a single enum, so it
+    cannot say "intrinsic ok, compositional wide". Until the gate decides it
+    needs both on disk per row — a frozen-schema PR, two approvals — the
+    compositional verdict travels in harness tables and the gate memo, and this
+    function is where it comes from. Do not fold the two into one column by
+    taking the worse of them: "the fraction is imprecise" and "there are too few
+    mature cells to ask about expression" are different findings, and the second
+    is this project's contribution.
+
+    WHAT THE SECOND GATE ACTUALLY BINDS ON — measured, and not what was
+    predicted when the decision was recorded
+    ------------------------------------------------------------------
+    Mature cells are a **subset** of resolved cells, so
+    ``n_cells_mature <= n_cells_resolved`` always holds. It follows that
+    ``n_cells_mature >= 50`` implies ``n_cells_resolved >= 50``: wherever the
+    intrinsic arm is ``ok``, the compositional arm is ``ok`` too, necessarily.
+    The compositional gate can therefore only ever bind on rows the intrinsic
+    gate has **already** flagged.
+
+    The pre-commitment on issue #36 asserted the inverse — that it binds "on rows
+    where the intrinsic arm is already ok ... and nowhere else". That is wrong,
+    and it is recorded here rather than quietly fixed, because it changes what
+    the decision is worth. Counted on W1's 928-row
+    ``mature_cell_counts_full.parquet``, over the 696 rows outside the epithelial
+    rung (whose ``mature_fraction`` is 1.0 by construction):
+
+    - rows where the compositional gate binds and the intrinsic arm is ``ok``:
+      **0**
+    - rows where it binds and the intrinsic arm is not ``ok``: **108**
+
+    So the rule adds a second, independent reason to distrust 108 rows that were
+    already flagged, and rescues nothing. It does not reach the "middle of the
+    range" exposure issue #36 raised — enough mature cells to clear ``ok``, too
+    few resolved cells for the fraction to carry much — because on a **count**
+    cutpoint that set is structurally empty. Reaching it would need a cutpoint on
+    ``unresolved_fraction``, which is a separate decision and is deliberately not
+    taken here: 4 rows in 2 patients pass both count gates with more than half
+    the epithelium unresolved.
+
+    Raises ``ValueError`` if ``n_cells_mature > n_cells_resolved``. That cannot
+    happen for a row built by ``mature_cell_counts`` and means the caller passed
+    the wrong column — ``n_cells_epithelial`` as the denominator, or counts from
+    two different rungs. This project has lost four separate days to a statistic
+    computed over the wrong population; a guard that can actually fire is cheap.
+    """
+    if n_cells_mature > n_cells_resolved:
+        raise ValueError(
+            f"n_cells_mature={n_cells_mature} exceeds "
+            f"n_cells_resolved={n_cells_resolved}. Mature cells are a subset of "
+            f"resolved cells, so this row cannot come from mature_cell_counts() "
+            f"— check that the denominator is n_cells_resolved and that both "
+            f"counts are from the same (axis, rung)."
+        )
+    return {
+        "n_cells_mature": int(n_cells_mature),
+        "n_cells_resolved": int(n_cells_resolved),
+        "estimability": classify_estimability(n_cells_mature, intrinsic_cutpoints),
+        "compositional_estimability": classify_compositional_estimability(
+            n_cells_resolved, compositional_cutpoints
+        ),
+        "intrinsic_threshold": intrinsic_cutpoints.wide,
+        "compositional_threshold": compositional_cutpoints.wide,
+    }
+
+
+def classify_counts_frame(
+    counts: pd.DataFrame,
+    *,
+    intrinsic_cutpoints: Cutpoints = CUTPOINTS,
+    compositional_cutpoints: Cutpoints = COMPOSITIONAL_CUTPOINTS,
+) -> pd.DataFrame:
+    """Both verdicts for every row of a ``mature_cell_counts()`` frame.
+
+    Returns a copy with ``estimability`` and ``compositional_estimability``
+    added. The frame keeps its own keys — ``patient_id``, ``tissue``,
+    ``labeling_axis``, ``granularity_rung`` — so nothing here needs to know how
+    many rungs there are.
+
+    The **epithelial rung is not dropped**, because dropping rows is not this
+    function's call. Read its output knowing that rung's ``mature_fraction`` is
+    1.0 by construction — a denominator choice, still open on W1's side — so its
+    compositional verdict describes the precision of a quantity that cannot vary.
+    """
+    required = {"n_cells_mature", "n_cells_resolved"}
+    missing = sorted(required - set(counts.columns))
+    if missing:
+        raise ValueError(
+            f"counts is missing column(s) {missing}. Pass the frame from "
+            f"src.reference.labels.mature_cell_counts()."
+        )
+    out = counts.copy()
+    mature = out["n_cells_mature"].astype("int64")
+    resolved = out["n_cells_resolved"].astype("int64")
+    bad = mature > resolved
+    if bool(bad.any()):
+        example = out.loc[bad].head(3)
+        raise ValueError(
+            f"{int(bad.sum())} row(s) have n_cells_mature > n_cells_resolved, "
+            f"e.g.\n{example}\nMature cells are a subset of resolved cells, so "
+            f"this frame did not come from mature_cell_counts()."
+        )
+    out["estimability"] = [classify_estimability(int(n), intrinsic_cutpoints) for n in mature]
+    out["compositional_estimability"] = [
+        classify_compositional_estimability(int(n), compositional_cutpoints) for n in resolved
+    ]
+    return out
 
 
 def gate_g4_verdict(
