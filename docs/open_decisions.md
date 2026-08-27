@@ -1096,6 +1096,29 @@ Both are covered by tests that call W2's and W4's real functions rather than moc
 > **The rung collapse persists at the higher target.** `stem_pole`
 > `lineage` == `crypt_position`, Jaccard 1.000. Three points on axis 1, not four.
 >
+> **CONFIRMED AND REFINED AT FULL SCALE — 2026-08-25**, from
+> `results/2026-08-25_9e3ca1a/rung_degeneracy_full.parquet`, 60 patient-axis
+> pairs per rung comparison across the 62-patient cohort:
+>
+> | rung pair | median Jaccard | identical |
+> |---|---|---|
+> | `lineage` vs `crypt_position` | **1.000** | **37 / 60 (61.7%)** |
+> | `epithelial` vs `lineage` | 0.686 | 0 |
+> | `epithelial` vs `crypt_position` | 0.591 | 0 |
+> | `best4` vs any other | 0.035 | 0 |
+>
+> The pilot's "same partition" reading was slightly too strong. They are not
+> structurally identical — they **coincide in about three patients in five**, and
+> differ in the rest. The consequence for the granularity curve is the same
+> (`lineage` and `crypt_position` are not independent points) but the mechanism
+> is a threshold collision on most patients rather than an identity, so it is
+> fixable by moving a cut point rather than by dropping a rung.
+>
+> `best4` is confirmed genuinely distinct (Jaccard 0.035 against everything),
+> and `epithelial` is confirmed degenerate by construction — **222 of 232 rows
+> at `mature_fraction` exactly 1.000**, which is what the coarsest rung is
+> supposed to look like as the lower bound of the curve.
+>
 > **NEW — the depth floor cuts the two arms unequally, and it can flip the sign
 > of the compositional term.** Unresolved fractions at q=0.25:
 >
