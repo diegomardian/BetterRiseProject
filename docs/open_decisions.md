@@ -2096,6 +2096,42 @@ overlap: 598 / 600
 On the real matrices, 15–17 of the 800 markers are panel genes, so the broad
 reading would substitute those and keep the signature at 800.
 
+### The argument I should have led with: it is the better estimator
+
+The cost argument above says the broad reading is *cheap*. It is also **better**,
+and for a reason specific to this project.
+
+**The panel genes are exactly the genes whose expression this project expects to
+change between tumour and normal.** That is what makes them the panel. Keeping
+them as markers in the reference matrix makes the matrix sensitive to the
+phenomenon being measured — which is invariant 2's own rationale restated: *a
+silenced mature cell must not be readable as an absent mature cell.*
+
+Measured, NNLS on 300 synthetic bulks with known fractions, varying how strong a
+marker the panel genes are for mature colonocyte. Mean absolute error on the
+mature-colonocyte fraction:
+
+| panel marker strength | panel genes kept (narrow) | narrow | broad |
+|---|---|---|---|
+| none | 0 | 0.03462 | 0.03464 |
+| weak | 0 | 0.03453 | 0.03464 |
+| equal to other markers | 5 | 0.03444 | 0.03464 |
+| strong | 19 | **0.04525** | 0.03464 |
+| dominant | 19 | **0.11592** | 0.03464 |
+
+**The broad column is constant** — it excludes the panel, so how strongly panel
+genes happen to be expressed cannot affect it at all. The narrow column degrades
+by a factor of 3.3 as they get stronger, because a handful of dominant markers
+carry the least-squares residual and the other ~580 stop constraining the fit.
+That is `execution_plan.md` §2.1 error #4 — robustness comes from high
+dimensionality — arriving through the back door.
+
+Worst case for the broad reading across the range: **0.6% relative loss**. Worst
+case for the narrow one: **235%**.
+
+So the broad reading makes fraction estimation *invariant* to the very quantity
+under study, and the narrow one makes it depend on it.
+
 ### Recommendation
 
 **Broad for the reference matrix, narrow for labels.** Concretely, in

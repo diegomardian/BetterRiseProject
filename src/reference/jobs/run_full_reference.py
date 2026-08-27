@@ -38,7 +38,11 @@ import pandas as pd  # noqa: E402
 from scipy import sparse  # noqa: E402
 
 from src.common.io import write_versioned_table  # noqa: E402
-from src.common.panel import granularity_rungs, tier_genes  # noqa: E402
+from src.common.panel import (  # noqa: E402
+    granularity_rungs,
+    panel_genes,
+    tier_genes,
+)
 from src.common.paths import s_matrix_path  # noqa: E402
 from src.common.provenance import DEFAULT_SEED, set_global_seeds  # noqa: E402
 from src.reference.ambient import ambient_exclusions  # noqa: E402
@@ -119,8 +123,37 @@ def main() -> int:
     patients = args.patients or sorted(
         pd.unique(clusters.index.map(lambda b: str(b).split("_")[0]))
     )
-    targets = sorted(tier_genes("A"))
-    print(f"{len(patients)} patients · targets {targets}")
+    # TWO target sets, on purpose — open decision #21.
+    #
+    # LABELS stay NARROW (tier A only). Decision #1: the broad reading would
+    # strip MUC2 and TFF3 from labelling axis 2, which is
+    # [MUC2, TFF3, SPDEF, ITLN1] — half its markers, in an axis whose whole
+    # value is being structurally independent of axis 1.
+    #
+    # The REFERENCE MATRIX goes BROAD (the whole frozen panel). Three reasons,
+    # measured rather than assumed:
+    #
+    #  1. It costs almost nothing. _select_markers returns exactly n_genes, so
+    #     excluding more genes SUBSTITUTES markers rather than shrinking the
+    #     signature. Excluding 23 instead of 4 kept 600/600 and changed 2.
+    #  2. The narrow reading's guarantee is luck. Only tier A is passed, so a
+    #     run testing tier B, C or D leaks with no guard able to fire — those
+    #     genes were never targets. best4 is clean of MLH1 only because marker
+    #     selection did not rank it into the top 800.
+    #  3. It is the better estimator. The panel genes are exactly the genes whose
+    #     expression this project expects to CHANGE between tumour and normal.
+    #     As markers they make the reference sensitive to the phenomenon being
+    #     measured — invariant 2's own rationale, that a silenced mature cell
+    #     must not read as an absent one. Measured on synthetic bulks: mean
+    #     absolute fraction error for mature colonocyte is flat at 0.035 under
+    #     the broad reading whatever the panel's marker strength, and rises to
+    #     0.116 under the narrow one when panel genes are strong markers.
+    label_targets = sorted(tier_genes("A"))
+    matrix_targets = sorted(panel_genes())
+    targets = label_targets
+    print(f"{len(patients)} patients")
+    print(f"  label targets  (narrow, #1)  {label_targets}")
+    print(f"  matrix targets (broad, #21)  {len(matrix_targets)} panel genes")
 
     counts_all, degeneracy_all, skipped = [], [], []
     # S matrices need every patient's cells at once, and 370k x 43k will not
@@ -225,9 +258,9 @@ def main() -> int:
                 for sym, eid in zip(
                     adata.var["gene_symbol"], adata.var["ensembl_id"], strict=True
                 )
-                if str(sym) in set(targets)
+                if str(sym) in set(matrix_targets)
             }
-            unresolved_targets = sorted(set(targets) - set(target_alias))
+            unresolved_targets = sorted(set(matrix_targets) - set(target_alias))
             if unresolved_targets:
                 raise SystemExit(
                     f"target gene(s) {unresolved_targets} have no Ensembl id in "
@@ -318,7 +351,7 @@ def main() -> int:
             try:
                 s_matrix = build_signature_sparse(
                     summed, pooled_genes, names,
-                    target_genes=targets, gene_index=index,
+                    target_genes=matrix_targets, gene_index=index,
                     n_genes=SIGNATURE_GENES, alias_map=target_alias,
                 )
             except (LeakageError, LeakageGuardError):
