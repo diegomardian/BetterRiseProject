@@ -2020,3 +2020,108 @@ CONTRIBUTING §2, and the threshold should be chosen by whoever owns the gate.
 
 W1 supplies `n_cells_resolved` and `unresolved_fraction` in the frozen output
 already, so no W1 change is needed to act on this.
+
+---
+
+## 21 · Invariant 2 should read BROAD for the reference matrix and NARROW for labels — OPEN
+
+**Raised:** W1, 2026-08-26 · **Owner:** W1 + W2 · **Needed by:** before the S
+matrices are used for anything but tier A · **Bears on:** [#1](#1--muc2-and-tff3-are-both-targets-and-labels--open), G2
+
+Numbered 21 to stay clear of the duplicate-numbering collision at the top of
+this file.
+
+### What was observed
+
+The four `S_matrix_{rung}_1.0.0.parquet` built at `59ae14f` are clean of tier A —
+that was the point of [#35](https://github.com/diegomardian/BetterRiseProject/issues/35).
+They are not clean of the rest of the panel:
+
+| S matrix | rows | tier A | other panel genes |
+|---|---|---|---|
+| `best4` | 800 | 0 | 15 — incl. **SFRP1, SFRP2** (B), **CDX2** (C) |
+| `crypt_position` | 800 | 0 | 17 — incl. B, C and **MS4A12** (D) |
+| `epithelial` | 800 | 0 | 17 — same |
+| `lineage` | 800 | 0 | 17 — same |
+
+`run_full_reference.py` passes `targets = tier_genes("A")`, and #1's narrow
+reading filters the target set *for the run in question*. So this is the
+implementation behaving exactly as specified.
+
+### Why it is nonetheless a problem
+
+**A run testing tier B, C or D against these matrices violates invariant 2, and
+the guard cannot catch it** — those genes were never passed as targets, so there
+is nothing for `assert_no_target_leakage` to look for.
+
+G2 tests GUCA2A (A), MLH1 (B) and MS4A12 (D). Measured: `best4` contains neither
+MLH1 nor MS4A12 and **is** clean for all three. The other three rungs carry
+MS4A12 and are not.
+
+**But `best4`'s cleanliness is luck, not design.** Marker selection ranks by fold
+change and detection rate; MLH1 simply did not reach the top 800. Nothing
+prevents it doing so on a different rung, a different cohort, or a different
+`n_genes` — and if it did, no guard would fire and no output would look wrong.
+An invariant that holds because a ranking happened to fall a certain way is not
+an invariant.
+
+### Why #1's narrow reading does not transfer to the matrix
+
+#1 is about **MUC2 and TFF3 being in tier E and in labelling axis 2**, and its
+stated cost is *"axis 2 loses half its markers"* — axis 2 is
+`[MUC2, TFF3, SPDEF, ITLN1]`, so the broad reading really does halve it. That
+cost is real and it is a cost **to the labels**.
+
+The scaffold resolved it by narrowing `build_signature()` — the **reference
+matrix**. The motivating problem and the thing changed are not the same object.
+
+The costs are not comparable:
+
+| | broad reading costs | |
+|---|---|---|
+| **labels** | axis 2 drops from 4 markers to 2 | severe — halves an axis whose whole purpose is structural independence |
+| **reference matrix** | 23 genes leave a pool of 39,236 | negligible — see below |
+
+**Measured.** `_select_markers` returns exactly `n_genes`, so excluding more
+genes does not shrink the signature — it substitutes markers. On a synthetic
+cohort, excluding 23 targets instead of 4 kept all **600 of 600** markers and
+changed **2**:
+
+```
+excluding  4 targets -> 600 markers
+excluding 23 targets -> 600 markers
+overlap: 598 / 600
+```
+
+On the real matrices, 15–17 of the 800 markers are panel genes, so the broad
+reading would substitute those and keep the signature at 800.
+
+### Recommendation
+
+**Broad for the reference matrix, narrow for labels.** Concretely, in
+`run_full_reference.py`:
+
+```python
+label_targets  = tier_genes("A")   # narrow — #1, so axis 2 keeps MUC2/TFF3
+matrix_targets = panel_genes()     # broad — the matrix is valid for ANY run
+```
+
+This buys a guarantee that currently rests on a ranking, at a cost measured in
+single-digit marker substitutions, and it leaves #1's actual subject —
+axis 2's markers — untouched. #1's recommendation (a) stands for labels.
+
+### What this does NOT do
+
+- **It does not edit the panel or the axes.** Both stay frozen; this changes only
+  which genes are passed as `target_genes` at one call site.
+- **It does not reopen #1.** #1 asks what to do about MUC2/TFF3 in axis 2. That
+  question is untouched, and the answer stays (a).
+- **It does not affect the labels used to build these matrices.** Those come from
+  the `stem_pole` axis, which shares no gene with any tier.
+
+### If rejected
+
+Then the four 1.0.0 matrices must be documented as **tier-A only**, and any run
+against a non-tier-A target needs its own S matrix built with that target
+excluded — four rungs x each target set. That is the honest alternative, and it
+is more work than the change being proposed.
