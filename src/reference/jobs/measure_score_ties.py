@@ -182,6 +182,20 @@ def main() -> int:
     if not rows:
         raise SystemExit("no patient produced a score")
     out = pd.DataFrame(rows)
+    # Mixed dtypes per column: the full-marker rows carry a bool (one
+    # measurement) while the sweep rows carry a float (a rate over subsets), and
+    # the sweep leaves the full-set-only fields None. pyarrow cannot type an
+    # object column and the run died at the write with everything computed —
+    # after printing the summary, which is the only reason the first run was not
+    # a total loss. Cast explicitly rather than letting inference decide.
+    for column in ("tertiles_collide", "tie_is_the_minimum", "frac_zero_markers",
+                   "largest_tie_frac", "q33", "q67"):
+        if column in out.columns:
+            out[column] = pd.to_numeric(out[column], errors="coerce").astype(float)
+    for column in ("n_distinct", "largest_tie"):
+        if column in out.columns:
+            out[column] = pd.to_numeric(out[column], errors="coerce").astype("Int64")
+
     full = out[out["subset_size"] == out["n_markers"]]
 
     print("\n" + "=" * 66)
