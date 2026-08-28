@@ -143,3 +143,42 @@ def test_whole_panel_can_be_held_out_at_once():
     assert_no_target_leakage(index, panel_genes(), context="test")
     with pytest.raises(LeakageError):
         assert_no_target_leakage(index + ["CDX2"], panel_genes(), context="test")
+
+
+class TestIdentifierSpaceHoles:
+    """Found reviewing PR #33. The guard refused symbol-vs-unversioned-Ensembl
+    but not the other two Ensembl forms this project actually handles."""
+
+    ALIAS = {"GUCA2A": "ENSG00000197273", "GUCA2B": "ENSG00000044012",
+             "OTOP2": "ENSG00000183034", "CA7": "ENSG00000168748"}
+
+    @pytest.mark.parametrize("index", [
+        ["ENSG00000197273.5"],        # versioned — how TCGA STAR counts arrive
+        ["ENSG00000243485.5_4"],      # CellRanger-suffixed — the deposit's raw feature_id
+        ["ENSG00000197273", "GUCA2B"],  # mixed — catches one target, misses the other
+    ])
+    def test_it_refuses_rather_than_passing_vacuously(self, index):
+        from src.reference.signature import LeakageGuardError, assert_no_target_leakage
+        with pytest.raises(LeakageGuardError, match="cannot check invariant 2"):
+            assert_no_target_leakage(index, TARGETS, context="test")
+
+    def test_a_mixed_index_is_checked_in_BOTH_forms_once_translated(self):
+        """The subtle half: a mixed index can hold a target under either form,
+        and checking only the translated form misses the symbol-written ones."""
+        from src.reference.signature import LeakageError, assert_no_target_leakage
+        with pytest.raises(LeakageError, match="invariant 2"):
+            assert_no_target_leakage(
+                ["ENSG00000197273", "NOT_A_TARGET"], TARGETS,
+                context="test", alias_map=self.ALIAS,
+            )
+        with pytest.raises(LeakageError, match="invariant 2"):
+            assert_no_target_leakage(
+                ["GUCA2B", "ENSG00000999999"], TARGETS,
+                context="test", alias_map=self.ALIAS,
+            )
+
+    def test_a_clean_ensembl_index_still_passes(self):
+        from src.reference.signature import assert_no_target_leakage
+        assert_no_target_leakage(
+            ["ENSG00000999999"], TARGETS, context="test", alias_map=self.ALIAS
+        )

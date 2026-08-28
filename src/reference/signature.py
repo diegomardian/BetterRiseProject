@@ -30,9 +30,16 @@ class LeakageError(AssertionError):
     """A target gene reached the reference matrix or the labels."""
 
 
-#: An unversioned Ensembl gene id. Deliberately anchored and strict: the point
-#: is to tell two identifier SPACES apart, not to validate an id.
-_ENSEMBL_ID = re.compile(r"^ENSG\d+$")
+#: An Ensembl gene id in any of the forms this project encounters: unversioned
+#: (``ENSG00000141510``, decision #3's key), versioned as TCGA STAR counts arrive
+#: (``ENSG00000141510.16``), and CellRanger-suffixed as the deposit's raw
+#: feature_id arrives (``ENSG00000243485.5_4``).
+#:
+#: **All three must match.** A first version anchored on the unversioned form
+#: alone, so a VERSIONED index was classified as symbol space, compared against
+#: symbol targets, found nothing, and passed — the vacuous pass this guard exists
+#: to prevent, one identifier form over. Found by reviewing PR #33.
+_ENSEMBL_ID = re.compile(r"^ENSG\d+(\.\d+)?(_\d+)?$")
 
 
 class LeakageGuardError(AssertionError):
@@ -90,18 +97,27 @@ def resolve_targets(
     gene_set = {str(g) for g in genes}
     if not targets or not gene_set:
         return targets
-    if {_identifier_space(gene_set), _identifier_space(targets)} != {"ensembl", "symbol"}:
+    gene_space, target_space = _identifier_space(gene_set), _identifier_space(targets)
+    # A MIXED target set is already the union of both forms — it is what this
+    # function returns once a map has been applied — so there is nothing left to
+    # translate and nothing it can fail to see.
+    if gene_space == target_space or target_space == "mixed":
         return targets
+    # Any disagreement, not only the exact ensembl/symbol pair. A MIXED index
+    # against symbol targets used to slip through: it caught whichever targets
+    # happened to be written as symbols and silently missed the ones present as
+    # Ensembl ids, reporting a partial leak as if it were the whole one.
     if alias_map is None:
         raise LeakageGuardError(
             f"cannot check invariant 2 for {context}: the genes are "
-            f"{_identifier_space(gene_set)} identifiers and the targets are "
-            f"{_identifier_space(targets)}. Intersecting the two is empty "
+            f"{gene_space} identifiers and the targets are "
+            f"{target_space}. Intersecting the two is empty or partial "
             f"whatever the data, so this check would pass without testing "
             f"anything. Pass alias_map= to translate, or hand both sides the "
             f"same identifier form."
         )
-    return _translate_targets(targets, alias_map)
+    # Union of both forms: a mixed index can hold a target under either.
+    return targets | _translate_targets(targets, alias_map)
 
 
 def assert_no_target_leakage(
