@@ -1458,6 +1458,52 @@ Both are covered by tests that call W2's and W4's real functions rather than moc
 > at `mature_fraction` exactly 1.000**, which is what the coarsest rung is
 > supposed to look like as the lower bound of the curve.
 >
+> ### ANSWERED AT FULL SCALE — 2026-08-27
+>
+> Ran W2's `depth_confound_report` (PR #45) unmodified over W1's own labels, 32
+> patients with both arms, 2 axes x 4 rungs.
+> `results/2026-08-27_b0ca4ee/depth_confound_reference.parquet`.
+>
+> **The depth floor works.** Where the correlation between the maturity call and
+> sequencing depth is computable, it is small:
+>
+> | rung | median \|rho\| | 90th pct | max | tracks depth |
+> |---|---|---|---|---|
+> | `best4` | 0.069 | 0.187 | 0.364 | 6.2% of patients |
+> | `crypt_position` | 0.134 | 0.215 | 0.370 | 14.1% |
+> | `lineage` | 0.142 | 0.230 | 0.370 | 17.2% |
+>
+> Lee/SMC, without thinning, is **−0.92** with a monotone 80.8% → 8.5%
+> dose-response across depth deciles (issue #44). Same instrument, and W1's
+> median is 0.13. **This is the clearest evidence yet that the depth target was
+> the right call**, and it is measured rather than argued.
+>
+> **But the arms are NOT depth-matched, exactly as feared above.**
+> `arms_are_depth_matched` is 0.375 — **20 of 32 patients exceed 1.5x**, median
+> ratio 1.64, max 5.08 on the scored population and 8.05 across all QC-passing
+> cells. The precondition for a depth-driven compositional artifact is present
+> across most of the cohort; what is largely absent is the mechanism that would
+> convert it.
+>
+> **17 of 256 patient-axis-rung combinations trip both conditions**, all at
+> `lineage` or `crypt_position`. Those specific combinations carry the caveat.
+> The cohort as a whole does not.
+>
+> **The `epithelial` rung's verdict is vacuous and must not be quoted.** All 64
+> of its rows return `nan` for the correlation — every scored cell is mature
+> there by construction, so `is_mature` is constant — and the module maps `nan`
+> to "not confounded". Raised on PR #45; it is the lower bound of the
+> granularity curve, so a silently-clean verdict there is the one most likely to
+> be mistaken for reassurance.
+>
+> **A correction on the way to this.** The first run reported |rho| = 0.969 at
+> `epithelial` and 113/256 confounded. That was W1's own bug: the runner took
+> `is_mature = (call == mature)` over every cell, making each `unresolved_depth`
+> cell `False` — counted as immature, which is precisely what this decision
+> refuses. It collapsed `is_mature` to "was this cell deep enough to be scored"
+> and correlated it with depth by construction. Invariant 1's shape, in the job
+> auditing invariant 1's shape.
+>
 > **NEW — the depth floor cuts the two arms unequally, and it can flip the sign
 > of the compositional term.** Unresolved fractions at q=0.25:
 >
