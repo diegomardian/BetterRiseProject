@@ -213,19 +213,53 @@ def main() -> int:
 
     corr = full[["largest_tie_frac", "frac_zero_markers"]].corr().iloc[0, 1]
     print(f"\ncorrelation(largest tie block, cells with no marker detected) = {corr:.3f}")
+
+    # TWO SEPARATE QUESTIONS, and an earlier version of this block conflated
+    # them and printed the wrong conclusion.
+    #
+    #   WHAT is the tie block?      -> the correlation answers this
+    #   Can it be made SMALLER?     -> only the sweep answers this
+    #
+    # A high correlation says the tied cells are the ones expressing no marker.
+    # It says nothing about whether more markers would leave fewer such cells —
+    # and the sweep showed collision falling monotonically with k, so it does.
+    sweep = out.pivot_table(index="subset_size", columns="labeling_axis",
+                            values="tertiles_collide", aggfunc="mean")
     if corr > 0.8:
         print(
-            "\n  The tie block IS the cells expressing no marker. Marker count is\n"
-            "  not the lever — those cells are identical by construction and a\n"
-            "  richer axis of the same kind will not separate them. #42's honest\n"
-            "  reading is then THREE rungs, not four."
+            "\n  MECHANISM: the tie block IS the cells expressing no marker.\n"
+            "  They score identically because they have nothing to score on."
         )
     else:
         print(
-            "\n  The tie block is NOT simply the undetected cells. Look at the\n"
-            "  subset sweep: if collision falls with k, a richer axis is the lever\n"
-            "  and #42 is fixable with an axis change (frozen — PR + 2 approvals)."
+            "\n  MECHANISM: the tie block is NOT simply the undetected cells.\n"
+            "  Something else is compressing the score; look at n_distinct."
         )
+    for axis in sweep.columns:
+        series = sweep[axis].dropna()
+        if len(series) < 2:
+            continue
+        first, last = float(series.iloc[0]), float(series.iloc[-1])
+        drop = first - last
+        verdict = (
+            "marker count IS a lever" if drop > 0.1 else
+            "marker count is NOT a lever — collision barely moves"
+        )
+        plateau = (
+            " and the curve has NOT plateaued, so more would help further"
+            if len(series) > 2 and (float(series.iloc[-2]) - last) > 0.02 else
+            " and the curve has flattened, so more of the same buys little"
+        )
+        print(f"  {axis}: {first:.2f} -> {last:.2f} across "
+              f"{int(series.index[0])}..{int(series.index[-1])} markers — "
+              f"{verdict}{plateau}.")
+    print(
+        "\n  NOT ANSWERED HERE: whether the remaining zero-marker cells are\n"
+        "  biologically negative or merely detection-limited. A mature cell\n"
+        "  expresses no stem marker however many you look for, so there is a\n"
+        "  floor this measurement cannot locate. Proposing an axis change on an\n"
+        "  extrapolation past that floor would be choosing markers to pass."
+    )
 
     path = write_versioned_table(
         out, "score_tie_structure", seed=DEFAULT_SEED,
