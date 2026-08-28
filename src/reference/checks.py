@@ -4,6 +4,25 @@ Ambient counts are enriched for whatever is abundant. So **if a gene's
 behaviour tracks its abundance, that behaviour is a property of the soup and
 not of the tumour.** G1 is the check that catches it.
 
+**THIS MODULE IMPLEMENTS A SUPERSEDED STATISTIC, ON PURPOSE.**
+Decision #17 is what is coded here. Prereg amendment 2 replaced it — #17's
+statistic returns rho = -0.997 on a null and its tier D holds one gene, over
+which `spearmanr` returns `nan` and `abs(nan) > 0.5` is `False`, so the rule
+would have passed the one tier whose job is to fail.
+
+It is kept, and kept inert, because it is **the record of what was committed
+first**, and the ordering is the only thing that makes any of this credible.
+Every path here returns ``not_estimable`` against the frozen panel, and a test
+pins that. Do not "fix" it into passing.
+
+Rewriting it to amendment 2 is blocked on
+[#46](https://github.com/diegomardian/BetterRiseProject/issues/46): the amendment
+never says which cells M is measured over, and all three populations tried so far
+fail the world where the project's compositional hypothesis is true. When that
+settles, this module gets rewritten in one pass — with
+``rankdata(method="average")``, not ``argsort().argsort()``, for the reason in
+PR #40's review.
+
 **The thresholds in this module were committed before it was written.**
 Decision #17, ``docs/open_decisions.md``. Nothing here was tuned against a G1
 result, because none existed when the numbers were chosen — and after this runs
