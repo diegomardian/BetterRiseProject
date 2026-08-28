@@ -319,3 +319,72 @@ def test_target_arm_actually_shows_an_intrinsic_term(controls_table):
     summary = summarise_negative_controls(controls_table)
     target = summary[(summary["control"] == "target") & (summary["term"] == "intrinsic")]
     assert target["median_abs"].iloc[0] > 1.0
+
+
+# ---------------------------------------------------------------------------
+# The invariant-2 seam in the bake-off — issue #35's promised regression test
+# ---------------------------------------------------------------------------
+
+
+def _signature(index):
+    return pd.DataFrame(
+        {"mature_colonocyte": [1.0] * len(index), "stem": [0.5] * len(index)},
+        index=list(index),
+    )
+
+
+def test_bakeoff_refuses_symbols_against_an_ensembl_signature():
+    """The check that could not fail, made to fail.
+
+    This call site was one of four #35 found intersecting panel SYMBOLS with an
+    Ensembl-indexed matrix: two disjoint namespaces, empty whatever the data,
+    reported as a pass. The guard now refuses the comparison rather than passing
+    it, and the bake-off must surface that rather than swallow it.
+    """
+    from src.reference.signature import LeakageGuardError
+
+    signature = _signature(["ENSG00000197766", "ENSG00000141510", "ENSG00000012048"])
+    with pytest.raises(LeakageGuardError, match="cannot check invariant 2"):
+        run_bakeoff(
+            [], signature, [NNLSDeconvolver()], seed=1, target_genes=["GUCA2A"]
+        )
+
+
+def test_bakeoff_catches_a_real_leak_once_the_map_is_supplied():
+    """And with the translation it does its actual job."""
+    from src.reference.signature import LeakageError
+
+    leaked = "ENSG00000197766"  # GUCA2A
+    signature = _signature([leaked, "ENSG00000141510"])
+    with pytest.raises(LeakageError, match="leaked into the bake-off signature"):
+        run_bakeoff(
+            [],
+            signature,
+            [NNLSDeconvolver()],
+            seed=1,
+            target_genes=["GUCA2A"],
+            alias_map={"GUCA2A": leaked},
+        )
+
+
+def test_bakeoff_passes_a_clean_ensembl_signature_with_the_map():
+    """A guard that only ever raises is as useless as one that never does."""
+    signature = _signature(["ENSG00000141510", "ENSG00000012048"])
+    table, skipped = run_bakeoff(
+        [],
+        signature,
+        [NNLSDeconvolver()],
+        seed=1,
+        target_genes=["GUCA2A"],
+        alias_map={"GUCA2A": "ENSG00000197766"},
+    )
+    assert table.empty  # no samples were passed; the point is that it got here
+
+
+def test_bakeoff_still_works_when_both_sides_are_symbols():
+    """The existing symbol-keyed path must not have been broken by the fix."""
+    signature = _signature(["MLH1", "TP53"])
+    table, _ = run_bakeoff(
+        [], signature, [NNLSDeconvolver()], seed=1, target_genes=["GUCA2A"]
+    )
+    assert table.empty
