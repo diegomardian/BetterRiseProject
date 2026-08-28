@@ -5,19 +5,74 @@
 **Owner:** Bode · **Env:** `env/w1_reference.yml` → `conda activate brp-w1`
 **Branch prefix:** `w1/…` · **Blocked by:** nothing
 
-> ## STATE — 2026-08-24
+> ## STATE — 2026-08-27
 >
-> **Every stage runs end to end at full scale except labels and S matrices.**
-> 909 tests. Branch `w1/infercnv-mtx-loader`; results on `w1/full-malignancy`.
+> **The W1 pipeline is complete and reproducible.** Ingest → QC → ambient →
+> malignancy → labels → counts → S matrices, on a shared index both arms agree
+> on. 903 tests pass locally (the 22 failures are W3's `bulk/` and missing local
+> deps, not W1). Branch `w1/decision-17-g1-threshold`, PR **#33**.
 >
-> ### Next task
+> ### The one thing that is blocked, and it is not implementation
 >
-> Full-scale labels and S matrices at **1.0.0**. Everything it needs now exists.
-> `run_pilot.py` does five patients; the full version must also run **both
-> tumour-arm definitions** (prereg amendment 1), apply `ambient_exclusions` at
-> the committed 10% threshold and report the paired n it leaves, and carry
-> `quotable` / `degenerate_with` / `axis_measures` through. Then `checks.py` for
-> G1, with its threshold committed before looking.
+> **G1's specification is wrong, and W1 stopped rather than patch it — see
+> [#46](https://github.com/diegomardian/BetterRiseProject/issues/46).**
+>
+> `src/reference/checks.py` returns `not_estimable` and **must keep returning
+> it.** That is the correct state, not a bug.
+>
+> Amendment 2 defines `M = log₂(tumour mean / normal mean)` and never says which
+> cells the mean is over. Three populations were tested on simulation:
+> all-epithelium, within-mature, maturity-stratified. **All three FAIL the world
+> where the project's compositional hypothesis is true and nothing else is
+> wrong.** The cause is structural: MS4A12 is cell-type-restricted and threshold
+> 2 scores it against abundance-matched genes that are not, so any residual
+> composition moves it far more than its comparison set.
+>
+> **W1 deliberately proposed no fourth construction.** Two of its own failed;
+> anything suggested next would be chosen knowing what failed, which is the exact
+> move the pre-registration exists to prevent. The design question is with the
+> team.
+>
+> ### Two facts that constrain anyone picking this up
+>
+> 1. **Threshold 2 (MS4A12 ≥ 0.50) is frozen.** Committed 2026-08-25, since seen
+>    to fail 31/31 patients. Any change now is indistinguishable from tuning,
+>    whatever the justification. Thresholds 1 and 3 behaved correctly in every
+>    test.
+> 2. **Tier A on real data is deliberately UNMEASURED.** Thresholds 1 and 3 are
+>    the last unseen G1 inputs. Measuring them is the team's call, not the next
+>    session's convenience.
+>
+> `results/2026-08-27_af3d19a/m_tie_structure.parquet` holds the MS4A12 numbers.
+> Note the reading withdrawn on #37: percentile 0.003 does **not** show MS4A12 is
+> silenced — it is equally consistent with pure composition.
+>
+> ### Landed this week
+>
+> | | |
+> |---|---|
+> | `gene_index_1.0.0` | **39,236** genes, the intersection both arms measured; 23/23 panel |
+> | S matrices | four rungs at 1.0.0, **0 of 23 panel genes present** (#21), each with a `.meta.json` |
+> | Invariant 2 | was **unenforced** — guards compared symbols to Ensembl ids and passed vacuously (#35). Now refuses rather than passing. Four `0.1.0-pilot` matrices **retracted** |
+> | Decision #12 | applied at last; its committed patch would have been a no-op at full scale |
+> | Decision #21 | invariant 2 reads **broad** for the matrix, **narrow** for labels |
+> | Cohort | 62 → 22 unmatched (#9) → 4 lost to #11/#16 → 6 QC → **28 paired**, both tumour-arm definitions |
+>
+> ### Open, all with other people
+>
+> **#33** PR review · **#36** W2, `unresolved_fraction` gates nothing · **#37**
+> Amendment 2, ratified-with-condition, second reader done · **#38** W4, label
+> divergence · **#40** W2's ratification, one `rankdata` fix outstanding ·
+> **#42** `crypt_position` is a two-bin split on ~90% of patients ·
+> **#46** the G1 specification question above
+>
+> ### A pattern worth knowing before touching anything
+>
+> **Symbols and Ensembl ids meet in more places than anyone has enumerated, and
+> every collision fails silently.** Five instances this week, the last one
+> written by W1 in a job whose purpose was checking someone else's work. If you
+> add a comparison between two gene-name sets, assert the spaces match — do not
+> assume the intersection means what you think.
 >
 > ### Measured at full scale
 >

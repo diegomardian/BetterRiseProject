@@ -180,9 +180,6 @@ def contamination_fraction(
             f"known: {sorted(IMPOSSIBLE_GENES)}"
         )
 
-    # Using a target gene to measure contamination would be circular.
-    assert_no_target_leakage(genes, panel_genes(), context="the impossible-gene set")
-
     mask = np.asarray(cell_mask, dtype=bool)
     if mask.shape[0] != matrix.shape[0]:
         raise AmbientError(f"cell_mask has {mask.shape[0]} entries for {matrix.shape[0]} cells")
@@ -195,6 +192,12 @@ def contamination_fraction(
             f"none of the impossible genes {sorted(genes)} are in the matrix. "
             f"Check gene naming — symbols vs Ensembl IDs (open decision #3)."
         )
+
+    # AFTER the naming check, not before. Using a target gene to measure
+    # contamination would be circular — but a gene set that is not in the matrix
+    # at all is a naming bug, and that diagnosis is the more useful one. Checking
+    # an invariant on identifiers the matrix has never seen tests nothing.
+    assert_no_target_leakage(genes, panel_genes(), context="the impossible-gene set")
 
     if soup is None:
         soup = soup_profile_from_cells(matrix, gene_names)

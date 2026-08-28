@@ -1,0 +1,29 @@
+{
+  "date": "2026-08-26",
+  "utc_timestamp": "2026-08-27T02:54:30+00:00",
+  "git_sha": "63ead2e5aa500013c1deed556ce8f0159ef990ae",
+  "git_sha_short": "63ead2e",
+  "git_branch": "w1/decision-17-g1-threshold",
+  "git_dirty": false,
+  "seed": 20260101,
+  "python": "3.11.15",
+  "platform": "Linux-4.18.0-553.157.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "scanpy_version": "1.10.2",
+  "anndata_version": "0.10.8",
+  "notes": "Which granularity rungs collapsed onto the same partition, per patient. The curve is only a curve where they did not.",
+  "name": "rung_degeneracy_full",
+  "n_rows": 360,
+  "columns": [
+    "labeling_axis",
+    "rung_a",
+    "rung_b",
+    "n_mature_a",
+    "n_mature_b",
+    "jaccard",
+    "identical",
+    "patient_id"
+  ],
+  "table_kind": "harness"
+}

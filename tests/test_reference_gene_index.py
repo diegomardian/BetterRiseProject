@@ -143,10 +143,129 @@ class TestWriteAndRead:
 def test_the_index_is_what_build_signature_consumes(tmp_path):
     """build_signature() asserts target genes are absent from the index it is
     handed. Confirm the emitted form is directly usable."""
-    from src.reference.signature import assert_no_target_leakage
+    from src.reference.signature import (
+        LeakageError,
+        LeakageGuardError,
+        assert_no_target_leakage,
+    )
 
     index, mapping, _ = build_gene_index(var_table())
     write_gene_index(index, mapping, version="1.0.0", config_dir=tmp_path)
     loaded = read_gene_index("1.0.0", config_dir=tmp_path)
-    # Ensembl-keyed, so symbol-named panel genes cannot collide with it.
-    assert_no_target_leakage(loaded, panel_genes(), context="the shared gene index")
+
+    # This test previously asserted the guard PASSED here, reasoning that
+    # "Ensembl-keyed, so symbol-named panel genes cannot collide with it."
+    # That is the bug (issue #35): the guard could not collide, so it could not
+    # fire, and GUCA2A shipped in all four 0.1.0-pilot S matrices while every
+    # call site reported success. A check that cannot fail must refuse.
+    with pytest.raises(LeakageGuardError, match="cannot check invariant 2"):
+        assert_no_target_leakage(loaded, panel_genes(), context="the shared gene index")
+
+    # Given the translation it can do its job — and on an index built from a
+    # table that carries a panel gene, it must fire.
+    alias = dict(
+        zip(
+            mapping["gene_symbol"].astype(str),
+            mapping["ensembl_id"].astype(str),
+            strict=True,
+        )
+    )
+    present = [g for g in panel_genes() if g in alias and alias[g] in set(loaded)]
+    if present:
+        with pytest.raises(LeakageError, match="invariant 2"):
+            assert_no_target_leakage(
+                loaded, present, context="the shared gene index", alias_map=alias
+            )
+
+
+class TestIntersection:
+    """Open decision #2, corrected: 1.0.0 IS the intersection."""
+
+    @staticmethod
+    def _panel_ids():
+        """Every frozen panel gene, so the coverage guard is satisfied."""
+        from src.common.panel import panel_genes
+        panel = panel_genes()
+        return [f"ENSGP{i:04d}" for i in range(len(panel))], panel
+
+    @classmethod
+    def _mapping(cls, ids, symbols=None):
+        """A mapping carrying the whole panel PLUS the ids under test."""
+        import pandas as pd
+        pids, panel = cls._panel_ids()
+        return pd.DataFrame({
+            "ensembl_id": list(ids) + pids,
+            "gene_symbol": (symbols or [f"G{i}" for i in range(len(ids))]) + panel,
+        })
+
+    def test_keeps_only_shared_ids_and_sorts(self):
+        from src.reference.gene_index import intersect_gene_index
+        pids, _ = self._panel_ids()
+        mapping = self._mapping(["ENSG3", "ENSG1", "ENSG2"])
+        index, out, report = intersect_gene_index(
+            mapping, ["ENSG2", "ENSG3", "ENSG9"] + pids
+        )
+        assert index == sorted(index), "must be sorted ascending"
+        assert [g for g in index if g.startswith("ENSG")] == sorted(
+            ["ENSG2", "ENSG3"] + pids
+        )
+        assert list(out["ensembl_id"]) == index
+        assert report["n_intersection"] == 2 + len(pids)
+        assert report["n_ours_only"] == 1
+        assert report["n_shared_only"] == 1
+
+    def test_byte_identical_regardless_of_input_order(self):
+        """What makes 'who emits it' stop mattering."""
+        from src.reference.gene_index import intersect_gene_index
+        pids, _ = self._panel_ids()
+        a, _, _ = intersect_gene_index(
+            self._mapping(["ENSG3", "ENSG1", "ENSG2"]),
+            ["ENSG1", "ENSG2", "ENSG3"] + pids,
+        )
+        b, _, _ = intersect_gene_index(
+            self._mapping(["ENSG1", "ENSG2", "ENSG3"]),
+            list(reversed(["ENSG3", "ENSG2", "ENSG1"] + pids)),
+        )
+        assert a == b
+
+    def test_refuses_when_a_panel_gene_is_lost(self):
+        from src.reference.gene_index import GeneIndexError, intersect_gene_index
+        pids, _ = self._panel_ids()
+        mapping = self._mapping([])
+        with pytest.raises(GeneIndexError, match="do not survive"):
+            intersect_gene_index(mapping, pids[1:])   # drop one panel gene
+
+    def test_disjoint_indices_raise(self):
+        from src.reference.gene_index import GeneIndexError, intersect_gene_index
+        with pytest.raises(GeneIndexError, match="share no identifier"):
+            intersect_gene_index(self._mapping(["ENSG1"]), ["ENSG2"])
+
+    def test_versioned_shared_index_is_rejected(self, tmp_path):
+        from src.reference.gene_index import GeneIndexError, read_shared_index
+        path = tmp_path / "v.txt"
+        path.write_text("ENSG00000141510.16\nENSG00000000003\n")
+        with pytest.raises(GeneIndexError, match="versioned"):
+            read_shared_index(path)
+
+    def test_reads_a_clean_index(self, tmp_path):
+        from src.reference.gene_index import read_shared_index
+        path = tmp_path / "i.txt"
+        path.write_text("# comment\nENSG1\n\nENSG2\n")
+        assert read_shared_index(path) == ["ENSG1", "ENSG2"]
+
+    def test_w3_index_carries_every_frozen_panel_gene(self):
+        """Independent check of W3's 23/23 claim, bulk side.
+
+        The single-cell side needs the deposit, which lives on the cluster.
+        This half is checkable from the committed file.
+        """
+        from pathlib import Path
+
+        import pandas as pd
+
+        from src.common.panel import panel_genes
+        f = Path("config/gene_index/gene_index_0.9.0.map.tsv")
+        if not f.exists():
+            pytest.skip("0.9.0 not present")
+        symbols = set(pd.read_csv(f, sep="\t", comment="#")["gene_symbol"].astype(str))
+        assert not [g for g in panel_genes() if g not in symbols]

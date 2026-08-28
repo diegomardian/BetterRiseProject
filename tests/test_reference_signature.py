@@ -181,6 +181,11 @@ class TestSparsePath:
     where the first S matrix attempt died. The sparse path must give the same
     answer without ever materialising that array."""
 
+    #: The S matrix is Ensembl-keyed while the panel is written as symbols, so
+    #: the invariant-2 guard needs the translation or it compares two spaces and
+    #: passes without testing anything (issue #35).
+    ALIAS = {"GUCA2A": "ENSG00000197273"}
+
     def _sparse_cohort(self, n_cells=600, n_genes=2000):
         from scipy import sparse
 
@@ -203,6 +208,7 @@ class TestSparsePath:
         signature = build_signature_sparse(
             matrix, genes, labels,
             target_genes=["GUCA2A"], gene_index=genes, n_genes=600,
+            alias_map=self.ALIAS,
         )
         assert MIN_SIGNATURE_GENES <= len(signature) <= MAX_SIGNATURE_GENES
         assert set(signature.columns) == set(TYPES)
@@ -217,10 +223,11 @@ class TestSparsePath:
 
         sparse_signature = build_signature_sparse(
             matrix, genes, labels, target_genes=["GUCA2A"],
-            gene_index=genes, n_genes=600,
+            gene_index=genes, n_genes=600, alias_map=self.ALIAS,
         )
         dense_signature = build_signature(
-            dense, labels, target_genes=["GUCA2A"], gene_index=genes, n_genes=600,
+            dense, labels, target_genes=[self.ALIAS["GUCA2A"]],
+            gene_index=genes, n_genes=600,
         )
         assert list(sparse_signature.index) == list(dense_signature.index)
         np.testing.assert_allclose(
@@ -236,23 +243,43 @@ class TestSparsePath:
         assert out.nnz == matrix.nnz
 
     def test_every_guard_still_runs(self):
-        from src.reference.signature import LeakageError, build_signature_sparse
+        from src.reference.signature import (
+            LeakageGuardError,
+            build_signature_sparse,
+        )
 
         matrix, genes, labels = self._sparse_cohort()
+        # Symbol targets against an Ensembl index must REFUSE, not pass.
+        with pytest.raises(LeakageGuardError, match="cannot check invariant 2"):
+            build_signature_sparse(
+                matrix, genes, labels, target_genes=["GUCA2A"],
+                gene_index=genes, n_genes=600,
+            )
+        # Translated, the target is FILTERED from the index rather than
+        # rejected (open decision #12) — the index carries panel genes on
+        # purpose. What invariant 2 forbids is the target reaching the matrix.
+        signature = build_signature_sparse(
+            matrix, genes, labels, target_genes=["GUCA2A"],
+            gene_index=genes, n_genes=600,
+            alias_map={"GUCA2A": genes[0]},
+        )
+        assert genes[0] not in set(signature.index)
         with pytest.raises(ValueError, match="target_genes is empty"):
             build_signature_sparse(
                 matrix, genes, labels, target_genes=[], gene_index=genes, n_genes=600
             )
-        with pytest.raises(LeakageError, match="invariant 2"):
-            build_signature_sparse(
-                matrix, genes, labels, target_genes=[genes[0]],
-                gene_index=genes, n_genes=600,
-            )
+        # Same space, no alias needed: the target is filtered from the index
+        # (decision #12) rather than refused.
+        same_space = build_signature_sparse(
+            matrix, genes, labels, target_genes=[genes[0]],
+            gene_index=genes, n_genes=600,
+        )
+        assert genes[0] not in set(same_space.index)
         epithelial_only = ["mature_colonocyte"] * len(labels)
         with pytest.raises(ValueError, match="missing compartment"):
             build_signature_sparse(
                 matrix, genes, epithelial_only, target_genes=["GUCA2A"],
-                gene_index=genes, n_genes=600,
+                gene_index=genes, n_genes=600, alias_map=self.ALIAS,
             )
 
     def test_genes_off_the_shared_index_are_dropped(self):
@@ -263,7 +290,7 @@ class TestSparsePath:
         index = genes[:1200]
         signature = build_signature_sparse(
             matrix, genes, labels, target_genes=["GUCA2A"],
-            gene_index=index, n_genes=600,
+            gene_index=index, n_genes=600, alias_map=self.ALIAS,
         )
         assert set(signature.index) <= set(index)
 

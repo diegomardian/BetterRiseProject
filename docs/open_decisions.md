@@ -1409,6 +1409,101 @@ Both are covered by tests that call W2's and W4's real functions rather than moc
 > **The rung collapse persists at the higher target.** `stem_pole`
 > `lineage` == `crypt_position`, Jaccard 1.000. Three points on axis 1, not four.
 >
+> **CONFIRMED AND REFINED AT FULL SCALE — 2026-08-25**, from
+> `results/2026-08-25_9e3ca1a/rung_degeneracy_full.parquet`, 60 patient-axis
+> pairs per rung comparison across the 62-patient cohort:
+>
+> | rung pair | median Jaccard | identical |
+> |---|---|---|
+> | `lineage` vs `crypt_position` | **1.000** | **37 / 60 (61.7%)** |
+> | `epithelial` vs `lineage` | 0.686 | 0 |
+> | `epithelial` vs `crypt_position` | 0.591 | 0 |
+> | `best4` vs any other | 0.035 | 0 |
+>
+> The pilot's "same partition" reading was slightly too strong. They are not
+> structurally identical — they **coincide in about three patients in five**, and
+> differ in the rest. The consequence for the granularity curve is the same
+> (`lineage` and `crypt_position` are not independent points) but the mechanism
+> is a threshold collision on most patients rather than an identity, so it is
+> fixable by moving a cut point rather than by dropping a rung.
+>
+> **MECHANISM FOUND — 2026-08-26.** The collapse is structural, not a threshold
+> coincidence. `run_full_reference` prints, for ~27 of the 30 analysed patients:
+>
+> ```
+> note: group 'C122' supports only 2 of 3 bins — scores are tied across a
+>       quantile boundary. Using ('crypt_bottom', 'crypt_top').
+> ```
+>
+> `src/reference/labels.py:378-383` falls back to `(bins[0], bins[-1])` when the
+> tertile cut points come back equal. The maturity score is tied across the 33rd
+> and 67th percentiles on almost every patient — a large atom in the score
+> distribution, most likely cells sharing a score because the marker set is small
+> and many are zero.
+>
+> So **`crypt_position` is a two-bin split on ~90% of patients**, which is the
+> same construction as `lineage` (median split, two bins). They agree 61.7% of
+> the time because most of the time they are the same thing, not because two
+> thresholds happened to land together.
+>
+> This changes the fix. Moving a cut point does not help if the score cannot
+> support three bins; what is needed is either a score with enough resolution to
+> separate tertiles, or an honest reduction of the granularity curve to three
+> points. **Recorded, not decided** — it bears on
+> [#38](https://github.com/diegomardian/BetterRiseProject/issues/38), where W1
+> has already asked W4 not to adopt these two thresholds.
+>
+> `best4` is confirmed genuinely distinct (Jaccard 0.035 against everything),
+> and `epithelial` is confirmed degenerate by construction — **222 of 232 rows
+> at `mature_fraction` exactly 1.000**, which is what the coarsest rung is
+> supposed to look like as the lower bound of the curve.
+>
+> ### ANSWERED AT FULL SCALE — 2026-08-27
+>
+> Ran W2's `depth_confound_report` (PR #45) unmodified over W1's own labels, 32
+> patients with both arms, 2 axes x 4 rungs.
+> `results/2026-08-27_b0ca4ee/depth_confound_reference.parquet`.
+>
+> **The depth floor works.** Where the correlation between the maturity call and
+> sequencing depth is computable, it is small:
+>
+> | rung | median \|rho\| | 90th pct | max | tracks depth |
+> |---|---|---|---|---|
+> | `best4` | 0.069 | 0.187 | 0.364 | 6.2% of patients |
+> | `crypt_position` | 0.134 | 0.215 | 0.370 | 14.1% |
+> | `lineage` | 0.142 | 0.230 | 0.370 | 17.2% |
+>
+> Lee/SMC, without thinning, is **−0.92** with a monotone 80.8% → 8.5%
+> dose-response across depth deciles (issue #44). Same instrument, and W1's
+> median is 0.13. **This is the clearest evidence yet that the depth target was
+> the right call**, and it is measured rather than argued.
+>
+> **But the arms are NOT depth-matched, exactly as feared above.**
+> `arms_are_depth_matched` is 0.375 — **20 of 32 patients exceed 1.5x**, median
+> ratio 1.64, max 5.08 on the scored population and 8.05 across all QC-passing
+> cells. The precondition for a depth-driven compositional artifact is present
+> across most of the cohort; what is largely absent is the mechanism that would
+> convert it.
+>
+> **17 of 256 patient-axis-rung combinations trip both conditions**, all at
+> `lineage` or `crypt_position`. Those specific combinations carry the caveat.
+> The cohort as a whole does not.
+>
+> **The `epithelial` rung's verdict is vacuous and must not be quoted.** All 64
+> of its rows return `nan` for the correlation — every scored cell is mature
+> there by construction, so `is_mature` is constant — and the module maps `nan`
+> to "not confounded". Raised on PR #45; it is the lower bound of the
+> granularity curve, so a silently-clean verdict there is the one most likely to
+> be mistaken for reassurance.
+>
+> **A correction on the way to this.** The first run reported |rho| = 0.969 at
+> `epithelial` and 113/256 confounded. That was W1's own bug: the runner took
+> `is_mature = (call == mature)` over every cell, making each `unresolved_depth`
+> cell `False` — counted as immature, which is precisely what this decision
+> refuses. It collapsed `is_mature` to "was this cell deep enough to be scored"
+> and correlated it with depth by construction. Invariant 1's shape, in the job
+> auditing invariant 1's shape.
+>
 > **NEW — the depth floor cuts the two arms unequally, and it can flip the sign
 > of the compositional term.** Unresolved fractions at q=0.25:
 >
@@ -1933,6 +2028,118 @@ should be stated in the same sentence as the rule.**
 
 ---
 
+## 17 · G1's threshold, committed before any G1 number exists — PRE-COMMITTED 2026-08-25
+
+> ### ⚠ SUPERSEDED — see [Amendment 2](prereg_amendment_2_g1_tier_d.md), 2026-08-25
+>
+> **Two independent defects, both arithmetic, neither found by looking at a
+> result.** `checks.py` has never been run against expression.
+>
+> **1. The statistic cannot pass.** "Apparent loss" as a raw Δ per-cell mean
+> carries abundance inside it — a gene averaging 100 counts can lose 30, a gene
+> averaging 0.1 cannot. Simulated on 20,000 genes where *every* gene loses
+> exactly 30% and the truth has no abundance dependence at all, the statistic
+> below returns **ρ = −0.997**. G1 fails at |ρ| > 0.5, so as pre-registered it
+> fails whatever the biology. A gate that always fails carries as much
+> information as one that always passes.
+>
+> **2. Tier D holds one gene.** #17 justifies its 0.2 threshold with "n≈8 genes
+> per tier". `config/panel.yaml` has 4 in tier A, 3 in tier B and **1 in tier D**
+> — and a Spearman over one gene is undefined, not merely noisy. Tier D is the
+> half of the gate carrying the falsification logic.
+>
+> Amendment 2 proposes the standard MA construction (M = log₂ ratio, A = mean
+> log abundance) and moves the unit of analysis genome-wide with within-bin
+> percentiles, since with one gene you cannot compute a correlation but you can
+> compute a percentile. It commits three replacement thresholds.
+>
+> Until the team ratifies it, `g1_verdict()` returns `not_estimable` and G1 is
+> undecided. **Everything below stands as the record of what was committed
+> first**; it is not edited, because the ordering is the point.
+
+
+**Raised:** W1 · **Owner:** W1 + whoever owns the gate · **Status:** committed
+before `checks.py` was written, let alone run
+
+G1 asks whether the residual signal is ambient RNA rather than biology. Ambient
+counts are enriched for whatever is abundant, so **if a gene's apparent loss
+tracks its abundance, the loss is a property of the soup and not of the tumour.**
+
+### CORRECTION 2026-08-25 — this changed G1's statistic, and said so late
+
+**execution_plan.md §4 specifies G1 as "post-correction *retention* vs total
+abundance".** The version below uses abundance vs **apparent loss**. That is a
+different measurement and the substitution was not flagged when it was written.
+Recording it now rather than letting it stand.
+
+They answer different questions, and both are worth having:
+
+- **Retention vs abundance** (the plan's) asks whether *the correction* is
+  abundance-driven. On this cohort it is close to tautological — soup is
+  enriched for abundant genes, so a correction that removes soup will strip
+  abundant genes hardest, and finding that tells you little.
+- **Loss vs abundance** (below) asks whether *the project's signal* is
+  abundance-driven. That is the question G1's own stated consequence is about:
+  "if retention tracks abundance across all tiers, the residual signal is soup."
+
+**Recommendation: run both, report both, and let the plan's version be the
+named gate criterion.** Substituting a better statistic for a pre-registered one
+is exactly the move this project refuses elsewhere; adding a second is not.
+Where they disagree, that disagreement is the finding.
+
+The thresholds below apply to whichever is being read. **The team should ratify
+this before `checks.py` runs**, because after it runs the choice is
+unfalsifiable.
+
+### The statistic
+
+Spearman correlation between **gene abundance** (mean expression across the
+cohort) and **apparent loss** (Δ per-cell mean, tumour minus normal), computed
+**within each panel tier separately** — A (compositional targets), B (intrinsic
+targets), D (neither, the negative control).
+
+Spearman rather than Pearson for the same reason as the retention comparison:
+abundance spans orders of magnitude and a handful of very high genes would
+otherwise decide the answer.
+
+### The pre-committed thresholds
+
+**G1 FAILS if either holds:**
+
+1. **|ρ| > 0.5 in tier D.** Tier D genes are chosen to have no differentiation
+   story. A strong abundance-loss relationship *there* has no biological reading
+   left — it is the soup, measured.
+2. **The three tier correlations fall within 0.2 of one another.** That is what
+   "tracks abundance across all tiers" means: if A, B and D behave alike, the
+   panel is measuring abundance and the tier structure — which is the whole
+   falsification design — carries no information.
+
+**G1 PASSES if** tier D is flat (|ρ| ≤ 0.5) **and** tiers A and B separate from
+D by more than 0.2.
+
+### Why these numbers
+
+0.5 is the same rank-correlation line already used for method agreement in #16,
+so the project uses one meaning of "these two things track each other" rather
+than a different one per test. 0.2 is the smallest separation that survives
+n≈8 genes per tier — below that, tier differences are not distinguishable from
+noise at this panel size, and pretending otherwise would manufacture a pass.
+
+**Neither number was chosen by looking at a G1 result, because none exists.**
+When `checks.py` runs, its output is compared against this and the comparison is
+reported whichever way it goes.
+
+### What a failure would mean
+
+Not that the project is wrong — that **this cohort cannot separate the signal
+from the soup**, and the honest report is the non-identifiability, with the
+diagnostics, as the result. That is the same consequence G4 carries, and the
+same three-way framing the whole project rests on.
+
+Recorded here rather than in code so the commitment has a date and a diff.
+
+---
+
 ## Closed
 
 *(none yet — move entries here with the date and the decision, do not delete them)*
@@ -2351,3 +2558,210 @@ row. A frozen-schema PR follows only if the gate decides it needs to be there.
 **Do not fold the two into one column by taking the worse of them.** The second
 segment is this project's contribution and merging it into a precision flag
 throws it away.
+
+## 20 · `unresolved_fraction` is measured, means "bounded not measured", and gates nothing — OPEN
+
+**Raised:** W1, 2026-08-25 · **Owner:** W2 (`src/harness/positivity.py`) · **Needs:** the weekly
+
+Numbered 20, not 18 or 19, to stay clear of the duplicate-numbering collision
+flagged at the top of this file — W3 already holds #17 and #18.
+
+### What was measured
+
+From `results/2026-08-25_9e3ca1a/mature_cell_counts_full.parquet`, 928 rows,
+30 patients (28 paired, plus C106 and C140 with one arm each):
+
+```
+unresolved_fraction   mean 0.310   median 0.257   max 0.923
+rows with n_cells_resolved < 50      108 / 696   (excluding the epithelial rung)
+C165 normal arm                      90.7% unresolved
+C119 tumour                          n_cells_resolved = 0, mature_fraction NaN
+```
+
+### The gap
+
+`src/reference/labels.py` computes `unresolved_fraction` and says what it means:
+*"How much of the epithelium the fraction could not speak for. A large value
+means the fraction is **bounded, not measured**."*
+
+**Nothing anywhere consumes it.** Grepped across `src/`: the only other
+`unresolved` hits are W3's unrelated panel resolution and W1's own pilot job.
+
+`classify_estimability()` gates on `n_cells_mature` alone, which protects the
+**intrinsic** arm — too few mature cells and you cannot ask about expression
+within them. There is no matching gate on the **compositional** arm. A
+`mature_fraction` of 0.92 computed on 9% of the epithelium is reported the same
+way as one computed on 90%, and `classify_estimability`'s own docstring says
+*"The compositional term is still estimable in that case — do not drop the row."*
+
+The zero case is safe: `n_cells_resolved = 0` forces `n_cells_mature = 0`, which
+falls below `wide=20` and classifies `not_estimable`. C119 is handled. **It is
+the middle of the range that is not** — enough mature cells to pass the gate,
+too few resolved cells for the fraction to mean much.
+
+### Why it may not be benign
+
+The unresolved cells are not missing at random. They are the cells whose labels
+are ambiguous, and on a maturity axis that means intermediate and transitional
+states — precisely the cells whose classification determines the fraction.
+
+### What was checked and did NOT hold
+
+**Tumour is not systematically harder to label.** `unresolved_fraction` is
+constant within patient x arm, so the 168 paired rows are 28 patients counted six
+times each. Tumour exceeds normal in 102/168 rows = **17 of 28 patients**,
+binomial p ~ 0.34. Testing on rows rather than patients inflates that sixfold and
+would have produced a spurious directional bias — CLAUDE.md invariant 5's
+principle applied one level up.
+
+### Recommendation
+
+A second cutpoint on `n_cells_resolved` (or equivalently on
+`unresolved_fraction`), pre-committed before it is applied, carrying the
+compositional term the way `Cutpoints` carries the intrinsic one. **W1 is not
+proposing the number** — `src/harness/positivity.py` is W2's file under
+CONTRIBUTING §2, and the threshold should be chosen by whoever owns the gate.
+
+W1 supplies `n_cells_resolved` and `unresolved_fraction` in the frozen output
+already, so no W1 change is needed to act on this.
+
+---
+
+## 21 · Invariant 2 should read BROAD for the reference matrix and NARROW for labels — OPEN
+
+**Raised:** W1, 2026-08-26 · **Owner:** W1 + W2 · **Needed by:** before the S
+matrices are used for anything but tier A · **Bears on:** [#1](#1--muc2-and-tff3-are-both-targets-and-labels--open), G2
+
+Numbered 21 to stay clear of the duplicate-numbering collision at the top of
+this file.
+
+### What was observed
+
+The four `S_matrix_{rung}_1.0.0.parquet` built at `59ae14f` are clean of tier A —
+that was the point of [#35](https://github.com/diegomardian/BetterRiseProject/issues/35).
+They are not clean of the rest of the panel:
+
+| S matrix | rows | tier A | other panel genes |
+|---|---|---|---|
+| `best4` | 800 | 0 | 15 — incl. **SFRP1, SFRP2** (B), **CDX2** (C) |
+| `crypt_position` | 800 | 0 | 17 — incl. B, C and **MS4A12** (D) |
+| `epithelial` | 800 | 0 | 17 — same |
+| `lineage` | 800 | 0 | 17 — same |
+
+`run_full_reference.py` passes `targets = tier_genes("A")`, and #1's narrow
+reading filters the target set *for the run in question*. So this is the
+implementation behaving exactly as specified.
+
+### Why it is nonetheless a problem
+
+**A run testing tier B, C or D against these matrices violates invariant 2, and
+the guard cannot catch it** — those genes were never passed as targets, so there
+is nothing for `assert_no_target_leakage` to look for.
+
+G2 tests GUCA2A (A), MLH1 (B) and MS4A12 (D). Measured: `best4` contains neither
+MLH1 nor MS4A12 and **is** clean for all three. The other three rungs carry
+MS4A12 and are not.
+
+**But `best4`'s cleanliness is luck, not design.** Marker selection ranks by fold
+change and detection rate; MLH1 simply did not reach the top 800. Nothing
+prevents it doing so on a different rung, a different cohort, or a different
+`n_genes` — and if it did, no guard would fire and no output would look wrong.
+An invariant that holds because a ranking happened to fall a certain way is not
+an invariant.
+
+### Why #1's narrow reading does not transfer to the matrix
+
+#1 is about **MUC2 and TFF3 being in tier E and in labelling axis 2**, and its
+stated cost is *"axis 2 loses half its markers"* — axis 2 is
+`[MUC2, TFF3, SPDEF, ITLN1]`, so the broad reading really does halve it. That
+cost is real and it is a cost **to the labels**.
+
+The scaffold resolved it by narrowing `build_signature()` — the **reference
+matrix**. The motivating problem and the thing changed are not the same object.
+
+The costs are not comparable:
+
+| | broad reading costs | |
+|---|---|---|
+| **labels** | axis 2 drops from 4 markers to 2 | severe — halves an axis whose whole purpose is structural independence |
+| **reference matrix** | 23 genes leave a pool of 39,236 | negligible — see below |
+
+**Measured.** `_select_markers` returns exactly `n_genes`, so excluding more
+genes does not shrink the signature — it substitutes markers. On a synthetic
+cohort, excluding 23 targets instead of 4 kept all **600 of 600** markers and
+changed **2**:
+
+```
+excluding  4 targets -> 600 markers
+excluding 23 targets -> 600 markers
+overlap: 598 / 600
+```
+
+On the real matrices, 15–17 of the 800 markers are panel genes, so the broad
+reading would substitute those and keep the signature at 800.
+
+### The argument I should have led with: it is the better estimator
+
+The cost argument above says the broad reading is *cheap*. It is also **better**,
+and for a reason specific to this project.
+
+**The panel genes are exactly the genes whose expression this project expects to
+change between tumour and normal.** That is what makes them the panel. Keeping
+them as markers in the reference matrix makes the matrix sensitive to the
+phenomenon being measured — which is invariant 2's own rationale restated: *a
+silenced mature cell must not be readable as an absent mature cell.*
+
+Measured, NNLS on 300 synthetic bulks with known fractions, varying how strong a
+marker the panel genes are for mature colonocyte. Mean absolute error on the
+mature-colonocyte fraction:
+
+| panel marker strength | panel genes kept (narrow) | narrow | broad |
+|---|---|---|---|
+| none | 0 | 0.03462 | 0.03464 |
+| weak | 0 | 0.03453 | 0.03464 |
+| equal to other markers | 5 | 0.03444 | 0.03464 |
+| strong | 19 | **0.04525** | 0.03464 |
+| dominant | 19 | **0.11592** | 0.03464 |
+
+**The broad column is constant** — it excludes the panel, so how strongly panel
+genes happen to be expressed cannot affect it at all. The narrow column degrades
+by a factor of 3.3 as they get stronger, because a handful of dominant markers
+carry the least-squares residual and the other ~580 stop constraining the fit.
+That is `execution_plan.md` §2.1 error #4 — robustness comes from high
+dimensionality — arriving through the back door.
+
+Worst case for the broad reading across the range: **0.6% relative loss**. Worst
+case for the narrow one: **235%**.
+
+So the broad reading makes fraction estimation *invariant* to the very quantity
+under study, and the narrow one makes it depend on it.
+
+### Recommendation
+
+**Broad for the reference matrix, narrow for labels.** Concretely, in
+`run_full_reference.py`:
+
+```python
+label_targets  = tier_genes("A")   # narrow — #1, so axis 2 keeps MUC2/TFF3
+matrix_targets = panel_genes()     # broad — the matrix is valid for ANY run
+```
+
+This buys a guarantee that currently rests on a ranking, at a cost measured in
+single-digit marker substitutions, and it leaves #1's actual subject —
+axis 2's markers — untouched. #1's recommendation (a) stands for labels.
+
+### What this does NOT do
+
+- **It does not edit the panel or the axes.** Both stay frozen; this changes only
+  which genes are passed as `target_genes` at one call site.
+- **It does not reopen #1.** #1 asks what to do about MUC2/TFF3 in axis 2. That
+  question is untouched, and the answer stays (a).
+- **It does not affect the labels used to build these matrices.** Those come from
+  the `stem_pole` axis, which shares no gene with any tier.
+
+### If rejected
+
+Then the four 1.0.0 matrices must be documented as **tier-A only**, and any run
+against a non-tier-A target needs its own S matrix built with that target
+excluded — four rungs x each target set. That is the honest alternative, and it
+is more work than the change being proposed.

@@ -42,15 +42,40 @@ def test_leakage_check_names_the_offending_genes():
         assert_no_target_leakage(index, TARGETS, context="the reference gene pool")
 
 
-def test_build_signature_rejects_a_target_in_the_gene_index():
+def _mixed_cell_types(n=50):
+    """A reference needs the non-epithelial compartments (§2.1 error #3)."""
+    return [["stromal", "immune", "endothelial", "epithelial"][i % 4] for i in range(n)]
+
+
+def test_build_signature_filters_a_target_out_of_the_gene_index():
+    """Open decision #12. The shared index carries panel genes ON PURPOSE — they
+    are W3's outcome variables, and decision #2 requires 23/23 panel coverage in
+    the intersection. So build_signature filters them out of the reference pool
+    rather than refusing the index. Invariant 2 is about what reaches the
+    reference MATRIX, and it still holds: CA7 is not in the result.
+    """
     index = _clean_index() + ["CA7"]
-    with pytest.raises(LeakageError, match="invariant 2"):
-        build_signature(
-            _expression(index),
-            ["stromal"] * 50,
-            target_genes=TARGETS,
-            gene_index=index,
-        )
+    signature = build_signature(
+        _expression(index),
+        _mixed_cell_types(),
+        target_genes=TARGETS,
+        gene_index=index,
+    )
+    assert "CA7" not in set(signature.index)
+    assert not set(TARGETS) & set(signature.index)
+
+
+def test_a_target_in_the_expression_matrix_still_never_reaches_the_signature():
+    """The case that matters. Cells genuinely express CA7 — that is the whole
+    point — and it is on the index. Neither fact may put it in the reference.
+    """
+    index = _clean_index() + ["CA7"]
+    expression = _expression(index)
+    expression["CA7"] = 100.0  # loudly expressed, top of any marker ranking
+    signature = build_signature(
+        expression, _mixed_cell_types(), target_genes=TARGETS, gene_index=index
+    )
+    assert "CA7" not in set(signature.index)
 
 
 def test_build_signature_refuses_an_empty_target_set():
@@ -118,3 +143,42 @@ def test_whole_panel_can_be_held_out_at_once():
     assert_no_target_leakage(index, panel_genes(), context="test")
     with pytest.raises(LeakageError):
         assert_no_target_leakage(index + ["CDX2"], panel_genes(), context="test")
+
+
+class TestIdentifierSpaceHoles:
+    """Found reviewing PR #33. The guard refused symbol-vs-unversioned-Ensembl
+    but not the other two Ensembl forms this project actually handles."""
+
+    ALIAS = {"GUCA2A": "ENSG00000197273", "GUCA2B": "ENSG00000044012",
+             "OTOP2": "ENSG00000183034", "CA7": "ENSG00000168748"}
+
+    @pytest.mark.parametrize("index", [
+        ["ENSG00000197273.5"],        # versioned — how TCGA STAR counts arrive
+        ["ENSG00000243485.5_4"],      # CellRanger-suffixed — the deposit's raw feature_id
+        ["ENSG00000197273", "GUCA2B"],  # mixed — catches one target, misses the other
+    ])
+    def test_it_refuses_rather_than_passing_vacuously(self, index):
+        from src.reference.signature import LeakageGuardError, assert_no_target_leakage
+        with pytest.raises(LeakageGuardError, match="cannot check invariant 2"):
+            assert_no_target_leakage(index, TARGETS, context="test")
+
+    def test_a_mixed_index_is_checked_in_BOTH_forms_once_translated(self):
+        """The subtle half: a mixed index can hold a target under either form,
+        and checking only the translated form misses the symbol-written ones."""
+        from src.reference.signature import LeakageError, assert_no_target_leakage
+        with pytest.raises(LeakageError, match="invariant 2"):
+            assert_no_target_leakage(
+                ["ENSG00000197273", "NOT_A_TARGET"], TARGETS,
+                context="test", alias_map=self.ALIAS,
+            )
+        with pytest.raises(LeakageError, match="invariant 2"):
+            assert_no_target_leakage(
+                ["GUCA2B", "ENSG00000999999"], TARGETS,
+                context="test", alias_map=self.ALIAS,
+            )
+
+    def test_a_clean_ensembl_index_still_passes(self):
+        from src.reference.signature import assert_no_target_leakage
+        assert_no_target_leakage(
+            ["ENSG00000999999"], TARGETS, context="test", alias_map=self.ALIAS
+        )
