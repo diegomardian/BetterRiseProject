@@ -1,7 +1,7 @@
 # The case for withdrawing G1 as a gate criterion
 
-**Written:** 2026-08-28 · **Author:** W2 (Method / harness) · **Status:** proposed,
-needs the team · **Concerns:** `execution_plan.md` §5 G1, decision #17,
+**Written:** 2026-08-28 · **Author:** W2 (Method / harness) · **Status:** **ADOPTED
+2026-08-28** (decision #24.2) · **Concerns:** `execution_plan.md` §5 G1, decision #17,
 [prereg amendment 2](prereg_amendment_2_g1_tier_d.md),
 [#37](https://github.com/diegomardian/BetterRiseProject/issues/37),
 [#46](https://github.com/diegomardian/BetterRiseProject/issues/46)
@@ -13,6 +13,15 @@ needs the team · **Concerns:** `execution_plan.md` §5 G1, decision #17,
 > made amendment 2 worth reading.
 
 ---
+
+> **ADOPTED 2026-08-28**, decision #24.2. G1 is no longer gate-bearing and its
+> pre-committed consequence does not fire. One sequencing fact belongs with that:
+> PR #40, in which W2 ratified amendment 2, was merged by the repo owner, so the
+> authority adopting this withdrawal also approved the version being withdrawn.
+> What makes it defensible is the timing rather than the signature —
+> `src/reference/checks.py` still returns `not_estimable` and tier A has never
+> been measured on real expression. If that stops being true before this is
+> settled, reopen it.
 
 ## 1 · The proposal
 
@@ -77,9 +86,12 @@ answer. A harness that cannot represent the confound cannot rule it out, and
 saying "ratified" over that gap was W2's error.
 
 That is now fixed in the sense that matters: it is written down, and
-`tests/test_g1_amendment.py` will be extended with a compartment-structured world
-so the gap cannot reopen silently. It does not un-ratify anything, and it does not
-license W2 to propose the replacement.
+`simulate_compartment_world` plus three tests in `tests/test_g1_amendment.py`
+reproduce the failure independently of W1's simulations — MS4A12 lands at
+percentile 0.035 against a required 0.50, and G1 returns FAIL in *both* the
+composition-only world and the one where the hypothesis is true. One of those
+tests pins **why** the original five worlds could not see it. That does not
+un-ratify anything and it does not license W2 to propose the replacement.
 
 ## 4 · What answers the ambient question instead
 
