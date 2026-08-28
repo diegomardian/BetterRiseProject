@@ -44,7 +44,7 @@ from src.estimator.ingest import (
     differential_retention,
     qc_flags,
 )
-from src.estimator.labels import label_cohort
+from src.reference.labels import assign_labels
 
 logger = logging.getLogger(__name__)
 
@@ -334,9 +334,16 @@ def load_lee_cohort(
     annotation = load_annotation(raw_dir / files["annotation"], study_id=study_id)
 
     from src.common.panel import axis_genes
+    from src.reference.labels import BEST4_MARKERS
 
+    # BEST4_MARKERS are what the `best4` rung is GATED on. Omitting them does
+    # not make that rung unavailable — it makes it silently wrong: the score
+    # falls back to the axis quantile and best4 comes out identical to
+    # crypt_position (issue #44). A rung's own markers are not optional.
     axis_marker_genes = {g for axis in axes for g in axis_genes(axis)}
-    genes_of_interest = sorted(set(target_genes) | axis_marker_genes | set(extra_genes))
+    genes_of_interest = sorted(
+        set(target_genes) | axis_marker_genes | set(BEST4_MARKERS) | set(extra_genes)
+    )
 
     metrics, raw_expression, coverage = stream_matrix_stats(
         raw_dir / files["matrix"],
@@ -440,15 +447,55 @@ def load_lee_cohort(
             len(expression),
         )
 
-    labels = label_cohort(
-        expression.loc[labelled_index],
-        patient_id=cells.loc[labelled_index, "patient_id"].tolist(),
+    # ONE LABELLER. This used to call src.estimator.labels.label_cohort, which
+    # thresholds a cohort-wide quantile of an inverted marker score with no
+    # depth handling. On Lee that made "mature" mean "sampled zero stem markers"
+    # — 32% of epithelial cells, 4.7x shallower than the rest — and since normal
+    # epithelium is 4.3x shallower than tumour, it manufactured a 46-point
+    # compositional loss in the hypothesised direction out of dropout
+    # (issue #44). W1's assign_labels thins marker counts to a common depth,
+    # marks cells below the floor `unresolved` rather than immature, and takes
+    # cut points from each patient's OWN normal arm.
+    #
+    # Depth is the real library size from the streaming pass, not the sum over
+    # the retained genes — the sum over ~16 genes is not a depth, and thinning
+    # against it would be worse than not thinning.
+    counts_for_labels = expression_counts.loc[labelled_index]
+    labels = assign_labels(
+        counts_for_labels.to_numpy(dtype=float),
+        list(counts_for_labels.columns),
+        compartment=["epithelial"] * len(labelled_index),
+        sample_id=cells.loc[labelled_index, "patient_id"].tolist(),
         tissue=cells.loc[labelled_index, "tissue"].tolist(),
-        target_genes=target_genes,
-        axes=axes,
-        rungs=rungs,
+        patient_id=cells.loc[labelled_index, "patient_id"].tolist(),
+        target_genes=list(target_genes),
+        axes=tuple(axes),
+        rungs=tuple(rungs) if rungs is not None else None,
+        totals=metrics.loc[labelled_index, "n_counts"].to_numpy(dtype=float),
+        index=labelled_index,
     )
-    labels.index = labelled_index
+    labels["patient_id"] = cells.loc[labelled_index, "patient_id"].to_numpy()
+    labels["tissue"] = cells.loc[labelled_index, "tissue"].to_numpy()
+
+    # Keep the mature__{axis}__{rung} booleans every consumer already reads, but
+    # DERIVED from W1's labels rather than computed by a second implementation.
+    # An `unresolved` cell becomes pd.NA — "not asked" — never False, which
+    # would count it as an immature epithelial cell and move the compositional
+    # term. Invariant 1's shape, one level down.
+    from src.common.panel import granularity_rungs
+    from src.reference.labels import RUNG_SPECS, UNRESOLVED, label_column
+
+    for axis in axes:
+        for rung in (rungs if rungs is not None else granularity_rungs()):
+            column = label_column(axis, rung)
+            if column not in labels.columns:
+                continue
+            values = labels[column].astype(str)
+            mature = pd.Series(
+                values.eq(RUNG_SPECS[rung].mature), index=labels.index, dtype="boolean"
+            )
+            mature[values.eq(UNRESOLVED)] = pd.NA
+            labels[f"mature__{axis}__{rung}"] = mature
 
     if len(labelled_index) != len(expression):
         # Widen back to every QC-passed cell. Maturity columns become nullable

@@ -224,8 +224,15 @@ def score_markers(
     normalise: bool = True,
     depth_target: float | None = None,
     seed: int = 20260101,
+    totals: Any = None,
 ) -> np.ndarray:
     """Per-cell score: mean z-scored, depth-normalised log expression of `markers`.
+
+    `totals` is per-cell sequencing depth. It defaults to ``expression.sum(axis=1)``,
+    which is right when `expression` is the whole matrix and **wrong whenever it
+    is a gene subset** — the sum over twelve genes is not a library size, and
+    thinning against it makes the depth matching a no-op or worse. A caller that
+    streamed the matrix knows the real depth; pass it.
 
     Depth normalisation matters here. Chemistry is mixed across GSE178341's
     samples (v2 and v3 have different capture efficiency), so a raw-count score
@@ -260,7 +267,13 @@ def score_markers(
 
     subset = expression[:, positions]
     subset = np.asarray(subset.todense() if hasattr(subset, "todense") else subset, dtype=float)
-    totals = np.asarray(expression.sum(axis=1), dtype=float).ravel()
+    if totals is None:
+        totals = expression.sum(axis=1)
+    totals = np.asarray(totals, dtype=float).ravel()
+    if totals.shape[0] != subset.shape[0]:
+        raise LabelError(
+            f"totals has {totals.shape[0]} entries for {subset.shape[0]} cells"
+        )
 
     if depth_target is not None:
         # Depth-matched: thin to a common depth, then use that fixed denominator.
@@ -285,6 +298,7 @@ def score_markers(
 def maturity_score(
     expression: Any, gene_names: Any, axis: str, *, target_genes: Any,
     normalise: bool = True, depth_target: float | None = None, seed: int = 20260101,
+    totals: Any = None,
 ) -> np.ndarray:
     """Per-cell maturity along `axis`. Higher is more mature.
 
@@ -303,7 +317,7 @@ def maturity_score(
     return -score_markers(
         expression, gene_names, markers, context=f"axis {axis!r} labels",
         target_genes=target_genes, normalise=normalise,
-        depth_target=depth_target, seed=seed,
+        depth_target=depth_target, seed=seed, totals=totals,
     )
 
 
@@ -435,6 +449,7 @@ def assign_labels(
     rungs: Any = None,
     normalise: bool = True,
     index: Any = None,
+    totals: Any = None,
 ) -> pd.DataFrame:
     """Build every `label_{axis}_{rung}` column. One row per cell, in input order.
 
@@ -524,7 +539,11 @@ def assign_labels(
             "ingest.assign_compartments(), whose epithelial value is 'epithelial'."
         )
 
-    totals = np.asarray(expression.sum(axis=1), dtype=float).ravel()
+    if totals is None:
+        totals = expression.sum(axis=1)
+    totals = np.asarray(totals, dtype=float).ravel()
+    if totals.shape[0] != n_cells:
+        raise LabelError(f"totals has {totals.shape[0]} entries for {n_cells} cells")
     if depth_target is None:
         depth_target = float(np.quantile(totals[epithelial], depth_quantile))
     matched = depth_target > 0
@@ -561,6 +580,7 @@ def assign_labels(
             expression, gene_names, axis, target_genes=target_genes,
             normalise=normalise,
             depth_target=depth_target if matched else None, seed=seed,
+            totals=totals,
         )
         for rung in rungs:
             spec = RUNG_SPECS[rung]
@@ -575,6 +595,7 @@ def assign_labels(
                         context=f"rung {rung!r} labels",
                         target_genes=target_genes, normalise=normalise,
                         depth_target=depth_target if matched else None, seed=seed,
+                        totals=totals,
                     )
                 labels = _gate_against_reference(
                     best4_score, groups, spec.bins, resolvable, reference, BEST4_QUANTILE
