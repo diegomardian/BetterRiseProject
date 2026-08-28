@@ -57,9 +57,12 @@ from src.reference.ingest import (  # noqa: E402
     read_gse178341_metadata,
 )
 from src.reference.labels import (  # noqa: E402
+    NON_EPITHELIAL,
     TRANSCRIPT_AXES,
+    UNRESOLVED,
     assign_labels,
     cell_type_vector,
+    label_column,
 )
 from src.reference.qc import apply_qc, cell_qc_metrics, qc_thresholds  # noqa: E402
 
@@ -135,8 +138,28 @@ def main() -> int:
                 # cell_type_vector, not a hand-mapping: which bin counts as
                 # mature is recorded in RUNG_SPECS and duplicating that mapping
                 # is how the two drift apart (labels.py says so).
-                is_mature = cell_type_vector(labels, axis, rung) == MATURE
-                report = depth_confound_report(depth, is_mature, tissue)
+                # RESOLVED EPITHELIUM ONLY. A first version passed every cell
+                # and took is_mature = (call == mature), which makes each
+                # `unresolved_depth` cell False — i.e. counted as immature.
+                # labels.py:543 refuses exactly that: "not scored, NOT COUNTED
+                # AS IMMATURE", and mature_fraction excludes them from the
+                # denominator (decision #14).
+                #
+                # The cost was not cosmetic. At the epithelial rung every
+                # resolved cell is mature, so is_mature collapsed to "was this
+                # cell deep enough to be scored" and correlated with depth by
+                # construction — |rho| 0.97, entirely manufactured. This is
+                # CLAUDE.md invariant 1's shape: an unmeasurable cell is not a
+                # negative one.
+                call = cell_type_vector(labels, axis, rung)
+                raw = labels[label_column(axis, rung)].astype(str).to_numpy()
+                scored = (raw != UNRESOLVED) & (raw != NON_EPITHELIAL)
+                if scored.sum() < 50 or len(set(tissue[scored].tolist())) < 2:
+                    continue
+                is_mature = call[scored] == MATURE
+                report = depth_confound_report(
+                    depth[scored], is_mature, tissue[scored]
+                )
                 rows.append({
                     "patient_id": patient, "labeling_axis": axis,
                     "granularity_rung": rung,
@@ -148,7 +171,16 @@ def main() -> int:
                     # guess. A first version guessed and died on patient one.
                     "depth_ratio": float(report["depth_ratio_between_arms"]),
                     "worst_rho": float(report["worst_within_arm_rho"]),
-                    "n_cells": int(keep.sum()),
+                    "n_cells_scored": int(scored.sum()),
+                    "n_cells_kept": int(keep.sum()),
+                    # Depth imbalance over ALL QC-passing cells, for contrast:
+                    # the sequencing imbalance, versus the imbalance in the
+                    # population the compositional term is actually computed on.
+                    "depth_ratio_all_cells": float(
+                        depth_confound_report(depth, np.ones(len(depth), bool), tissue)[
+                            "depth_ratio_between_arms"
+                        ]
+                    ),
                 })
         mine = [r for r in rows if r["patient_id"] == patient]
         finite = [abs(r["worst_rho"]) for r in mine if np.isfinite(r["worst_rho"])]
