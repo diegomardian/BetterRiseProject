@@ -2845,3 +2845,82 @@ Then the four 1.0.0 matrices must be documented as **tier-A only**, and any run
 against a non-tier-A target needs its own S matrix built with that target
 excluded — four rungs x each target set. That is the honest alternative, and it
 is more work than the change being proposed.
+
+---
+
+## 23 · Stage 4's variance question, pre-specified before it runs — PROPOSED
+
+**Raised:** W3, 2026-08-28, from PR #49 · **Owner:** W3 (team confirms) ·
+**Needed by:** before the S matrices are rebuilt and Stage 4 runs
+
+Numbered **23** because #9 through #17 each currently mean two different things
+on `main` — see the warning at the top of this file. Picking the next free
+number rather than the next number.
+
+[`config/stage4_prespecification.yaml`](../config/stage4_prespecification.yaml),
+committed `status: proposed`.
+[`src/bulk/prespec.py:require_locked_prespec`](../src/bulk/prespec.py) refuses to
+let the analysis run until that flips to `locked` in its own commit — the same
+mechanism, and literally the same `require_locked`, as the W3.6 covariate lock.
+
+### Why this one needs a lock
+
+execution_plan.md §6.2 asks how much of the variance in bulk GUCA2A and CDX2 is
+explained by mature-colonocyte fraction alone. Until PR #49 that was an open
+question. It is now a **directional prediction**, because #49 finds tier A's
+loss is predominantly intrinsic — all four of GUCA2A, GUCA2B, CA7 and OTOP2 have
+intrinsic bands excluding zero and compositional bands containing it — while
+CDX2 runs the other way, compositional `[-0.409, -0.039]` excluding zero.
+
+The bulk arm sees the same asymmetry independently: GUCA2A sits at **1.40% of
+normal** in TCGA and **1.72%** in GSE39582, while CDX2 sits at **94.7%** and
+**84.8%**. Two markers of the same cell population cannot diverge ~55-fold if
+the only thing that happened is that the cells left.
+
+**The expected result is a null.** An analysis whose expected outcome is a null
+is the easiest kind to report after the fact with the sign of the claim quietly
+reversed, and the hardest for a reader to audit. That is what the lock is for.
+
+### What is committed
+
+| | |
+|---|---|
+| **Primary** | R²(GUCA2A ~ fraction) < R²(CDX2 ~ fraction), in both cohorts. Direction only — no invented threshold. |
+| **Disconfirmed if** | CDX2's R² is the lower of the two in either cohort. |
+| **Secondary** | R²(GUCA2A ~ fraction) < 0.25 in TCGA. |
+| **Disconfirmed if** | R² ≥ 0.50. Between 0.25 and 0.50 is reported as neither, in those words. |
+
+Plus two instrument checks, because a low R² otherwise cannot be told from
+deconvolution simply not working on this cohort:
+
+- **Positive control, and it GATES the analysis.** The deconvolved
+  non-epithelial fraction must track (1 − ABSOLUTE purity) at r ≥ 0.5. ABSOLUTE
+  is called from copy number, so it is independent of expression. If the
+  instrument cannot recover a fraction we already know from an orthogonal assay,
+  no R² is reported at all — the instrument failure *is* the result.
+- **Negative control.** ACTB and GAPDH must show R² < 0.10 against the fraction.
+  If a housekeeping gene tracks it, the model has found library size or
+  composition structure, not biology.
+
+Note what is deliberately **not** used as a positive control: a "known
+compositional" marker gene. Every canonical mature-colonocyte marker is on the
+frozen panel, and which of them are compositional is the question rather than an
+input to it.
+
+### What it does not do
+
+It does not reopen the covariate set — it names `expression_models`, the context
+the W3.6 lock already defines, so purity and plate enter as that lock specifies.
+It does not pre-specify a survival model; whether fraction predicts outcome is a
+separate question and folding it in would let a null in one be reported as the
+other. It does not choose a deconvolution method, an S matrix version, or assume
+GSE39582 can carry a deconvolution at all.
+
+It also carries #42 and #49 forward: the granularity curve has **three** distinct
+points rather than four, and any rung marked unquotable for the decomposition is
+unquotable here too.
+
+### To lock it
+
+Confirm or amend, then one commit sets `status: locked`, `locked_on`,
+`locked_by`. It should land **before** the S matrices are rebuilt, not after.
