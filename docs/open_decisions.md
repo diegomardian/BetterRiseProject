@@ -10,6 +10,40 @@ for decisions that block or shape code.
 
 ---
 
+> ## ⚠ NINE DECISION NUMBERS MEAN TWO THINGS EACH — first noted 2026-08-22, recounted 2026-08-28
+>
+> **#9 through #17 each appear twice in this file.** Not a merge artifact to
+> clean up silently: workstreams numbered new decisions against different views
+> of the board and all of them have now merged. It was six when this warning was
+> first written; it has grown by three since, which is the argument for fixing it
+> rather than living with it.
+>
+> | # | One of them | The other |
+> |---|---|---|
+> | 9 | `doubly_robust` folds the interaction (W2/W4) | Only 36 of 62 patients have matched normal (W1) |
+> | 10 | Which interval goes in `ci_low`/`ci_high` (W2/W4) | Pre-register the refined tier-B MLH1 test (W1) |
+> | 11 | GSE178341 ships no unfiltered droplets | Half the cells come from sorted samples (W1) |
+> | 12 | The 20% mito cap (W1) | `build_signature()` asserts on the whole index (W3) |
+> | 13 | W1 and W4 label cells differently (W1) | Bulk GUCA2A is continuous (W3) |
+> | 14 | Neither labelling axis is clean maturity (W1) | Plate explains the most variance (W3) |
+> | 15 | CNV malignancy calling may fail by MMR status (W1) | TSS and COAD/READ are nearly the same variable (W3) |
+> | 16 | Ambient: measure, do not correct (W1) | The CDR calls DSS "approximated" (W3) |
+> | 17 | G1's threshold, pre-committed (W1) | W3.6 covariate set — locked (W3) |
+>
+> All nine are ambiguous **on `main` today**. So **"see #13" does not identify a
+> decision**, and bare numbers are already in commit messages, issue bodies and
+> notes across all four workstreams — including in text that has been quoted
+> back and acted on.
+>
+> **Not renumbered here on purpose.** Renumbering rewrites cross-references in
+> every workstream's notes and commit messages, which is a team decision, not a
+> tidy-up one person does inside their own PR. Proposal: keep the earliest-merged
+> claim on each number, renumber the later one into the 20s, and leave a redirect
+> line at the old position. Ten minutes, once, by whoever the team names — and
+> the cost of not doing it is growing at roughly three numbers a week.
+
+---
+
 ## CORRECTIONS — 2026-08-22
 
 A verification pass over W1's own recommendations, against the other
@@ -204,6 +238,52 @@ To settle at the weekly:
    attributed to version drift rather than to reference filtering.
 3. Promote to `gene_index_1.0.0` in its own commit; retire 0.9.0.
 
+### Re-measured with W1's own script — 2026-08-22
+
+[Issue #7](https://github.com/diegomardian/BetterRiseProject/issues/7) asked W3
+to run `src/reference/jobs/check_gene_index.py` rather than rely on W3's earlier
+ad-hoc measurement. Done, on the **full deposit h5** rather than the 188 KB
+Broad-hosted `dDvec_ensgID` file W3 used the first time:
+
+```
+W3 shared index 0.9.0: 60,616 genes
+deposit genome tag: ['GRCh37_liftover_v28']
+GSE178341 features:        43,113 genes
+
+overlap on unversioned Ensembl ID:
+  in both                   39,236
+  bulk only (no sc counts)  21,380  (35.3% of the shared index)
+  sc only (no bulk row)      3,877
+
+  -> the operative index for deconvolution is the intersection: 39,236 genes.
+
+panel coverage in the intersection: 23/23
+  every panel gene survives the join.
+```
+
+**The intersection is unchanged at 39,236**, so the earlier ad-hoc number stands
+and both arms now have it from the same script. The two feature counts differ
+slightly — 43,113 from the h5 against 43,078 from the `dDvec_ensgID` file — which
+is worth one line at the meeting, because it means those two files are not the
+same feature set and the h5 is the one to key on.
+
+**The 8% was right.** Loss on the single-cell side is 3,877 of 43,113 = **9.0%**,
+which matches decision #3's prediction and W1's own retraction-of-a-retraction
+([b8a531f](https://github.com/diegomardian/BetterRiseProject/commit/b8a531f)).
+It is GENCODE release drift, not the hg19/GRCh38 assembly difference — the
+unversioned ENSG key is doing exactly the job #3 chose it for.
+
+**Panel coverage is 23/23.** The thing that could have forced a reindex did not
+happen: no frozen panel gene is lost in the join.
+
+By the script's own rule the intersection (39,236) is 91.0% of the single-cell
+feature count, so *"adopt 0.9.0 and promote it to 1.0.0"* is the reading — but
+note the intersection is only 64.7% of the shared index, and deconvolution needs
+genes present on both sides. **W3's recommendation is unchanged: 1.0.0 should BE
+the intersection**, with each arm keeping its own full matrix for its own work.
+
+Input recorded in `data/manifest.csv` with a sha256. Run from `origin/main` at
+666bf60, which carries both `check_gene_index.py` and the 0.9.0 map file.
 ### EMITTED — 2026-08-25
 
 Both arms agreed in writing and nobody committed the file, so `config/gene_index/`
