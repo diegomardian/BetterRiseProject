@@ -1064,3 +1064,68 @@ shown here only to make the failure mode visible.
 Shift 1.0 returns `NaN` for the ratio throughout, because the true intrinsic term
 is exactly zero and a ratio against zero is not a number. That is the null arm
 behaving correctly, not a gap in the table.
+
+
+---
+
+## 16 · The granularity curve is three points on axis 1 and four on axis 2
+
+Issue #42 reported `crypt_position` collapsing to a two-bin split on "~90% of
+patients". That number is the average of two very different ones, and the split
+matters because it carries the diagnosis.
+
+Re-split `rung_degeneracy_full.parquet` by axis — `lineage` vs `crypt_position`,
+30 patients:
+
+| axis | median Jaccard | bit-identical |
+|---|---|---|
+| `stem_pole` | **1.000** | **29 / 30** |
+| `opposite_lineage` | 0.779 | 7 / 30 |
+
+Reproduced on Lee/SMC: 1.0000 on 10/10 for `stem_pole`, 0.666 for
+`opposite_lineage`.
+
+### The mechanism is a predicate, not a tendency
+
+Both transcript axes score *immaturity* and `maturity_score` negates, so **"no
+stem marker detected" is the highest attainable maturity** — the zero-atom sits
+at the score **maximum**. On Lee, 60.0% of scored cells hold that single value,
+and that set is exactly the set with zero thinned counts across all five markers.
+
+With an atom of fraction `a` at the top of the reference arm: `q67` lands on the
+atom ⟺ `a > 1/3` (20/20 cases), and both cuts tie ⟺ `a > 2/3` (20/20). The
+reference-arm atom is median 0.82 on `stem_pole`, so the upper tertile is
+swallowed in every patient. Axis 2 escapes because TFF3 is detected in 71.3% of
+cells against OLFM4's 24.0% and LGR5's 1.8%. **Marker detection rate is the
+whole story.**
+
+### Why no score function fixes it
+
+Any score that is a function of the marker counts alone must give the atom cells
+the same value — their count vector is identically zero. Verified on six (mean of
+z-scores, sum of counts, max of z, PC1, rank-average, any-marker-detected):
+identical atom and identical tied count in all six. **That is a proof, not a
+sweep.**
+
+The formulations that break the tie use information beyond the markers and are
+worse. A depth-shrinkage score reaches a 0.0% atom — and within cells whose raw
+marker vector is identically zero, **Spearman(score, depth) = 1.0000 exactly.**
+It orders the atom by sequencing depth, which is arm-confounded. Manufactured
+resolution pointed straight at the compositional term; rejected.
+
+Raising the depth floor also clears the tie (at q ≥ 0.50) and is also rejected:
+retention at q=0.30 is **37.4% of normal against 75.8% of tumour**, a 38-point
+arm gap, on a reference arm already at a median 43 cells per patient. That trades
+a bin-count problem for arm-differential selection in the compositional term.
+
+### The structural finding, which belongs at the gate
+
+**Every positive marker of a mature colonocyte is on the frozen panel** —
+GUCA2A, GUCA2B, OTOP2, CA7, MS4A12, AQP8, CA1, CA2, CA4, SLC26A3, KRT20, FABP1,
+CEACAM7, PIGR, LGALS4, VIL1, SATB2. That is *why* axis 1 must define maturity by
+absence, and the zero-atom follows directly.
+
+`config/labeling_axes.yaml`'s header argues that freezing labels before the panel
+expanded is what saved them. **On axis 1 it did not save enough of them.** No
+cohort fixes that; it is a design consequence, and the honest report is a
+three-point curve on axis 1 with the reason attached.
