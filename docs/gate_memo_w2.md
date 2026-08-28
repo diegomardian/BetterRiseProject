@@ -1011,3 +1011,56 @@ matching cost and hiding it would make the method look free.
 (`tests/test_depth_confound.py`): it must erase a gap that is only depth, **and
 preserve a gap that is not**. A matcher that only did the first would launder
 real signal away, and would have been the fifth withdrawn guard.
+
+
+---
+
+## 15 · The attenuation curve on real cells — and the cutpoint validated
+
+Handoff §5 task 5, the last unblocked harness item. The pseudobulk generator
+draws from **held-out real patients** rather than a simulated cohort, so the
+mixture, the dropout and the between-cell heterogeneity are real; only the
+composition and the shift are imposed, which is what keeps the truth known.
+
+**Oracle arm only, and stated.** The bulk arm deconvolves against a signature
+built from `config.genes`, and nu-SVR needs 500-2000 of them (§2.1 error #4).
+Lee retains ~16. Handed that, the bulk arm does not fail — it returns fractions
+that are noise wearing the shape of a result. `arms=("oracle",)` is the honest
+call, and `run_sweep`'s docstring says the parameter exists for this and not for
+making a number look better.
+
+GUCA2A, `stem_pole`/`lineage`, shift 0.5, 6 replicates per point, 1,200 cells per
+sample, 2 patients held out:
+
+| target mature fraction | median mature cells | recovered / true | estimability |
+|---|---|---|---|
+| 0.40 | 481 | **0.94** | ok |
+| 0.20 | 240 | **0.90** | ok |
+| 0.10 | 120 | **0.85** | ok |
+| 0.05 | 60 | 1.08 | ok |
+| 0.02 | 24 | 1.18 | wide_interval |
+| 0.00 | 0 | — | **not_estimable, 6/6** |
+
+### What it says
+
+**Recovery sits between 0.85 and 1.08 across the whole `ok` band** (≥50 mature
+cells) and degrades to 1.18 in `wide_interval` (20-49). The estimator does not
+collapse gracefully — below the band it **over**-estimates rather than
+attenuating, which is the more dangerous direction because an inflated intrinsic
+term reads as a stronger finding.
+
+**The pre-committed cutpoint is validated on real cells.** `ok` at ≥50 was chosen
+on synthetic data in week 5 and never checked against anything real. It lands
+almost exactly where recovery leaves ±15%. That is a threshold set before the
+measurement and vindicated by it, which is the only kind worth having.
+
+At a zero mature fraction every replicate returns `not_estimable`, and the
+estimator still emits a number alongside it — by design, since
+`kitagawa.decompose()` leaves the estimability call to the caller (invariant 1
+made visible at the call site rather than buried in the arithmetic). **The ratio
+of 2.00 at that grid point is computed on rows a consumer must null**, and is
+shown here only to make the failure mode visible.
+
+Shift 1.0 returns `NaN` for the ratio throughout, because the true intrinsic term
+is exactly zero and a ratio against zero is not a number. That is the null arm
+behaving correctly, not a gap in the table.
