@@ -21,9 +21,9 @@ Date: 2026-08-16 · Owner: W2 · Reads against
 
 | Gate | Status | Basis |
 |---|---|---|
-| **G1** ambient correction | **changed twice — premise and statistic; W2 has ratified the new statistic, see §0** | MA-vs-percentile per prereg amendment 2. The harness can say the criterion discriminates; it starts from corrected cells and still cannot test the correction itself. |
+| **G1** ambient correction | **W2 proposes WITHDRAWING it as gate-bearing** | It fails when the project's hypothesis is TRUE, under every population tried (#46). Threshold 2 is frozen by having failed, so it cannot be repaired. See [g1_withdrawal_case.md](g1_withdrawal_case.md); §10 and decision #14 answer the ambient question instead. |
 | **G3** estimator recovers known ground truth | **preliminary PASS**, synthetic | Oracle arm recovers the known split within 1% wherever the mature compartment is non-empty; interval coverage 0.90–1.00 above 20 mature cells |
-| **G4** <50% of patients below threshold | **cannot answer yet — but the cohort can support the question, see §9** | Needs real patient-level mature-cell counts. `gate_g4_verdict()` is implemented, now reports a Wilson interval and a `resolvable` flag, and is waiting on data. At 36 matched patients the effective decision line is 33%, not 50%; at SMC's 10 it is 10% and G4 is not answerable. |
+| **G4** <50% of patients below threshold | **ANSWERED — FAIL at `best4`, resolvable; every other rung indeterminate at n=28** | §12. 28/28 matched patients below the cutpoint at the finest rung, CI [0.879, 1.000], on both axes. The pre-committed consequence fires: non-identifiability is the headline. |
 | **Ambient sensitivity** (feeds G1) | **measured**, synthetic | §10 — at the 10% exclusion cap real terms retain 94% and a compositional-only world acquires an intrinsic term worth 4.6% of its compositional one. The artefact is one-directional. |
 | **G2** control tiers separate | **not yet run** | Needs W1's pilot |
 
@@ -685,3 +685,96 @@ says "confounded" would be the fifth guard this project has had to withdraw.
 - **W1's labeller has not been run on Lee.** `load_lee_cohort` calls W4's. That
   comparison is the obvious next measurement and it should be run rather than
   assumed.
+
+---
+
+## 12 · G4 — ANSWERED. It fails at the finest rung, and that is a pre-registered outcome
+
+The first gate criterion with a real answer.
+[`results/2026-08-28_e649023/g4_verdict_gse178341.parquet`](../results/2026-08-28_e649023/g4_verdict_gse178341.parquet),
+from W1's `mature_cell_counts_full` on GSE178341, 28 matched patients (matched =
+observed in both tissues; C106 and C140 have one arm each and are excluded, not
+zeroed — decision #19).
+
+| axis | rung | below threshold | 95% CI | verdict |
+|---|---|---|---|---|
+| stem_pole | **best4** | **28/28 = 100%** | [0.879, 1.000] | **FAIL — resolvable** |
+| opposite_lineage | **best4** | **28/28 = 100%** | [0.879, 1.000] | **FAIL — resolvable** |
+| stem_pole | lineage | 13/28 = 46.4% | [0.295, 0.642] | PASS — *not resolvable* |
+| stem_pole | crypt_position | 13/28 = 46.4% | [0.295, 0.642] | PASS — *not resolvable* |
+| stem_pole | epithelial | 11/28 = 39.3% | [0.236, 0.576] | PASS — *not resolvable* |
+| opposite_lineage | lineage | 16/28 = 57.1% | [0.391, 0.735] | FAIL — *not resolvable* |
+| opposite_lineage | crypt_position | 18/28 = 64.3% | [0.458, 0.793] | FAIL — *not resolvable* |
+| opposite_lineage | epithelial | 11/28 = 39.3% | [0.236, 0.576] | PASS — *not resolvable* |
+
+### G4 does not have one answer, and that is not a hedge
+
+The mature population is **defined by the rung**, so the fraction of patients
+below the positivity cutpoint is too. Reporting a single G4 number would mean
+picking a rung and calling it the cohort. `g4_over_rungs()` therefore returns one
+verdict per (axis, rung) and has no single-row form.
+
+### What is resolvable and what is not
+
+**One thing is resolved: `best4` fails, on both axes, 28 of 28 patients.** The
+interval is [0.879, 1.000] — nowhere near the 0.50 line. At the finest
+granularity rung, **no patient in this cohort has enough mature cells to estimate
+an intrinsic term at all.**
+
+That is close to structural rather than surprising. `best4` is designed to be
+"under 5% of epithelium even in healthy colon" (`config/panel.yaml`, tier A's
+role), and 5% of a few hundred epithelial cells is below a cutpoint of 20 by
+construction. **The granularity ladder runs out of statistical power before it
+runs out of rungs.**
+
+**Everything else is indeterminate.** Five of the remaining six rungs straddle
+the 0.50 line, and the sixth (`opposite_lineage`/`crypt_position`, CI [0.458,
+0.793]) does too. §9.1 said a defensible call at n=28 needs 12 or fewer patients
+below; the observed counts are 11, 13, 16 and 18. **The cohort is one or two
+patients away from being able to answer its own gate criterion at the coarse
+rungs, and it is not there.**
+
+### The pre-committed consequence, taken
+
+`execution_plan.md` §5, G4 fail:
+
+> Non-identifiability finding with diagnostics becomes the headline result, not a
+> caveat. **This is a real paper.**
+
+**W2's reading: that consequence fires.** Not on the indeterminate rungs — those
+say nothing either way — but on `best4`, where the answer is unambiguous and
+robust. The finding is not "the method failed"; it is that **at the resolution
+where the compositional question is sharpest, the intrinsic question cannot be
+asked at all**, and the project can say so with a pre-registered threshold, a
+per-patient interval, and a positivity rule that was fixed before the number was
+seen.
+
+That is the third segment of this project's own decomposition — *not estimable* —
+arriving as the headline rather than as a footnote. It is the contribution
+CLAUDE.md's one-line summary names, and G4 firing is the evidence for it rather
+than an obstacle to it.
+
+### Why this number is trustworthy where §11's were not
+
+§11 found W4's Lee labels unusable — the maturity call there tracked depth at
+ρ = −0.92. These counts come from **W1's** labeller, which depth-matches, and W1
+ran W2's own diagnostic over it (`depth_confound_reference.parquet`, 32 patients
+× 2 axes × 4 rungs): median |ρ| **0.13**, and **`best4` is the least affected rung
+of all** — median |ρ| 0.069, tripping the confound on 6.2% of patients against
+17.2% for `lineage`.
+
+So the one resolvable verdict sits on the cleanest rung. That is luck, and it is
+worth saying it is luck rather than design.
+
+**Three caveats that do not change the verdict but belong beside it:**
+
+- The arms are **not** depth-matched on 20 of 32 patients (median ratio 1.64), so
+  the precondition for a depth artefact is present cohort-wide even though the
+  mechanism is largely absent. 17 of 256 patient-axis-rung combinations trip
+  both conditions — all at `lineage` or `crypt_position`, none at `best4`.
+- `lineage` and `crypt_position` return identical verdicts on `stem_pole` because
+  they are the same partition on most patients (issue #42). That is one rung
+  reported twice, not two agreeing measurements.
+- The cutpoint is still **provisional** (`n_cells_mature < 20`, execution_plan
+  §4). It has not been recalibrated on real cells — handoff task 6, still blocked.
+  A recalibration could move the indeterminate rungs; it will not move 28/28.
