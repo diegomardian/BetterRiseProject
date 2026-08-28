@@ -43,12 +43,27 @@ dev = [
     # FutureWarning it used to trigger came from provenance reading
     # `anndata.__version__`, which is fixed to use importlib.metadata.
     #
-    # The UPPER bound is separate and load-bearing. anndata 0.12 requires
-    # numpy>=2. Unbounded, pip resolves 0.12 here, which forces numpy 2, which
-    # breaks lifelines 0.29 (numpy<2) — pip then quietly lifts lifelines to
-    # 0.30 and CI ends up on a different numpy MAJOR than the 1.26.4 every
-    # env/ file pins. Results produced under one numpy, tested under another.
-    # 0.10.8 is what env/w1_reference.yml already uses.
+    # The UPPER bound is separate and load-bearing, but NOT for the reason first
+    # given here. Checked against PyPI metadata:
+    #
+    #   anndata 0.10.8  python>=3.9   numpy>=1.23
+    #   anndata 0.11.4  python>=3.10  numpy>=1.23
+    #   anndata 0.12.0  python>=3.11  numpy>=1.26   <- NOT numpy>=2
+    #   anndata 0.13.x  python>=3.12  numpy>=2.1
+    #
+    # CI runs python 3.11 (.github/workflows/ci.yml), so pip can resolve at most
+    # 0.12.x, which needs numpy>=1.26 — satisfied by the 1.26.4 every env/ file
+    # pins. The lifelines conflict does not reproduce on this CI as configured.
+    #
+    # Keep the cap anyway, for the reason that does hold: env/ pins anndata
+    # 0.10.8, so <0.11 is what makes CI test the same minor the results are
+    # produced under (CLAUDE.md invariant 10). It also becomes load-bearing the
+    # moment CI moves to python 3.12, where 0.13 WOULD force numpy 2.1 and break
+    # lifelines exactly as first described.
+    #
+    # Written out because the original rationale is checkable and false, and the
+    # next person to check it would find 0.12 installs fine and loosen a cap
+    # that is doing real work.
     "anndata>=0.10,<0.11",
     "lifelines>=0.29",  # src/bulk/survival.py (lazy import, still needed)
     "diptest>=0.5",  # src/bulk/premise.py (lazy import, still needed)
