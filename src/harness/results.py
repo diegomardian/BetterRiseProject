@@ -131,6 +131,25 @@ AMBIENT_COLUMNS: Final = (
     "seed",
 )
 
+#: One row per (labeling_axis, granularity_rung). G4's verdict on a real cohort.
+#: There is deliberately NO single-row form: the mature population is defined by
+#: the rung, so the fraction below the positivity threshold is too, and one
+#: number would be picking a rung and calling it the cohort.
+G4_VERDICT_COLUMNS: Final = (
+    "labeling_axis",
+    "granularity_rung",
+    "arm",
+    "n_patients",
+    "n_unmatched_excluded",
+    "n_below_threshold",
+    "fraction_below",
+    "fraction_below_ci_low",
+    "fraction_below_ci_high",
+    "threshold",
+    "passes",
+    "resolvable",
+)
+
 _SHAPES: Final = {
     "attenuation": ATTENUATION_COLUMNS,
     "bakeoff": BAKEOFF_COLUMNS,
@@ -139,6 +158,7 @@ _SHAPES: Final = {
     "g1_amendment": G1_AMENDMENT_COLUMNS,
     "gate_cost": GATE_COST_COLUMNS,
     "ambient": AMBIENT_COLUMNS,
+    "g4_verdict": G4_VERDICT_COLUMNS,
 }
 
 

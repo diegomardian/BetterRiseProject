@@ -6,6 +6,7 @@ that "we re-costed it" stays true rather than becoming folklore.
 
 from __future__ import annotations
 
+import pandas as pd
 import pytest
 
 from src.harness.gate_cost import (
@@ -13,8 +14,10 @@ from src.harness.gate_cost import (
     cohort_ci_width_by_n,
     effective_decision_line,
     g4_operating_characteristic,
+    g4_over_rungs,
     g4_pass_probability,
     largest_clean_pass,
+    matched_and_unmatched,
     widening_vs_plan,
 )
 from src.harness.positivity import (
@@ -150,3 +153,73 @@ def test_the_cohort_band_widens_as_patients_are_lost():
         by_n = median[median["term"] == term].sort_values("n_patients")
         assert list(by_n["ci_width"]) == sorted(by_n["ci_width"], reverse=True), term
         assert by_n.iloc[-1]["ratio_vs_plan"] == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# G4 against a real counts frame — the criterion's actual answer
+# ---------------------------------------------------------------------------
+
+
+def _counts_frame():
+    """Two axes x two rungs x 3 patients, one of them single-armed."""
+    rows = []
+    for axis in ("stem_pole", "opposite_lineage"):
+        for rung, mature in (("lineage", [200, 150, 4]), ("best4", [5, 6, 2])):
+            for patient, n in zip(["P1", "P2", "P3"], mature, strict=True):
+                for tissue in ("normal", "tumour"):
+                    if patient == "P3" and tissue == "normal":
+                        continue  # single-armed: must be excluded, not zeroed
+                    rows.append(
+                        {
+                            "patient_id": patient,
+                            "tissue": tissue,
+                            "labeling_axis": axis,
+                            "granularity_rung": rung,
+                            "n_cells_mature": n if tissue == "tumour" else 500,
+                            "n_cells_resolved": 900,
+                        }
+                    )
+    return pd.DataFrame(rows)
+
+
+def test_matched_is_defined_by_observed_arms_not_by_a_column():
+    matched, unmatched = matched_and_unmatched(_counts_frame())
+    assert matched == {"P1", "P2"}
+    assert unmatched == {"P3"}
+
+
+def test_g4_reports_one_verdict_per_rung_because_it_has_no_single_answer():
+    """The mature population is defined by the rung, so the fraction below the
+    cutpoint is too. One number would be picking a rung and calling it the
+    cohort."""
+    table = g4_over_rungs(_counts_frame())
+    assert len(table) == 4
+    assert set(table["granularity_rung"]) == {"lineage", "best4"}
+    # The finest rung has the fewest mature cells, so it fails where lineage does not.
+    by_rung = table.groupby("granularity_rung", observed=True)["fraction_below"].max()
+    assert by_rung["best4"] > by_rung["lineage"]
+
+
+def test_g4_excludes_the_single_armed_patient_from_the_fraction():
+    table = g4_over_rungs(_counts_frame())
+    assert (table["n_patients"] == 2).all()
+    assert (table["n_unmatched_excluded"] == 1).all()
+
+
+def test_g4_counts_each_patient_once():
+    """A patient counted twice is invariant 5's mistake one level up — the
+    fourth instance of this repo's bug family (issue #36)."""
+    doubled = pd.concat([_counts_frame(), _counts_frame()], ignore_index=True)
+    assert (g4_over_rungs(doubled)["n_patients"] == 2).all()
+
+
+def test_g4_over_rungs_names_a_missing_column():
+    with pytest.raises(ValueError, match="granularity_rung"):
+        g4_over_rungs(_counts_frame().drop(columns=["granularity_rung"]))
+
+
+def test_g4_refuses_a_cohort_with_no_matched_patient():
+    frame = _counts_frame()
+    frame = frame[frame["tissue"] == "tumour"]
+    with pytest.raises(ValueError, match="both arms"):
+        g4_over_rungs(frame)

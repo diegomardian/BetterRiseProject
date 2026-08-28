@@ -37,6 +37,7 @@ import pandas as pd
 
 from src.harness.positivity import (
     NON_IDENTIFIABILITY_HEADLINE_FRACTION,
+    gate_g4_verdict,
     wilson_interval,
 )
 
@@ -232,3 +233,79 @@ def widening_vs_plan(widths: pd.DataFrame, *, reference: str = "plan_assumed") -
         for row in median.itertuples()
     ]
     return median.sort_values(["term", "n_patients"]).reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# G4 against a real counts frame
+# ---------------------------------------------------------------------------
+
+
+#: A patient with both arms. Decision #19: G4's population is matched patients
+#: only, and ``n_unmatched_patients`` is required rather than defaulted, because
+#: a default is how the wrong population gets used without anyone choosing it.
+def matched_and_unmatched(counts: pd.DataFrame) -> tuple[set, set]:
+    """Split patient ids into those with both arms and those with one.
+
+    "Matched" is defined here as *observed in both tissues*, not as a column
+    somebody set upstream. The compositional term is a within-patient contrast,
+    so a patient with one arm contributes to neither side of it.
+    """
+    for column in ("patient_id", "tissue"):
+        if column not in counts.columns:
+            raise ValueError(f"counts is missing {column!r}")
+    arms = counts.groupby("patient_id", observed=True)["tissue"].nunique()
+    return set(arms[arms >= 2].index), set(arms[arms < 2].index)
+
+
+def g4_over_rungs(counts: pd.DataFrame, *, arm: str = "tumour") -> pd.DataFrame:
+    """G4's verdict for every (axis, rung) in a ``mature_cell_counts()`` frame.
+
+    One row per (axis, rung), because **G4 does not have a single answer** — the
+    mature population is defined by the rung, so the fraction below the
+    positivity threshold is too. Reporting one number would be picking a rung and
+    calling it the cohort.
+
+    The counts are taken from ``arm`` (the tumour arm by default): the intrinsic
+    term asks about expression *within surviving mature cells*, and it is the
+    tumour arm that runs out of them.
+    """
+    required = {"patient_id", "tissue", "labeling_axis", "granularity_rung", "n_cells_mature"}
+    missing = sorted(required - set(counts.columns))
+    if missing:
+        raise ValueError(f"counts is missing column(s) {missing}")
+
+    matched, unmatched = matched_and_unmatched(counts)
+    if not matched:
+        raise ValueError("no patient has both arms; G4's population is empty")
+
+    rows = []
+    for (axis, rung), group in counts.groupby(["labeling_axis", "granularity_rung"], observed=True):
+        sub = group[(group["tissue"] == arm) & (group["patient_id"].isin(matched))]
+        if sub.empty:
+            continue
+        # One row per patient. A patient counted twice is invariant 5's mistake
+        # one level up — it was the fourth instance of the bug family this repo
+        # keeps finding (issue #36).
+        per_patient = sub.groupby("patient_id", observed=True)["n_cells_mature"].first()
+        verdict = gate_g4_verdict(
+            [int(n) for n in per_patient], n_unmatched_patients=len(unmatched)
+        )
+        rows.append(
+            {
+                "labeling_axis": axis,
+                "granularity_rung": rung,
+                "arm": arm,
+                "n_patients": verdict["n_patients"],
+                "n_unmatched_excluded": verdict["n_unmatched_excluded"],
+                "n_below_threshold": verdict["n_below_threshold"],
+                "fraction_below": verdict["fraction_below"],
+                "fraction_below_ci_low": verdict["fraction_below_ci_low"],
+                "fraction_below_ci_high": verdict["fraction_below_ci_high"],
+                "threshold": verdict["threshold"],
+                "passes": verdict["passes"],
+                "resolvable": verdict["resolvable"],
+            }
+        )
+    return (
+        pd.DataFrame(rows).sort_values(["labeling_axis", "granularity_rung"]).reset_index(drop=True)
+    )
