@@ -143,14 +143,20 @@ def main() -> int:
                     "confounded": bool(report["confounded"]),
                     "maturity_tracks_depth": bool(report["maturity_tracks_depth"]),
                     "arms_are_depth_matched": bool(report["arms_are_depth_matched"]),
-                    "depth_ratio": float(report["depth_ratio"]),
-                    "worst_rho": float(report["worst_rho"]),
+                    # Key names are depth_ratio_between_arms and
+                    # worst_within_arm_rho — read them off the module, do not
+                    # guess. A first version guessed and died on patient one.
+                    "depth_ratio": float(report["depth_ratio_between_arms"]),
+                    "worst_rho": float(report["worst_within_arm_rho"]),
                     "n_cells": int(keep.sum()),
                 })
-        worst = max(abs(r["worst_rho"]) for r in rows if r["patient_id"] == patient)
-        ratio = rows[-1]["depth_ratio"]
-        print(f"[{i}/{len(patients)}] {patient} — depth ratio {ratio:.2f}, "
-              f"worst |rho| {worst:.2f}")
+        mine = [r for r in rows if r["patient_id"] == patient]
+        finite = [abs(r["worst_rho"]) for r in mine if np.isfinite(r["worst_rho"])]
+        n_nan = len(mine) - len(finite)
+        worst = f"{max(finite):.2f}" if finite else "n/a"
+        print(f"[{i}/{len(patients)}] {patient} — depth ratio "
+              f"{mine[-1]['depth_ratio']:.2f}, worst |rho| {worst}"
+              + (f", {n_nan}/{len(mine)} rungs UNCOMPUTABLE" if n_nan else ""))
 
     if not rows:
         raise SystemExit("no patient produced a paired diagnostic")
