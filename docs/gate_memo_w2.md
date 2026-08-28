@@ -690,6 +690,11 @@ says "confounded" would be the fifth guard this project has had to withdraw.
 
 ## 12 · G4 — ANSWERED. It fails at the finest rung, and that is a pre-registered outcome
 
+> **CORRECTED — see §17.1.** The table below silently used one tumour-arm
+> definition of two. The `best4` FAIL survives under both; every other row
+> and the supporting sentences are retracted, and the pre-registered verdict
+> at the coarse rungs is *not identifiable*.
+
 The first gate criterion with a real answer.
 [`results/2026-08-28_e649023/g4_verdict_gse178341.parquet`](../results/2026-08-28_e649023/g4_verdict_gse178341.parquet),
 from W1's `mature_cell_counts_full` on GSE178341, 28 matched patients (matched =
@@ -852,6 +857,11 @@ rows carry `intrinsic=None`, never `0.0` (invariant 1).
 
 ### 13.4 · G2 — the control tiers do not separate as pre-registered
 
+> **WITHDRAWN — see §17.2.** "Tier A's loss is predominantly intrinsic" is
+> an arithmetic identity in the m_t -> 0 limit, is numerically identical for
+> tier D, and reverses at the rung tier A is defined on. Corrected verdict:
+> **G2 not evaluable on this cohort**.
+
 Medians at `lineage`, stem_pole, normal weighting, with cohort bands:
 
 | tier | gene | expected | compositional | intrinsic | intrinsic 95% CI |
@@ -910,6 +920,11 @@ GSE178341 once its data is recorded (#43), and decide G1.
 ---
 
 ## 14 · The confound is closed by matching the arms, and the finding survives it
+
+> **WEAKENED — see §17.3.** The +20.4% headline is cell-pooled and violates
+> invariant 5; per patient the gap is +0.170 with a bootstrap CI of
+> [-0.011, +0.342] at the committed floor, which contains zero. The gap does
+> survive independent 1:1 within-patient depth matching.
 
 §13.1 left `lineage` and `crypt_position` confounded and unquotable. They are not
 any more, and closing it did not require touching a threshold.
@@ -1129,3 +1144,195 @@ absence, and the zero-atom follows directly.
 expanded is what saved them. **On axis 1 it did not save enough of them.** No
 cohort fixes that; it is a design consequence, and the honest report is a
 three-point curve on axis 1 with the reason attached.
+
+---
+
+## 17 · CORRECTIONS — an adversarial audit of §12, §13 and §14
+
+An independent audit was run against §12–§14 with instructions to refute rather
+than confirm. It found three errors, two of them mine and consequential. Every
+claim below was re-verified against the data before being accepted, and the
+sections above are **corrected here rather than quietly edited**, because the
+originals were circulated.
+
+### 17.1 · §12's G4 table silently used one tumour arm. RETRACTED and re-run.
+
+`results/2026-08-26_63ead2e/mature_cell_counts_full.parquet` is **928 rows =
+30 patients × 2 tissues × 2 axes × 4 rungs × 2 TUMOUR-ARM DEFINITIONS** — the
+`filtered` and `unfiltered` arms of prereg amendment 1 / decision #15.
+
+`g4_over_rungs` did not group by `tumour_arm`. Its per-patient dedup —
+
+```python
+per_patient = sub.groupby("patient_id", observed=True)["n_cells_mature"].first()
+```
+
+— therefore collapsed **two arm definitions**, not two duplicate rows, and
+`.first()` took whichever appeared first in file order. Measured: it selected
+`filtered` in **224 of 224** combinations. §12's table was 100% one arm, chosen by
+row order, and neither the parquet, the sidecar nor the memo recorded which.
+
+That comment cites invariant 5 and issue #36 by name. It was written to prevent a
+statistic computed over the wrong population, and it computed one.
+
+**Worse: the `filtered` arm contains five patients with *zero* epithelium** —
+C119, C137, C152, C165, C170, where inferCNV separated no aneuploid population.
+Median filtered epithelium is 93 cells against 810 unfiltered. Those five enter
+`fraction_below` as guaranteed-below on a **malignancy-calling** fact. That is
+precisely the failure `gate_g4_verdict`'s own docstring says it exists to
+prevent — a cohort-design fact reported as a positivity finding — reproduced one
+level up, in the function that consumes it.
+
+**Re-run per arm, with amendment 1's pre-committed reduction:**
+
+| axis | rung | `filtered` | `unfiltered` | verdict |
+|---|---|---|---|---|
+| stem_pole | **best4** | 28/28 FAIL ✔res | 24/28 FAIL ✔res | **FAIL** |
+| opposite_lineage | **best4** | 28/28 FAIL ✔res | 24/28 FAIL ✔res | **FAIL** |
+| stem_pole | lineage | 13/28 PASS ✘res | 1/28 PASS ✔res | **not identifiable** |
+| stem_pole | crypt_position | 13/28 PASS ✘res | 1/28 PASS ✔res | **not identifiable** |
+| stem_pole | epithelial | 11/28 PASS ✘res | 0/28 PASS ✔res | **not identifiable** |
+| opposite_lineage | lineage | 16/28 FAIL ✘res | 1/28 PASS ✔res | **not identifiable** |
+| opposite_lineage | crypt_position | 18/28 FAIL ✘res | 2/28 PASS ✔res | **not identifiable** |
+| opposite_lineage | epithelial | 11/28 PASS ✘res | 0/28 PASS ✔res | **not identifiable** |
+
+Amendment 1 pre-commits the answer when the arms disagree: **report both, treat
+disagreement as *not identifiable*, do not choose.** `g4_arms_agree()` performs
+that reduction and `g4_over_rungs` now refuses to collapse the arms at all.
+
+**What survives:** `best4` is a resolvable FAIL under **both** definitions, on
+both axes. **G4's verdict stands and is now stronger**, because it no longer
+depends on an arm choice nobody made deliberately.
+
+**What is retracted:**
+
+- "Every other rung straddles the 0.50 line… the cohort is one or two patients
+  away from being able to answer its own gate criterion." **False.** Under
+  `unfiltered` six of eight rows are resolvable PASSes, some by a wide margin.
+  The pre-registered verdict at the coarse rungs is *not identifiable* — which is
+  a stronger and more interesting statement than "indeterminate at n=28".
+- "No patient in this cohort has enough mature cells to estimate an intrinsic
+  term at all." **False.** Four do under `unfiltered`: C119 (45 best4 cells),
+  C165 (37), C129 (29), C122 (23).
+- **An arithmetic error:** §12 said "a defensible PASS at n=28 allows up to 12".
+  `largest_clean_pass(28) = 8`. The 12 is §9.1's **n=36** row transplanted onto
+  n=28. The effective line at n=28 is 28.6%, not 42.9%.
+- §9.1 and `gate_g4_verdict`'s docstring both say GSE178341 is "36 of 62
+  matched"; the table G4 actually ran on has 30 patients, 28 matched. Unreconciled.
+
+### 17.2 · §13.4's "tier A's loss is predominantly intrinsic" — WITHDRAWN
+
+The arithmetic was right and the conclusion does not follow.
+
+**It is an identity, not a measurement.** For GUCA2A the tumour arm's mature-cell
+mean is ~0 (median `m_t/m_n` = **0.0024**; GUCA2B 0.00017; CA7, OTOP2, MS4A12
+exactly 0). In that limit `interaction = Δf·Δm → −Δf·m_n = −compositional`.
+Measured, `median|comp + interaction| / median|comp|` = **0.0007** for GUCA2A.
+The compositional term is cancelled by the interaction to four significant
+figures, the total equals the intrinsic term, and `|intrinsic| > |compositional|`
+follows whenever `f_t < 2·f_n` — true for all ten patients. The "9 of 9 patients"
+corroboration is the identity restated.
+
+**It cannot tell tier A from tier D.** With `comp = Δf·m_n` and
+`intr = f_n·(m_t − m_n)`, the ratio is `(f_n/Δf)·(m_t/m_n − 1)` — the gene enters
+only through `m_t/m_n`, which is ~0 for every depleted gene. Per-patient ratios
+agree to three decimals across tiers and are predicted exactly by the mature
+fractions alone (SMC04: GUCA2A 6.015, MS4A12 6.017, SFRP2 6.017, predicted
+6.017). **4.4× is a property of the labelling, not of tier A.**
+
+**And §13.4's mitigating clause was backwards.** "MS4A12 at 1/33 of GUCA2A's
+magnitude, so the tiers separate in size" — both terms are linear in `m_n`, and
+MS4A12's baseline is 1.199 against GUCA2A's 33.87, a 28× ratio. On the scale-free
+`intrinsic / mean_normal` the tiers do **not** separate: tier A −0.787 to −0.822,
+**SFRP2 (B) −0.731**, **MS4A12 (D) −0.662**, CDX2 (C) −0.326, MLH1 (B) **+0.123**.
+That moves `panel.yaml`'s falsification rule *closer* to firing, not further.
+
+**§13.4 also dropped SFRP2** — tier B is `[MLH1, SFRP1, SFRP2]`, the table showed
+MLH1 and SFRP1 (whose baseline is 0.0000, degenerate rather than evidence) and
+omitted the one tier B gene behaving as pre-registered. "Tier B shows nothing at
+all" was a statement about MLH1 with the counter-example missing.
+
+**And it was evaluated at the wrong rung.** `panel.yaml` defines tier A as the
+"BEST4+ program, under 5% of epithelium" — its compositional prediction is about
+the `best4` population. At `best4`, GUCA2A's compositional term is **−9.54**, 64%
+*larger* than the −5.83 quoted from `lineage`, with `frac_mature_tumour = 0` in 9
+of 10 patients. The term **reverses at the rung tier A is defined on**.
+
+**Corrected verdict: G2 is not evaluable on this cohort**, matching G4's coarse
+rungs — not "G2 fails as pre-registered". `docs/prereg_g2_mlh1.md` §2.3 already
+warned that tier separation "can be satisfied by an estimator that merely tracks
+expression level"; that is what happened, and the sharper pre-registered test
+(MLH1-methylated vs MLH1-intact MMRd) was not run.
+
+Two smaller unflagged issues: the bands are on the **mean** while the point
+estimates are **medians** (GUCA2A intrinsic median −25.68, mean −42.61), so the
+"excludes zero / contains zero" reading pairs statistics that are not the same;
+and the ratio is weighting-dependent (`normal` 4.4×, `doubly_robust` 6.7×,
+`tumour` ~2200×), with only `normal` reported.
+
+### 17.3 · §14's gap — WEAKENED, and the direction survives
+
+**The headline number violated invariant 5.** +25.1% is a **cell-pooled** share,
+and SMC09 alone supplies 1,824 of 5,564 kept tumour cells. Per patient it is
+median 22.4 / mean 17.0.
+
+**Patient-level intervals, which §14 never gave:**
+
+| depth_quantile | mean per-patient gap | patient-bootstrap 95% CI |
+|---|---|---|
+| **0.10 (committed)** | +0.170 | **[−0.011, +0.342] — contains 0** |
+| 0.25 | +0.293 | [+0.071, +0.493] |
+| 0.40 | +0.287 | [+0.082, +0.473] |
+
+**At the floor the project has actually committed to, the compositional gap is
+not distinguishable from zero under the project's own unit of inference.**
+
+The floor sweep is also weaker than §14 presented it. Its "dropped" column is
+pooled and hides a 2–3× arm asymmetry — at q=0.40 it is **70.4% of normal against
+34.6% of tumour**, comparing 317 normal cells to 3,931 tumour. The rows are
+nested subsets rather than independent measurements. Per-patient reference arms
+collapse to 4–20 cells at the clean floors. And because the `lineage` cut is a
+median split of the reference, `mat_normal` tends to exactly 0.500 by
+construction, so part of the "stability" is the stability of the number 0.5.
+
+**What survives, and it is the part that matters.** Explicit 1:1 nearest-neighbour
+depth matching *within patient* — which the auditor ran and I had not —
+preserves the gap: **+0.182 at q=0.10** (704 pairs, 9/10 patients) and **+0.310
+at q=0.40**, with matched median depths agreeing to ~1%. That corroborates
+§14.2's `match_arm_depth` result (+20.4%) by an independent method. **The gap is
+not purely a depth artefact.** But the patient-level interval contains zero at
+both floors, so it is a direction with support, not an established effect.
+
+### 17.4 · §12 and §13's "best4 is the cleanest rung" — WITHDRAWN
+
+`|ρ|` between a continuous variable and a **binary** label is bounded by
+`sqrt(3p(1−p))`. Verified numerically against perfect separation. Below
+**p = 1.37% the 0.20 tolerance is mathematically unreachable.**
+
+On Lee/SMC's `best4` tumour arm — 8 mature cells in 5,564 — the ceiling is
+**0.066**. `best4` could not have been flagged confounded there however
+completely depth determined the label. The sidecar's `QUOTABILITY: best4 =
+"Clean of the confound (|rho| 0.055)"` was reading a ceiling as evidence.
+
+On GSE178341 the ceiling is not binding (median 0.381, 0 of 64 rows unreachable),
+so §12's numbers are computable — but the **cross-rung comparison is unfair**.
+Normalised by the attainable maximum, `best4` sits at **0.188** of its ceiling and
+`lineage` at **0.174**: `best4` is marginally the *most* affected rung, not the
+least. §12's "the one resolvable verdict sits on the cleanest rung" does not
+follow and is withdrawn.
+
+`depth_confound_report` now returns `max_attainable_rho`, `rho_vs_ceiling` and
+`tolerance_is_reachable`, and reports **NOT TESTABLE** rather than clean when the
+test could not have fired.
+
+### 17.5 · What the audit did not break
+
+- `wilson_interval` is exact against `statsmodels` to 1e-16, and the upper bound
+  of 1.0 at p=1 is algebraic, not a clamp.
+- `largest_clean_pass`'s logic is correct.
+- `_spearman`'s tie handling is exactly `scipy.stats.spearmanr` (agreement
+  0–1.1e-16). My own suspicion about average-ranks was wrong.
+- `depth_confound_report` raises on a nullable-boolean column containing `pd.NA`
+  rather than coercing it to True.
+- **G4's `best4` FAIL**, now under both arm definitions.
+- **The compositional gap survives depth matching**, by two independent methods.

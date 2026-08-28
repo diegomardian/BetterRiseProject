@@ -13,6 +13,7 @@ from src.harness.gate_cost import (
     COHORT_SIZES,
     cohort_ci_width_by_n,
     effective_decision_line,
+    g4_arms_agree,
     g4_operating_characteristic,
     g4_over_rungs,
     g4_pass_probability,
@@ -223,3 +224,86 @@ def test_g4_refuses_a_cohort_with_no_matched_patient():
     frame = frame[frame["tissue"] == "tumour"]
     with pytest.raises(ValueError, match="both arms"):
         g4_over_rungs(frame)
+
+
+# ---------------------------------------------------------------------------
+# The tumour-arm collapse — a real defect that reached a published table
+# ---------------------------------------------------------------------------
+
+
+def _two_arm_frame():
+    """W1's shape: both tumour-arm definitions stacked, and they disagree.
+
+    `filtered` drops tumour epithelium not called malignant, so P3 has no cells
+    there at all — a malignancy-calling fact, not a positivity one.
+    """
+    rows = []
+    for tumour_arm, mature in (("unfiltered", [200, 150, 90]), ("filtered", [200, 4, 0])):
+        for patient, n in zip(["P1", "P2", "P3"], mature, strict=True):
+            for tissue in ("normal", "tumour"):
+                rows.append(
+                    {
+                        "patient_id": patient,
+                        "tissue": tissue,
+                        "labeling_axis": "stem_pole",
+                        "granularity_rung": "lineage",
+                        "tumour_arm": tumour_arm,
+                        "n_cells_mature": n if tissue == "tumour" else 500,
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def test_g4_groups_by_tumour_arm_instead_of_collapsing_them():
+    """The bug: .first() took whichever arm came first in file order.
+
+    On W1's real table that was `filtered`, in 224 of 224 combinations, and it
+    reached a published result.
+    """
+    table = g4_over_rungs(_two_arm_frame())
+    assert len(table) == 2
+    assert set(table["tumour_arm"]) == {"filtered", "unfiltered"}
+    by_arm = table.set_index("tumour_arm")["n_below_threshold"]
+    assert by_arm["unfiltered"] == 0
+    assert by_arm["filtered"] == 2  # the arms genuinely disagree
+
+
+def test_g4_still_works_on_a_frame_with_no_arm_column():
+    table = g4_over_rungs(_counts_frame())
+    assert set(table["tumour_arm"]) == {"unspecified"}
+
+
+def test_disagreeing_arms_are_not_identifiable_per_amendment_1():
+    """Prereg amendment 1 pre-commits this: report both, and treat disagreement
+    as not identifiable rather than choosing between them."""
+    agreed = g4_arms_agree(g4_over_rungs(_two_arm_frame()))
+    assert len(agreed) == 1
+    assert agreed.iloc[0]["verdict"] == "not_identifiable"
+    assert not agreed.iloc[0]["arms_agree"]
+
+
+def test_agreeing_but_unresolvable_arms_are_also_not_identifiable():
+    """Agreeing on an undecidable number is not agreement."""
+    frame = _two_arm_frame()
+    # Make both arms say the same borderline thing: 1 of 3 below.
+    frame.loc[frame.tissue == "tumour", "n_cells_mature"] = [200, 150, 1] * 2
+    agreed = g4_arms_agree(g4_over_rungs(frame))
+    assert agreed.iloc[0]["arms_agree"]
+    assert not agreed.iloc[0]["all_arms_resolvable"]
+    assert agreed.iloc[0]["verdict"] == "not_identifiable"
+
+
+def test_g4_arms_agree_refuses_a_single_arm():
+    """Reducing one arm to a verdict is the choice amendment 1 exists to prevent."""
+    with pytest.raises(ValueError, match="only one tumour-arm definition"):
+        g4_arms_agree(g4_over_rungs(_counts_frame()))
+
+    one_arm = _two_arm_frame()
+    one_arm = one_arm[one_arm.tumour_arm == "filtered"]
+    with pytest.raises(ValueError, match="only one tumour-arm definition"):
+        g4_arms_agree(g4_over_rungs(one_arm))
+
+
+def test_g4_arms_agree_refuses_a_frame_without_the_arm_column():
+    with pytest.raises(ValueError, match="no tumour_arm column"):
+        g4_arms_agree(pd.DataFrame({"labeling_axis": ["a"], "granularity_rung": ["b"]}))
