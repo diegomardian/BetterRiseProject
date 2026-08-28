@@ -54,7 +54,11 @@ from src.reference.ingest import (  # noqa: E402
     read_gse178341_index,
     read_gse178341_metadata,
 )
-from src.reference.labels import TRANSCRIPT_AXES, score_markers  # noqa: E402
+from src.reference.labels import (  # noqa: E402
+    TRANSCRIPT_AXES,
+    _positions,
+    score_markers,
+)
 from src.reference.qc import apply_qc, cell_qc_metrics, qc_thresholds  # noqa: E402
 
 UNSORTED = "unsorted"
@@ -144,7 +148,13 @@ def main() -> int:
             # HOW MANY CELLS EXPRESS NO MARKER AT ALL? If the tie block is these
             # cells, marker COUNT is not the lever — they are identical by
             # construction and always will be.
-            positions = [list(names).index(m) for m in present]
+            # _positions, not a hand-rolled lookup. This deposit has duplicate
+            # gene symbols — the ambient estimator hit the same thing — and both
+            # resolvers currently take the first occurrence, so the numbers agree
+            # today. Duplicating the mapping is how the two drift apart the day
+            # one of them changes, which is the warning cell_type_vector's own
+            # docstring makes. One resolver.
+            positions, _ = _positions(names, present)
             detected = np.asarray((sub[:, positions] > 0).sum(axis=1)).ravel()
             row["frac_zero_markers"] = float((detected == 0).mean())
             rows.append(row)
