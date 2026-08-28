@@ -22,10 +22,10 @@ Date: 2026-08-16 · Owner: W2 · Reads against
 | Gate | Status | Basis |
 |---|---|---|
 | **G1** ambient correction | **W2 proposes WITHDRAWING it as gate-bearing** | It fails when the project's hypothesis is TRUE, under every population tried (#46). Threshold 2 is frozen by having failed, so it cannot be repaired. See [g1_withdrawal_case.md](g1_withdrawal_case.md); §10 and decision #14 answer the ambient question instead. |
-| **G3** estimator recovers known ground truth | **preliminary PASS**, synthetic | Oracle arm recovers the known split within 1% wherever the mature compartment is non-empty; interval coverage 0.90–1.00 above 20 mature cells |
+| **G3** estimator recovers known ground truth | **preliminary PASS**, synthetic; the real-cell arm now runs | Oracle arm recovers the known split within 1% wherever the mature compartment is non-empty; interval coverage 0.90-1.00 above 20 mature cells. §13.3 is the first real decomposition it produced. |
 | **G4** <50% of patients below threshold | **ANSWERED — FAIL at `best4`, resolvable; every other rung indeterminate at n=28** | §12. 28/28 matched patients below the cutpoint at the finest rung, CI [0.879, 1.000], on both axes. The pre-committed consequence fires: non-identifiability is the headline. |
 | **Ambient sensitivity** (feeds G1) | **measured**, synthetic | §10 — at the 10% exclusion cap real terms retain 94% and a compositional-only world acquires an intrinsic term worth 4.6% of its compositional one. The artefact is one-directional. |
-| **G2** control tiers separate | **not yet run** | Needs W1's pilot |
+| **G2** control tiers separate | **FAILS as pre-registered** | §13.4. Tier A's loss is predominantly INTRINSIC not compositional (4.4x, and only that band excludes zero); tier B (MLH1) shows nothing; tier D (MS4A12) is not retained. Computed on a rung that carries a depth caveat — direction is striking, not yet quotable. |
 
 ---
 
@@ -778,3 +778,131 @@ worth saying it is luck rather than design.
 - The cutpoint is still **provisional** (`n_cells_mature < 20`, execution_plan
   §4). It has not been recalibrated on real cells — handoff task 6, still blocked.
   A recalibration could move the indeterminate rungs; it will not move 28/28.
+
+---
+
+## 13 · One labeller, and the first real decomposition
+
+Decision #13 is answered by retiring the second labeller rather than reconciling
+two. `lee_io` now calls W1's `assign_labels`;
+`src/estimator/labels.py` is marked SUPERSEDED in place.
+
+### 13.1 · What the port fixed, and what it did not
+
+Measured on SMC, same cells, same diagnostic, before and after:
+
+| rung | gap (normal − tumour mature) | worst \|ρ\| | confounded |
+|---|---|---|---|
+| lineage | 46.1% → **25.1%** | 0.53 → **0.31** | yes → **yes** |
+| crypt_position | 45.9% → **25.1%** | 0.54 → **0.31** | yes → **yes** |
+| best4 | 5.4% → 5.7% | 0.04 → **0.055** | no → **no** |
+
+`best4` is now genuinely marker-gated — 55 cells, 0.9% of scored, against a
+design target of "under 5% of epithelium" — and no longer bit-identical to
+`crypt_position`. 708 of 7,080 epithelial cells (10%) are `unresolved_depth`
+instead of being called maximally mature.
+
+**`lineage` and `crypt_position` remain confounded at W1's committed
+`depth_quantile=0.10`, and their numbers must not be quoted.** Halving an
+artefact is not removing it.
+
+### 13.2 · The depth floor, as a sensitivity analysis and not a choice
+
+W2 is **not** proposing a new value. Reported because it changes what the
+residual confound means:
+
+| depth_quantile | dropped | gap, lineage | worst \|ρ\| | arms | confounded |
+|---|---|---|---|---|---|
+| 0.00 | 0% | +46.1% | 0.53 | 4.26× | yes |
+| **0.10 (committed)** | 10% | +25.1% | 0.31 | 2.36× | **yes** |
+| 0.25 | 25% | +30.5% | 0.19 | 1.33× | no |
+| 0.40 | 40% | +30.1% | **0.03** | 1.25× | no |
+| 0.50 | 50% | +27.4% | 0.07 | 1.16× | no |
+
+**The compositional gap does not collapse when the confound is removed.** It
+sits at 22–31 points wherever |ρ| is small, with no monotone trend that would
+let anyone tune it toward a preferred answer, while the confound itself falls
+from 0.53 to 0.03. The 46-point figure was inflated by dropout; **a ~25-point
+gap is not.**
+
+That is the first evidence on real cells that the compositional signal is not an
+artefact. It is also an argument for raising the committed floor — which W2 is
+deliberately not making, because raising a QC parameter after seeing what it does
+to a result is the move this project refuses. It belongs to the team.
+
+### 13.3 · The decomposition
+
+[`results/2026-08-28_033cd51/decomposition_lee_smc.parquet`](../results/2026-08-28_033cd51/decomposition_lee_smc.parquet)
+— 2,160 rows, 10 patients, panel tiers A+B+C+D, both axes, all four rungs, with
+patient-level bootstrap bands alongside.
+
+**Read the sidecar's `QUOTABILITY` field before using any of it.** The honest
+summary is that **no rung on this cohort is both clean and fully estimable**:
+
+| rung | status |
+|---|---|
+| `epithelial` | clean; **compositional exactly 0.0000 by construction** (one bin, so the mature fraction is 1.0 in both arms). Only its intrinsic term means anything. |
+| `lineage` | estimable, **confounded** — do not quote |
+| `crypt_position` | estimable, **confounded**, and numerically identical to `lineage` (#42) |
+| `best4` | clean, and **`not_estimable` for every patient and every gene** — 540 of 2,160 rows |
+
+`best4` reproduces G4's finding on a second cohort: at the finest rung there are
+55 mature cells in the entire study, so the intrinsic term does not exist. Those
+rows carry `intrinsic=None`, never `0.0` (invariant 1).
+
+### 13.4 · G2 — the control tiers do not separate as pre-registered
+
+Medians at `lineage`, stem_pole, normal weighting, with cohort bands:
+
+| tier | gene | expected | compositional | intrinsic | intrinsic 95% CI |
+|---|---|---|---|---|---|
+| **A** | GUCA2A | compositional | −5.83 | **−25.68** | [−74.8, −16.9] ✗0 |
+| A | GUCA2B | compositional | −4.70 | −36.41 | [−67.1, −20.9] ✗0 |
+| A | CA7 | compositional | −0.56 | −2.53 | [−7.4, −1.8] ✗0 |
+| **B** | MLH1 | intrinsic | −0.004 | **+0.008** | [−0.02, +0.04] ∋0 |
+| B | SFRP1 | intrinsic | −0.000 | 0.000 | [−0.006, 0.000] ∋0 |
+| **D** | MS4A12 | neither | −0.17 | **−0.77** | [−1.43, −0.53] ✗0 |
+
+Three failures against the pre-registration, and the first is the one that
+matters:
+
+1. **Tier A's loss is predominantly INTRINSIC, not compositional** — 4.4× larger,
+   and only the intrinsic band excludes zero. The compositional band
+   [−27.9, +1.7] contains it.
+2. **Tier B shows nothing at all.** MLH1 was the intrinsic control and its term is
+   indistinguishable from zero.
+3. **Tier D is not retained.** MS4A12's intrinsic band excludes zero — though at
+   1/33 of GUCA2A's magnitude, so the tiers separate in size even where they do
+   not separate in sign.
+
+`config/panel.yaml`'s falsification rule is **not** literally tripped: it fires
+when A, B and D all return the same answer, and B differs. But the pre-registered
+pattern does not hold, and per §5 the honest reading of a G2 failure is *methods
+and validation paper, no biological claim* — which points the same way G4 already
+did.
+
+**And this is the rung that must not be quoted.** Tier A's intrinsic term is
+computed on `lineage`, where |ρ| = 0.31. The direction is striking and it is
+exactly what a pre-registration is for — but it is not yet a result, and W2 will
+not present it as one until the confound is closed.
+
+### 13.5 · Where the project stands
+
+Three of four gate criteria now have answers, and they agree:
+
+| | verdict |
+|---|---|
+| **G1** | withdrawal proposed — cannot pass when the hypothesis is true (§0.2, decision #23) |
+| **G2** | **fails as pre-registered** — the tiers do not separate in the specified pattern |
+| **G3** | preliminary PASS on synthetic; the real-cell arm now runs |
+| **G4** | **fails at `best4`, resolvable** — reproduced on a second cohort |
+
+Two independent criteria point at the same paper: **the non-identifiability
+finding, with diagnostics.** That is §5's pre-committed consequence for G4 and
+§5's reading of a G2 failure, and it is the paper CLAUDE.md's one-line summary
+describes — the third segment, *not estimable*, as the contribution rather than
+the caveat.
+
+The work still outstanding is bounded and known: close the residual depth
+confound at the two middle rungs (a team decision on the floor), run this on
+GSE178341 once its data is recorded (#43), and decide G1.
