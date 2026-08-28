@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import Final
 
 import numpy as np
 import pandas as pd
@@ -162,12 +163,17 @@ def _oracle_arm(sample, target_gene: str, weighting: str) -> dict[str, float]:
     }
 
 
+#: Both arms, which is the default and what §2.2 asks for.
+ARMS: Final = ("oracle", "bulk")
+
+
 def run_sweep(
     config: SweepConfig,
     grid: SweepGrid,
     *,
     seed: int,
     weighting: str = "normal",
+    arms: Sequence[str] = ARMS,
 ) -> pd.DataFrame:
     """Run the grid and return an ``attenuation``-shaped frame.
 
@@ -175,7 +181,22 @@ def run_sweep(
     row — parametric and realised — because recovery against realised isolates
     estimator bias while recovery against parametric also carries sampling
     noise, and reporting one without the other confuses the two.
+
+    ``arms`` exists for one honest case and should not be used for others. The
+    bulk arm deconvolves against a signature built from ``config.genes``, and
+    nu-SVR needs 500-2000 of them (execution_plan.md §2.1 error #4). Handed a
+    twelve-gene panel it does not fail — it returns fractions, and they are
+    noise wearing the shape of a result. On the real Lee cohort, where the
+    loader retains only the target and axis markers unless ``extra_genes`` is
+    passed, running ``arms=("oracle",)`` and saying so is more honest than
+    reporting a bulk column nobody should read. Dropping the bulk arm to make a
+    number look better would not be; the sidecar records which arms ran.
     """
+    unknown = [a for a in arms if a not in ARMS]
+    if unknown:
+        raise ValueError(f"unknown arm(s) {unknown}; known: {list(ARMS)}")
+    if not arms:
+        raise ValueError("no arms requested")
     counts = np.asarray(config.counts)
     cell_type = np.asarray(config.cell_type)
     patient_id = np.asarray(config.patient_id)
@@ -233,10 +254,12 @@ def run_sweep(
             # split we asked for, which is what §2.2's question is about. The
             # realised truth is carried alongside so estimator bias and
             # sampling noise can be separated afterwards.
-            for arm, terms in (
-                ("oracle", _oracle_arm(sample, target, weighting)),
-                ("bulk", _bulk_arm(sample, config, grid, train, weighting)),
-            ):
+            for arm in arms:
+                terms = (
+                    _oracle_arm(sample, target, weighting)
+                    if arm == "oracle"
+                    else _bulk_arm(sample, config, grid, train, weighting)
+                )
                 rows.append(
                     base
                     | {"arm": arm}
@@ -270,8 +293,10 @@ def _bulk_arm(
         counts[train_rows], cell_type[train_rows], genes, exclude_genes=[target]
     )
     # The target gene's own cell-type profile, from training patients only.
+    # include_targets is the point of this call, not an oversight — see
+    # bulk_recovery's module docstring on invariant 2.
     target_profile = reference_profiles(
-        counts[train_rows], cell_type[train_rows], genes
+        counts[train_rows], cell_type[train_rows], genes, include_targets=True
     ).loc[target]
 
     keep = [j for j, g in enumerate(genes) if g != target]

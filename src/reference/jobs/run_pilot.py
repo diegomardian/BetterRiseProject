@@ -44,13 +44,16 @@ from src.reference.ingest import (
     read_gse178341_metadata,
 )
 from src.reference.labels import (
+    AXIS_REFERENCE_PATTERN,
     NON_EPITHELIAL,
     UNRESOLVED,
     annotation_concordance,
     assign_labels,
     axis_tie_fraction,
+    compositional_stability,
     describe_labels,
     differential_resolution,
+    epithelial_annotation_levels,
     label_column,
     label_depth_confounding,
     mature_cell_counts,
@@ -422,9 +425,18 @@ def main() -> int:
             annotation = (
                 clusters["cl295v11SubFull"].reindex(adata.obs.index).to_numpy()[keep]
             )
+            # A regex that matches nothing fails silently and reports a
+            # confident zero, so print what it has to match before trusting it.
+            print("\nauthors' epithelial subsets present (what the criteria "
+                  "must match):")
+            print(epithelial_annotation_levels(labels, annotation).to_string())
+
             print("\nis the maturity call SIGNAL or DROPOUT NOISE?")
             print("(concordance with the authors' independent annotation; kappa")
             print(" near 0 means the call carries no more information than chance)")
+            print("EACH AXIS IS SCORED AGAINST ITS OWN CLAIM:")
+            for a, pattern in AXIS_REFERENCE_PATTERN.items():
+                print(f"  {a:<18} immature = /{pattern}/")
             for axis in ("stem_pole", "opposite_lineage"):
                 for rung in ("lineage", "crypt_position", "best4"):
                     try:
@@ -462,12 +474,23 @@ def main() -> int:
         print("\ndoes the DEPTH FLOOR cut one arm harder than the other?")
         print("(the same question decision #12 asked of the mito cap)")
         print(resolution.to_string(index=False))
-        if len(flagged_res):
+        if len(flagged_res) or resolution["thin_reference"].any():
             worst = flagged_res.reindex(
                 flagged_res["difference"].abs().sort_values(ascending=False).index
-            ).iloc[0]
+            ).iloc[0] if len(flagged_res) else resolution.iloc[0]
+            thin = resolution[resolution["thin_reference"]]
+            if len(thin):
+                print(
+                    "\n!! thin reference arm: "
+                    + ", ".join(f"{r.patient_id} ({int(r.n_resolved_reference)} cells)"
+                                for r in thin.itertuples())
+                    + "\n   The cut points come from the NORMAL arm, so a floor that "
+                      "removes most of it\n   leaves the threshold defined by whichever "
+                      "deep cells survived — and the whole\n   tumour arm is scored "
+                      "against that. This corrupts the REFERENCE, not just the sample."
+                )
             print(
-                f"\n!! {len(flagged_res)} of {len(resolution)} rows flagged; worst is "
+                f"\n!! {len(flagged_res)} of {len(resolution)} patients flagged; worst is "
                 f"{worst['patient_id']} at {worst['difference']:+.1%}.\n"
                 "   Cells below the target are dropped from BOTH numerator and "
                 "denominator, and\n   the mature call is depth-associated, so an "
@@ -476,6 +499,69 @@ def main() -> int:
                 "compositional term. A `paired` count cannot see this — a patient "
                 "can keep\n   both arms and still be cut 60 points harder on one "
                 "of them."
+            )
+
+        # Is Delta identified, or an artifact of the depth target we happened to
+        # pick? The target is a nuisance parameter and the estimand must not
+        # depend on it. C165 changed sign between two targets.
+        stability_inputs = {}
+        for q in (0.10, 0.25, 0.50):
+            target = float(np.quantile(epi_totals, q))
+            trial = assign_labels(
+                adata.X[keep], adata.var["gene_symbol"],
+                compartment=compartment.to_numpy()[keep],
+                sample_id=adata.obs["sample_id"].to_numpy()[keep],
+                target_genes=targets,
+                tissue=adata.obs["tissue"].to_numpy()[keep],
+                patient_id=adata.obs["patient_id"].to_numpy()[keep],
+                depth_target=target, seed=DEFAULT_SEED,
+                index=adata.obs.index[keep],
+            )
+            stability_inputs[target] = mature_cell_counts(
+                trial,
+                patient_id=adata.obs["patient_id"].to_numpy()[keep],
+                tissue=adata.obs["tissue"].to_numpy()[keep],
+            )
+        stability = compositional_stability(stability_inputs)
+        print("\nis Delta(mature fraction) IDENTIFIED, or an artifact of the "
+              "depth target?")
+        print("(the target is a nuisance parameter; the estimand must not "
+              "depend on it)")
+        print(stability.to_string(index=False))
+        print("\nverdicts:")
+        print(stability["verdict"].value_counts().to_string())
+        flipped = stability[stability["verdict"] == "sign_unstable"]
+        thin = stability[stability["verdict"] == "insufficient_targets"]
+        if len(flipped):
+            print(
+                f"\n!! {len(flipped)} estimate(s) change SIGN across the depth "
+                f"sweep — NOT identified.\n   "
+                + ", ".join(f"{r.patient_id}/{r.labeling_axis}/{r.granularity_rung}"
+                            for r in flipped.itertuples())
+                + "\n   Report these as not_estimable rather than quoting the "
+                  "value at whichever\n   target the run happened to use, which "
+                  "presents a modelling choice as a\n   measurement."
+            )
+        if len(thin):
+            print(
+                f"\n!! {len(thin)} estimate(s) had fewer depth targets than "
+                f"asked for — the patient\n   drops out at the deeper floors. "
+                "Different problem from a sign flip: the\n   direction held "
+                "wherever it could be measured. Patients: "
+                + ", ".join(sorted(set(thin["patient_id"])))
+            )
+        degen = stability[stability["verdict"] == "degenerate_by_construction"]
+        if len(degen):
+            print(
+                f"\n   ({len(degen)} rows are Delta == 0 at every target. On the "
+                "`epithelial` rung that\n   is BY CONSTRUCTION — every resolved "
+                "epithelial cell is the mature bin, so the\n   fraction is 1.0 "
+                "in both arms. Worth noting that this makes the rung carry no\n"
+                "   compositional information at all, which is NOT what its "
+                "rationale claims:\n   it says the rung measures "
+                "epithelial-vs-non-epithelial shifts, and that would\n   need "
+                "the denominator to be ALL cells rather than epithelial ones. "
+                "Open question.)"
             )
 
         print("\nmature-cell counts. Cut points come from each patient's NORMAL "

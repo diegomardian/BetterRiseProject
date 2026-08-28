@@ -44,6 +44,13 @@ INTENTIONALLY_OPTIONAL = {
     # scanpy to the dev extra instead — at that point the compile cost buys
     # something.
     "scanpy",
+    # src/reference/qc.py:flag_doublets — imported inside the per-sample loop,
+    # so every shape guard and all the rate/enrichment reporting runs without
+    # it. Heavy for CI (scrublet compiles annoy) and used by one workstream, so
+    # it is pinned in env/w1_reference.yml where a heavy single-workstream
+    # dependency belongs. scDblFinder is the sanctioned alternative and is
+    # pinned in the same file.
+    "scrublet",
 }
 
 

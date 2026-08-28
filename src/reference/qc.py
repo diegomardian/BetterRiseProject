@@ -333,23 +333,213 @@ def differential_retention(
     return out.reset_index()
 
 
-def flag_doublets(*args: Any, **kwargs: Any) -> Any:
-    """scDblFinder against real GSE178341 count matrices. W1, week 1.
+#: Scrublet's expected doublet rate. 10x loads ~0.8% per 1,000 cells recovered,
+#: and these samples run 1k-16k, so a single global value is already an
+#: approximation. It is a PRIOR, not a target: Scrublet uses it to place the
+#: simulated-doublet distribution, and the called rate can land either side.
+DEFAULT_EXPECTED_DOUBLET_RATE: Final[float] = 0.06
 
-    Run **per sample, never across samples** — a doublet is two cells in one
-    droplet, which is a within-run event, and pooling makes the simulated
-    doublet distribution meaningless.
+#: Below this many cells, the simulated-doublet distribution is too sparse to
+#: threshold and Scrublet's automatic cutoff becomes arbitrary. Such samples are
+#: reported with a null rate rather than a made-up one.
+MIN_CELLS_FOR_DOUBLET_CALL: Final[int] = 100
 
-    Unimplemented on purpose, the same pattern as ``_select_markers`` in
-    ``signature.py`` and ``flag_doublets`` in ``src/estimator/ingest.py``:
-    calling scDblFinder needs the real matrices in hand, and the cutoff is a
-    judgement call over real score distributions rather than a formula.
-    ``bioconductor-scdblfinder`` is pinned in ``env/w1_reference.yml``.
 
-    When you implement it: add the per-sample doublet rate to the
-    :func:`qc_thresholds` table so it is documented alongside everything else.
+def flag_doublets(
+    counts: Any,
+    sample_id: Any,
+    *,
+    expected_rate: float = DEFAULT_EXPECTED_DOUBLET_RATE,
+    min_cells: int = MIN_CELLS_FOR_DOUBLET_CALL,
+    threshold: float | None = None,
+    seed: int = 20260101,
+) -> pd.DataFrame:
+    """Scrublet per sample. W1, week 1.
+
+    **Per sample, never across samples.** A doublet is two cells captured in one
+    droplet, which is a within-run event. Scrublet works by simulating doublets
+    from observed transcriptomes and asking which real cells look like them, so
+    pooling samples simulates chimeras that no droplet could have produced and
+    the resulting distribution means nothing.
+
+    Returns one row per cell — `sample_id`, `doublet_score`, `predicted_doublet`,
+    `threshold`, `callable` — in input order, so it can be assigned straight onto
+    an obs frame. Samples below `min_cells` get a score of NaN and
+    ``callable=False`` rather than a fabricated call: too few cells makes the
+    simulated distribution too sparse to threshold, and a made-up boundary there
+    would silently delete real cells.
+
+    On `expected_rate`: this is Scrublet's *prior*, not a quota. It positions the
+    simulated distribution; the called rate comes out of the data and may differ
+    substantially. Do not tune it until the reported rate looks like what you
+    wanted — that is fitting the QC to the hypothesis.
+
+    **Expect a low rate on this deposit.** Pelka et al. filtered doublets before
+    deposition, and GEO ran dropletUtils upstream. A per-sample rate of 1-2% is
+    the likely and perfectly good answer: the week-1 deliverable is the rate
+    being *documented*, and "already handled upstream, here is the evidence" is a
+    result. A high rate would be the surprising outcome and would want explaining
+    before anything is deleted.
+
+    ``threshold`` overrides Scrublet's automatic call for every sample. Use it
+    only after looking at the score histograms — the automatic threshold is a
+    minimum between two modes, and it degrades quietly when the distribution is
+    unimodal, which is exactly what pre-filtered data produces.
     """
-    raise NotImplementedError(
-        "W1 — doublet detection needs the real GSE178341 count matrices. "
-        "Run scDblFinder per sample; see src/reference/README.md, week 1."
+    samples = np.asarray([str(s) for s in sample_id], dtype=object)
+    if samples.shape[0] != counts.shape[0]:
+        raise QCError(
+            f"sample_id has {samples.shape[0]} entries for {counts.shape[0]} cells"
+        )
+
+    score = np.full(samples.shape[0], np.nan, dtype=float)
+    called = np.zeros(samples.shape[0], dtype=bool)
+    cutoff = np.full(samples.shape[0], np.nan, dtype=float)
+    usable = np.zeros(samples.shape[0], dtype=bool)
+
+    for sample in pd.unique(samples):
+        rows = np.flatnonzero(samples == sample)
+        if rows.size < min_cells:
+            print(
+                f"note: {sample} has {rows.size} cells, below {min_cells} — "
+                f"no doublet call. Reported as not callable, not as zero doublets."
+            )
+            continue
+        # Imported here, not at the top: every guard above runs without the
+        # dependency, so shape errors surface in any environment and the
+        # pure-pandas reporting below stays testable where scrublet is absent.
+        # scrublet is heavy (it compiles annoy) and single-workstream, so it is
+        # pinned in env/w1_reference.yml rather than the CI dev extra — same
+        # treatment as scanpy.
+        try:
+            import scrublet
+        except ImportError as exc:
+            raise QCError(
+                "scrublet is not installed. It is pinned in "
+                "env/w1_reference.yml (scrublet=0.2.3). If it will not import "
+                "against this numpy, use scDblFinder instead — "
+                "bioconductor-scdblfinder is pinned in the same file and the "
+                "plan sanctions either."
+            ) from exc
+
+        subset = counts[rows]
+        detector = scrublet.Scrublet(
+            subset, expected_doublet_rate=expected_rate, random_state=seed
+        )
+        try:
+            scores, predicted = detector.scrub_doublets(verbose=False)
+        except Exception as exc:  # noqa: BLE001 - Scrublet raises broadly
+            print(f"note: {sample} — Scrublet failed ({exc}); not callable.")
+            continue
+        if scores is None:
+            print(f"note: {sample} — Scrublet returned no scores; not callable.")
+            continue
+
+        score[rows] = np.asarray(scores, dtype=float)
+        usable[rows] = True
+        if threshold is not None:
+            cutoff[rows] = threshold
+            called[rows] = score[rows] >= threshold
+        else:
+            automatic = getattr(detector, "threshold_", np.nan)
+            cutoff[rows] = automatic
+            # Scrublet returns None for `predicted` when it cannot find a
+            # minimum between two modes — common on pre-filtered data, where the
+            # distribution is unimodal. Keep the scores, refuse the call.
+            if predicted is None or not np.isfinite(automatic):
+                usable[rows] = False
+                print(
+                    f"note: {sample} — no automatic threshold (the score "
+                    f"distribution is probably unimodal, which is what "
+                    f"pre-filtered data looks like). Scores kept, call withheld."
+                )
+            else:
+                called[rows] = np.asarray(predicted, dtype=bool)
+
+    return pd.DataFrame(
+        {
+            "sample_id": samples,
+            "doublet_score": score,
+            "predicted_doublet": called,
+            "threshold": cutoff,
+            "callable": usable,
+        }
     )
+
+
+def doublet_rate_by_sample(calls: pd.DataFrame) -> pd.DataFrame:
+    """Per-sample doublet rate, for the QC deliverable.
+
+    The week-1 requirement is "QC thresholds documented with rationale", and a
+    doublet threshold is one of those. Commit this next to
+    :func:`qc_thresholds`.
+    """
+    required = {"sample_id", "predicted_doublet", "callable", "threshold"}
+    missing = required - set(calls.columns)
+    if missing:
+        raise QCError(f"calls is missing column(s): {sorted(missing)}")
+
+    out = (
+        calls.groupby("sample_id", observed=True)
+        .agg(
+            n_cells=("predicted_doublet", "size"),
+            n_doublets=("predicted_doublet", "sum"),
+            threshold=("threshold", "first"),
+            callable=("callable", "any"),
+        )
+        .reset_index()
+    )
+    out["doublet_rate"] = np.where(
+        out["callable"], out["n_doublets"] / out["n_cells"], np.nan
+    )
+    return out
+
+
+def doublet_compartment_enrichment(
+    calls: pd.DataFrame, compartment: Any
+) -> pd.DataFrame:
+    """Are called doublets concentrated in one compartment? **The check that
+    decides whether doublets can distort the maturity call.**
+
+    A doublet's transcriptome is the sum of two cells, so an epithelial-immune
+    doublet carries both compartments' markers. Two consequences, and only the
+    second is about counts:
+
+    1. It can be assigned to the wrong compartment, moving the denominator of
+       the mature fraction.
+    2. **It scores as more mature than either cell was.** The maturity call on
+       axis 1 is a detection gate — "no stem marker detected" — and a doublet has
+       roughly twice the counts, so it clears detection more easily and lands on
+       the immature side. Doublets therefore push the mature fraction *down*, and
+       they are not distributed evenly between tumour and normal.
+
+    A rate that is uniform across compartments is reassuring. A rate concentrated
+    in epithelium is not, whatever its absolute size.
+    """
+    if "predicted_doublet" not in calls.columns:
+        raise QCError("calls needs a predicted_doublet column")
+    values = np.asarray([str(c) for c in compartment], dtype=object)
+    if values.shape[0] != len(calls):
+        raise QCError(
+            f"compartment has {values.shape[0]} entries for {len(calls)} cells"
+        )
+    frame = calls.loc[:, ["predicted_doublet", "callable"]].copy()
+    frame["compartment"] = values
+    frame = frame[frame["callable"]]
+    if frame.empty:
+        raise QCError("no callable cells; every sample was below min_cells")
+
+    out = (
+        frame.groupby("compartment", observed=True)
+        .agg(n_cells=("predicted_doublet", "size"),
+             n_doublets=("predicted_doublet", "sum"))
+        .reset_index()
+    )
+    out["doublet_rate"] = out["n_doublets"] / out["n_cells"]
+    overall = float(frame["predicted_doublet"].mean())
+    out["overall_rate"] = overall
+    # Ratio rather than difference: a 2% rate against a 1% baseline matters as
+    # much as 20% against 10%, and the absolute gap hides the first.
+    out["enrichment"] = out["doublet_rate"] / overall if overall else np.nan
+    out["flagged"] = out["enrichment"] > 1.5
+    return out.sort_values("enrichment", ascending=False).reset_index(drop=True)

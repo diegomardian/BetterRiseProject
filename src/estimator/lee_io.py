@@ -38,7 +38,12 @@ from typing import Final, Literal
 import numpy as np
 import pandas as pd
 
-from src.estimator.ingest import qc_flags
+from src.estimator.ingest import (
+    COMPARTMENT_COLUMN,
+    RETENTION_GAP_WARN_PTS,
+    differential_retention,
+    qc_flags,
+)
 from src.estimator.labels import label_cohort
 
 logger = logging.getLogger(__name__)
@@ -59,6 +64,10 @@ MITO_GENES: Final[tuple[str, ...]] = (
 #: wording ("GSE132465 (SMC) and GSE144735 (KUL3) ... two separate study_id
 #: values").
 STUDY_IDS: Final[dict[str, str]] = {"smc": "GSE132465", "kul3": "GSE144735"}
+
+#: The compartment the compositional arm is built from. Matches the value the
+#: Lee deposits use in ``Cell_type``.
+EPITHELIAL_COMPARTMENT: Final[str] = "Epithelial cells"
 
 _CLASS_TO_TISSUE: Final[dict[str, str]] = {
     "Tumor": "tumour",
@@ -222,6 +231,10 @@ class LeeCohort:
     axis_gene_coverage: dict[str, list[str]]
     excluded_patients: list[str] = field(default_factory=list)
     n_border_cells: int = 0
+    #: Compartment the maturity labels were computed within, or None if every
+    #: cell was labelled. Cells outside it carry pd.NA, not False — see
+    #: ``load_lee_cohort``'s ``label_compartment``.
+    label_compartment: str | None = EPITHELIAL_COMPARTMENT
     #: The same cells and genes as ``expression``, but **raw integer counts** —
     #: what came off the matrix before the CP10K step.
     #:
@@ -265,6 +278,7 @@ def load_lee_cohort(
     raw_dir: Path | None = None,
     extra_genes: Sequence[str] = (),
     keep_raw_counts: bool = False,
+    label_compartment: str | None = EPITHELIAL_COMPARTMENT,
 ) -> LeeCohort:
     """Load, QC, normalise and label one real Lee cohort end to end.
 
@@ -289,6 +303,20 @@ def load_lee_cohort(
     the pre-CP10K integer counts. See the field's docstring for why the
     generator cannot use the normalised frame. Off by default so existing
     callers pay nothing.
+
+    ``label_compartment`` restricts *labelling* to one compartment, epithelium
+    by default, and is not a cosmetic filter. ``classify_maturity`` thresholds
+    at a quantile of the axis score over whatever it is handed, and on Lee the
+    non-epithelial cells are the majority (45k of 64k on SMC). They carry no
+    LGR5/OLFM4 at all, so on the inverted ``stem_pole`` axis they score as
+    maximally mature and drag the quantile into the immune mass — leaving
+    essentially no epithelial cell above it. The mature *fraction* is the
+    compositional term, so that is not a labelling detail, it is the estimate.
+    Cells outside the compartment keep their row with ``pd.NA`` in every
+    maturity column, so they stay available and cannot be silently counted as
+    immature. Pass None to label everything and take responsibility for the
+    threshold. docs/open_decisions.md #13, "Non-epithelial cells: caller must
+    pre-filter" — this is W4 doing that rather than leaving it to the caller.
 
     ``target_genes`` are the panel genes under test — passed straight through
     to ``label_cohort``'s leakage guard, so a run testing MUC2/TFF3 correctly
@@ -322,9 +350,44 @@ def load_lee_cohort(
             gene,
         )
 
-    metrics = metrics.assign(study_id=study_id)
+    # QC needs the compartment, the patient and the arm, not just the three
+    # metrics: MAD bounds are computed within (study, compartment), and the
+    # retention check below is per patient per arm. docs/open_decisions.md #12.
+    annotated_metrics = metrics.join(
+        annotation.loc[:, ["patient_id", "tissue", "author_cell_type"]], how="inner"
+    ).rename(columns={"author_cell_type": COMPARTMENT_COLUMN})
+    n_unannotated = len(metrics) - len(annotated_metrics)
+    if n_unannotated:
+        logger.warning(
+            "%s: %d/%d cells in the matrix have no annotation row and are dropped "
+            "before QC — they have no compartment to be an outlier within, and no "
+            "arm to belong to",
+            study_id,
+            n_unannotated,
+            len(metrics),
+        )
+    metrics = annotated_metrics.assign(study_id=study_id)
     fail = qc_flags(metrics)
     passed_cells = metrics.index[~fail]
+
+    # The check decision #12 requires before any compositional number is
+    # believed. Reported, not enforced: a flagged patient is a fact about the
+    # deposit that the gate memo needs to carry, not a reason to fail the load.
+    retention = differential_retention(metrics, ~fail)
+    flagged = retention.loc[retention["flagged"]]
+    if len(flagged):
+        logger.warning(
+            "%s: %d/%d patients have a tumour-vs-normal epithelial QC retention "
+            "gap over %.0f pts (median %.1f pts). The compositional term is a "
+            "within-patient difference, so this moves it directly — carry it as a "
+            "limitation. docs/open_decisions.md #12.\n%s",
+            study_id,
+            len(flagged),
+            len(retention),
+            RETENTION_GAP_WARN_PTS,
+            retention["gap_pts"].median(),
+            flagged.to_string(index=False),
+        )
 
     cells = annotation.loc[annotation.index.intersection(passed_cells)]
     expression_counts = raw_expression.loc[raw_expression.index.intersection(passed_cells)]
@@ -356,15 +419,49 @@ def load_lee_cohort(
     library_size = metrics.loc[expression_counts.index, "n_counts"].replace(0, pd.NA)
     expression = expression_counts.div(library_size, axis=0).mul(1e4).fillna(0.0)
 
+    if label_compartment is None:
+        labelled_index = expression.index
+    else:
+        compartment = cells.loc[expression.index, "author_cell_type"]
+        labelled_index = expression.index[compartment == label_compartment]
+        if len(labelled_index) == 0:
+            raise ValueError(
+                f"{study_id}: no cells in compartment {label_compartment!r} survived "
+                f"QC — the quantile that defines maturity would have nothing to be "
+                f"computed over. Observed compartments: "
+                f"{sorted(cells['author_cell_type'].unique())}"
+            )
+        logger.info(
+            "%s: labelling within %r (%d/%d QC-passed cells); the rest keep a row "
+            "with pd.NA maturity, never False",
+            study_id,
+            label_compartment,
+            len(labelled_index),
+            len(expression),
+        )
+
     labels = label_cohort(
-        expression,
-        patient_id=cells.loc[expression.index, "patient_id"].tolist(),
-        tissue=cells.loc[expression.index, "tissue"].tolist(),
+        expression.loc[labelled_index],
+        patient_id=cells.loc[labelled_index, "patient_id"].tolist(),
+        tissue=cells.loc[labelled_index, "tissue"].tolist(),
         target_genes=target_genes,
         axes=axes,
         rungs=rungs,
     )
-    labels.index = expression.index
+    labels.index = labelled_index
+
+    if len(labelled_index) != len(expression):
+        # Widen back to every QC-passed cell. Maturity columns become nullable
+        # boolean so an unlabelled cell reads as pd.NA — "not asked" — and not
+        # as False, which would be counted as an immature epithelial cell and
+        # would move the compositional term. Invariant 1's shape, one level down.
+        maturity_columns = [c for c in labels.columns if c.startswith("mature__")]
+        widened = labels.reindex(expression.index)
+        widened["patient_id"] = cells.loc[expression.index, "patient_id"].to_numpy()
+        widened["tissue"] = cells.loc[expression.index, "tissue"].to_numpy()
+        for col in maturity_columns:
+            widened[col] = widened[col].astype("boolean")
+        labels = widened
 
     return LeeCohort(
         study_id=study_id,
@@ -374,6 +471,7 @@ def load_lee_cohort(
         axis_gene_coverage=coverage,
         excluded_patients=excluded_patients,
         n_border_cells=n_border_cells,
+        label_compartment=label_compartment,
         # Same rows and columns as `expression`, one step earlier in the
         # pipeline. Cast to a nullable integer dtype so a caller can tell at a
         # glance that these are counts and not a normalised scale.
@@ -401,6 +499,14 @@ def build_gene_rung_axis_summary(
     and available in ``cohort.labels``/``cohort.cells`` for anyone who wants
     them, but Kitagawa's two-arm ``decompose()`` has no slot for a third
     tissue class.
+
+    Cells with ``pd.NA`` maturity — everything outside
+    ``cohort.label_compartment`` — are dropped per (axis, rung) rather than
+    read as immature. Counting them as immature would put the tumour's immune
+    infiltrate into the denominator of the mature fraction, which is the
+    compositional term; Δ(mature fraction) would then be measuring immune
+    content. A patient with no labelled cell in one arm is skipped, the same
+    way a patient missing an arm entirely is.
     """
     from src.common.panel import granularity_rungs as default_rungs
 
@@ -426,7 +532,8 @@ def build_gene_rung_axis_summary(
                         "mature": mature,
                         "expression": gene_expr,
                     }
-                )
+                ).loc[mature.notna().to_numpy()]
+                frame["mature"] = frame["mature"].astype(bool)
                 for patient_id, group in frame.groupby("patient_id"):
                     pivot = {}
                     ok = True

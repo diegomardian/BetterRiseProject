@@ -23,8 +23,11 @@ from src.common.panel import panel_genes
 from src.reference.ambient import (
     IMPOSSIBLE_GENES,
     AmbientError,
+    ambient_exclusions,
+    compare_retention,
     contamination_by_sample,
     contamination_fraction,
+    retention_agreement,
     run_decontx,
     run_soupx,
     soup_profile_from_cells,
@@ -276,7 +279,258 @@ class TestPerSample:
             contamination_by_sample(matrix, GENES, sample_id=["a"], cell_mask=mask)
 
 
-@pytest.mark.parametrize("fn,match", [(run_soupx, "soup profile"), (run_decontx, "celda")])
-def test_correction_entry_points_are_explicit_todos(fn, match):
-    with pytest.raises(NotImplementedError, match=match):
-        fn()
+class TestDecontX:
+    """The second method, and it exists because CellBender cannot run on a
+    deposit with no empty droplets (#8)."""
+
+    def _inputs(self, n_cells=60, n_genes=30, clusters=2):
+        rng = np.random.default_rng(1)
+        matrix = rng.poisson(3, size=(n_cells, n_genes)).astype(np.int64)
+        return (
+            matrix,
+            [f"G{i}" for i in range(n_genes)],
+            [f"c{i}" for i in range(n_cells)],
+            [f"k{i % clusters}" for i in range(n_cells)],
+        )
+
+    def test_dry_run_writes_its_inputs(self, tmp_path):
+        matrix, genes, barcodes, labels = self._inputs()
+        out = run_decontx(matrix, genes, barcodes=barcodes, clusters=labels,
+                          out_dir=tmp_path, dry_run=True)
+        assert out["ran"] is False
+        for name in ("matrix.mtx", "genes.tsv", "barcodes.tsv",
+                     "clusters.tsv", "run_decontx.R"):
+            assert (tmp_path / name).exists(), name
+
+    def test_it_asks_for_no_empty_droplets(self, tmp_path):
+        """The entire reason it replaces CellBender."""
+        matrix, genes, barcodes, labels = self._inputs()
+        out = run_decontx(matrix, genes, barcodes=barcodes, clusters=labels,
+                          out_dir=tmp_path, dry_run=True)
+        script = out["script"].read_text()
+        assert "decontX(" in script
+        # The ARGUMENT, not the word — the template's comment explains why it
+        # is absent, and a bare substring check catches its own explanation.
+        assert "background =" not in script
+        assert "background=" not in script
+
+    def test_it_emits_retention_and_per_cell_contamination(self, tmp_path):
+        matrix, genes, barcodes, labels = self._inputs()
+        script = run_decontx(
+            matrix, genes, barcodes=barcodes, clusters=labels,
+            out_dir=tmp_path, dry_run=True,
+        )["script"].read_text()
+        assert "decontx_retention.csv" in script
+        assert "decontx_contamination.csv" in script
+
+    def test_one_cluster_refuses(self, tmp_path):
+        """Contamination is defined as counts resembling OTHER clusters, so one
+        cluster leaves nothing to compare against."""
+        matrix, genes, barcodes, _ = self._inputs()
+        with pytest.raises(AmbientError, match="other clusters|OTHER clusters"):
+            run_decontx(matrix, genes, barcodes=barcodes,
+                        clusters=["k0"] * matrix.shape[0], out_dir=tmp_path,
+                        dry_run=True)
+
+    def test_cluster_length_is_checked(self, tmp_path):
+        matrix, genes, barcodes, _ = self._inputs()
+        with pytest.raises(AmbientError, match="entries for"):
+            run_decontx(matrix, genes, barcodes=barcodes, clusters=["k0"] * 3,
+                        out_dir=tmp_path, dry_run=True)
+
+    def test_it_is_seeded(self, tmp_path):
+        """Invariant 10 — every result carries a fixed seed."""
+        matrix, genes, barcodes, labels = self._inputs()
+        script = run_decontx(
+            matrix, genes, barcodes=barcodes, clusters=labels,
+            out_dir=tmp_path, seed=4242, dry_run=True,
+        )["script"].read_text()
+        assert "set.seed(4242)" in script
+
+
+class TestSoupX:
+    """Degraded mode: no empty droplets exist for this deposit (#8), so the
+    profile comes from cells via setSoupProfile()."""
+
+    def _inputs(self, n_cells=60, n_genes=30, clusters=2):
+        rng = np.random.default_rng(0)
+        matrix = rng.poisson(3, size=(n_cells, n_genes)).astype(np.int64)
+        genes = [f"G{i}" for i in range(n_genes)]
+        barcodes = [f"c{i}" for i in range(n_cells)]
+        labels = [f"k{i % clusters}" for i in range(n_cells)]
+        profile = pd.Series(1.0 / n_genes, index=genes)
+        return matrix, genes, barcodes, labels, profile
+
+    def test_dry_run_writes_every_input_sparse(self, tmp_path):
+        matrix, genes, barcodes, labels, profile = self._inputs()
+        out = run_soupx(
+            matrix, genes, barcodes=barcodes, clusters=labels,
+            soup_profile=profile, out_dir=tmp_path, dry_run=True,
+        )
+        assert out["ran"] is False
+        for name in ("matrix.mtx", "genes.tsv", "barcodes.tsv",
+                     "clusters.tsv", "soup_profile.csv", "run_soupx.R"):
+            assert (tmp_path / name).exists(), name
+
+    def test_the_R_uses_degraded_mode(self, tmp_path):
+        """calcSoupProfile = FALSE plus setSoupProfile is the only route
+        without empty droplets."""
+        matrix, genes, barcodes, labels, profile = self._inputs()
+        out = run_soupx(
+            matrix, genes, barcodes=barcodes, clusters=labels,
+            soup_profile=profile, out_dir=tmp_path, dry_run=True,
+        )
+        script = out["script"].read_text()
+        assert "calcSoupProfile = FALSE" in script
+        assert "setSoupProfile" in script
+        assert "estimateSoup" not in script
+
+    def test_it_writes_retention_not_a_corrected_matrix(self, tmp_path):
+        """Decision #16 is to measure, not correct — and 62 corrected matrices
+        would not fit on the project filesystem."""
+        matrix, genes, barcodes, labels, profile = self._inputs()
+        out = run_soupx(
+            matrix, genes, barcodes=barcodes, clusters=labels,
+            soup_profile=profile, out_dir=tmp_path, dry_run=True,
+        )
+        script = out["script"].read_text()
+        assert "soupx_retention.csv" in script
+        assert "adjustCounts" in script
+
+    def test_one_cluster_refuses_unless_rho_is_fixed(self, tmp_path):
+        """autoEstCont needs marker genes, which needs more than one cluster."""
+        matrix, genes, barcodes, _labels, profile = self._inputs(clusters=1)
+        labels = ["k0"] * matrix.shape[0]
+        with pytest.raises(AmbientError, match="more than one cluster"):
+            run_soupx(matrix, genes, barcodes=barcodes, clusters=labels,
+                      soup_profile=profile, out_dir=tmp_path, dry_run=True)
+        out = run_soupx(
+            matrix, genes, barcodes=barcodes, clusters=labels,
+            soup_profile=profile, out_dir=tmp_path, contamination=0.02,
+            dry_run=True,
+        )
+        assert "0.02" in out["script"].read_text()
+
+    def test_duplicate_symbols_in_the_profile_are_summed(self, tmp_path):
+        """soup_profile_from_cells is indexed by gene SYMBOL, and this deposit
+        maps several Ensembl IDs onto one symbol. reindex() refuses a duplicated
+        index outright — this failed on the first real sample."""
+        matrix, genes, barcodes, labels = self._inputs()[:4]
+        profile = pd.Series(
+            [0.02] * (len(genes) + 3),
+            index=list(genes) + genes[:3],   # three symbols duplicated
+        )
+        run_soupx(matrix, genes, barcodes=barcodes, clusters=labels,
+                  soup_profile=profile, out_dir=tmp_path, dry_run=True)
+        written = pd.read_csv(tmp_path / "soup_profile.csv", index_col=0)
+        assert not written.index.has_duplicates
+        # Summed, not dropped — the profile is a share of one soup.
+        assert written.loc[genes[0], "est"] == pytest.approx(0.04)
+
+    def test_an_empty_profile_refuses(self, tmp_path):
+        matrix, genes, barcodes, labels, _profile = self._inputs()
+        with pytest.raises(AmbientError, match="soup profile is empty"):
+            run_soupx(
+                matrix, genes, barcodes=barcodes, clusters=labels,
+                soup_profile=pd.Series(dtype=float), out_dir=tmp_path,
+                dry_run=True,
+            )
+
+    def test_cluster_length_is_checked(self, tmp_path):
+        matrix, genes, barcodes, _labels, profile = self._inputs()
+        with pytest.raises(AmbientError, match="entries for"):
+            run_soupx(matrix, genes, barcodes=barcodes, clusters=["k0"] * 3,
+                      soup_profile=profile, out_dir=tmp_path, dry_run=True)
+
+
+class TestRetentionComparison:
+    """The week-2 deliverable is a comparison, not a winner."""
+
+    def _pair(self, decontx_scale=2.0, n=40, shuffle=False):
+        genes = [f"G{i}" for i in range(n)]
+        soupx = pd.DataFrame({
+            "gene": genes,
+            "retention": [1 - 0.01 * i for i in range(n)],
+        })
+        order = list(range(n))[::-1] if shuffle else list(range(n))
+        decontx = pd.DataFrame({
+            "gene": genes,
+            "retention": [1 - 0.01 * decontx_scale * order[i] for i in range(n)],
+        })
+        return soupx, decontx
+
+    def test_agreement_on_which_genes_is_ranked_not_absolute(self):
+        """DecontX strips twice as hard here, but ranks genes identically. That
+        is a different kind of agreement from ranking them differently, and
+        Spearman is what separates the two."""
+        soupx, decontx = self._pair(decontx_scale=2.0)
+        out = retention_agreement(compare_retention(soupx, decontx, sample_id="S"))
+        assert out["spearman"] > 0.99
+        assert out["agree"]
+        # ...and the magnitude difference survives as its own number.
+        assert out["median_difference"] > 0
+
+    def test_opposite_rankings_do_not_agree(self):
+        soupx, decontx = self._pair(shuffle=True)
+        out = retention_agreement(compare_retention(soupx, decontx, sample_id="S"))
+        assert out["spearman"] < 0
+        assert not out["agree"]
+
+    def test_only_shared_genes_are_compared(self):
+        soupx, decontx = self._pair()
+        decontx = decontx.iloc[:10]
+        out = compare_retention(soupx, decontx, sample_id="S")
+        assert len(out) == 10
+
+    def test_no_shared_genes_refuses(self):
+        soupx, decontx = self._pair()
+        decontx = decontx.assign(gene=[f"X{i}" for i in range(len(decontx))])
+        with pytest.raises(AmbientError, match="no genes in common"):
+            compare_retention(soupx, decontx)
+
+    def test_missing_columns_refuse(self):
+        soupx, decontx = self._pair()
+        with pytest.raises(AmbientError, match="missing column"):
+            compare_retention(soupx.drop(columns=["retention"]), decontx)
+
+    def test_too_few_genes_to_correlate_refuses(self):
+        soupx, decontx = self._pair(n=2)
+        with pytest.raises(AmbientError, match="too few"):
+            retention_agreement(compare_retention(soupx, decontx))
+
+    def test_the_sample_is_carried_through(self):
+        """Per sample, never pooled — the soup belongs to one dissociation."""
+        soupx, decontx = self._pair()
+        out = compare_retention(soupx, decontx, sample_id="C122_N_1_1_0_c1_v2")
+        assert set(out["sample_id"]) == {"C122_N_1_1_0_c1_v2"}
+
+
+class TestAmbientExclusions:
+    """#16's threshold was fixed before this existed. The function reports what
+    it costs; it does not offer to revise the number."""
+
+    def _frame(self):
+        return pd.DataFrame({
+            "sample_id": ["clean", "dirty", "unmeasured"],
+            "contamination": [0.02, 0.19, None],
+        })
+
+    def test_above_the_threshold_is_excluded(self):
+        out = ambient_exclusions(self._frame()).set_index("sample_id")
+        assert bool(out.loc["dirty", "excluded"])
+        assert not bool(out.loc["clean", "excluded"])
+
+    def test_an_unmeasurable_sample_is_kept_not_excluded(self):
+        """'We could not tell' is not 'too dirty'. Excluding it would silently
+        remove the sparsest samples, which can least afford to lose cells."""
+        out = ambient_exclusions(self._frame()).set_index("sample_id")
+        assert not bool(out.loc["unmeasured", "excluded"])
+        assert "kept" in out.loc["unmeasured", "reason"]
+
+    def test_the_threshold_is_the_committed_one(self):
+        from src.reference.ambient import MAX_CONTAMINATION
+        assert MAX_CONTAMINATION == 0.10
+
+    def test_every_exclusion_carries_a_reason(self):
+        out = ambient_exclusions(self._frame())
+        assert (out.loc[out["excluded"], "reason"] != "").all()

@@ -81,11 +81,64 @@ CONTROLS_COLUMNS: Final = (
     "seed",
 )
 
+#: One row per (world, replicate). W2's ratification of prereg Amendment 2
+#: (issue #37): five simulated worlds with known answers, and the verdict the
+#: proposed G1 returns on each. ``rho_decision_17`` is the superseded statistic,
+#: carried alongside so the two are read against the same truth.
+G1_AMENDMENT_COLUMNS: Final = (
+    "world",
+    "replicate",
+    "verdict",
+    "expected_pass_low",
+    "expected_pass_high",
+    "rho_decision_17",
+    "rho_g1a",
+    "tier_a_median_pct",
+    "tier_d_pct",
+    "separation",
+    "n_genes_kept",
+    "n_genes",
+    "seed",
+)
+
+#: One row per (cohort, true fraction). The G4 operating characteristic at the
+#: cohort sizes that exist — handoff §5 task 3. Deterministic (exact binomial);
+#: the measured bootstrap band widths ride in the sidecar rather than here,
+#: because they are medians over replicates and not one row per anything.
+GATE_COST_COLUMNS: Final = (
+    "cohort",
+    "n_patients",
+    "true_fraction_below",
+    "p_gate_says_pass",
+    "largest_clean_pass",
+    "effective_decision_line",
+)
+
+#: One row per (regime, ambient fraction, replicate, term). Handoff §5 task 7 —
+#: what residual ambient contamination does to a decomposition whose truth is
+#: known. ``truth_is_zero`` comes from the regime's DESIGN, never from the
+#: realised value; see AmbientRegime.parametric_zero_terms for why that matters.
+AMBIENT_COLUMNS: Final = (
+    "regime",
+    "ambient_fraction",
+    "replicate",
+    "weighting",
+    "term",
+    "truth_is_zero",
+    "value_clean",
+    "value_contaminated",
+    "n_cells_mature",
+    "seed",
+)
+
 _SHAPES: Final = {
     "attenuation": ATTENUATION_COLUMNS,
     "bakeoff": BAKEOFF_COLUMNS,
     "calibration": CALIBRATION_COLUMNS,
     "controls": CONTROLS_COLUMNS,
+    "g1_amendment": G1_AMENDMENT_COLUMNS,
+    "gate_cost": GATE_COST_COLUMNS,
+    "ambient": AMBIENT_COLUMNS,
 }
 
 

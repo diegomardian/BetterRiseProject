@@ -1,0 +1,356 @@
+# W2 handoff — for whoever picks this up next
+
+**Written 2026-08-26 by the outgoing W2 agent, running low on context.**
+You are taking over **W2 (Method / harness)**. Read this, then
+[CLAUDE.md](../CLAUDE.md), then [src/harness/README.md](../src/harness/README.md).
+
+Everything below is either verified or explicitly flagged as unverified. Where I
+was wrong, it says so — those entries are the most useful ones.
+
+---
+
+## 0 · Status since this document was written — 2026-08-26, incoming W2
+
+Appended rather than edited into §5, so the handoff stays the record of what was
+known when it was handed over. Two of its priorities have moved.
+
+**§5 task 1 (#35, the namespace-blind guard) is mostly not W2's any more.** W1
+implemented it on `w1/decision-17-g1-threshold`, **PR #33, still open, with
+`diegomardian` as the requested reviewer.** `assert_no_target_leakage` now
+detects each side's identifier space, raises the new `LeakageGuardError` when
+they differ and no `alias_map` is given, and refuses to drop an untranslatable
+target symbol. The `except Exception` in the S-matrix build that made a leak and
+an unfirable guard both read as `{rung} skipped` is re-raising. The four
+`0.1.0-pilot` S matrices are retracted on that branch.
+
+What is still W2's out of task 1:
+
+- **`src/harness/bakeoff.py:79`** passes `signature.index` with symbol
+  `target_genes` — the same vacuous call, in W2's own file. Its fixtures are
+  symbol-keyed so its tests stay green; against a real Ensembl S matrix it will
+  raise `LeakageGuardError` once #33 lands. W1 flagged it rather than touching it
+  (CONTRIBUTING §2). It needs an `alias_map` from `config/gene_index/*.map.tsv`.
+- The regression test W2 promised on #35 — an Ensembl id in a symbol-indexed
+  matrix, required to raise.
+
+**§5 task 2 (#36, the compositional cutpoint) is implemented** — see decision
+**#22** in `docs/open_decisions.md`, `classify_compositional_estimability` /
+`estimability_verdicts` / `classify_counts_frame` in `src/harness/positivity.py`,
+tests in `tests/test_positivity.py`.
+
+The values are exactly as pre-committed on #36 (`n_cells_resolved`: ok ≥50, wide
+20–49, not_estimable <20). **The decision number is not**: it was announced as
+#21, and W1 had taken 21 twenty-five minutes earlier for the broad/narrow
+invariant-2 reading. Only the index moved.
+
+**The caveat published with that pre-commitment was inverted, and the correction
+is the useful part.** It claimed the compositional gate "can only ever bind on
+rows where the intrinsic arm is already `ok`". Mature cells are a subset of
+resolved cells, so the implication runs the other way: on W1's 928-row
+`mature_cell_counts_full.parquet` the gate binds on **0** rows where the intrinsic
+arm is `ok` and **108** where it is not. It adds a second reason to distrust rows
+that were already flagged, and rescues nothing.
+
+### Since then, same day
+
+**§5 task 3 — the gate re-costed at real n. Done** (`src/harness/gate_cost.py`,
+gate memo §9). This was promised to W4 twice.
+
+- **Decision #19's PASS survives**: 6/36 = 16.7%, CI [7.9%, 31.9%]; a defensible
+  PASS at n=36 allows up to 12 below threshold. This was the thing worth checking.
+- **G4 is not answerable on SMC.** At n=10 a defensible PASS needs ≤1 of 10.
+- `gate_g4_verdict` now returns a Wilson interval and a `resolvable` flag beside
+  `passes`. **The 0.50 rule is unchanged** — the point is that "PASS" and "PASS,
+  and this cohort could not have said otherwise" stop reading the same.
+- Correction posted to decision #19: the mixed verdict (32/62 = 51.6%) has CI
+  [39.4%, 63.6%], which contains 0.50, so it is *indeterminate*, not the clean
+  FAIL recorded. The decision is unchanged; its framing was overstated.
+- Cohort band widening is mild: ×1.2 at n=36, ×2.0 at n=10, all three terms
+  together, slightly under 1/√n.
+
+**§5 task 4 — the `raw_counts` seam. Done.** `reference_profiles` had
+`exclude_genes=()` as its default, so a caller who forgot got the panel in their
+deconvolution reference and no complaint. It now refuses a call that does not say
+which of the two matrices it is building, and an empty `exclude_genes` too. The
+new guard **fired on an existing test** that used the unsafe default, which is
+the best evidence it can fire at all.
+
+**Issue #37 — a new one, addressed to W2, and it was the largest job.** W1 cannot
+ratify its own pre-registration, so the harness did it: `g1_amendment.py`, five
+worlds with known truth. The amendment is sound and is ratified — but the
+finding is that **threshold 2's power depends on an unstated premise**. See
+gate memo §0.2. Also: `scipy.stats.spearmanr` on one observation returns `nan`,
+and `abs(nan) > 0.5` is `False`, so decision #17 would not have errored on tier D
+— it would have *passed* it.
+
+**§5 task 7 — the ambient-sensitivity sweep for G1. Done**
+(`src/harness/ambient_sensitivity.py`, gate memo §10). This was the job §0 of the
+memo kept naming as "the obvious next one".
+
+At decision #16's 10% exclusion cap: real terms retain **94%**, and a
+compositional-only world acquires an intrinsic term worth **4.6%** of its
+compositional one. The artefact is **one-directional and structurally so** —
+ambient can invent silencing, it cannot invent depletion, because the
+compositional term is a function of the mature-fraction *difference* and
+contamination moves means rather than fractions.
+
+Two things to carry forward: the numbers are a **lower bound** (labels are not
+perturbed, only expression), and the two known artefacts push in **opposite**
+directions — bulk attenuation shrinks the intrinsic term, ambient inflates it.
+
+**With that, every unblocked item on §5 is done.** What is left is 5, 6 and 8.
+
+**And their blocker is not the one §5 records.** The table says task 5 is blocked
+by "cell-level raw counts", and the gate memo's §8 said the `lee_io` accessor was
+"waiting on W4". Neither is true: [open_decisions #8](open_decisions.md) is
+**closed**, `w2/lee-raw-counts` merged at `9513186`, and W4 reviewed it on
+2026-08-22 — *"correct, and it is the option this entry recommended."*
+
+What is missing is the **data**. `data/raw/` is gitignored and the 687 files in
+`data/manifest.csv` are not present on every machine, so there is nothing local
+to run the harness against. That is logistics, not a decision, and whoever picks
+this up should ask for the files rather than re-litigating an accessor that
+landed four days ago.
+
+W4's review of #8 ended with a wish — *"W4 would rather it were an assertion than
+a note, but the assertion belongs on the consumer, which is W2's module."* That
+assertion now exists: `ReferenceSeamError`.
+
+### The data arrived, and §5 task 5 turned into something else
+
+**`data/raw/` was empty because nothing travels in git.** The manifest is the
+contract; the bytes are not in it. The four Lee files are public GEO URLs with
+sha256s already recorded — fetched and verified 4/4 in under a minute. If you are
+setting up a new machine, that is all it takes for Lee. **GSE178341 and ICBI have
+no manifest rows at all**, which is [#43](https://github.com/diegomardian/BetterRiseProject/issues/43).
+
+**SMC loads: 39,094 cells, 10 paired patients**, confirming the cohort size.
+
+**Task 5 did not produce an attenuation curve, and should not have.** The first
+real-data run found that the maturity labels on Lee are **not separable from
+sequencing depth** — [#44](https://github.com/diegomardian/BetterRiseProject/issues/44),
+gate memo §11. The axis is inverted, so a cell that sampled zero stem markers
+scores maximally mature; 32% of epithelial cells are in that state; they are 4.7x
+shallower than the rest; and normal epithelium is 4.3x shallower than tumour in 9
+of 10 patients. Result: normal reads 71% mature against tumour 25%, a 46-point
+apparent compositional loss in the hypothesised direction, from dropout.
+
+**Do not run a decomposition on these labels, even as preliminary.** The number
+would be large, clean-looking and in the direction everyone expects. W1's
+labeller already depth-matches and marks shallow cells `unresolved`; W4's does
+not. Either port it or rebuild the labels.
+
+`src/harness/depth_confound.py` makes this detectable without anyone looking. It
+is a **diagnostic, not a gate criterion** — G1-G4 are pre-registered and this is
+not among them.
+
+**Also worth knowing:** `cell_type_vector` in W1's `labels.py` cannot read W4's
+label columns at all (`label_{axis}_{rung}` categorical vs `mature__{axis}__{rung}`
+boolean). The helper whose docstring warns against hand-mapping is unusable
+across the seam, so every consumer hand-maps. That is decision #13, concretely.
+
+**Still blocked on PR #33** (open, W1's, needs a review): `bakeoff.py:79` and the
+#35 regression test cannot be written against `main`, because `alias_map` does
+not exist there yet.
+
+**One thing left open by it**, and it is a genuine decision rather than a task:
+#36's stated exposure — enough mature cells to clear `ok`, too few resolved cells
+for the fraction to carry much — is *structurally empty* under a count cutpoint.
+Reaching it needs a cutpoint on `unresolved_fraction`. Measured size on this
+cohort: **4 rows in 2 patients (C124, C130) pass both count gates with more than
+half the epithelium unresolved**; none above 60%. **Declined in writing** in #22,
+with the three conditions that would reopen it — so it is a measured size on the
+record rather than something the gate discovers.
+
+---
+
+## 1 · Start here — the five-minute orientation
+
+```bash
+git pull
+export PATH="$PATH:/c/Program Files/GitHub CLI"   # gh needs this on this machine
+pytest -q                                          # ~3 min, expect ~909 passed
+ruff check src tests
+gh issue list --state open
+gh pr list --state open
+```
+
+**Verify in a clean venv before claiming CI is green.** This has caught four
+separate breaks and your local conda env will lie to you:
+
+```bash
+python -m venv /tmp/ci && /tmp/ci/bin/pip install -e ".[dev]" && /tmp/ci/bin/pytest -q
+```
+
+The project decomposes differentiation-marker loss in colorectal cancer into
+**compositional** (mature cells gone), **cell-intrinsic** (cells present but
+silenced), and **not estimable** (too few mature cells to ask). The third
+segment is the contribution — every other method returns a number regardless.
+
+W2 owns the **simulation harness**: the only place true ground truth exists, and
+the stream that adjudicates the week-5 gate (G3 entirely; G2 and G4 read against
+W2's cutpoints).
+
+---
+
+## 2 · What W2 has built, and what it is worth
+
+All in `src/harness/`, all tested, all on `main`.
+
+| Module | What it does | Trust level |
+|---|---|---|
+| `truth.py` | Analytic Kitagawa terms; parametric vs realised truth | solid |
+| `pseudobulk.py` | Generator: patient holdout, composition draw, multiplicative shift on integer counts | solid |
+| `interval.py` | **Within-patient** bootstrap CI — the only kind a positivity cutpoint can calibrate on | solid, read its docstring on invariant 5 |
+| `calibration.py` | Derives cutpoints from pre-registered coverage/discrimination | works; numbers not yet meaningful (see §4) |
+| `attenuation.py` | The §2.2 sweep, oracle + bulk arms | solid |
+| `bulk_recovery.py` | The thing invariant 6 forbids *using*, measured | solid |
+| `bakeoff.py` | Deconvolution ranking, signature-width comparison | solid |
+| `controls.py` | Negative controls incl. the label-blind reference | solid |
+| `rungs.py` | Does the estimator separate granularity rungs? | solid |
+| `positivity.py` | The cutpoints. **W4 imports `classify_estimability` — do not fork it.** | solid |
+
+### Results that are real and worth quoting
+
+- **Bulk over-reports where the truth is undefined.** 41 of 80 `not_estimable`
+  rows got a confident number, median |intrinsic| 103.5. Structural: bulk cannot
+  count cells, so it cannot apply a positivity rule *or* form a per-patient
+  interval. This is the project's thesis, measured, and it survives every caveat.
+- **The estimator separates rungs when the truth says it should** — 33% relative
+  gap on intrinsic, 45% on compositional; bit-identical (`0.00e+00`) when the
+  partitions are the same. So W1's observed degeneracy is about the *labels*, not
+  the estimator.
+- **Granularity reallocates rather than changes the total.** Coarse
+  (−6.58, −11.79), fine (−11.97, −7.87), total roughly conserved. That is §6.2's
+  "divergence is the contribution", demonstrated where truth is known.
+- **G4 flips on population choice**: matched-only (36) = 16.7% PASS; mixed (62) =
+  51.6% FAIL. Decision #19 settled it as matched-only.
+
+---
+
+## 3 · Things I got wrong — read these first
+
+**I published an acceptance check that could not fail.** I verified W1's four S
+matrices for panel-gene leakage by intersecting `panel_genes()` (symbols) with an
+S-matrix index that is **Ensembl IDs**. Two disjoint namespaces, so it returned
+`none` every time and I reported PASS. GUCA2A, CDX2, SFRP1 and SFRP2 are in all
+four; `best4` also has GUCA2B, CA7, OTOP2. **See issue #35 — it is open and it is
+the highest-priority correctness item on W2's plate.**
+
+The general lesson, which cost this project four separate bugs in a week: **a
+guard that cannot fail is worse than no guard.** `assert_no_target_leakage` in
+`src/reference/signature.py` is namespace-blind and `build_signature` calls it
+four times, all vacuous.
+
+**The permutation control was wrong twice** before it was right. v1 shuffled
+labels before generating (silencing a random subset — a real effect, not a null).
+v2 shuffled at estimation time and read 63%, which is *also* correct because
+silencing 40% of cells moves the mean of any random subset. Only v3 — testing
+against a **label-blind reference arm** — is a real control. If you are tempted
+to assert a permutation control goes to zero, re-read `controls.py`'s docstring.
+
+**Coverage was scored against the wrong truth** and came back a flat 1.0,
+because the oracle estimate reproduces realised truth exactly, so I was asking
+whether a percentile interval contains its own centre. It must be scored against
+**parametric** truth.
+
+---
+
+## 4 · The bug family that keeps recurring
+
+Four instances in one week, three workstreams, **all leaning toward the project's
+hypothesis**:
+
+1. **W4:** pooled MAD retention cut tumour epithelium 62% vs 88.5% normal —
+   epithelium is 3.9× deeper than immune, immune sets the median, so the filter
+   discarded epithelial cells for being epithelial. Inflates apparent
+   compositional loss.
+2. **W4:** label thresholds computed over all compartments; non-epithelial cells
+   score as maximally mature on the inverted axis and drag the cut.
+3. **W2:** `gate_g4_verdict` over a mixed matched/unmatched population — flips
+   the gate.
+4. **W1 (caught pre-emptively):** testing `unresolved_fraction` on 168 rows that
+   are 28 patients counted six times.
+
+**Shape: a cutoff or statistic computed over a mixed population, then applied to
+a subgroup.** Never crashes; produces plausible wrong numbers.
+
+**W2's code has been audited** — every other aggregation is computed *within* a
+defined group. **W3 and W1 have not been audited by anyone.** That is an open
+task and I think it is the highest-value unglamorous work left.
+
+---
+
+## 5 · What is left for W2, in priority order
+
+| # | Task | State | Blocked by |
+|---|---|---|---|
+| 1 | **Fix the namespace-blind leakage guard** (#35) — resolve both sides through `config/gene_index/*.map.tsv`, raise on unresolvable IDs; add a regression test that puts an Ensembl ID in a symbol-indexed matrix | **not started, highest priority** | nothing |
+| 2 | **Compositional-arm cutpoint** (#36) — I publicly pre-committed to `n_cells_resolved`: ok ≥50, wide 20–49, not_estimable <20, as decision **#21**. **Implement exactly that; do not re-choose the number.** | committed, not implemented | nothing |
+| 3 | **Re-cost the gate at real n** — bootstrap CI width at n=10 (SMC) / 36 (GSE178341 matched) vs the assumed 60. I promised this to W4 twice. | not started | nothing |
+| 4 | **Harden the `raw_counts` seam** — `LeeCohort.raw_counts` deliberately contains the panel, so it is one `reference_profiles()` call from an invariant-2 violation | not started | nothing |
+| 5 | Real-data attenuation curve | not started | cell-level raw counts |
+| 6 | Recalibrate cutpoints on a denser 5–50 grid | not started | 5 |
+| 7 | Ambient-sensitivity sweep for G1 (CellBender cannot run — no empty droplets) | not started | nothing |
+| 8 | Final gate memo | drafted, synthetic only | 2, 3, 5, 6 |
+
+`docs/gate_memo_w2.md` exists and is **marked DRAFT ON SYNTHETIC DATA**. Keep
+that marking until real cells are in it.
+
+---
+
+## 6 · Cross-workstream state
+
+**W1 (Bode)** — very productive. Pilot run, four S matrices, inferCNV malignancy,
+ambient across 62 patients. Open: **#14 blocks the headline** (neither labelling
+method is a clean maturity measure); the epithelial rung's compositional term is
+**structurally zero** (`mature_fraction` = 1.0 by construction — a denominator
+choice); `lineage` ≡ `crypt_position` on `stem_pole` but **not** on
+`opposite_lineage` (0.3711 vs 0.5326), so the granularity curve lives on axis 2.
+
+**W3 (Jeremy)** — furthest along. Headline: **bulk GUCA2A loss is continuous, not
+bimodal** (dip p 0.851/0.919/0.982), replicated in GSE39582 across a different
+platform. This does *not* threaten the decomposition — ours is continuous-valued
+already — it kills classifying patients from bulk.
+
+**W4** — decisions #9/#10 resolved and merged. `doubly_robust` renamed to a
+pooled-reference split; the interaction column now carries the real cross term,
+so those three columns no longer sum to total (use `ADDITIVE_WEIGHTINGS` /
+`identity_residual()`, do not hard-code). Deliberately produced **no decomposition
+results** pending #14 — a defensible call the gate should know about.
+
+**Cohort sizes are much smaller than the plan assumes.** GSE178341: 36 matched of
+62 (~30 unsorted in both arms). SMC: 10 paired, not 23. Everything downstream was
+designed for ~60. **Nobody has re-costed the gate.**
+
+---
+
+## 7 · Process facts that will save you time
+
+- **`docs/open_decisions.md` has eight duplicate section numbers** (9–16 each
+  appear twice) because three workstreams took the next free number
+  independently. References by number are ambiguous. W2 offered a renumbering
+  pass; W4 has no objection, W1 has not answered. Use ≥20 for new entries.
+- **CODEOWNERS still has placeholder handles.** The one file every workstream
+  edits (`[project.optional-dependencies]`) has broken `main` twice. Raised four
+  times, still open as decision #5. It is the repo owner's to fix.
+- **Any new third-party import must go in the `dev` extra.**
+  `tests/test_dependencies.py` walks the AST and will catch you, including lazy
+  imports inside functions.
+- Never push to `main` without a clean-venv run. Branch names are `w2/…`.
+
+---
+
+## 8 · Open questions I did not get answers to
+
+1. Should W4 emit decomposition numbers now against current definitions, with
+   `quotable=False`, so the gate has something? (I said yes to the cheap version.)
+2. Who audits W1's and W3's code for the §4 bug family?
+3. Does the gate need formal re-costing at 10 / 36 patients — and who decides?
+4. Is the four-resolution curve becoming a two-point finding an acceptable
+   headline change? W2 and W4 both think it is publishable as a finding; nobody
+   has decided it on purpose.
+5. NeurIPS: **WMHS** (Atlanta, deadline **Sept 1**, 4pp) is the best fit — its CFP
+   names *abstention* and *selective prediction*. Backup: **AI & Science**
+   (Atlanta, Sept 7, 4/8pp), which lists "measuring properties that admit no
+   ground truth". Nobody has decided whether to submit.

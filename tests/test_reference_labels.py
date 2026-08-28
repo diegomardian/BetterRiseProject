@@ -22,6 +22,8 @@ import pytest
 
 from src.common.panel import axis_genes, panel_genes
 from src.reference.labels import (
+    AXIS_INTERPRETATION,
+    AXIS_REFERENCE_PATTERN,
     BEST4_MARKERS,
     NON_EPITHELIAL,
     RUNG_SPECS,
@@ -32,8 +34,10 @@ from src.reference.labels import (
     assign_labels,
     axis_tie_fraction,
     cell_type_vector,
+    compositional_stability,
     describe_labels,
     differential_resolution,
+    epithelial_annotation_levels,
     label_column,
     label_columns,
     label_depth_confounding,
@@ -649,6 +653,144 @@ class TestTheMeasurementTravelsWithTheNumber:
         assert len(out) == len(summary) * 3
 
 
+class TestEachAxisIsJudgedAgainstItsOwnClaim:
+    """Axis 2 scored kappa -0.27 against a stem-vs-rest criterion. That measured
+    a definitional mismatch, not the axis: axis 2 calls goblet cells immature
+    and stem cells mature, so anti-agreement is the expected result of asking it
+    a question its markers cannot answer."""
+
+    def _labels(self, cohort):
+        matrix, compartment, sample_id, truth = cohort
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=sample_id,
+            target_genes=TARGETS,
+        )
+        return labels, truth
+
+    def test_every_transcript_axis_has_a_criterion(self):
+        assert set(TRANSCRIPT_AXES) <= set(AXIS_REFERENCE_PATTERN)
+
+    def test_the_two_axes_do_not_share_a_criterion(self):
+        """Sharing one is precisely the bug this replaced."""
+        assert (
+            AXIS_REFERENCE_PATTERN["stem_pole"]
+            != AXIS_REFERENCE_PATTERN["opposite_lineage"]
+        )
+
+    def test_axis_two_is_scored_against_goblet_not_stem(self, cohort):
+        """The synthetic cohort has a real goblet population, so axis 2 should
+        recover it — and would score near zero against a stem criterion."""
+        labels, truth = self._labels(cohort)
+        annotation = np.where(truth == "goblet", "cE07 (Goblet)", "cE05 (Enterocyte)")
+        own = annotation_concordance(
+            labels, annotation, axis="opposite_lineage", rung="lineage"
+        )
+        borrowed = annotation_concordance(
+            labels, annotation, axis="opposite_lineage", rung="lineage",
+            immature_pattern=AXIS_REFERENCE_PATTERN["stem_pole"],
+        )
+        assert own["kappa"] > borrowed["kappa"]
+
+    def test_an_unknown_axis_refuses_rather_than_borrowing(self, cohort):
+        labels, truth = self._labels(cohort)
+        with pytest.raises(LabelError, match="no reference criterion"):
+            annotation_concordance(
+                labels, np.full(len(labels), "x"), axis="chromatin"
+            )
+
+    def test_the_levels_helper_shows_what_the_regex_must_match(self, cohort):
+        """A regex that matches nothing fails silently and reports a confident
+        zero, so the actual strings have to be inspectable."""
+        labels, truth = self._labels(cohort)
+        annotation = np.where(truth == "goblet", "cE07 (Goblet)", "cE05 (Enterocyte)")
+        levels = epithelial_annotation_levels(labels, annotation)
+        assert len(levels) >= 1
+        assert levels.sum() > 0
+
+
+class TestCompositionalStability:
+    """The depth target is a nuisance parameter. If Delta depends on it, the
+    estimand is not identified from this data."""
+
+    def _counts(self, deltas):
+        """One patient per supplied delta-sequence, keyed by depth target."""
+        frames = {}
+        for i, delta in enumerate(deltas):
+            rows = []
+            for patient, value in delta.items():
+                for tissue, frac in (("normal", 0.5), ("tumour", 0.5 + value)):
+                    rows.append({
+                        "patient_id": patient, "tissue": tissue,
+                        "labeling_axis": "stem_pole", "granularity_rung": "lineage",
+                        "mature_fraction": frac,
+                    })
+            frames[1000 * (i + 1)] = pd.DataFrame(rows)
+        return frames
+
+    def test_a_sign_flip_is_not_identified(self):
+        """C165's actual failure: +0.14 at one target, -0.05 at another."""
+        counts = self._counts([{"C165": 0.14}, {"C165": -0.05}, {"C165": 0.02}])
+        out = compositional_stability(counts)
+        assert not out.iloc[0]["identified"]
+        assert not out.iloc[0]["sign_stable"]
+
+    def test_a_stable_sign_is_identified(self):
+        counts = self._counts([{"P1": -0.50}, {"P1": -0.56}, {"P1": -0.44}])
+        out = compositional_stability(counts)
+        assert bool(out.iloc[0]["identified"])
+        assert out.iloc[0]["delta_range"] == pytest.approx(0.12)
+
+    def test_magnitude_may_move_without_losing_identification(self):
+        """A detection-gate fraction legitimately changes size with the gate.
+        Direction is what must hold."""
+        counts = self._counts([{"P1": -0.10}, {"P1": -0.60}, {"P1": -0.35}])
+        out = compositional_stability(counts)
+        assert bool(out.iloc[0]["identified"])
+
+    def test_one_target_cannot_answer_the_question(self):
+        counts = self._counts([{"P1": -0.5}])
+        with pytest.raises(LabelError, match="at least"):
+            compositional_stability(counts)
+
+    def test_a_constant_zero_is_degenerate_not_unstable(self):
+        """The `epithelial` rung has mature_fraction 1.0 in BOTH arms by
+        construction, so Delta is exactly 0 at every target. That is an
+        identified zero, not a failed sign test."""
+        counts = self._counts([{"P1": 0.0}, {"P1": 0.0}, {"P1": 0.0}])
+        out = compositional_stability(counts).iloc[0]
+        assert bool(out["degenerate"])
+        assert out["verdict"] == "degenerate_by_construction"
+        assert not bool(out["identified"])
+
+    def test_a_dropped_out_patient_is_not_called_sign_unstable(self):
+        """C138 survives q=0.10 and q=0.25 and vanishes at q=0.50. A missing
+        target is a different problem from a direction that moves."""
+        counts = self._counts([
+            {"P1": -0.30, "C138": -0.15},
+            {"P1": -0.40, "C138": -0.12},
+            {"P1": -0.35},
+        ])
+        out = compositional_stability(counts).set_index("patient_id")
+        assert out.loc["C138", "verdict"] == "insufficient_targets"
+        assert bool(out.loc["C138", "sign_stable"])
+        assert out.loc["P1", "verdict"] == "identified"
+
+    def test_a_real_flip_is_still_called_sign_unstable(self):
+        counts = self._counts([{"P1": 0.14}, {"P1": -0.05}, {"P1": 0.02}])
+        out = compositional_stability(counts).iloc[0]
+        assert out["verdict"] == "sign_unstable"
+
+    def test_patients_are_judged_separately(self):
+        counts = self._counts([
+            {"P1": -0.5, "C165": 0.14},
+            {"P1": -0.4, "C165": -0.05},
+            {"P1": -0.6, "C165": 0.02},
+        ])
+        out = compositional_stability(counts).set_index("patient_id")
+        assert bool(out.loc["P1", "identified"])
+        assert not bool(out.loc["C165", "identified"])
+
+
 class TestDifferentialResolution:
     """The depth floor must not cut one arm harder than the other.
 
@@ -700,6 +842,26 @@ class TestDifferentialResolution:
         counts = self._counts(normal_range=(20_000, 40_000), tumour_range=(20_000, 40_000))
         report = differential_resolution(counts)
         assert not report["flagged"].any()
+
+    def test_one_row_per_patient_not_per_axis_and_rung(self):
+        """The floor is applied before labelling, so it does not vary by axis
+        or rung. Eight identical rows per patient buries the outlier."""
+        counts = self._counts(
+            normal_range=(2_000, 6_000), tumour_range=(20_000, 40_000)
+        )
+        report = differential_resolution(counts)
+        assert len(report) == report["patient_id"].nunique()
+
+    def test_a_thin_reference_arm_is_flagged_even_without_a_gap(self):
+        """The reference arm is where the CUT POINTS come from, so its
+        surviving size matters on its own — a threshold set by a handful of
+        cells is applied to the whole tumour arm."""
+        counts = self._counts(
+            normal_range=(2_000, 6_000), tumour_range=(20_000, 40_000)
+        )
+        report = differential_resolution(counts, min_reference=10_000)
+        assert report["thin_reference"].all()
+        assert "n_resolved_reference" in report.columns
 
     def test_it_reports_both_arms_not_just_the_gap(self):
         counts = self._counts(normal_range=(2_000, 6_000), tumour_range=(20_000, 40_000))
@@ -1695,3 +1857,70 @@ class TestAnnotationConcordance:
         labels, _ = self._labels(separable=True)
         with pytest.raises(LabelError, match="entries for"):
             annotation_concordance(labels, ["cE01 (Stem/TA-like)"])
+
+
+class TestTumourArmDefinition:
+    """Open decision #15 and prereg amendment 1: report both definitions,
+    do not pick one."""
+
+    def _cohort(self, n=200):
+        rng = np.random.default_rng(5)
+        matrix = rng.poisson(4, size=(n, len(GENES))).astype(np.int64)
+        tissue = np.array(["normal"] * (n // 2) + ["tumour"] * (n - n // 2),
+                          dtype=object)
+        patient = np.full(n, "P1", dtype=object)
+        compartment = np.full(n, "epithelial", dtype=object)
+        labels = assign_labels(
+            matrix, GENES, compartment=compartment, sample_id=tissue,
+            target_genes=TARGETS, tissue=tissue, patient_id=patient,
+            axes=["stem_pole"], rungs=["lineage"],
+        )
+        return labels, patient, tissue, n
+
+    def test_filtered_needs_malignancy_calls(self):
+        labels, patient, tissue, _ = self._cohort()
+        with pytest.raises(LabelError, match="needs `malignant`"):
+            mature_cell_counts(labels, patient_id=patient, tissue=tissue,
+                               axes=["stem_pole"], rungs=["lineage"],
+                               tumour_arm="filtered")
+
+    def test_filtering_shrinks_only_the_tumour_arm(self):
+        """The normal arm's epithelium is supposed to be non-malignant —
+        filtering it would remove the reference the contrast is against."""
+        labels, patient, tissue, n = self._cohort()
+        malignant = (tissue == "tumour") & (np.arange(n) % 2 == 0)
+        unf = mature_cell_counts(labels, patient_id=patient, tissue=tissue,
+                                 axes=["stem_pole"], rungs=["lineage"]
+                                 ).set_index("tissue")
+        fil = mature_cell_counts(labels, patient_id=patient, tissue=tissue,
+                                 axes=["stem_pole"], rungs=["lineage"],
+                                 malignant=malignant, tumour_arm="filtered"
+                                 ).set_index("tissue")
+        assert fil.loc["normal", "n_cells_epithelial"] == unf.loc["normal", "n_cells_epithelial"]
+        assert fil.loc["tumour", "n_cells_epithelial"] < unf.loc["tumour", "n_cells_epithelial"]
+
+    def test_the_definition_is_recorded_on_every_row(self):
+        """A mature fraction is not comparable to one computed under the other
+        definition, so which was used has to travel with it."""
+        labels, patient, tissue, _ = self._cohort()
+        out = mature_cell_counts(labels, patient_id=patient, tissue=tissue,
+                                 axes=["stem_pole"], rungs=["lineage"])
+        assert set(out["tumour_arm"]) == {"unfiltered"}
+
+    def test_an_unknown_definition_refuses(self):
+        labels, patient, tissue, _ = self._cohort()
+        with pytest.raises(LabelError, match="tumour_arm must be"):
+            mature_cell_counts(labels, patient_id=patient, tissue=tissue,
+                               tumour_arm="malignant_only")
+
+    def test_axis_two_is_not_reported_as_a_maturity_axis(self):
+        """It reaches kappa 0.529 against its OWN criterion and calls stem cells
+        mature. Reporting its `differentiated` bin as maturity is the error."""
+        assert "NOT a maturity axis" in AXIS_INTERPRETATION["opposite_lineage"]
+        assert set(TRANSCRIPT_AXES) <= set(AXIS_INTERPRETATION)
+
+    def test_what_the_axis_measures_rides_on_the_row(self):
+        labels, patient, tissue, _ = self._cohort()
+        out = mature_cell_counts(labels, patient_id=patient, tissue=tissue,
+                                 axes=["stem_pole"], rungs=["lineage"])
+        assert (out["axis_measures"] != "").all()

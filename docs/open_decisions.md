@@ -10,11 +10,13 @@ for decisions that block or shape code.
 
 ---
 
-> ## ⚠ SIX DECISION NUMBERS MEAN TWO THINGS EACH — 2026-08-22
+> ## ⚠ NINE DECISION NUMBERS MEAN TWO THINGS EACH — first noted 2026-08-22, recounted 2026-08-28
 >
-> **#9, #10, #11, #12, #13 and #14 each appear twice in this file.** Not a merge
-> artifact to clean up silently: two workstreams numbered new decisions against
-> different views of the board and both have now merged.
+> **#9 through #17 each appear twice in this file.** Not a merge artifact to
+> clean up silently: workstreams numbered new decisions against different views
+> of the board and all of them have now merged. It was six when this warning was
+> first written; it has grown by three since, which is the argument for fixing it
+> rather than living with it.
 >
 > | # | One of them | The other |
 > |---|---|---|
@@ -24,18 +26,21 @@ for decisions that block or shape code.
 > | 12 | The 20% mito cap (W1) | `build_signature()` asserts on the whole index (W3) |
 > | 13 | W1 and W4 label cells differently (W1) | Bulk GUCA2A is continuous (W3) |
 > | 14 | Neither labelling axis is clean maturity (W1) | Plate explains the most variance (W3) |
+> | 15 | CNV malignancy calling may fail by MMR status (W1) | TSS and COAD/READ are nearly the same variable (W3) |
+> | 16 | Ambient: measure, do not correct (W1) | The CDR calls DSS "approximated" (W3) |
+> | 17 | G1's threshold, pre-committed (W1) | W3.6 covariate set — locked (W3) |
 >
-> Numbers 9–11 are already ambiguous **on `main`** as of 666bf60; 12–14 become
-> ambiguous when this branch merges. So **"see #13" currently does not identify a
-> decision**, and several commit messages and notes across all four workstreams
-> already use the bare number.
+> All nine are ambiguous **on `main` today**. So **"see #13" does not identify a
+> decision**, and bare numbers are already in commit messages, issue bodies and
+> notes across all four workstreams — including in text that has been quoted
+> back and acted on.
 >
 > **Not renumbered here on purpose.** Renumbering rewrites cross-references in
 > every workstream's notes and commit messages, which is a team decision, not a
-> tidy-up one person does inside their own PR. Proposal for the meeting: keep the
-> earliest-merged claim on each number, renumber the later one into the 20s, and
-> leave a redirect line at the old position. Ten minutes, once, by whoever the
-> team names.
+> tidy-up one person does inside their own PR. Proposal: keep the earliest-merged
+> claim on each number, renumber the later one into the 20s, and leave a redirect
+> line at the old position. Ten minutes, once, by whoever the team names — and
+> the cost of not doing it is growing at roughly three numbers a week.
 
 ---
 
@@ -113,6 +118,8 @@ Ranked by what breaks if they stay open. Seven are live.
 | **11** | Sorted samples | OPEN | Implemented, unratified. W4 must nod to the arm asymmetry. |
 | **8** | No unfiltered droplets | ANSWERED | CellBender out; SoupX + DecontX in. W4 has the same exposure on Lee. |
 | **2/3** | Shared gene index | **ANSWERED** | W3 measured the overlap: 39,236 genes in both, all 23 panel genes present. 1.0.0 = the intersection. Ratify, do not re-decide. |
+| **16** | Ambient: measure not correct; exclude >10% | **PRE-COMMITTED** | Median 2.2%, but 9 of 84 samples above 10%. Threshold set before counting its cost. |
+| **15** | CNV calling fails differentially by MMR status | **CONFIRMED** | 62-patient run: **15/15 MMRp separable, 15/20 MMRd**, monotone across four strata, 3x enrichment gap. Bias runs **along** the pre-registered contrast. |
 | — | CNV reference design | NEEDS SIGN-OFF | Matched normal with 30% held out. **Corrected once** — see `src/reference/malignancy.py`. |
 
 Not decisions, but outstanding and cheap: tell W3 the gene index is emitted at
@@ -277,6 +284,52 @@ the intersection**, with each arm keeping its own full matrix for its own work.
 
 Input recorded in `data/manifest.csv` with a sha256. Run from `origin/main` at
 666bf60, which carries both `check_gene_index.py` and the 0.9.0 map file.
+### EMITTED — 2026-08-25
+
+Both arms agreed in writing and nobody committed the file, so `config/gene_index/`
+held only `0.9.0` for three days while
+`src/reference/jobs/run_full_reference.py` — which hard-codes
+`GENE_INDEX_VERSION = "1.0.0"` — printed *"no gene index 1.0.0 … S matrices
+skipped"* on every run. The decision was not the bottleneck; the commit was.
+
+`config/gene_index/gene_index_1.0.0.{txt,map.tsv}`, built by
+[`src/bulk/shared_index.py`](../src/bulk/shared_index.py):
+
+| Side | Genes | On both | Lost |
+|---|---|---|---|
+| bulk (W3, GENCODE v36) | 60,616 | 39,236 | 21,380 · 35.3% |
+| reference (W1, GSE178341) | 43,113 | 39,236 | 3,877 · 9.0% |
+| **shared index 1.0.0** | **39,236** | 39,236 | 0 |
+
+It is 0.9.0 **filtered**, not rebuilt — same symbols, gene types,
+`symbol_ambiguous` and `on_panel`, same order — so identifier decisions keep one
+source of truth. **23/23 panel genes survive**, and the emitter refuses to write
+an index that has lost one. W1's own `check_gene_index.py --version 1.0.0` now
+reports `bulk only 0 (0.0%)`: nothing on the shared index is undeconvolvable,
+which was the whole argument for the intersection over either native set.
+
+0.9.0 stays committed — results reference it through the sha they were written
+under, and deleting it makes those unreproducible. It is superseded, not retired.
+
+> **This does not unblock the S matrices, and what it uncovered is worse.**
+> Two things, both measured, both raised as an issue because `src/reference/` is
+> W1's:
+>
+> 1. `run_full_reference.py:208` passes `adata.var["gene_symbol"]` as
+>    `gene_names` while the index is Ensembl-keyed, so `build_signature_sparse`
+>    raises *"no gene in the matrix appears on the shared gene index"* — the
+>    error this decision's own §3 predicted. `run_pilot.py` used
+>    `var["ensembl_id"]` and was right; the full-scale job regressed.
+> 2. **Every invariant-2 guard is inert in Ensembl space.**
+>    `assert_no_target_leakage` intersects target *symbols* with a *gene-id*
+>    list. `set(["GUCA2A"]) & set(["ENSG00000197273"])` is empty, so all four
+>    call sites pass unconditionally — and **GUCA2A is in all four committed
+>    pilot S matrices**, with `S_matrix_best4` carrying all four tier-A targets.
+>
+> Note this makes `docs/decision_12_signature_filter.patch` insufficient as
+> written: it filters `gene_index` by `targets` and is inert for the same
+> reason. The guard has to resolve panel symbols into the index's key space
+> first, which is what `resolve_symbols` and the 1.0.0 map are for.
 
 ---
 
@@ -383,7 +436,39 @@ than chosen. See [harness_design_spec.md §4](harness_design_spec.md).
 
 ---
 
-## 8 · The harness needs raw counts; `lee_io` emits CP10K — OPEN
+## 8 · The harness needs raw counts; `lee_io` emits CP10K — CLOSED (a), W4 REVIEWED
+
+> ### W4's retrospective review, 2026-08-22 — approved as merged
+>
+> `w2/lee-raw-counts` (`9513186`) landed in W4's module on the repo owner's
+> instruction because it blocked every harness run on real cells. W4 was asked
+> to review it after the fact. **Verdict: correct, and it is the option this
+> entry recommended.** Nothing to change.
+>
+> What W4 checked, rather than what the commit message claims:
+>
+> | Claim | Checked |
+> |---|---|
+> | No existing default changes | `keep_raw_counts=False` and `extra_genes=()`; both branches of the field are hit by the six tests, and the pre-existing tests were untouched |
+> | `raw_counts` is integer counts, not CP10K | `expression_counts` is captured before the `.div(library_size)` line and cast to `Int64` — the nullable dtype is the right call, it makes the scale visible in a `dtypes` dump |
+> | The two frames align | same index and columns by construction — both derive from `expression_counts` after the same two filters, so they cannot drift apart without a code change that breaks the alignment test |
+> | `extra_genes` cannot leak a target into the labels | it widens `genes_of_interest`, which reaches `label_cohort` only through `expression`; the leakage guard is on the *marker* list, not the matrix width, so widening is safe. Confirmed by the sixth test |
+>
+> One thing the commit message understates. `raw_counts` carrying the target
+> genes is called out as a note for callers building a reference matrix, but it
+> is the one sharp edge in the change: a frame that deliberately contains the
+> panel is one `reference_profiles()` call away from an invariant-2 violation,
+> and the protection lives in W2's `exclude_genes=` argument rather than here.
+> The field docstring says so. W4 would rather it were an assertion than a note,
+> but the assertion belongs on the consumer, which is W2's module — so this is
+> a comment on the seam, not an objection to the diff.
+>
+> **The CP10K/counts distinction is real and worth restating**: `expression`
+> stays the right input for `decompose_cohort` (Kitagawa is additive, it needs a
+> linear depth-normalised scale) and the wrong one for the pseudobulk generator
+> (binomial thinning is defined on counts). Both frames exist because both are
+> correct for their own consumer. Neither is a fallback for the other.
+
 
 **Raised:** W2, 2026-08-15, reviewing `w4/estimator-core` · **Owner:** W2 + W4 ·
 **Needed by:** week 2, before the harness runs on real cells
@@ -424,7 +509,66 @@ expression distributions, so this should not drift past week 3.
 
 ---
 
-## 9 · `doubly_robust` folds the interaction into both arms — OPEN
+## 9 · `doubly_robust` folds the interaction into both arms — DECIDED (c)+(b), W4
+
+> ### W4's answer, 2026-08-22 — recommendation adopted, implemented
+>
+> **(c) and (b), as recommended.** W2 was right on both halves and W4 does not
+> want the "keep it" outcome the entry offers.
+>
+> **(c) — it is a pooled-reference split and it is now called one.**
+> `_doubly_robust_split` is renamed `_pooled_reference_split`, and its docstring
+> says outright that the name is a misnomer: there is no propensity model and no
+> outcome regression, so nothing here is robust to either being misspecified.
+> Kline (2011) shows the pooled reference is *equivalent to a reweighting
+> estimator*, which is where the framing came from and is not the same claim.
+>
+> **The label `weighting="doubly_robust"` stays.** It is in `WEIGHTINGS` in
+> `src/schema.py`, which is frozen (invariant 3), asserted in
+> `tests/test_freeze.py`, and already written into W3's committed results.
+> Renaming the enum is a `shared/…` PR with two approvals that invalidates
+> existing parquet to fix a word. **Not worth it, and W4 says so rather than
+> leaving it looking like an oversight** — the code, the docstring and this
+> entry all now say what the estimator is; the frozen string is a name, not a
+> claim. If the team wants the enum renamed too, that is a separate PR and W4
+> will write it.
+>
+> **(b) — the `interaction` column now carries the real cross term Δf·Δm**,
+> not `0.0`. The measured consequence, which is the honest cost of the fix:
+>
+> | weighting | comp | intr | interaction | identity that closes |
+> |---|---|---|---|---|
+> | normal | −3.0000 | −2.4000 | +1.8000 | comp + intr + interaction = total |
+> | tumour | −1.2000 | −0.6000 | −1.8000 | comp + intr + interaction = total |
+> | doubly_robust | −2.1000 | −1.5000 | **+1.8000** | **comp + intr = total** |
+>
+> For the pooled split the three columns no longer sum to the total, because the
+> two arms already contain half the cross term each. That is a real cost and W4
+> is not hiding it: `interaction` means "the cross term these arms absorbed"
+> for this one weighting and "the residual" for the other two. The alternative
+> — leaving `0.0` — meant one column lying instead of one column being
+> weighting-dependent, and a reader who mis-sums gets a visibly wrong total
+> where a reader who trusted `0.0` got a silently shrunken intrinsic term.
+>
+> Three things make the seam hard to trip over:
+> `kitagawa.ADDITIVE_WEIGHTINGS` names the two three-term weightings;
+> `kitagawa.identity_residual(d, total)` applies the right identity for you and
+> raises rather than answering `0.0` on a `None` arm; and the module docstring
+> leads with the table above. Five tests cover it, including one asserting
+> `comp_pooled = comp_normal + interaction/2` so the folding is legible in the
+> suite rather than only in prose.
+>
+> **Invariant 7 is not amended and did not need to be.** It says the interaction
+> is reported separately and never folded into either arm. The pooled split
+> folds — that is what a symmetric two-term split *is* — so what it now does is
+> report, separately, exactly what it folded. Option (a)'s frozen-doc PR is not
+> needed for that reading, and W4 would rather leave the invariant as the strict
+> statement it is.
+>
+> The genuine AIPW estimator remains unbuilt and now unblocked from confusion:
+> if one is ever fitted on cell-level covariates it is a **new** weighting with
+> a new label, not a redefinition of this one.
+
 
 **Raised:** W2, 2026-08-15, reviewing `d9c08c0` · **Owner:** W4 + W2 ·
 **Needed by:** before any decomposition result is written with
@@ -476,7 +620,37 @@ term in the interaction column rather than zero. Neither needs new maths.
 
 ---
 
-## 10 · Which interval goes in the schema's `ci_low`/`ci_high` — W2 PROPOSES, W4 TO CONFIRM
+## 10 · Which interval goes in the schema's `ci_low`/`ci_high` — CONFIRMED by W4
+
+> ### W4 confirms, 2026-08-22 — no objection, and the reasoning is right
+>
+> **Keep the cohort-level intrinsic band in `ci_low`/`ci_high`.** W2's argument
+> is the one W4's own docstring was groping toward when it left the call open:
+> the schema row is read as part of a population result, and the population
+> estimand is the one invariant 5 governs. Nothing changes in the code path.
+>
+> W4 also accepts the invariant-5 argument for `harness/interval.py`, which is
+> the part that could have been contentious. Resampling cells there is not the
+> failure mode invariant 5 forbids, because the claim is not about patients —
+> "does *this* patient have enough mature cells" has cells as its sample by
+> construction. The tell is the one W2 gives: a cohort band is identical at 800
+> mature cells and at 21, so no cutpoint could ever be calibrated on it. An
+> interval that cannot vary with n cannot answer a question about n.
+>
+> What W4 has done rather than just agreeing: `bootstrap_over_patients`'
+> docstring no longer says the call is open — it names this decision, says which
+> interval won and why, and points at `harness/interval.py` as a different
+> estimand rather than a rejected alternative. `attach_intrinsic_ci` records the
+> broadcast as the known cost of the choice. The docstring that raised the
+> question should not be the last place still asking it.
+>
+> **One thing for the gate memo, not a change of position.** The broadcast band
+> makes every patient row in a group carry the same interval, so a reader
+> scanning per-patient rows sees uncertainty that does not respond to how much
+> data each patient has. `estimability` is the column that carries that, and it
+> is per patient. They have to be read together; a table of `ci_low`/`ci_high`
+> with `estimability` dropped is misleading in a way neither column is alone.
+
 
 **Raised:** W4 in `bootstrap_over_patients`' docstring · **Answered by:** W2,
 2026-08-16 · **Owner:** W2 + W4 · **Needed by:** week 5
@@ -744,6 +918,29 @@ analysis". **The real figure is n=36.** Consequences:
 **Corrected recommendation (see CORRECTIONS #4): (c) is right in spirit but is
 NOT free, and cannot be done by W1 alone.** Verified against the code:
 
+> ### The arithmetic, so this is not decided on intuition — 2026-08-22
+>
+> Let **X** be how many of the 36 matched patients fall below G4's mature-cell
+> threshold. The 26 unmatched patients would enter at `n_cells_mature = 0`, so
+> they are below it by construction.
+>
+> | population | size | G4 fails when |
+> |---|---|---|
+> | matched only | 36 | X ≥ **18** |
+> | all patients | 62 | X ≥ **5** |
+>
+> **The two definitions give opposite verdicts for any X between 5 and 17** — 13
+> of the 37 possible values, and the entire plausible middle of the range. This
+> is not a corner case that might bite; it is the likely outcome.
+>
+> G4's failure consequence is pre-committed: *"Non-identifiability finding with
+> diagnostics becomes the headline result, not a caveat."* So under the
+> all-patients definition, a cohort-design fact — how many patients had a normal
+> sample taken — decides what the paper is about.
+>
+> **This has to be settled before any decomposition runs.** Settled afterwards it
+> is unfalsifiable, whichever way it goes.
+
 1. **There is nowhere to record the reason.** `ESTIMABILITY` already contains
    `not_estimable`, so no schema change is needed to *emit* these rows — but
    `COLUMNS` has no reason field. In the output, "no normal arm" and "too few
@@ -882,7 +1079,89 @@ different cell sets.
 
 ---
 
-## 12 · The 20% mitochondrial cap cuts normal harder than tumour — ANSWERED BY DATA
+## 12 · The 20% mitochondrial cap cuts normal harder than tumour — ANSWERED BY DATA, W4's HALF NOW CLOSED
+
+> ### W4 ran the breakdown on Lee, 2026-08-22. Two answers, and the second is the one that mattered.
+>
+> The ask was "run the same per-compartment `pct_mito` breakdown on Lee and set
+> the cap from it." Done, on both cohorts, all 91,103 annotated cells.
+>
+> **1 · The mitochondrial cap is a no-op on Lee, and cannot be anything else.**
+> Both deposits are **already filtered at 20%** upstream — observed maxima
+> **19.995** (SMC) and **19.994** (KUL3). The cap fails **zero** cells at any
+> value ≥ 20, and GEO does not ship the droplets that would let W4 revisit the
+> authors' cut. Per-compartment medians:
+>
+> | compartment | SMC | KUL3 |
+> |---|---|---|
+> | **Epithelial cells** | **8.6%** | **9.7%** |
+> | Stromal | 4.1% | 5.1% |
+> | Myeloid | 4.6% | 4.9% |
+> | Mast | 5.4% | 5.1% |
+> | T cells | 3.7% | 4.3% |
+> | B cells | 2.7% | 3.3% |
+>
+> The epithelial-runs-highest ordering reproduces on Lee, and so does the
+> tumour/normal direction W1 flagged (normal epithelium 13.3% vs tumour 8.4% on
+> SMC). But these medians are **conditioned on the authors' 20% cut** and are
+> not comparable to GSE178341's unconditioned 29.8%.
+>
+> **`DEFAULT_MAX_PCT_MITO` stays 20.0 on Lee**, and the reason is now written on
+> the constant: it is *inherited from the deposit*, not chosen, and no value W4
+> picks changes a single cell. W1's 50.0 on GSE178341 and W4's 20.0 on Lee are
+> not a disagreement — the deposits differ. This is the same shape of finding as
+> #11: the raw droplets are not in GEO, so the QC decision was made by the
+> original authors and is not ours to make.
+>
+> **2 · Running the differential-retention check the entry mandates found a
+> larger problem, in a different filter.** #12 requires "no systematic
+> tumour/normal gap before any compositional number is believed." W4's QC had
+> one, and it was not the mito cap — it was the MAD depth filter:
+>
+> | SMC epithelium | MAD pooled per study (what W4 had) | MAD per study × compartment (now) |
+> |---|---|---|
+> | normal arm retained | 88.5% | 100% |
+> | tumour arm retained | **62.0%** | 100% |
+> | median per-patient gap | **−29.6 pts** | 0.0 pts |
+> | patients with a >10 pt gap | **9 of 10** | 0 |
+> | whole-cohort retention | 87.3% | 99.8% |
+>
+> KUL3 was milder and the same sign: −6.4 pts median, 3 of 6 patients flagged.
+>
+> **The mechanism.** A MAD outlier rule assumes one unimodal population. A
+> cohort matrix is six, and on SMC epithelium runs **3.9× deeper** than the
+> median immune compartment (18,724 vs 4,861 median UMIs). Immune cells are the
+> majority, so they set the pooled median and a tight pooled MAD — and the upper
+> bound then fires on epithelial cells *for being epithelial*. Tumour epithelium
+> is deepest of all, so it is cut hardest.
+>
+> **The direction is the bad one.** Mature colonocytes are the deepest
+> epithelial cells there are. Cutting the tumour arm's deepest cells understates
+> the tumour mature fraction, which **inflates the apparent compositional loss** —
+> toward the prior hypothesis, produced entirely by a QC parameter. Exactly the
+> failure W1 raised for the mitochondrial cap on GSE178341, arriving at Lee
+> through a different filter. It would not have been found by looking at the
+> cap, which is what the entry asked about.
+>
+> **Fix, in `src/estimator/ingest.py`:** MAD bounds are computed within
+> **(study, compartment)**, and `compartment` is a required column rather than
+> an optional one — defaulting it away restores the artifact silently.
+> `differential_retention()` is added on W4's side (W1's is not exported and
+> `src/reference/` is off-limits per CONTRIBUTING §2) and `load_lee_cohort`
+> runs it on every load, logging any patient over the same 10-point threshold
+> W1 uses. Reported, not enforced: a flagged patient is a fact about the deposit
+> the gate memo should carry, not a reason to fail a load.
+>
+> Grouping is by compartment and deliberately **not** by tissue. Grouping by
+> tissue would equalise retention by construction and hide the artifact instead
+> of removing it — the per-sample-quantile trap from #13, one filter earlier.
+>
+> **Answering W1's framing directly:** W4's cap remains a single hard threshold
+> while W1's is per batch, and that is now a decision rather than an accident —
+> a per-batch mitochondrial threshold on a deposit already cut at 20% would be
+> per-batch arithmetic over a constant. The depth filter, which is the one that
+> was actually doing damage, is now stratified on both sides.
+
 
 > **For W4 (CORRECTIONS #5):** the ask is not "adopt 50". 29.8% is the epithelial
 > median measured on **GSE178341**; W4's cohort is Lee, with different chemistry
@@ -983,7 +1262,70 @@ or GSE178341 and the Lee cohorts are not comparable at the gate.
 
 ---
 
-## 13 · W1 and W4 label cells differently — OPEN, BLOCKS COMPARABILITY
+## 13 · W1 and W4 label cells differently — W4 RESPONDS; one part done, two accepted, one objected to
+
+> ### W4's position, 2026-08-22
+>
+> The recommendation has four parts. W4 has **done one**, **accepts two pending
+> #14**, and **objects to the fourth on invariant-2 grounds**. Taking them in
+> the order the entry lists them:
+>
+> **1 · "Non-epithelial cells: caller must pre-filter" — done, and it was worse
+> than a documentation gap.** W4's loader now restricts labelling to the
+> epithelial compartment by default (`load_lee_cohort(label_compartment=...)`).
+> This was not tidying. `classify_maturity` thresholds at a quantile of the axis
+> score *over whatever it is handed*, and on Lee the non-epithelial cells are
+> the majority — 45k of 64k on SMC. They carry no LGR5/OLFM4 at all, so on the
+> inverted `stem_pole` axis they score as maximally mature and drag the quantile
+> into the immune mass, leaving almost no epithelial cell above it. The mature
+> fraction **is** the compositional term, so a caller who forgot to pre-filter
+> did not get a slightly noisy estimate, they got a different quantity. Cells
+> outside the compartment now carry `pd.NA`, never `False` — an unlabelled cell
+> counted as immature would put the tumour's immune infiltrate in the
+> denominator, and tumour/normal immune content differs enormously. Invariant
+> 1's shape, one level down. Five tests, on a mixed-compartment fixture built
+> from the real one.
+>
+> **2 · Reference-arm cut points (threshold from the patient's own normal) —
+> accepted, not yet implemented.** W1's reasoning is right and W4 has no
+> counter-argument: pooled cuts make the threshold depend on the cohort's
+> tumour:normal cell mix, so the same biology gives a different mature fraction
+> in Pelka and in Lee, and invariant 4's estimate-per-study-then-meta-analyse
+> needs the per-study numbers on a comparable scale.
+>
+> **3 · Depth-normalised, z-scored-per-gene scoring — accepted, not yet
+> implemented.** Lee is single-chemistry so it needs this less than GSE178341
+> does, but the entry is right that the two cohorts should agree on whether it
+> is done, and "we did not need it" is not a reason to differ.
+>
+> **Why 2 and 3 are not in this PR.** #14 is open and titled *BLOCKS
+> COMPOSITION* — neither axis is yet established as a clean maturity measure,
+> on W1's own cells. Reimplementing W4's labelling to match a definition that
+> is itself mid-revision would mean doing it twice and comparing against a
+> moving reference. W4 will take W1's definitions in one pass once #14 settles,
+> which is also when the depth-target rerun lands. **If that reads as too slow,
+> say so and W4 will do it now against the current definitions** — the cost is
+> rework, not risk.
+>
+> **4 · Marker-gating `best4` rather than score-binning — objection, and it is
+> an invariant-2 objection, not a preference.** The canonical BEST4+ markers are
+> BEST4, **OTOP2** and **CA7**. OTOP2 and CA7 are **tier-A panel genes** —
+> targets. Gating the `best4` rung on them makes a silenced mature cell
+> unreadable from an absent one at exactly the rung tier A is the control for.
+> BEST4 itself is clear (it is named in `config/labeling_axes.yaml`'s sequencing
+> note as a gene the panel was kept away from, and it is not in `panel_genes()`)
+> — but a one-gene gate on a population under 5% of epithelium is thin, and
+> W1's own pilot put `best4` sensitivity at 0.04. **W4's proposal: gate `best4`
+> on BEST4 alone, never on OTOP2/CA7, and report the rung as unusable rather
+> than reach for the target genes to rescue it.** `build_signature()` would
+> catch this if the markers went through it; the labelling path has its own
+> guard (`assert_no_target_leakage`) and would also catch it — which is the
+> system working, but it is better not to write the gate that way in the first
+> place.
+>
+> **Interop is unaffected either way** — `cell_type_vector()` and
+> `maturity_summary()` are unchanged by all of the above.
+
 
 **Raised:** W1, 2026-08-17 · **Owner:** W1 + W4 (+ W2 consumes both) ·
 **Needed by:** before either cohort's decomposition is compared
@@ -1146,6 +1488,101 @@ Both are covered by tests that call W2's and W4's real functions rather than moc
 >
 > **The rung collapse persists at the higher target.** `stem_pole`
 > `lineage` == `crypt_position`, Jaccard 1.000. Three points on axis 1, not four.
+>
+> **CONFIRMED AND REFINED AT FULL SCALE — 2026-08-25**, from
+> `results/2026-08-25_9e3ca1a/rung_degeneracy_full.parquet`, 60 patient-axis
+> pairs per rung comparison across the 62-patient cohort:
+>
+> | rung pair | median Jaccard | identical |
+> |---|---|---|
+> | `lineage` vs `crypt_position` | **1.000** | **37 / 60 (61.7%)** |
+> | `epithelial` vs `lineage` | 0.686 | 0 |
+> | `epithelial` vs `crypt_position` | 0.591 | 0 |
+> | `best4` vs any other | 0.035 | 0 |
+>
+> The pilot's "same partition" reading was slightly too strong. They are not
+> structurally identical — they **coincide in about three patients in five**, and
+> differ in the rest. The consequence for the granularity curve is the same
+> (`lineage` and `crypt_position` are not independent points) but the mechanism
+> is a threshold collision on most patients rather than an identity, so it is
+> fixable by moving a cut point rather than by dropping a rung.
+>
+> **MECHANISM FOUND — 2026-08-26.** The collapse is structural, not a threshold
+> coincidence. `run_full_reference` prints, for ~27 of the 30 analysed patients:
+>
+> ```
+> note: group 'C122' supports only 2 of 3 bins — scores are tied across a
+>       quantile boundary. Using ('crypt_bottom', 'crypt_top').
+> ```
+>
+> `src/reference/labels.py:378-383` falls back to `(bins[0], bins[-1])` when the
+> tertile cut points come back equal. The maturity score is tied across the 33rd
+> and 67th percentiles on almost every patient — a large atom in the score
+> distribution, most likely cells sharing a score because the marker set is small
+> and many are zero.
+>
+> So **`crypt_position` is a two-bin split on ~90% of patients**, which is the
+> same construction as `lineage` (median split, two bins). They agree 61.7% of
+> the time because most of the time they are the same thing, not because two
+> thresholds happened to land together.
+>
+> This changes the fix. Moving a cut point does not help if the score cannot
+> support three bins; what is needed is either a score with enough resolution to
+> separate tertiles, or an honest reduction of the granularity curve to three
+> points. **Recorded, not decided** — it bears on
+> [#38](https://github.com/diegomardian/BetterRiseProject/issues/38), where W1
+> has already asked W4 not to adopt these two thresholds.
+>
+> `best4` is confirmed genuinely distinct (Jaccard 0.035 against everything),
+> and `epithelial` is confirmed degenerate by construction — **222 of 232 rows
+> at `mature_fraction` exactly 1.000**, which is what the coarsest rung is
+> supposed to look like as the lower bound of the curve.
+>
+> ### ANSWERED AT FULL SCALE — 2026-08-27
+>
+> Ran W2's `depth_confound_report` (PR #45) unmodified over W1's own labels, 32
+> patients with both arms, 2 axes x 4 rungs.
+> `results/2026-08-27_b0ca4ee/depth_confound_reference.parquet`.
+>
+> **The depth floor works.** Where the correlation between the maturity call and
+> sequencing depth is computable, it is small:
+>
+> | rung | median \|rho\| | 90th pct | max | tracks depth |
+> |---|---|---|---|---|
+> | `best4` | 0.069 | 0.187 | 0.364 | 6.2% of patients |
+> | `crypt_position` | 0.134 | 0.215 | 0.370 | 14.1% |
+> | `lineage` | 0.142 | 0.230 | 0.370 | 17.2% |
+>
+> Lee/SMC, without thinning, is **−0.92** with a monotone 80.8% → 8.5%
+> dose-response across depth deciles (issue #44). Same instrument, and W1's
+> median is 0.13. **This is the clearest evidence yet that the depth target was
+> the right call**, and it is measured rather than argued.
+>
+> **But the arms are NOT depth-matched, exactly as feared above.**
+> `arms_are_depth_matched` is 0.375 — **20 of 32 patients exceed 1.5x**, median
+> ratio 1.64, max 5.08 on the scored population and 8.05 across all QC-passing
+> cells. The precondition for a depth-driven compositional artifact is present
+> across most of the cohort; what is largely absent is the mechanism that would
+> convert it.
+>
+> **17 of 256 patient-axis-rung combinations trip both conditions**, all at
+> `lineage` or `crypt_position`. Those specific combinations carry the caveat.
+> The cohort as a whole does not.
+>
+> **The `epithelial` rung's verdict is vacuous and must not be quoted.** All 64
+> of its rows return `nan` for the correlation — every scored cell is mature
+> there by construction, so `is_mature` is constant — and the module maps `nan`
+> to "not confounded". Raised on PR #45; it is the lower bound of the
+> granularity curve, so a silently-clean verdict there is the one most likely to
+> be mistaken for reassurance.
+>
+> **A correction on the way to this.** The first run reported |rho| = 0.969 at
+> `epithelial` and 113/256 confounded. That was W1's own bug: the runner took
+> `is_mature = (call == mature)` over every cell, making each `unresolved_depth`
+> cell `False` — counted as immature, which is precisely what this decision
+> refuses. It collapsed `is_mature` to "was this cell deep enough to be scored"
+> and correlated it with depth by construction. Invariant 1's shape, in the job
+> auditing invariant 1's shape.
 >
 > **NEW — the depth floor cuts the two arms unequally, and it can flip the sign
 > of the compositional term.** Unresolved fractions at q=0.25:
@@ -1335,6 +1772,451 @@ suite **459 passed, 2 skipped**, `ruff` clean.
 module and W1's test. The patch exists so the decision is a review rather than a
 rewrite — and so that "we agreed on (b)" and "(b) is in the tree" do not end up
 three weeks apart.
+
+---
+
+## 15 · CNV-based malignancy calling may fail differentially by MMR status — OPEN, AFFECTS THE PRE-REGISTERED CONTRAST
+
+**Raised:** W1, 2026-08-22 (from the inferCNV pilot) · **Owner:** W1 + W4 +
+whoever owns G2 · **Needed by:** before the MMR contrast is computed
+
+inferCNV separates malignant from normal epithelium by aneuploidy. **MMR-
+deficient tumours are characteristically near-diploid** — chromosomal stability
+is what MSI-H looks like, and it is one of the oldest results in the field. So
+the method is expected to work *worse* in MMRd than in MMRp, and MMRd-vs-MMRp is
+a pre-registered contrast.
+
+Aneuploid fraction on the pilot, as enrichment over the 0.10 null (the fraction
+of a patient's tumour epithelium above its own held-out normal epithelium's 90th
+percentile):
+
+| patient | stratum | enrichment |
+|---|---|---|
+| C162 | **MMRp** | **7.4x** |
+| C138 | MMRd, MLH1-intact | 2.9x |
+| C107 | **MMRp** | 2.0x |
+| C122 | MMRd, methylated | 1.7x |
+| C165 | MMRd, MLH1-intact | **0.65x** — below the null |
+
+**This is directionally consistent and NOT established.** Two MMRp against three
+MMRd, and C107 (MMRp, 2.0x) sits between two MMRd patients. Nothing here would
+survive a significance test and none is claimed. What makes it worth recording
+is that the biological prior is independent of these five points.
+
+### CONFIRMED AT FULL SCALE — 2026-08-24
+
+62 patients through inferCNV. Restricted to the **36 with a matched normal**, so
+a patient failing for want of a comparator is not counted as failing for
+biology:
+
+| stratum | separable | rate | median enrichment |
+|---|---|---|---|
+| `mmr_proficient` | 15 / 15 | **100%** | **7.38** |
+| `mlh1_methylated` | 10 / 12 | 83% | 2.50 |
+| `mlh1_intact_mmrd` | 4 / 6 | 67% | 2.26 |
+| `mlh1_deficient_unmethylated` | 1 / 2 | 50% | 1.52 |
+
+**Every MMR-proficient patient separates. None fails.** The MMRd strata fall away
+monotonically, and the median aneuploid enrichment in MMRp is **~3x** the
+methylated stratum's.
+
+**The statistics, stated honestly.** All five separability failures land outside
+MMRp; under random assignment that has probability **0.048** one-sided. The
+direction was pre-specified in this document before the run, so a one-sided read
+is legitimate — but n=35 and the two-sided p is not significant. The stronger
+evidence is not the 2x2: it is that **four strata order monotonically, on both
+the rate and the enrichment, in the direction an independent literature
+predicts**. A single test on a collapsed table throws that away.
+
+**So the concern this decision was opened on is real.** It is no longer a
+prediction from MSI biology; it is measured in this cohort.
+
+### Two consequences that now need deciding, not noting
+
+1. **The MMRd arm loses ~25% of its patients to `not_called`, and the survivors
+   are weaker.** Median enrichment 2.5 against MMRp's 7.4 means the surviving
+   MMRd calls sit closer to their threshold — so the MMRd arm is both smaller
+   *and* noisier, in a contrast where it is compared against an arm that lost
+   nobody.
+2. **Any comparison of malignancy-filtered results between MMR strata is
+   confounded by this**, and no downstream method removes it. The filtered MMRd
+   arm is a biased subsample of MMRd; the filtered MMRp arm is all of MMRp.
+
+The sensitivity run proposed below — decomposition with and without malignancy
+filtering — stops being optional. It is the only way to see how much of any MMR
+difference is this artifact.
+
+### Why it matters more than a QC wrinkle
+
+If malignant cells cannot be separated in MMRd tumours, the MMRd "tumour" arm
+retains more non-malignant epithelium. Non-malignant epithelium is *mature*, so
+its retention **inflates the apparent mature fraction in MMRd tumours** — making
+them look less compositionally depleted than they are.
+
+That is a bias running **along** the axis being tested, not across it. A bias
+that differs between arms of a pre-registered contrast is the one kind that
+cannot be argued away as noise.
+
+### It is not fixable by a better tool
+
+CopyKAT has the same limitation, because it is the same measurement: both infer
+copy number from expression. A genuinely near-diploid tumour has no aneuploid
+population to find. This is an **information** limit, not a method choice, and
+"try another caller" is not a mitigation.
+
+### Two things the first real run exposed — 2026-08-23
+
+**1 · `MALIGNANT_QUANTILE = 0.99` is a judgement, not a constant, and it is
+conservative.** Malignant fractions on the pilot: C107 5.4%, C122 3.1%, C138
+7.1%, C162 10.8%. Internally consistent — C107 has ~20% of query cells above the
+copy-neutral 90th percentile and ~5% above the 99th — but low for colorectal
+tumour samples, where a large share of tumour-sample epithelium is usually
+malignant.
+
+The cost of under-calling is not symmetric with over-calling here. **The
+malignant set defines the tumour arm**, so a conservative threshold shrinks the
+denominator of every compositional estimate and pushes patients toward
+`not_estimable` on mature-cell counts — which then interacts with G4. The
+threshold should be reported as a **sensitivity across quantiles**, the way the
+depth target now is, rather than fixed at 0.99 and forgotten.
+
+**2 · The specificity check has become nearly circular.** The threshold is the
+99th percentile of copy-neutral epithelium, so a specificity near 0.99 on other
+copy-neutral epithelium is what arithmetic predicts, not evidence. Observed:
+0.989–0.999 across four patients. It now confirms the threshold was *applied*
+correctly and nothing more.
+
+Recovering an independent check means **splitting the held-out normal epithelium
+in two** — one half sets the threshold, the other validates. At
+`HOLDOUT_FRACTION = 0.30` that leaves 15% each, which C165 (117 held-out cells)
+cannot spare. So it is a real trade and a team decision, not a code fix.
+
+### Options
+
+| | Approach | Cost |
+|---|---|---|
+| a | **Emit malignancy calls with per-patient confidence, and mark patients with no separated population as `not_estimable` for the malignant/normal distinction.** | The project's own three-way framing, applied one level down. Costs patients from the malignant-only analysis, and the loss is not random — which is the point, and must be reported. |
+| b | Run the decomposition twice — malignancy-filtered and unfiltered — and report whether conclusions differ by MMR stratum. | Cheap, and it measures the exposure directly rather than assuming it. Doubles the result rows. |
+| c | Use sample-of-origin instead of malignancy calls, as today. | No differential bias, but the tumour arm keeps its non-malignant epithelium in every patient, which is the gap the whole malignancy stage exists to close. |
+| d | Ignore it. | The MMR contrast then carries an unquantified bias in a known direction. |
+
+**Recommendation: (a) plus (b).** (a) is honest about which patients can carry
+the distinction; (b) turns the residual exposure into a measured sensitivity
+rather than a caveat. Together they cost one extra run and no credibility.
+
+**Confirm at full scale before acting on it.** 36 matched patients, ~21 MMRd and
+15 MMRp, is enough to see whether the association is real. Look at it once, on
+the full cohort, and pre-specify that here rather than after.
+
+---
+
+## 16 · Ambient contamination: measure, do not correct — and exclude above 10% — PRE-COMMITTED 2026-08-23
+
+**Raised:** W1 · **Owner:** W1 + W2 · **Status:** threshold committed **before**
+counting what it costs
+
+Measured across all 62 patients, 84 unsorted samples with >=20 epithelial cells
+(`results/2026-08-23_*/ambient_contamination.parquet`):
+
+| | |
+|---|---|
+| median | **2.2%** |
+| 75th | 4.7% |
+| 90th | **10.2%** |
+| 95th | 13.8% |
+| max | **19.4%** (C132_N) |
+
+The five-patient pilot sat near the median and **understated the tail**.
+
+### Two decisions, and the second is the one that needs pre-committing
+
+**1 · Measure and report; do not correct.** At a 2.2% median, correction removes
+very little and risks more than it removes: DecontX defines contamination as
+counts resembling other clusters, so it can absorb genuine low-level expression
+of a marker in a rare population — precisely this project's signal. SoupX and
+DecontX still run, and the **per-gene retention table and their correlation**
+remain the week-2 deliverable. What changes is that their output is reported as
+a diagnostic rather than applied to the counts.
+
+**2 · Exclude samples above 10% contamination from the compositional arm.**
+
+The threshold is **10%**, and the reason is not the cost:
+
+- Above roughly a tenth of counts being ambient, the per-cell marker detection
+  that axis 1's maturity call depends on is materially perturbed. That call is a
+  **detection gate** at a matched depth of 3,281 UMIs, so ~330 ambient counts
+  per cell is not a rounding error in it.
+- Having chosen not to correct, a sample whose ambient share approaches the
+  effects being estimated cannot be rescued by a caveat.
+- 10% is where the cohort's own distribution turns: it is the 90th percentile,
+  and the gap from 75th (4.7%) to 90th (10.2%) is where samples stop resembling
+  each other.
+
+**This is committed before counting the patients it removes**, for the same
+reason G1's threshold is: a threshold chosen after seeing its cost is not a
+threshold. Nine of 84 samples exceed it; how many *patients* that costs — and
+whether it costs them their matched arm — is to be reported, not to be used to
+revise the number.
+
+### The sharper criterion, once it exists
+
+Total contamination is a proxy. What actually threatens this project is
+**target-gene soup share** — ambient GUCA2A gives an immature cell false mature
+counts and inflates the intrinsic term. The pilot's soup was dominated by
+MT-CO2/CO3/CO1, IGKC and MALAT1, not by panel genes, which is reassuring but
+unmeasured cohort-wide. When that is measured, it should replace this threshold
+rather than supplement it — and **that replacement must also be pre-committed.**
+
+### ANSWERED 2026-08-23 — the asymmetry is real but has no direction
+
+**Measured, 23 patients with both arms interpretable:** 6 differ by more than 5
+points, and the median tumour-minus-normal is **+1.5%**. The flagged patients
+split evenly — C106 +12.3, C155 −12.1, C140 +9.2, C132 −8.8, C135 −5.3, C130
++5.2.
+
+**Retracting the inference that prompted this.** "Four of the worst five samples
+are tumour" was an artifact of reading the top five rows of a sorted table; it is
+not a cohort pattern. Tumour samples are not systematically dirtier.
+
+That distinction matters more than the flag count:
+
+- **Systematic** asymmetry would bias the cohort-level compositional estimate in
+  a known direction — the serious case.
+- **Random** asymmetry inflates per-patient error and widens intervals without
+  biasing the mean.
+
+This is the second. So the case for switching #16 to a gap-based rule is
+**weaker than anticipated and rests on variance, not bias**. Six patients carry
+a >5-point gap and their individual Δ is correspondingly noisy; excluding them
+buys precision, not correctness. That is a judgement about how much n to spend,
+not a correction — and it should be argued as one.
+
+**Recommendation: keep the 10% level rule as committed, and report the gap
+alongside it** so a reader can see which patients are noisy. Revisit only if the
+gap turns out to correlate with something the analysis cares about.
+
+### CORROBORATED 2026-08-23 — SoupX and the impossible-gene estimator agree; DecontX does not
+
+First real sample, C122_N_1_1_0_c1_v2 (1,609 cells, 55 clusters):
+
+| route | contamination |
+|---|---|
+| impossible genes | **0.8%** |
+| SoupX (degraded mode) | **0.8%** — median retention 0.992 |
+| DecontX | **8.5%** — median retention 0.915 |
+
+**Two unrelated routes land on the same number. DecontX removes ten times more.**
+
+And they are not finding different genes: Spearman between the two retention
+vectors is **0.71**, and the hardest-stripped list is textbook ambient —
+`MT-ATP6`, `MT-CO3`, `RPL13`, `RPL18`, `RPS2`, `RPS23`, `TMSB4X`, `PTMA`,
+`Metazoa_SRP`. Both methods identify the same soup. They disagree on how much of
+it there is.
+
+**The likely cause is the one the docstring warned about.** DecontX defines
+contamination as counts resembling *other clusters*, and this sample has 55 of
+them. With that many, a large amount of genuine cell-type-specific expression is
+indistinguishable from cross-cluster bleed. A mature marker expressed in one
+small population looks exactly like soup to that model — which is this project's
+signal.
+
+**Three consequences:**
+
+1. **The measure-and-report decision is vindicated on data, not on argument.**
+   Correcting with DecontX would have removed ~8.5% of every gene's counts on
+   the strength of a number that two independent routes put under 1%.
+2. **The 2.2% cohort median that this decision's 10% threshold rests on is
+   corroborated**, since SoupX agrees with the estimator that produced it.
+3. **If anyone ever does want correction, SoupX is the defensible choice here**
+   and DecontX is not — on this deposit, with this clustering. That is a
+   finding about the data, not a general claim about the methods.
+
+### SECOND SAMPLE — the cluster-count hypothesis is wrong, and the real pattern is sharper
+
+C162_T_0_0_0_c1_v3, 4,128 cells, **84** clusters against C122's 55:
+
+| | C122 normal (55 clusters) | C162 tumour (84 clusters) |
+|---|---|---|
+| impossible genes | 0.8% | **1.7%** |
+| SoupX | 0.8% | **1.1%** |
+| DecontX | 8.5% | **6.7%** |
+
+**Clusters went up and DecontX's over-removal went down**, so it does not scale
+with cluster count. That hypothesis is retracted.
+
+The pattern across the two samples is more informative than the one that was
+looked for. The independent estimate **doubled**, 0.8% to 1.7%. SoupX tracked it.
+**DecontX did not move** — it returned 7-8% both times, on samples whose actual
+contamination differs by a factor of two.
+
+An estimate that does not respond to the quantity it is estimating is dominated
+by something other than the data. Whatever the mechanism, the operational
+conclusion is firmer than "DecontX over-corrects": **on this deposit DecontX's
+contamination estimate does not track contamination**, and it should not be used
+to size a correction here.
+
+One further difference worth noting rather than explaining: SoupX's
+hardest-stripped genes on the tumour sample are small RNAs — `SNORA81` (0.47),
+`Metazoa_SRP`, `7SK`, `U6`, `SNORD70`, `SNORA46` — and DecontX leaves every one
+of them untouched at retention 1.000. The two methods disagree about a whole
+class of transcript, not only about magnitude.
+
+**Two samples is two samples.** Both statements above are consistent across a
+normal and a tumour arm from different patients, chemistries and cluster counts,
+which is more than nothing and less than a result. They are recorded as
+observations to check when the cohort-wide run happens, not as established.
+
+### WHAT THE THRESHOLD COST — 2026-08-25, measured
+
+The rule was committed before this was counted. Here is the count.
+
+| arm lost | patients | cause |
+|---|---|---|
+| normal | C112, C114, C116, C155 | sorted-only (#11) or ambient (#16) |
+| tumour | C106, C140 | **ambient (#16)** — tumour samples at 14.6% and 10.4% |
+
+**Six patients leave the paired cohort: 34 usable become 28.**
+
+Both tumour-arm losses are squarely #16's: those samples exceeded 10% and were
+excluded, so the patients retain a normal arm and have no tumour to compare it
+against. They are not "unmatched" and must not be reported as such.
+
+**The paired n W1 delivers is 28** — against 32 matched-and-unsorted, 36 matched,
+and the ~60 §8.4 assumed. Each reduction has a different cause and a different
+remedy, and collapsing them into one number is how a cohort quietly shrinks:
+
+| n | what it counts |
+|---|---|
+| 62 | patients in the deposit |
+| 36 | with a matched normal sample (#9) |
+| 32 | matched **and** unsorted in both arms (#11) |
+| 28 | **and** both arms under 10% contamination (#16) |
+
+Whether 28 is enough is a separate question from whether the threshold is right,
+and it should be argued separately. Lowering the threshold to recover C106 and
+C140 would be revising a rule to buy back two patients after seeing their
+names — which is the move this decision was pre-committed to prevent.
+
+### A number nobody had looked at
+
+**Only 23 patients have both arms among the interpretable samples**, against 32
+matched-and-unsorted. Nine lose an arm to the ≥20-epithelial-cell floor or to an
+unestimable ratio. If the ambient exclusions then remove more, the compositional
+n falls further — and 23 is already well below the 36 that decision #9 reports
+and the ~60 §8.4 assumed. **Whatever the final rule, the paired n it leaves
+should be stated in the same sentence as the rule.**
+
+---
+
+## 17 · G1's threshold, committed before any G1 number exists — PRE-COMMITTED 2026-08-25
+
+> ### ⚠ SUPERSEDED — see [Amendment 2](prereg_amendment_2_g1_tier_d.md), 2026-08-25
+>
+> **Two independent defects, both arithmetic, neither found by looking at a
+> result.** `checks.py` has never been run against expression.
+>
+> **1. The statistic cannot pass.** "Apparent loss" as a raw Δ per-cell mean
+> carries abundance inside it — a gene averaging 100 counts can lose 30, a gene
+> averaging 0.1 cannot. Simulated on 20,000 genes where *every* gene loses
+> exactly 30% and the truth has no abundance dependence at all, the statistic
+> below returns **ρ = −0.997**. G1 fails at |ρ| > 0.5, so as pre-registered it
+> fails whatever the biology. A gate that always fails carries as much
+> information as one that always passes.
+>
+> **2. Tier D holds one gene.** #17 justifies its 0.2 threshold with "n≈8 genes
+> per tier". `config/panel.yaml` has 4 in tier A, 3 in tier B and **1 in tier D**
+> — and a Spearman over one gene is undefined, not merely noisy. Tier D is the
+> half of the gate carrying the falsification logic.
+>
+> Amendment 2 proposes the standard MA construction (M = log₂ ratio, A = mean
+> log abundance) and moves the unit of analysis genome-wide with within-bin
+> percentiles, since with one gene you cannot compute a correlation but you can
+> compute a percentile. It commits three replacement thresholds.
+>
+> Until the team ratifies it, `g1_verdict()` returns `not_estimable` and G1 is
+> undecided. **Everything below stands as the record of what was committed
+> first**; it is not edited, because the ordering is the point.
+
+
+**Raised:** W1 · **Owner:** W1 + whoever owns the gate · **Status:** committed
+before `checks.py` was written, let alone run
+
+G1 asks whether the residual signal is ambient RNA rather than biology. Ambient
+counts are enriched for whatever is abundant, so **if a gene's apparent loss
+tracks its abundance, the loss is a property of the soup and not of the tumour.**
+
+### CORRECTION 2026-08-25 — this changed G1's statistic, and said so late
+
+**execution_plan.md §4 specifies G1 as "post-correction *retention* vs total
+abundance".** The version below uses abundance vs **apparent loss**. That is a
+different measurement and the substitution was not flagged when it was written.
+Recording it now rather than letting it stand.
+
+They answer different questions, and both are worth having:
+
+- **Retention vs abundance** (the plan's) asks whether *the correction* is
+  abundance-driven. On this cohort it is close to tautological — soup is
+  enriched for abundant genes, so a correction that removes soup will strip
+  abundant genes hardest, and finding that tells you little.
+- **Loss vs abundance** (below) asks whether *the project's signal* is
+  abundance-driven. That is the question G1's own stated consequence is about:
+  "if retention tracks abundance across all tiers, the residual signal is soup."
+
+**Recommendation: run both, report both, and let the plan's version be the
+named gate criterion.** Substituting a better statistic for a pre-registered one
+is exactly the move this project refuses elsewhere; adding a second is not.
+Where they disagree, that disagreement is the finding.
+
+The thresholds below apply to whichever is being read. **The team should ratify
+this before `checks.py` runs**, because after it runs the choice is
+unfalsifiable.
+
+### The statistic
+
+Spearman correlation between **gene abundance** (mean expression across the
+cohort) and **apparent loss** (Δ per-cell mean, tumour minus normal), computed
+**within each panel tier separately** — A (compositional targets), B (intrinsic
+targets), D (neither, the negative control).
+
+Spearman rather than Pearson for the same reason as the retention comparison:
+abundance spans orders of magnitude and a handful of very high genes would
+otherwise decide the answer.
+
+### The pre-committed thresholds
+
+**G1 FAILS if either holds:**
+
+1. **|ρ| > 0.5 in tier D.** Tier D genes are chosen to have no differentiation
+   story. A strong abundance-loss relationship *there* has no biological reading
+   left — it is the soup, measured.
+2. **The three tier correlations fall within 0.2 of one another.** That is what
+   "tracks abundance across all tiers" means: if A, B and D behave alike, the
+   panel is measuring abundance and the tier structure — which is the whole
+   falsification design — carries no information.
+
+**G1 PASSES if** tier D is flat (|ρ| ≤ 0.5) **and** tiers A and B separate from
+D by more than 0.2.
+
+### Why these numbers
+
+0.5 is the same rank-correlation line already used for method agreement in #16,
+so the project uses one meaning of "these two things track each other" rather
+than a different one per test. 0.2 is the smallest separation that survives
+n≈8 genes per tier — below that, tier differences are not distinguishable from
+noise at this panel size, and pretending otherwise would manufacture a pass.
+
+**Neither number was chosen by looking at a G1 result, because none exists.**
+When `checks.py` runs, its output is compared against this and the comparison is
+reported whichever way it goes.
+
+### What a failure would mean
+
+Not that the project is wrong — that **this cohort cannot separate the signal
+from the soup**, and the honest report is the non-identifiability, with the
+diagnostics, as the result. That is the same consequence G4 carries, and the
+same three-way framing the whole project rests on.
+
+Recorded here rather than in code so the commitment has a date and a diff.
 
 ---
 
@@ -1558,3 +2440,408 @@ two independent cohorts.
 Cohorts are **not pooled** (invariant 4) — estimated separately, reported side
 by side, using the same test code so a difference could not come from the
 analysis. See [the note](../results/notes/w3.8_replication_gse39582.md).
+
+---
+
+## 19 · G4's population is MATCHED PATIENTS ONLY — DECIDED 2026-08-23
+
+**Raised:** W1 in issue #9 · **Owner:** W2 (`src/harness/positivity.py`) ·
+**Decided:** 2026-08-23, before any decomposition result existed
+
+W1 asked whether the 26 GSE178341 patients with no normal arm should enter G4 as
+`n_cells_mature = 0`. **They should not.** `gate_g4_verdict` now takes matched
+patients only, and `n_unmatched_patients` is a **required** keyword — no default,
+because a default is how the wrong population gets used without anyone choosing.
+
+The numbers, on the real 36/26 split with a plausible 6 genuinely-depleted
+patients:
+
+| population | below threshold | fraction | verdict |
+|---|---|---|---|
+| matched only (36) | 6 | 16.7% | **PASS** |
+| mixed (62) | 32 | 51.6% | **FAIL** |
+
+Mixing flips the gate. And it flips it on a **cohort-design fact** — how many
+patients had a normal sample taken — while G4's pre-committed consequence would
+report it as a **positivity finding** about mature-cell depletion. Different
+claims; only one is about biology.
+
+The coverage fact is not lost: the verdict returns `n_unmatched_excluded`,
+`n_patients_in_cohort` and `matched_fraction`, so it travels with the result
+instead of disappearing. W1's cohort-coverage artifact remains the primary
+record.
+
+**This is the third instance of one bug shape in two days** — a cutoff computed
+over a mixed population, producing a plausible wrong number that leans toward the
+hypothesis. W4 found two (pooled MAD retention cutting epithelium for being
+epithelial; label thresholds drawn over non-epithelial cells). This one was
+latent rather than active, because nothing had called it with real data yet.
+
+W2 audited the rest of `src/harness/` for the same shape and found no other
+instance: every other aggregation is computed *within* a defined group — per arm,
+per mature mask, per grid point, per bin — rather than pooled and then applied to
+a subgroup. `calibration._bin_edges` bins for reporting only, and coverage is
+computed within each bin. `interval` resamples one patient's own cells.
+
+**Housekeeping:** this file now has **eight duplicate section numbers**
+(9, 10, 11, 12, 13, 14, 15, 16 each appear twice) because three workstreams took
+the next free number independently. Cross-references by number are ambiguous.
+This entry takes 19 to avoid adding a ninth. A renumbering pass is needed and
+nobody objected when W2 offered — see X-1 in the handoff doc.
+
+### CORRECTION 2026-08-27 — "mixing flips the gate" overstates it
+
+The table above reports the mixed population as `32/62 = 51.6% FAIL`. Re-costed
+with an interval (`gate_cost.py`, handoff §5 task 3), that is **[39.4%, 63.6%] —
+which contains the 50% line**. The mixed verdict is therefore *indeterminate*,
+not a clean FAIL.
+
+**The decision does not change and neither does its reason.** Mixing populations
+reports a cohort-design fact — how many patients had a normal sample taken — as a
+positivity finding about mature-cell depletion. That argument is about what is
+being measured and does not depend on precision at all.
+
+What was overstated is the framing. Mixing flips the *point estimate* and yields
+a verdict the cohort cannot resolve; it does not flip a FAIL into a PASS, because
+there was never a resolvable FAIL there to flip. The matched verdict, by
+contrast, is clean: 6/36 = 16.7%, 95% CI [7.9%, 31.9%], and a defensible PASS at
+n=36 allows up to 12 patients below threshold.
+
+Recorded rather than quietly edited, because the original number was circulated.
+
+---
+
+## 22 · The compositional arm gets its own cutpoint, on `n_cells_resolved` — PRE-COMMITTED 2026-08-27
+
+**Raised:** W1 in [#36](https://github.com/diegomardian/BetterRiseProject/issues/36),
+recorded on their branch as decision #20 · **Owner:** W2
+(`src/harness/positivity.py`) · **Pre-committed:** 2026-08-27, on the issue,
+before the rule was applied to anything · **Bears on:** G4
+
+### Why the number is 22 and not the 21 that was announced
+
+The pre-commitment comment on #36 said "landing as decision #21". W1 had already
+taken 21 — *Invariant 2 should read BROAD for the reference matrix and NARROW for
+labels* — on `w1/decision-17-g1-threshold` at `7905753`, **25 minutes earlier**,
+and had implemented it in code at `c826a0c`. W1 has precedence and this entry
+moves to 22.
+
+Only the index moved. **The rule and its numbers are exactly what was committed
+in public**, which is the part that has to be immovable.
+
+Both entries were written the same evening, in different repositories-of-record,
+by two workstreams each correctly following the "use ≥20" convention. That is the
+duplicate-numbering problem from #19's housekeeping note arriving in the range
+that was supposed to be safe from it. It is now a ninth collision avoided by
+hand. The renumbering pass should also assign numbers from one place.
+
+### The rule
+
+`classify_compositional_estimability(n_cells_resolved)`, same shape and same
+numbers as the intrinsic rule:
+
+| `n_cells_resolved` | verdict |
+|---|---|
+| ≥ 50 | `ok` |
+| 20–49 | `wide_interval` |
+| < 20 | `not_estimable` |
+
+Symmetry with the intrinsic cutpoint is the honest default rather than a new
+invention. `not_estimable` on this arm means the **compositional** term is
+undefined for the row, which is a different claim from the intrinsic
+`not_estimable`; invariant 1 governs both, and undefined is `None`.
+
+### The quantity is a count, not `unresolved_fraction`
+
+The interval on a proportion is driven by the count in its denominator, not by
+the share excluded. 40-of-60 and 400-of-600 have the same `unresolved_fraction`
+and very different precision. Same reason the intrinsic cutpoint is
+`n_cells_mature` and not a ratio.
+
+### What it actually binds on — the caveat as recorded was inverted
+
+The pre-commitment carried a caveat, and the caveat was wrong. It said the two
+cutpoints are not independent, and concluded that the compositional gate "can
+only ever bind on rows where the intrinsic arm is *already* `ok`... That makes it
+a narrower change than it looks."
+
+The premise is right and the conclusion is its exact inverse. Mature cells are a
+**subset** of resolved cells, so `n_cells_mature ≤ n_cells_resolved` always.
+Therefore `n_cells_mature ≥ 50` **implies** `n_cells_resolved ≥ 50`: wherever the
+intrinsic arm is `ok`, the compositional arm is `ok` too, necessarily. The
+compositional gate can only ever bind on rows the intrinsic gate has **already**
+flagged.
+
+Counted on `results/2026-08-25_9e3ca1a/mature_cell_counts_full.parquet` — 928
+rows, of which 696 outside the epithelial rung, whose `mature_fraction` is 1.0 by
+construction:
+
+| | compositional gate binds |
+|---|---|
+| intrinsic arm `ok` | **0 rows** |
+| intrinsic arm `wide_interval` or `not_estimable` | **108 rows** |
+
+Zero rows have `n_cells_mature > n_cells_resolved`, so the nesting is a fact
+about this data and not only about the definitions.
+
+So the rule adds a second, independent reason to distrust 108 rows that were
+already flagged, and it rescues nothing. That is worth having — "the fraction is
+imprecise" and "there are too few mature cells to ask about expression" are
+different findings — but it is a **smaller** change than the caveat implied, and
+smaller in the opposite direction.
+
+### What this rule does NOT reach, stated so it is not assumed
+
+#36's stated exposure was "the middle of the range — enough mature cells to clear
+`ok=50`, too few resolved cells for the fraction to carry much." **On a count
+cutpoint that set is structurally empty.** Reaching it needs a cutpoint on
+`unresolved_fraction`, which is a separate decision and is deliberately not taken
+here.
+
+Its size on this cohort, measured, so the residual is bounded rather than
+hand-waved: of the 400 non-epithelial-rung rows that pass both count gates, **4
+rows in 2 patients (C124, C130) have more than half the epithelium unresolved**;
+none exceed 60%. #36's worst case, C165 normal at 90.7% unresolved, *is* reached — 26 resolved
+cells puts it in `wide_interval` — but by the count, not by the fraction, and
+its intrinsic arm was already `wide_interval` or worse on every rung.
+
+**DECLINED, 2026-08-27, with the number attached.** Four rows in two patients,
+none above 60% unresolved, does not justify a third gate. Declining is recorded
+here rather than left open so that the gate cannot be surprised by it, and so
+that the reason is on record as *a measured size* and not as an oversight.
+
+What would reopen it, stated now so the answer is not chosen against a result:
+
+- any cohort or re-labelling where more than **5% of both-arms-`ok` rows** exceed
+  50% unresolved — it is 1.0% (4/400) here;
+- any row passing both count gates above **60% unresolved** — there are none here,
+  and that is the whole reason a fraction gate is redundant on this cohort;
+- W1 closing [#14](#14--neither-labelling-axis-is-a-clean-maturity-measure--open-blocks-composition)
+  in a way that moves cells between resolved and unresolved, since every number
+  above is conditional on the current labelling.
+
+The unresolved cells are still not missing at random — #36 is right that they are
+the intermediate and transitional states, which is exactly the population whose
+classification sets the fraction. That argument survives the decline. It is an
+argument for reporting `unresolved_fraction` alongside every compositional term,
+which W1 already emits, and not for a third threshold that would bind on four
+rows.
+
+### Where the verdict lives
+
+`src/schema.py` is frozen and `estimability` is a single enum, so it cannot say
+"intrinsic ok, compositional wide". The compositional verdict therefore travels
+in the harness tables and the gate memo — `estimability_verdicts()` and
+`classify_counts_frame()` in `src/harness/positivity.py` — and not on disk per
+row. A frozen-schema PR follows only if the gate decides it needs to be there.
+
+**Do not fold the two into one column by taking the worse of them.** The second
+segment is this project's contribution and merging it into a precision flag
+throws it away.
+
+## 20 · `unresolved_fraction` is measured, means "bounded not measured", and gates nothing — OPEN
+
+**Raised:** W1, 2026-08-25 · **Owner:** W2 (`src/harness/positivity.py`) · **Needs:** the weekly
+
+Numbered 20, not 18 or 19, to stay clear of the duplicate-numbering collision
+flagged at the top of this file — W3 already holds #17 and #18.
+
+### What was measured
+
+From `results/2026-08-25_9e3ca1a/mature_cell_counts_full.parquet`, 928 rows,
+30 patients (28 paired, plus C106 and C140 with one arm each):
+
+```
+unresolved_fraction   mean 0.310   median 0.257   max 0.923
+rows with n_cells_resolved < 50      108 / 696   (excluding the epithelial rung)
+C165 normal arm                      90.7% unresolved
+C119 tumour                          n_cells_resolved = 0, mature_fraction NaN
+```
+
+### The gap
+
+`src/reference/labels.py` computes `unresolved_fraction` and says what it means:
+*"How much of the epithelium the fraction could not speak for. A large value
+means the fraction is **bounded, not measured**."*
+
+**Nothing anywhere consumes it.** Grepped across `src/`: the only other
+`unresolved` hits are W3's unrelated panel resolution and W1's own pilot job.
+
+`classify_estimability()` gates on `n_cells_mature` alone, which protects the
+**intrinsic** arm — too few mature cells and you cannot ask about expression
+within them. There is no matching gate on the **compositional** arm. A
+`mature_fraction` of 0.92 computed on 9% of the epithelium is reported the same
+way as one computed on 90%, and `classify_estimability`'s own docstring says
+*"The compositional term is still estimable in that case — do not drop the row."*
+
+The zero case is safe: `n_cells_resolved = 0` forces `n_cells_mature = 0`, which
+falls below `wide=20` and classifies `not_estimable`. C119 is handled. **It is
+the middle of the range that is not** — enough mature cells to pass the gate,
+too few resolved cells for the fraction to mean much.
+
+### Why it may not be benign
+
+The unresolved cells are not missing at random. They are the cells whose labels
+are ambiguous, and on a maturity axis that means intermediate and transitional
+states — precisely the cells whose classification determines the fraction.
+
+### What was checked and did NOT hold
+
+**Tumour is not systematically harder to label.** `unresolved_fraction` is
+constant within patient x arm, so the 168 paired rows are 28 patients counted six
+times each. Tumour exceeds normal in 102/168 rows = **17 of 28 patients**,
+binomial p ~ 0.34. Testing on rows rather than patients inflates that sixfold and
+would have produced a spurious directional bias — CLAUDE.md invariant 5's
+principle applied one level up.
+
+### Recommendation
+
+A second cutpoint on `n_cells_resolved` (or equivalently on
+`unresolved_fraction`), pre-committed before it is applied, carrying the
+compositional term the way `Cutpoints` carries the intrinsic one. **W1 is not
+proposing the number** — `src/harness/positivity.py` is W2's file under
+CONTRIBUTING §2, and the threshold should be chosen by whoever owns the gate.
+
+W1 supplies `n_cells_resolved` and `unresolved_fraction` in the frozen output
+already, so no W1 change is needed to act on this.
+
+---
+
+## 21 · Invariant 2 should read BROAD for the reference matrix and NARROW for labels — OPEN
+
+**Raised:** W1, 2026-08-26 · **Owner:** W1 + W2 · **Needed by:** before the S
+matrices are used for anything but tier A · **Bears on:** [#1](#1--muc2-and-tff3-are-both-targets-and-labels--open), G2
+
+Numbered 21 to stay clear of the duplicate-numbering collision at the top of
+this file.
+
+### What was observed
+
+The four `S_matrix_{rung}_1.0.0.parquet` built at `59ae14f` are clean of tier A —
+that was the point of [#35](https://github.com/diegomardian/BetterRiseProject/issues/35).
+They are not clean of the rest of the panel:
+
+| S matrix | rows | tier A | other panel genes |
+|---|---|---|---|
+| `best4` | 800 | 0 | 15 — incl. **SFRP1, SFRP2** (B), **CDX2** (C) |
+| `crypt_position` | 800 | 0 | 17 — incl. B, C and **MS4A12** (D) |
+| `epithelial` | 800 | 0 | 17 — same |
+| `lineage` | 800 | 0 | 17 — same |
+
+`run_full_reference.py` passes `targets = tier_genes("A")`, and #1's narrow
+reading filters the target set *for the run in question*. So this is the
+implementation behaving exactly as specified.
+
+### Why it is nonetheless a problem
+
+**A run testing tier B, C or D against these matrices violates invariant 2, and
+the guard cannot catch it** — those genes were never passed as targets, so there
+is nothing for `assert_no_target_leakage` to look for.
+
+G2 tests GUCA2A (A), MLH1 (B) and MS4A12 (D). Measured: `best4` contains neither
+MLH1 nor MS4A12 and **is** clean for all three. The other three rungs carry
+MS4A12 and are not.
+
+**But `best4`'s cleanliness is luck, not design.** Marker selection ranks by fold
+change and detection rate; MLH1 simply did not reach the top 800. Nothing
+prevents it doing so on a different rung, a different cohort, or a different
+`n_genes` — and if it did, no guard would fire and no output would look wrong.
+An invariant that holds because a ranking happened to fall a certain way is not
+an invariant.
+
+### Why #1's narrow reading does not transfer to the matrix
+
+#1 is about **MUC2 and TFF3 being in tier E and in labelling axis 2**, and its
+stated cost is *"axis 2 loses half its markers"* — axis 2 is
+`[MUC2, TFF3, SPDEF, ITLN1]`, so the broad reading really does halve it. That
+cost is real and it is a cost **to the labels**.
+
+The scaffold resolved it by narrowing `build_signature()` — the **reference
+matrix**. The motivating problem and the thing changed are not the same object.
+
+The costs are not comparable:
+
+| | broad reading costs | |
+|---|---|---|
+| **labels** | axis 2 drops from 4 markers to 2 | severe — halves an axis whose whole purpose is structural independence |
+| **reference matrix** | 23 genes leave a pool of 39,236 | negligible — see below |
+
+**Measured.** `_select_markers` returns exactly `n_genes`, so excluding more
+genes does not shrink the signature — it substitutes markers. On a synthetic
+cohort, excluding 23 targets instead of 4 kept all **600 of 600** markers and
+changed **2**:
+
+```
+excluding  4 targets -> 600 markers
+excluding 23 targets -> 600 markers
+overlap: 598 / 600
+```
+
+On the real matrices, 15–17 of the 800 markers are panel genes, so the broad
+reading would substitute those and keep the signature at 800.
+
+### The argument I should have led with: it is the better estimator
+
+The cost argument above says the broad reading is *cheap*. It is also **better**,
+and for a reason specific to this project.
+
+**The panel genes are exactly the genes whose expression this project expects to
+change between tumour and normal.** That is what makes them the panel. Keeping
+them as markers in the reference matrix makes the matrix sensitive to the
+phenomenon being measured — which is invariant 2's own rationale restated: *a
+silenced mature cell must not be readable as an absent mature cell.*
+
+Measured, NNLS on 300 synthetic bulks with known fractions, varying how strong a
+marker the panel genes are for mature colonocyte. Mean absolute error on the
+mature-colonocyte fraction:
+
+| panel marker strength | panel genes kept (narrow) | narrow | broad |
+|---|---|---|---|
+| none | 0 | 0.03462 | 0.03464 |
+| weak | 0 | 0.03453 | 0.03464 |
+| equal to other markers | 5 | 0.03444 | 0.03464 |
+| strong | 19 | **0.04525** | 0.03464 |
+| dominant | 19 | **0.11592** | 0.03464 |
+
+**The broad column is constant** — it excludes the panel, so how strongly panel
+genes happen to be expressed cannot affect it at all. The narrow column degrades
+by a factor of 3.3 as they get stronger, because a handful of dominant markers
+carry the least-squares residual and the other ~580 stop constraining the fit.
+That is `execution_plan.md` §2.1 error #4 — robustness comes from high
+dimensionality — arriving through the back door.
+
+Worst case for the broad reading across the range: **0.6% relative loss**. Worst
+case for the narrow one: **235%**.
+
+So the broad reading makes fraction estimation *invariant* to the very quantity
+under study, and the narrow one makes it depend on it.
+
+### Recommendation
+
+**Broad for the reference matrix, narrow for labels.** Concretely, in
+`run_full_reference.py`:
+
+```python
+label_targets  = tier_genes("A")   # narrow — #1, so axis 2 keeps MUC2/TFF3
+matrix_targets = panel_genes()     # broad — the matrix is valid for ANY run
+```
+
+This buys a guarantee that currently rests on a ranking, at a cost measured in
+single-digit marker substitutions, and it leaves #1's actual subject —
+axis 2's markers — untouched. #1's recommendation (a) stands for labels.
+
+### What this does NOT do
+
+- **It does not edit the panel or the axes.** Both stay frozen; this changes only
+  which genes are passed as `target_genes` at one call site.
+- **It does not reopen #1.** #1 asks what to do about MUC2/TFF3 in axis 2. That
+  question is untouched, and the answer stays (a).
+- **It does not affect the labels used to build these matrices.** Those come from
+  the `stem_pole` axis, which shares no gene with any tier.
+
+### If rejected
+
+Then the four 1.0.0 matrices must be documented as **tier-A only**, and any run
+against a non-tier-A target needs its own S matrix built with that target
+excluded — four rungs x each target set. That is the honest alternative, and it
+is more work than the change being proposed.

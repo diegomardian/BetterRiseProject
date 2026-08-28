@@ -9,7 +9,8 @@ the reason this function asserts rather than warns.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+import re
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 import numpy as np
@@ -29,18 +30,119 @@ class LeakageError(AssertionError):
     """A target gene reached the reference matrix or the labels."""
 
 
+#: An Ensembl gene id in any of the forms this project encounters: unversioned
+#: (``ENSG00000141510``, decision #3's key), versioned as TCGA STAR counts arrive
+#: (``ENSG00000141510.16``), and CellRanger-suffixed as the deposit's raw
+#: feature_id arrives (``ENSG00000243485.5_4``).
+#:
+#: **All three must match.** A first version anchored on the unversioned form
+#: alone, so a VERSIONED index was classified as symbol space, compared against
+#: symbol targets, found nothing, and passed — the vacuous pass this guard exists
+#: to prevent, one identifier form over. Found by reviewing PR #33.
+_ENSEMBL_ID = re.compile(r"^ENSG\d+(\.\d+)?(_\d+)?$")
+
+
+class LeakageGuardError(AssertionError):
+    """The invariant-2 check could not be performed, so it was not performed.
+
+    Distinct from :class:`LeakageError`, which means a target *did* leak. This
+    means the comparison was meaningless — symbols against Ensembl ids — and a
+    silent pass would have been indistinguishable from a real one.
+    """
+
+
+def _identifier_space(values: Iterable[str]) -> str:
+    """``"ensembl"``, ``"symbol"`` or ``"mixed"``."""
+    flags = {bool(_ENSEMBL_ID.match(str(v))) for v in values}
+    if flags == {True}:
+        return "ensembl"
+    if flags == {False}:
+        return "symbol"
+    return "mixed"
+
+
+def _translate_targets(
+    targets: set[str], alias_map: Mapping[str, str]
+) -> set[str]:
+    """Map target symbols into the genes' identifier space.
+
+    A symbol absent from `alias_map` is dropped **loudly**: it cannot be checked
+    for, and silently dropping it would restore the vacuous pass this guard
+    exists to prevent.
+    """
+    missing = sorted(t for t in targets if t not in alias_map)
+    if missing:
+        raise LeakageGuardError(
+            f"{len(missing)} target gene(s) have no entry in alias_map and so "
+            f"cannot be checked for: {missing}. Invariant 2 would go "
+            f"unenforced for exactly the genes the panel is built on."
+        )
+    return {str(alias_map[t]) for t in targets}
+
+
+def resolve_targets(
+    genes: Iterable[str],
+    target_genes: Iterable[str],
+    alias_map: Mapping[str, str] | None = None,
+    *,
+    context: str,
+) -> set[str]:
+    """Return `target_genes` in whatever identifier space `genes` uses.
+
+    Raises :class:`LeakageGuardError` rather than returning a set that cannot
+    intersect. Filtering with an untranslated set removes nothing and reads as
+    success — the same defect as a guard that cannot fire (issue #35).
+    """
+    targets = {str(g) for g in target_genes}
+    gene_set = {str(g) for g in genes}
+    if not targets or not gene_set:
+        return targets
+    gene_space, target_space = _identifier_space(gene_set), _identifier_space(targets)
+    # A MIXED target set is already the union of both forms — it is what this
+    # function returns once a map has been applied — so there is nothing left to
+    # translate and nothing it can fail to see.
+    if gene_space == target_space or target_space == "mixed":
+        return targets
+    # Any disagreement, not only the exact ensembl/symbol pair. A MIXED index
+    # against symbol targets used to slip through: it caught whichever targets
+    # happened to be written as symbols and silently missed the ones present as
+    # Ensembl ids, reporting a partial leak as if it were the whole one.
+    if alias_map is None:
+        raise LeakageGuardError(
+            f"cannot check invariant 2 for {context}: the genes are "
+            f"{gene_space} identifiers and the targets are "
+            f"{target_space}. Intersecting the two is empty or partial "
+            f"whatever the data, so this check would pass without testing "
+            f"anything. Pass alias_map= to translate, or hand both sides the "
+            f"same identifier form."
+        )
+    # Union of both forms: a mixed index can hold a target under either.
+    return targets | _translate_targets(targets, alias_map)
+
+
 def assert_no_target_leakage(
     genes: Iterable[str],
     target_genes: Iterable[str],
     *,
     context: str,
+    alias_map: Mapping[str, str] | None = None,
 ) -> None:
     """Hard stop if any target gene appears in ``genes``. CLAUDE.md invariant 2.
 
     Call this from label construction too, not only from build_signature.
+
+    ``alias_map`` maps target symbols to the identifier form ``genes`` uses —
+    required when the two are in different spaces, because the comparison is
+    otherwise vacuous rather than clean. See :class:`LeakageGuardError`.
     """
-    targets = set(target_genes)
-    leaked = sorted(targets & set(genes))
+    # A guard that cannot fire is worse than no guard: it reports success.
+    # `target_genes` are panel SYMBOLS; `genes` may be symbols or unversioned
+    # Ensembl ids depending on the caller. Intersecting across the two spaces is
+    # always empty, so the call site passes unconditionally while reading as
+    # enforced. Observed: GUCA2A and the whole of tier A in the committed
+    # 0.1.0-pilot S matrices (issue #35).
+    targets = resolve_targets(genes, target_genes, alias_map, context=context)
+    leaked = sorted(targets & {str(g) for g in genes})
     if leaked:
         raise LeakageError(
             f"{len(leaked)} target gene(s) leaked into {context}: {leaked}. "
@@ -58,6 +160,7 @@ def build_signature(
     gene_index: Sequence[str],
     n_genes: int = 1000,
     require_non_epithelial: bool = True,
+    alias_map: Mapping[str, str] | None = None,
 ) -> pd.DataFrame:
     """Build an S matrix: genes (rows) x cell types (columns), on the fixed index.
 
@@ -95,9 +198,24 @@ def build_signature(
     if len(cell_type) != len(expression):
         raise ValueError(f"cell_type has {len(cell_type)} entries for {len(expression)} cells")
 
-    assert_no_target_leakage(gene_index, targets, context="the shared gene index")
+    # OPEN DECISION #12 (the build_signature() one). The shared index carries
+    # panel genes ON PURPOSE — they are W3's outcome variables for the premise
+    # check, and decision #2 requires 23/23 panel coverage in the intersection,
+    # so an index without them is not an option. Filter them out of the
+    # reference pool rather than refusing the index.
+    #
+    # Invariant 2 binds where it matters: on what may ENTER the reference
+    # matrix. Still checked, three times, below.
+    #
+    # Resolved into the index's identifier space first. `g not in targets` with
+    # symbol targets against an Ensembl index filters NOTHING and reads as
+    # success — the same defect as a guard that cannot fire (issue #35).
+    targets = resolve_targets(
+        gene_index, targets, alias_map, context="the shared gene index"
+    )
+    pool = set(gene_index) - targets
 
-    usable = [g for g in expression.columns if g in set(gene_index)]
+    usable = [g for g in expression.columns if g in pool]
     assert_no_target_leakage(usable, targets, context="the reference gene pool")
 
     types = sorted(set(cell_type))
@@ -332,6 +450,7 @@ def build_signature_sparse(
     n_genes: int = 1000,
     require_non_epithelial: bool = True,
     already_normalised: bool = False,
+    alias_map: Mapping[str, str] | None = None,
 ) -> pd.DataFrame:
     """:func:`build_signature` for a sparse matrix. Same guards, no densification.
 
@@ -361,10 +480,24 @@ def build_signature_sparse(
             f"cell_type has {len(cell_type)} entries for {matrix.shape[0]} cells"
         )
 
-    assert_no_target_leakage(gene_index, targets, context="the shared gene index")
+    # OPEN DECISION #12 (the build_signature() one). The shared index carries
+    # panel genes ON PURPOSE — they are W3's outcome variables for the premise
+    # check, and decision #2 requires 23/23 panel coverage in the intersection,
+    # so an index without them is not an option. Filter them out of the
+    # reference pool rather than refusing the index.
+    #
+    # Invariant 2 binds where it matters: on what may ENTER the reference
+    # matrix. Still checked, three times, below.
+    #
+    # Resolved into the index's identifier space first. `g not in targets` with
+    # symbol targets against an Ensembl index filters NOTHING and reads as
+    # success — the same defect as a guard that cannot fire (issue #35).
+    targets = resolve_targets(
+        gene_index, targets, alias_map, context="the shared gene index"
+    )
 
     names = [str(g) for g in gene_names]
-    index_set = set(gene_index)
+    index_set = set(gene_index) - targets
     keep = np.array([g in index_set for g in names], dtype=bool)
     if not keep.any():
         raise ValueError(
@@ -373,7 +506,9 @@ def build_signature_sparse(
             "(open decision #3)."
         )
     usable = [g for g, k in zip(names, keep, strict=True) if k]
-    assert_no_target_leakage(usable, targets, context="the reference gene pool")
+    assert_no_target_leakage(
+        usable, targets, context="the reference gene pool"
+    )
 
     types = sorted({str(c) for c in cell_type})
     if require_non_epithelial:
@@ -391,11 +526,15 @@ def build_signature_sparse(
 
     means, rates = _group_aggregates(subset, usable, cell_type)
     markers = select_markers_from_aggregates(means, rates, n_genes=n_genes)
-    assert_no_target_leakage(markers, targets, context="the selected marker set")
+    assert_no_target_leakage(
+        markers, targets, context="the selected marker set"
+    )
 
     profiles = means.loc[:, markers].T
     profiles.index.name = "gene"
     profiles.columns.name = "cell_type"
     profiles = profiles.reindex([g for g in gene_index if g in profiles.index])
-    assert_no_target_leakage(profiles.index, targets, context="the emitted S matrix")
+    assert_no_target_leakage(
+        profiles.index, targets, context="the emitted S matrix"
+    )
     return profiles

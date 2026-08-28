@@ -19,9 +19,15 @@ from src.reference.malignancy import (
     MalignancyError,
     assign_cnv_roles,
     call_malignancy,
+    cleanup_infercnv_run,
+    cnv_separation,
+    infercnv_reference_groups,
+    read_infercnv_score_table,
+    read_infercnv_scores,
     run_infercnv,
     select_cnv_reference,
     validate_normal_epithelium,
+    write_infercnv_inputs,
 )
 
 RNG = np.random.default_rng(20260818)
@@ -240,9 +246,271 @@ class TestNormalEpitheliumValidation:
             validate_normal_epithelium(calls, tissue=["normal"])
 
 
-def test_infercnv_is_an_explicit_todo():
-    with pytest.raises(NotImplementedError, match="real per-patient matrices"):
-        run_infercnv()
+class TestInferCNVWiring:
+    """The two ways this can be quietly circular, plus the hg19 trap.
+
+    inferCNV itself is not exercised here — it is R, it is slow, and it is not
+    a pip dependency. What IS testable is everything that decides whether its
+    answer means anything: which cells become the baseline, which are held back
+    to score it, and whether the coordinates match the deposit's build.
+    """
+
+    def _roles(self, n_ref=120, n_hold=40, n_query=100):
+        role = (
+            ["reference_normal_epi"] * n_ref
+            + ["holdout_normal_epi"] * n_hold
+            + ["query"] * n_query
+            + ["reference_diploid"] * 60
+        )
+        compartment = ["epithelial"] * (n_ref + n_hold + n_query) + (
+            ["immune"] * 30 + ["stromal"] * 30
+        )
+        return pd.DataFrame({"role": role, "compartment": compartment})
+
+    def _counts(self, roles, n_genes=25):
+        return RNG.poisson(3, size=(len(roles), n_genes)).astype(np.int64)
+
+    def test_the_holdout_is_never_a_reference_group(self):
+        """It exists to be scored out-of-sample. As a reference it would be
+        validating the baseline against itself."""
+        groups = infercnv_reference_groups(self._roles())
+        assert "holdout_normal_epi" not in groups
+        assert "query" not in groups
+
+    def test_matched_normal_epithelium_is_the_ONLY_reference(self):
+        """One group, not four. inferCNV's STEP 08 runs with use_bounds=TRUE,
+        which zeroes observation deviation falling inside the range of the
+        reference-group means — and immune/stromal/endothelial/epithelial means
+        differ for ordinary cell-type reasons. On the pilot that made 25-30% of
+        values exactly 1 and inverted the ordering in four of five patients."""
+        groups = infercnv_reference_groups(self._roles())
+        assert groups == ["reference_normal_epi"]
+
+    def test_diploid_groups_are_the_fallback_when_there_is_no_matched_normal(self):
+        """A mismatched reference is the honest cost of having no better one.
+        assign_cnv_roles calls this the diploid_only strategy and flags it."""
+        roles = pd.DataFrame({
+            "role": ["query"] * 50 + ["reference_diploid"] * 60,
+            "compartment": ["epithelial"] * 50 + ["immune"] * 30 + ["stromal"] * 30,
+        })
+        groups = infercnv_reference_groups(roles)
+        assert groups == ["ref_immune", "ref_stromal"]
+
+    def test_the_diploid_fallback_still_keeps_compartments_separate(self):
+        roles = pd.DataFrame({
+            "role": ["reference_diploid"] * 3,
+            "compartment": ["immune", "stromal", "endothelial"],
+        })
+        assert infercnv_reference_groups(roles) == [
+            "ref_endothelial", "ref_immune", "ref_stromal"
+        ]
+
+    def test_no_reference_refuses_rather_than_running(self):
+        roles = pd.DataFrame({
+            "role": ["query"] * 10, "compartment": ["epithelial"] * 10
+        })
+        with pytest.raises(MalignancyError, match="no reference cells"):
+            infercnv_reference_groups(roles)
+
+    def test_a_grch38_gene_file_is_refused_by_absence(self, tmp_path):
+        """Required with no default, and the error says why: this deposit is
+        hg19, and a GRCh38 file produces arm-level artifacts that look exactly
+        like real CNVs."""
+        roles = self._roles()
+        with pytest.raises(MalignancyError, match="hg19"):
+            run_infercnv(
+                self._counts(roles), [f"G{i}" for i in range(25)], roles,
+                gene_position_file=tmp_path / "missing.txt",
+                out_dir=tmp_path / "out", dry_run=True,
+            )
+
+    def test_dry_run_writes_inputs_and_returns_the_command(self, tmp_path):
+        roles = self._roles()
+        positions = tmp_path / "hg19_gene_pos.txt"
+        positions.write_text("G0\tchr1\t1\t100\n")
+        out = run_infercnv(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            gene_position_file=positions, out_dir=tmp_path / "out", dry_run=True,
+        )
+        assert out["ran"] is False
+        assert out["command"][0] == "Rscript"
+        assert out["counts"].exists() and out["annotations"].exists()
+        assert out["script"].exists()
+
+    def test_the_generated_R_names_only_reference_groups(self, tmp_path):
+        roles = self._roles()
+        positions = tmp_path / "hg19_gene_pos.txt"
+        positions.write_text("G0\tchr1\t1\t100\n")
+        out = run_infercnv(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            gene_position_file=positions, out_dir=tmp_path / "out", dry_run=True,
+        )
+        script = out["script"].read_text()
+        assert "reference_normal_epi" in script
+        assert "holdout_normal_epi" not in script
+        # One reference group when a matched normal exists — passing the
+        # diploid compartments alongside it is what bounded the signal away.
+        assert "ref_immune" not in script
+
+    def test_the_matrix_is_genes_by_cells(self, tmp_path):
+        """inferCNV's orientation, not AnnData's. Transposed silently, this
+        would run and return nonsense."""
+        from scipy import io as sio
+
+        roles = self._roles()
+        paths = write_infercnv_inputs(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            out_dir=tmp_path,
+        )
+        matrix = sio.mmread(paths["matrix"])
+        assert matrix.shape == (25, len(roles))
+
+    def test_the_matrix_is_written_sparse(self, tmp_path):
+        """Dense would be 7.8 GB for the largest pilot patient before pandas
+        takes its copy, and hours to write for a >90%-zero matrix."""
+        roles = self._roles()
+        paths = write_infercnv_inputs(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            out_dir=tmp_path,
+        )
+        assert paths["matrix"].name.endswith(".mtx")
+        assert (tmp_path / "genes.tsv").exists()
+        assert (tmp_path / "barcodes.tsv").exists()
+        assert paths["counts"] == tmp_path
+
+    def test_the_R_script_reads_the_mtx_rather_than_a_path(self, tmp_path):
+        """CreateInfercnvObject does read.table() on whatever path it gets and
+        has no 10x-directory reader — a directory fails with 'not a regular
+        file'. The matrix is loaded in R and passed as an object."""
+        roles = self._roles()
+        positions = tmp_path / "hg19.txt"
+        positions.write_text("G0\tchr1\t1\t100\n")
+        out = run_infercnv(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            gene_position_file=positions, out_dir=tmp_path / "out", dry_run=True,
+        )
+        script = out["script"].read_text()
+        assert "readMM" in script
+        assert "raw_counts_matrix = counts" in script
+
+    def test_duplicate_gene_symbols_are_collapsed(self, tmp_path):
+        """The deposit maps several Ensembl IDs to one symbol, and the
+        gene-order file is keyed on symbol — a duplicated row name gives
+        inferCNV two positions for one gene."""
+        from scipy import io as sio
+
+        roles = self._roles()
+        names = ["A", "B", "A", "C", "B"] + [f"G{i}" for i in range(20)]
+        paths = write_infercnv_inputs(
+            self._counts(roles), names, roles, out_dir=tmp_path,
+        )
+        written = (tmp_path / "genes.tsv").read_text().splitlines()
+        symbols = [line.split("\t")[0] for line in written]
+        assert len(symbols) == len(set(symbols))
+        assert sio.mmread(paths["matrix"]).shape[0] == len(symbols)
+
+    def test_genes_tsv_carries_the_symbol_in_both_columns(self, tmp_path):
+        """The gene-order file is keyed on SYMBOL. A mismatch there does not
+        error — it silently drops every gene from the inference."""
+        roles = self._roles()
+        write_infercnv_inputs(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            out_dir=tmp_path,
+        )
+        first = (tmp_path / "genes.tsv").read_text().splitlines()[0]
+        assert first.split("\t") == ["G0", "G0"]
+
+    def test_unusable_cells_are_dropped_not_written(self, tmp_path):
+        roles = self._roles()
+        roles.loc[:9, "role"] = "unusable"
+        paths = write_infercnv_inputs(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            out_dir=tmp_path,
+        )
+        annotations = pd.read_csv(paths["annotations"], sep="\t", header=None)
+        assert "unusable" not in set(annotations[1])
+
+    def test_the_R_writes_the_score_itself(self, tmp_path):
+        """no_plot=TRUE skips the step that writes infercnv.observations.txt,
+        so the score comes off the final object instead of a 400 MB text
+        matrix produced only to be reduced to one number per cell."""
+        roles = self._roles()
+        positions = tmp_path / "hg19.txt"
+        positions.write_text("G0\tchr1\t1\t100\n")
+        out = run_infercnv(
+            self._counts(roles), [f"G{i}" for i in range(25)], roles,
+            gene_position_file=positions, out_dir=tmp_path / "out", dry_run=True,
+        )
+        script = out["script"].read_text()
+        assert "colMeans((expr - 1)^2)" in script
+        assert "cnv_scores.csv" in script
+
+    def test_the_score_table_joins_the_role_back_on(self, tmp_path):
+        """call_malignancy needs the REFERENCE cells too — they set the
+        threshold — so the group has to come back with the scores."""
+        (tmp_path / "cnv_scores.csv").write_text(
+            "cell,cnv_score\nc0,0.01\nc1,0.40\n"
+        )
+        (tmp_path / "annotations.tsv").write_text(
+            "c0\tref_immune\nc1\tquery\n"
+        )
+        table = read_infercnv_score_table(tmp_path)
+        assert set(table["group"]) == {"ref_immune", "query"}
+        assert table.loc[table["cell"] == "c1", "cnv_score"].iloc[0] == 0.40
+
+    def test_a_missing_score_file_says_where_to_look(self, tmp_path):
+        with pytest.raises(MalignancyError, match="infercnv_R.log"):
+            read_infercnv_score_table(tmp_path)
+
+    def test_cleanup_refuses_when_the_result_is_missing(self, tmp_path):
+        """A failed run keeps everything — the intermediates are how it gets
+        diagnosed, and cnv_scores.csv is the only thing that cannot be
+        recomputed without re-running the inference."""
+        (tmp_path / "01_incoming_data.infercnv_obj").write_bytes(b"x" * 1000)
+        freed = cleanup_infercnv_run(tmp_path)
+        assert freed == 0
+        assert (tmp_path / "01_incoming_data.infercnv_obj").exists()
+
+    def test_cleanup_keeps_the_result_and_the_provenance(self, tmp_path):
+        for name in ("cnv_scores.csv", "annotations.tsv", "run_infercnv.R",
+                     "infercnv_R.log", "genes.tsv", "barcodes.tsv"):
+            (tmp_path / name).write_text("x")
+        for name in ("01_incoming_data.infercnv_obj", "22_denoise.infercnv_obj",
+                     "preliminary.infercnv_obj", "matrix.mtx"):
+            (tmp_path / name).write_bytes(b"x" * 1000)
+
+        freed = cleanup_infercnv_run(tmp_path)
+        assert freed == 4000
+        assert (tmp_path / "cnv_scores.csv").exists()
+        assert (tmp_path / "annotations.tsv").exists()
+        assert (tmp_path / "run_infercnv.R").exists()
+        assert not (tmp_path / "01_incoming_data.infercnv_obj").exists()
+        assert not (tmp_path / "matrix.mtx").exists()
+
+    def test_keep_final_is_opt_in(self, tmp_path):
+        """Several hundred MB for the largest patient, times 62."""
+        (tmp_path / "cnv_scores.csv").write_text("x")
+        (tmp_path / "run.final.infercnv_obj").write_bytes(b"x" * 500)
+
+        cleanup_infercnv_run(tmp_path, keep_final=True)
+        assert (tmp_path / "run.final.infercnv_obj").exists()
+        cleanup_infercnv_run(tmp_path)
+        assert not (tmp_path / "run.final.infercnv_obj").exists()
+
+    def test_scores_feed_call_malignancy(self, tmp_path):
+        """Mean squared deviation from 1, and it must land on the scale
+        call_malignancy thresholds against."""
+        observations = tmp_path / "obs.txt"
+        genes, cells = 10, 6
+        frame = pd.DataFrame(
+            np.full((genes, cells), 1.3),
+            index=[f"G{i}" for i in range(genes)],
+            columns=[f"c{i}" for i in range(cells)],
+        )
+        frame.to_csv(observations, sep=" ")
+        scores = read_infercnv_scores(observations)
+        assert len(scores) == cells
+        assert scores.iloc[0] == pytest.approx(0.09)
 
 
 def test_min_reference_cells_is_documented_not_arbitrary():
@@ -391,3 +659,177 @@ class TestHeldOutReference:
         )
         with pytest.raises(MalignancyError, match="no held-out normal epithelium"):
             validate_normal_epithelium(calls, tissue=df["tissue"], role=roles["role"])
+
+
+class TestGenePositions:
+    """The gene-order file decides where inferCNV thinks every gene is. Getting
+    it wrong does not fail — it produces chromosome-arm artifacts that look
+    exactly like real copy-number events."""
+
+    def _parse(self, text):
+        import io
+        import sys
+        from pathlib import Path
+
+        sys.path.insert(0, str(Path("src/reference/jobs").resolve()))
+        from fetch_gene_positions import parse_gtf, sort_rows
+
+        return sort_rows(parse_gtf(io.StringIO(text)))
+
+    def _gene(self, chrom, start, end, name):
+        return (
+            f'{chrom}\tHAVANA\tgene\t{start}\t{end}\t.\t+\t.\t'
+            f'gene_name "{name}"; gene_type "protein_coding";\n'
+        )
+
+    def test_only_gene_rows_are_kept(self):
+        text = self._gene("chr1", 100, 200, "A") + (
+            'chr1\tHAVANA\texon\t100\t200\t.\t+\t.\tgene_name "A";\n'
+        )
+        assert len(self._parse(text)) == 1
+
+    def test_scaffolds_and_chrM_are_excluded(self):
+        """A contig with a handful of genes contributes noise with no positional
+        meaning, and chrM has no copy number in the relevant sense."""
+        text = (
+            self._gene("chr1", 100, 200, "A")
+            + self._gene("chrM", 1, 10, "MT-CO1")
+            + self._gene("GL000191.1", 1, 10, "SCAF")
+        )
+        assert [r[0] for r in self._parse(text)] == ["A"]
+
+    def test_pseudoautosomal_duplicates_are_dropped(self):
+        """PAR genes appear on both X and Y. A gene at two positions makes the
+        smoothing window ambiguous."""
+        text = self._gene("chr1", 100, 200, "A") + self._gene(
+            "chrY", 5, 9, "XG_PAR_Y"
+        )
+        assert [r[0] for r in self._parse(text)] == ["A"]
+
+    def test_a_repeated_symbol_keeps_the_first_occurrence(self):
+        text = self._gene("chr1", 100, 200, "A") + self._gene("chr1", 900, 950, "A")
+        rows = self._parse(text)
+        assert len(rows) == 1
+        assert rows[0][2] == 100
+
+    def test_output_is_in_genomic_order(self):
+        """inferCNV walks the file top to bottom as the genome."""
+        text = (
+            self._gene("chr2", 50, 80, "B")
+            + self._gene("chr1", 900, 950, "C")
+            + self._gene("chr1", 100, 200, "A")
+            + self._gene("chrX", 10, 20, "D")
+        )
+        assert [r[0] for r in self._parse(text)] == ["A", "C", "B", "D"]
+
+
+class TestCNVSeparation:
+    """A threshold can always be drawn. The question is whether anything is on
+    the other side of it."""
+
+    def _frame(self, query_shift, n_query=400, n_comp=200, seed=0):
+        rng = np.random.default_rng(seed)
+        score = np.concatenate([
+            rng.normal(0.002, 0.0005, n_comp),
+            rng.normal(0.002 + query_shift, 0.0005, n_query),
+        ])
+        group = ["holdout_normal_epi"] * n_comp + ["query"] * n_query
+        return score, group, ["P1"] * (n_comp + n_query)
+
+    def test_a_clearly_aneuploid_tumour_is_separable(self):
+        score, group, patient = self._frame(query_shift=0.003)
+        out = cnv_separation(score, group=group, patient_id=patient).iloc[0]
+        assert bool(out["separable"])
+        assert out["enrichment"] > 5
+
+    def test_a_near_diploid_tumour_is_not(self):
+        """MMRd tumours look like this, and it is biology rather than failure."""
+        score, group, patient = self._frame(query_shift=0.0)
+        out = cnv_separation(score, group=group, patient_id=patient).iloc[0]
+        assert not bool(out["separable"])
+        assert out["enrichment"] == pytest.approx(1.0, abs=0.4)
+        assert "below" in out["reason"]
+
+    def test_the_null_is_one_tenth_not_zero(self):
+        """By construction a tenth of copy-neutral cells sit above their own
+        90th percentile. Scoring against zero would call every patient
+        separable."""
+        score, group, patient = self._frame(query_shift=0.0)
+        out = cnv_separation(score, group=group, patient_id=patient).iloc[0]
+        assert out["fraction_above"] == pytest.approx(0.10, abs=0.05)
+
+    def test_a_missing_holdout_is_not_separable_rather_than_an_error(self):
+        score = np.full(50, 0.002)
+        out = cnv_separation(
+            score, group=["query"] * 50, patient_id=["P1"] * 50
+        ).iloc[0]
+        assert not bool(out["separable"])
+        assert "comparator" in out["reason"]
+
+    def test_patients_are_judged_independently(self):
+        s1, g1, _ = self._frame(query_shift=0.003, seed=1)
+        s2, g2, _ = self._frame(query_shift=0.0, seed=2)
+        out = cnv_separation(
+            np.concatenate([s1, s2]), group=list(g1) + list(g2),
+            patient_id=["STRONG"] * len(s1) + ["FLAT"] * len(s2),
+        ).set_index("patient_id")
+        assert bool(out.loc["STRONG", "separable"])
+        assert not bool(out.loc["FLAT", "separable"])
+
+    def test_length_mismatch_refuses(self):
+        with pytest.raises(MalignancyError, match="lengths differ"):
+            cnv_separation([1.0, 2.0], group=["query"], patient_id=["P1", "P1"])
+
+
+class TestThresholdPopulation:
+    """Which cells set the malignancy threshold, and why it is not the diploid
+    compartments any more."""
+
+    def _frame(self):
+        rng = np.random.default_rng(3)
+        # Baseline is epithelial, so the diploid compartments score HIGH for
+        # cell-type reasons while the tumour sits just above copy-neutral
+        # epithelium. This is the real pilot's shape.
+        score = np.concatenate([
+            rng.normal(0.0020, 0.0003, 200),   # diploid: high, cell-type diff
+            rng.normal(0.0009, 0.0002, 150),   # holdout normal epithelium
+            rng.normal(0.0018, 0.0006, 300),   # tumour epithelium
+        ])
+        compartment = ["immune"] * 200 + ["epithelial"] * 450
+        role = (["reference_diploid"] * 200 + ["holdout_normal_epi"] * 150
+                + ["query"] * 300)
+        return score, compartment, role, ["P1"] * 650
+
+    def test_diploid_threshold_calls_almost_nothing(self):
+        """The bug this replaced: on the pilot it called 21 of 2,259 tumour
+        cells malignant while ~20% sat above the copy-neutral 90th percentile."""
+        score, compartment, _role, patient = self._frame()
+        calls = call_malignancy(score, compartment=compartment, patient_id=patient)
+        malignant = (calls["call"].astype(str) == "malignant").sum()
+        assert malignant < 30
+
+    def test_epithelial_threshold_calls_a_sensible_fraction(self):
+        score, compartment, role, patient = self._frame()
+        calls = call_malignancy(
+            score, compartment=compartment, patient_id=patient, role=role
+        )
+        query = calls[np.asarray(role) == "query"]
+        fraction = (query["call"].astype(str) == "malignant").mean()
+        assert 0.2 < fraction < 1.0
+
+    def test_the_threshold_cells_are_labelled_reference_not_non_malignant(self):
+        """They defined the cut, so calling them non-malignant is circular."""
+        score, compartment, role, patient = self._frame()
+        calls = call_malignancy(
+            score, compartment=compartment, patient_id=patient, role=role
+        )
+        holdout = calls[np.asarray(role) == "holdout_normal_epi"]
+        assert set(holdout["call"].astype(str)) == {"reference"}
+
+    def test_role_length_is_checked(self):
+        score, compartment, _role, patient = self._frame()
+        with pytest.raises(MalignancyError, match="role has"):
+            call_malignancy(
+                score, compartment=compartment, patient_id=patient,
+                role=["query"] * 3,
+            )

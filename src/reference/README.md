@@ -1,67 +1,109 @@
 # W1 — Reference
 
+> **W2 needs two things from you** — see [docs/handoff_w2_to_w1_w4.md](../../docs/handoff_w2_to_w1_w4.md).
+
 **Owner:** Bode · **Env:** `env/w1_reference.yml` → `conda activate brp-w1`
 **Branch prefix:** `w1/…` · **Blocked by:** nothing
 
-> ## STATE — 2026-08-20
+> ## STATE — 2026-08-27
 >
-> Week 1 complete; week 2's handoff artifact exists. 529 tests, ruff clean.
-> Working branch `w1/ingest-gse178341`, PR #5.
+> **The W1 pipeline is complete and reproducible.** Ingest → QC → ambient →
+> malignancy → labels → counts → S matrices, on a shared index both arms agree
+> on. 903 tests pass locally (the 22 failures are W3's `bulk/` and missing local
+> deps, not W1). Branch `w1/decision-17-g1-threshold`, PR **#33**.
 >
-> **Read `docs/open_decisions.md` first.** Seven decisions are open and every one
-> shapes numbers that weeks 3-5 will produce.
+> ### The one thing that is blocked, and it is not implementation
 >
-> ### The kappa is in — see decision #14 for the full write-up
+> **G1's specification is wrong, and W1 stopped rather than patch it — see
+> [#46](https://github.com/diegomardian/BetterRiseProject/issues/46).**
 >
-> `stem_pole` scores **kappa 0.313** against the authors' annotation: fair, not
-> good, and we call 56% of their stem cells mature. Two things came with it that
-> were not the question being asked:
+> `src/reference/checks.py` returns `not_estimable` and **must keep returning
+> it.** That is the correct state, not a bug.
 >
-> - **`lineage` and `crypt_position` are the same partition on axis 1** — identical
->   in all ten pilot arms, `crypt_middle` never appears. Axis 1's mature call is
->   operationally *"no stem marker detected at the depth target"*: a detection
->   gate, not a median split. `rung_degeneracy()` reports this now.
-> - **The depth flag can never clear on this axis**, because the mature bin is
->   defined by non-detection. Choose the depth target by kappa, not by the flag.
->   The sweep in `run_pilot.py` prints kappa per target for that reason.
+> Amendment 2 defines `M = log₂(tumour mean / normal mean)` and never says which
+> cells the mean is over. Three populations were tested on simulation:
+> all-epithelium, within-mature, maturity-stratified. **All three FAIL the world
+> where the project's compositional hypothesis is true and nothing else is
+> wrong.** The cause is structural: MS4A12 is cell-type-restricted and threshold
+> 2 scores it against abundance-matched genes that are not, so any residual
+> composition moves it far more than its comparison set.
 >
-> **Next action, one run:** the kappa above was measured at the sweep's *worst*
-> target (q=0.10). Rerun, read the sweep's `kappa` column, set `DEPTH_QUANTILE`
-> from it, rerun once more. `best4` is unusable at any target (sens 0.04), and
-> axis 2 cannot agree with axis 1 by construction — both are team decisions.
+> **W1 deliberately proposed no fourth construction.** Two of its own failed;
+> anything suggested next would be chosen knowing what failed, which is the exact
+> move the pre-registration exists to prevent. The design question is with the
+> team.
 >
-> ### Measured, not assumed
+> ### Two facts that constrain anyone picking this up
+>
+> 1. **Threshold 2 (MS4A12 ≥ 0.50) is frozen.** Committed 2026-08-25, since seen
+>    to fail 31/31 patients. Any change now is indistinguishable from tuning,
+>    whatever the justification. Thresholds 1 and 3 behaved correctly in every
+>    test.
+> 2. **Tier A on real data is deliberately UNMEASURED.** Thresholds 1 and 3 are
+>    the last unseen G1 inputs. Measuring them is the team's call, not the next
+>    session's convenience.
+>
+> `results/2026-08-27_af3d19a/m_tie_structure.parquet` holds the MS4A12 numbers.
+> Note the reading withdrawn on #37: percentile 0.003 does **not** show MS4A12 is
+> silenced — it is equally consistent with pure composition.
+>
+> ### Landed this week
 >
 > | | |
 > |---|---|
-> | Cells / genes | 370,115 x 43,113 (published 371,223 — 1,108 unreconciled) |
-> | **Matched tumour + normal** | **36 of 62** — not the ~60 §8.4 assumes |
-> | **Unsorted in both arms** | **~30** — the real compositional n |
-> | Ambient contamination | median 1.6%, max 4.1% |
-> | QC retention | 91.5% |
+> | `gene_index_1.0.0` | **39,236** genes, the intersection both arms measured; 23/23 panel |
+> | S matrices | four rungs at 1.0.0, **0 of 23 panel genes present** (#21), each with a `.meta.json` |
+> | Invariant 2 | was **unenforced** — guards compared symbols to Ensembl ids and passed vacuously (#35). Now refuses rather than passing. Four `0.1.0-pilot` matrices **retracted** |
+> | Decision #12 | applied at last; its committed patch would have been a no-op at full scale |
+> | Decision #21 | invariant 2 reads **broad** for the matrix, **narrow** for labels |
+> | Cohort | 62 → 22 unmatched (#9) → 4 lost to #11/#16 → 6 QC → **28 paired**, both tumour-arm definitions |
 >
-> ### What the deposit actually is
+> ### Open, all with other people
 >
-> 10x CellRanger HDF5 v2, CSC, genes x barcodes, float64-but-integral, 764M
-> nonzeros. Feature ids `ENSG00000243485.5_4` on **GRCh37_liftover_v28 — hg19**,
-> while TCGA is GRCh38 (tell W3). Barcodes encode patient, tissue and chemistry.
-> `TA`/`TB` are two tumour regions, not a tissue type. Chemistry is mixed but
-> constant within 61 of 62 patients; `PROCESSING_TYPE` is **not** — mixed within
-> 45 of 62, and `CD45pMACS` is immune enrichment. Already mito-filtered at 50%
-> upstream, and **no unfiltered droplets exist in any public source** (#8), so
-> CellBender cannot run and the ambient arm is SoupX + DecontX.
+> **#33** PR review · **#36** W2, `unresolved_fraction` gates nothing · **#37**
+> Amendment 2, ratified-with-condition, second reader done · **#38** W4, label
+> divergence · **#40** W2's ratification, one `rankdata` fix outstanding ·
+> **#42** `crypt_position` is a two-bin split on ~90% of patients ·
+> **#46** the G1 specification question above
 >
-> ### Still stubbed, all deliberately judgement over real data
+> ### A pattern worth knowing before touching anything
 >
-> `malignancy.run_infercnv` · `qc.flag_doublets` · `ambient.run_soupx` ·
-> `ambient.run_decontx`
+> **Symbols and Ensembl ids meet in more places than anyone has enumerated, and
+> every collision fails silently.** Five instances this week, the last one
+> written by W1 in a job whose purpose was checking someone else's work. If you
+> add a comparison between two gene-name sets, assert the spaces match — do not
+> assume the intersection means what you think.
 >
-> ### Before any compositional number
+> ### Measured at full scale
 >
-> Malignancy calls (largest gap — the "tumour" arm still holds non-malignant
-> epithelium, so the contrast is sample-of-origin), ambient subtraction, doublet
-> removal, the 29-cell sample pooled with samples 100x larger, and the 1,108-cell
-> discrepancy.
+> | | |
+> |---|---|
+> | Cohort | 62 patients · 36 matched · **23 with both arms ambient-interpretable** |
+> | `stem_pole` | kappa 0.444 — mature means *no stem marker detected at 3,281 UMIs* |
+> | `opposite_lineage` | kappa **0.529 against its own criterion** — a goblet axis, **not** maturity |
+> | `best4` | kappa 0.045 — **do not quote** |
+> | inferCNV | 39,516 genes · specificity 0.99–1.00 · **30/62 separable** |
+> | Ambient | median **2.2%**, 9 of 84 above 10% |
+>
+> ### The finding that shapes everything downstream
+>
+> **Open decision #15, confirmed.** MMR-proficient tumours separate **15/15**;
+> MMRd **15/20** — and within *callable* patients MMRd yields **3.4× fewer**
+> cells called malignant. Both follow from MMRd tumours being near-diploid, and
+> no other caller escapes it. The bias runs **along** the pre-registered MMR
+> contrast rather than across it.
+>
+> `docs/prereg_amendment_1_mmr_tumour_arm.md` responds: report the contrast under
+> **both** tumour-arm definitions, and treat disagreement as *not identifiable*
+> rather than choosing. Written before any expression was examined — **that
+> timing is the whole of its credibility.**
+>
+> ### Cluster
+>
+> Disk is the constraint, not CPU — 55 GB for the project. inferCNV `-tc 1` at
+> ~25 GB free. inferCNV is **CPU-only** despite CLAUDE.md listing a GPU.
+
+
 
 You own GSE178341 (Pelka et al. 2021): ~371k cells, 62 patients, matched normal,
 MMRp and MMRd. Everything downstream is built on what you emit.

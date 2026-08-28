@@ -244,8 +244,6 @@ def score_markers(
             "genes to pass is open decision #1: the narrow reading is the target "
             "set for THIS run, not the whole panel."
         )
-    assert_no_target_leakage(markers, target_genes, context=context)
-
     positions, found = _positions(gene_names, markers)
     if positions.size == 0:
         raise LabelError(
@@ -253,6 +251,11 @@ def score_markers(
             f"naming — this deposit carries symbols in var['gene_symbol'] and "
             f"Ensembl IDs in the index (open decision #3)."
         )
+
+    # AFTER the naming check: an invariant checked against identifiers the
+    # matrix has never seen tests nothing, and the naming diagnosis is more
+    # actionable.
+    assert_no_target_leakage(markers, target_genes, context=context)
     missing = sorted(set(map(str, markers)) - set(found))
 
     subset = expression[:, positions]
@@ -603,6 +606,41 @@ def mature_mask(labels: pd.DataFrame, axis: str, rung: str) -> np.ndarray:
     return (labels[column].astype(str) == RUNG_SPECS[rung].mature).to_numpy()
 
 
+#: What each axis measures, in the words its own concordance supports.
+#:
+#: **Axis 2 is not a maturity axis and reporting it as one is the error this
+#: fixes.** Scored against its own criterion it reaches kappa 0.529 — higher
+#: than axis 1's 0.444 — so it measures the goblet program well. It was only
+#: ever a *maturity* proxy by the argument that "not secretory" implies "on the
+#: absorptive path", and that argument does not survive contact with the data:
+#: axis 2 calls stem cells mature, because stem cells are not goblet.
+#:
+#: The frozen config (`config/labeling_axes.yaml`) names the axes and their
+#: genes and is not touched here. What changes is that the interpretation
+#: travels with the numbers, so a consumer cannot read axis 2's
+#: `differentiated` bin as "mature".
+AXIS_INTERPRETATION: Final[dict[str, str]] = {
+    "stem_pole": "distance from the stem pole; mature = no stem marker detected",
+    "opposite_lineage": "goblet/secretory program; NOT a maturity axis",
+}
+
+#: How the tumour arm is defined. **Open decision #15 and prereg amendment 1.**
+#:
+#: `filtered` counts only epithelial cells called malignant. Precise, and
+#: differentially biased: CNV calling separates 15/15 MMR-proficient patients
+#: against 15/20 MMRd, and within callable patients calls 3.4x fewer MMRd cells
+#: malignant. Both follow from MMRd tumours being near-diploid.
+#:
+#: `unfiltered` counts all epithelium from tumour samples. Imprecise — it
+#: retains non-malignant epithelium, which is mature — but the imprecision is
+#: the SAME in both strata, and a consistent bias cancels in a difference where
+#: a differential one does not.
+#:
+#: Neither is the real one. The amendment reports both and pre-commits to
+#: treating disagreement as "not identifiable" rather than choosing.
+TUMOUR_ARMS: Final[tuple[str, ...]] = ("filtered", "unfiltered")
+
+
 def mature_cell_counts(
     labels: pd.DataFrame,
     *,
@@ -610,14 +648,26 @@ def mature_cell_counts(
     tissue: Any,
     axes: Any = TRANSCRIPT_AXES,
     rungs: Any = None,
+    malignant: Any = None,
+    tumour_arm: str = "unfiltered",
 ) -> pd.DataFrame:
     """Mature-cell counts per (patient, tissue, axis, rung). Long form.
+
+    `tumour_arm` selects which cells constitute the tumour arm — see
+    :data:`TUMOUR_ARMS`, open decision #15, and
+    `docs/prereg_amendment_1_mmr_tumour_arm.md`. ``"filtered"`` requires
+    `malignant`, a per-cell boolean from
+    :func:`src.reference.malignancy.call_malignancy`, and drops tumour-sample
+    epithelium not called malignant. **Report both definitions; do not pick
+    one.**
 
     This is `n_cells_mature` in the frozen output schema, and it is what decides
     positivity — whether a patient's intrinsic term is estimable at all. The
     thresholds themselves belong to W2 (`src/harness/positivity.py`); this
     supplies the counts, deliberately without applying them.
     """
+    if tumour_arm not in TUMOUR_ARMS:
+        raise LabelError(f"tumour_arm must be one of {TUMOUR_ARMS}, got {tumour_arm!r}")
     rungs = list(rungs) if rungs is not None else granularity_rungs()
     keys = pd.DataFrame(
         {
@@ -625,6 +675,24 @@ def mature_cell_counts(
             "tissue": [str(t) for t in tissue],
         }
     )
+    # Drop non-malignant tumour epithelium under the filtered definition. Normal
+    # arm untouched: its epithelium is supposed to be non-malignant, and
+    # filtering it would remove the reference the contrast is against.
+    drop = np.zeros(len(keys), dtype=bool)
+    if tumour_arm == "filtered":
+        if malignant is None:
+            raise LabelError(
+                "tumour_arm='filtered' needs `malignant` — a per-cell boolean "
+                "from call_malignancy(). Without it the filtered arm cannot be "
+                "distinguished from the unfiltered one, which is the whole "
+                "point of reporting both (prereg amendment 1)."
+            )
+        is_malignant = np.asarray(malignant, dtype=bool)
+        if is_malignant.shape[0] != len(keys):
+            raise LabelError(
+                f"malignant has {is_malignant.shape[0]} entries for {len(keys)} cells"
+            )
+        drop = (keys["tissue"].to_numpy() == "tumour") & ~is_malignant
     if len(keys) != len(labels):
         raise LabelError(f"patient_id has {len(keys)} entries for {len(labels)} cells")
 
@@ -636,8 +704,9 @@ def mature_cell_counts(
             # indexed by barcode, so assigning a Series here aligns on index,
             # matches nothing, and silently yields an all-NaN column.
             column = labels[label_column(axis, rung)].astype(str).to_numpy()
-            epithelial = column != NON_EPITHELIAL
-            unresolved = column == UNRESOLVED
+            epithelial = (column != NON_EPITHELIAL) & ~drop
+            unresolved = (column == UNRESOLVED) & ~drop
+            mature = mature & ~drop
             grouped = (
                 keys.assign(mature=mature, epithelial=epithelial, unresolved=unresolved)
                 .groupby(["patient_id", "tissue"], observed=True)
@@ -650,6 +719,8 @@ def mature_cell_counts(
             )
             grouped["labeling_axis"] = axis
             grouped["granularity_rung"] = rung
+            grouped["tumour_arm"] = tumour_arm
+            grouped["axis_measures"] = AXIS_INTERPRETATION.get(axis, "")
             # Denominator is the RESOLVED epithelium. Cells dropped by depth
             # matching are reported separately rather than counted as immature —
             # a cell that could not be measured is not a cell measured to be
@@ -940,8 +1011,103 @@ def rung_degeneracy(
     return pd.DataFrame(rows)
 
 
+def compositional_stability(
+    counts_by_target: Any, *, min_targets: int = 3
+) -> pd.DataFrame:
+    """Is Delta(mature fraction) stable across the depth target? **The test that
+    decides whether a compositional number is identified at all.**
+
+    The depth target is a **nuisance parameter**. It exists to make cells
+    comparable, not because 3,281 UMIs means anything, and the estimand — how
+    much of the marker loss is compositional — must not depend on it. Where it
+    does, the number is not a property of the biology, and quoting it at one
+    arbitrary target presents a modelling choice as a measurement.
+
+    This is not hypothetical. On axis 1 the mature bin is a *detection gate*
+    ("no stem marker detected at depth d"), so d sets the gate. And the floor
+    does not cut the two arms equally — see :func:`differential_resolution` —
+    which on the pilot moved C165's Delta from **+0.140 at q=0.10 to −0.053 at
+    q=0.25**, a change of sign, while the other four patients held.
+
+    So the honest report is not one number. It is: the estimate, and whether it
+    survives the choice that produced it. A patient whose Delta changes sign
+    across the sweep is **not identified** on this data — which is the same
+    three-way framing the whole project rests on (compositional / intrinsic /
+    not estimable), applied one level up, to the nuisance parameter rather than
+    to cell counts.
+
+    `counts_by_target` maps depth target -> :func:`mature_cell_counts` output.
+    Returns one row per (patient, axis, rung) with the Delta at each target, its
+    range, and `sign_stable` / `identified`.
+    """
+    frames = dict(counts_by_target)
+    if len(frames) < min_targets:
+        raise LabelError(
+            f"{len(frames)} depth target(s) supplied; need at least "
+            f"{min_targets} to say anything about stability. One target cannot "
+            f"distinguish a robust estimate from an artifact of that target."
+        )
+
+    rows: list[pd.DataFrame] = []
+    for target, counts in frames.items():
+        wide = counts.pivot_table(
+            index=["patient_id", "labeling_axis", "granularity_rung"],
+            columns="tissue", values="mature_fraction", observed=True,
+        )
+        for arm in ("tumour", "normal"):
+            if arm not in wide.columns:
+                wide[arm] = np.nan
+        delta = (wide["tumour"] - wide["normal"]).rename("delta").reset_index()
+        delta["depth_target"] = float(target)
+        rows.append(delta)
+
+    long = pd.concat(rows, ignore_index=True)
+    key = ["patient_id", "labeling_axis", "granularity_rung"]
+    out = (
+        long.groupby(key, observed=True)["delta"]
+        .agg(delta_min="min", delta_max="max", delta_median="median",
+             n_targets="count")
+        .reset_index()
+    )
+    out["delta_range"] = out["delta_max"] - out["delta_min"]
+
+    # Three different failures were being reported as one, which inflated the
+    # count and hid which of them mattered.
+    #
+    # DEGENERATE: Delta is exactly zero at every target. That is not an
+    # unidentified estimate, it is an identified zero — and on the `epithelial`
+    # rung it is zero BY CONSTRUCTION, because every resolved epithelial cell is
+    # the mature bin so the fraction is 1.0 in both arms. Flagging it as
+    # unstable treats a designed property as a failure.
+    #
+    # INSUFFICIENT: fewer targets than asked for, because the patient dropped
+    # out at the deeper ones. C138 survives q=0.10 and q=0.25 and vanishes at
+    # q=0.50. That is a real limitation and a different one from a sign flip.
+    #
+    # SIGN_UNSTABLE: the estimate genuinely changes direction with the nuisance
+    # parameter. Only this one says the estimand is not identified.
+    out["degenerate"] = (out["delta_min"] == 0) & (out["delta_max"] == 0)
+    out["insufficient_targets"] = out["n_targets"] < min_targets
+    out["sign_stable"] = (
+        (out["delta_min"] > 0) | (out["delta_max"] < 0) | out["degenerate"]
+    )
+    out["identified"] = (
+        out["sign_stable"] & ~out["insufficient_targets"] & ~out["degenerate"]
+    )
+    # Why an estimate is unusable, in one column, so the reason survives into a
+    # report rather than being reconstructed from three booleans.
+    out["verdict"] = np.where(
+        out["degenerate"], "degenerate_by_construction",
+        np.where(
+            out["insufficient_targets"], "insufficient_targets",
+            np.where(out["sign_stable"], "identified", "sign_unstable"),
+        ),
+    )
+    return out
+
+
 def differential_resolution(
-    counts: pd.DataFrame, *, warn_at: float = 0.10
+    counts: pd.DataFrame, *, warn_at: float = 0.10, min_reference: int = 200
 ) -> pd.DataFrame:
     """Does the depth floor cut one arm harder than the other? **Read this
     before quoting Delta(mature fraction) at any depth target.**
@@ -966,9 +1132,11 @@ def differential_resolution(
     catch this: C165 kept both arms comfortably. Asymmetry, not availability, is
     the failure mode.
 
-    `counts` is :func:`mature_cell_counts`' output. Returns one row per
-    (patient, axis, rung) with both unresolved fractions, their difference, and
-    `flagged`.
+    `counts` is :func:`mature_cell_counts`' output. Returns **one row per
+    patient** — the floor is applied before labelling, so the unresolved
+    fraction does not vary by axis or rung — with both arms' unresolved
+    fractions, their difference, the surviving size of the reference arm, and
+    two flags.
     """
     required = {"patient_id", "tissue", "unresolved_fraction",
                 "labeling_axis", "granularity_rung"}
@@ -976,20 +1144,34 @@ def differential_resolution(
     if missing:
         raise LabelError(f"counts is missing column(s): {sorted(missing)}")
 
-    wide = (
-        counts.pivot_table(
-            index=["patient_id", "labeling_axis", "granularity_rung"],
-            columns="tissue", values="unresolved_fraction", observed=True,
-        )
+    # One row per patient, not per (patient, axis, rung). The depth floor is
+    # applied before any label is assigned, so the unresolved fraction is
+    # identical across all eight axis/rung combinations — reporting it eight
+    # times turns a five-row answer into forty and buries the outlier.
+    wide = counts.pivot_table(
+        index="patient_id", columns="tissue",
+        values=["unresolved_fraction", "n_cells_resolved"],
+        aggfunc="first", observed=True,
     )
-    for column in ("tumour", "normal"):
-        if column not in wide.columns:
-            wide[column] = np.nan
+    for value in ("unresolved_fraction", "n_cells_resolved"):
+        for arm in ("tumour", "normal"):
+            if (value, arm) not in wide.columns:
+                wide[(value, arm)] = np.nan
 
-    out = wide.loc[:, ["tumour", "normal"]].copy()
-    out.columns = ["unresolved_tumour", "unresolved_normal"]
+    out = pd.DataFrame({
+        "unresolved_tumour": wide[("unresolved_fraction", "tumour")],
+        "unresolved_normal": wide[("unresolved_fraction", "normal")],
+        "n_resolved_reference": wide[("n_cells_resolved", "normal")],
+    })
     out["difference"] = out["unresolved_tumour"] - out["unresolved_normal"]
     out["flagged"] = out["difference"].abs() > warn_at
+    # The reference arm is not just a sample here — it is where the CUT POINTS
+    # come from. A floor that removes most of the normal arm leaves the
+    # threshold defined by whatever deep cells survived, and the whole tumour
+    # arm is then scored against that. C165 on the pilot: 97 surviving normal
+    # cells setting the threshold for 809 tumour cells. Small enough to matter
+    # even when the gap alone would not flag.
+    out["thin_reference"] = out["n_resolved_reference"] < min_reference
     return out.reset_index()
 
 
@@ -1149,13 +1331,60 @@ def maturity_within_depth_strata(
     return pd.DataFrame(rows)
 
 
+#: The reference criterion each axis is entitled to be judged against, as a
+#: regex over the authors' ``cl295v11SubFull`` epithelial subset names.
+#:
+#: **This is the correction to the first concordance run.** Both axes were
+#: scored against ``stem|TA-like|prolif`` — the cells axis 1 calls immature — and
+#: axis 2 came back at kappa −0.27. That was read as a failure. It is not: axis 2
+#: scores the goblet program, so it calls goblet cells immature and stem cells
+#: mature, while the stem-vs-rest criterion says the reverse. Systematic
+#: anti-agreement is the *expected* result of judging a measurement against
+#: something it never claimed to measure, and it says nothing about whether the
+#: measurement works.
+#:
+#: Each axis is now scored against the cells IT calls immature. Axis 2 stops
+#: being asked "do you find stem cells" and starts being asked "do you find
+#: goblet cells", which is the only question its markers can answer. The answer
+#: decides whether axis 2 is a usable secretory-composition axis that was
+#: mislabelled as a maturity axis, or is not measuring anything.
+AXIS_REFERENCE_PATTERN: Final[dict[str, str]] = {
+    "stem_pole": "stem|TA-like|prolif",
+    "opposite_lineage": "goblet|secretory|muc2",
+}
+
+
+def epithelial_annotation_levels(
+    labels: pd.DataFrame, annotation: Any, *, axis: str = "stem_pole"
+) -> pd.Series:
+    """The distinct annotation values among scored epithelial cells, with counts.
+
+    :data:`AXIS_REFERENCE_PATTERN` is a regex over cluster *names*, and a regex
+    that matches nothing fails silently — every cell lands on one side and kappa
+    reports a confident zero. Print this before trusting any concordance number,
+    so the pattern is checked against the strings actually present rather than
+    against what the deposit's paper called them.
+    """
+    column = label_column(axis, "lineage")
+    if column not in labels.columns:
+        raise LabelError(f"{column} not in labels")
+    values = labels[column].astype(str).to_numpy()
+    scored = ~np.isin(values, [NON_EPITHELIAL, UNRESOLVED])
+    reference = pd.Series(annotation).astype(str).to_numpy()
+    if reference.shape[0] != len(labels):
+        raise LabelError(
+            f"annotation has {reference.shape[0]} entries for {len(labels)} cells"
+        )
+    return pd.Series(reference[scored]).value_counts()
+
+
 def annotation_concordance(
     labels: pd.DataFrame,
     annotation: Any,
     *,
     axis: str = "stem_pole",
     rung: str = "lineage",
-    immature_pattern: str = "stem|TA-like|prolif",
+    immature_pattern: str | None = None,
 ) -> dict[str, Any]:
     """Does the maturity call agree with an INDEPENDENT annotation?
 
@@ -1184,6 +1413,20 @@ def annotation_concordance(
     Returns the 2x2 counts, agreement, sensitivity, specificity, and Cohen's
     kappa — kappa because raw agreement is inflated when one class dominates.
     """
+    if immature_pattern is None:
+        # Judge each axis against the criterion it actually claims. Passing one
+        # pattern for both axes is what produced axis 2's kappa of -0.27, which
+        # measured a definitional mismatch rather than the axis.
+        try:
+            immature_pattern = AXIS_REFERENCE_PATTERN[axis]
+        except KeyError:
+            raise LabelError(
+                f"no reference criterion for axis {axis!r}. Add one to "
+                f"AXIS_REFERENCE_PATTERN, or pass immature_pattern explicitly — "
+                f"but do not reuse another axis's pattern, which measures the "
+                f"mismatch between the two rather than the axis."
+            ) from None
+
     column = label_column(axis, rung)
     if column not in labels.columns:
         raise LabelError(f"{column} not in labels")
