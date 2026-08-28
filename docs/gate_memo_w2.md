@@ -906,3 +906,108 @@ the caveat.
 The work still outstanding is bounded and known: close the residual depth
 confound at the two middle rungs (a team decision on the floor), run this on
 GSE178341 once its data is recorded (#43), and decide G1.
+
+---
+
+## 14 · The confound is closed by matching the arms, and the finding survives it
+
+§13.1 left `lineage` and `crypt_position` confounded and unquotable. They are not
+any more, and closing it did not require touching a threshold.
+
+### 14.1 · Why a floor was never going to be enough
+
+W1's depth floor removes the *mechanism* — it thins marker counts to a common
+target so a shallow cell cannot read as mature through dropout. It does not make
+the arms **comparable**: after the floor, SMC's arms still differ **2.36×** in
+median depth. Any residual depth sensitivity is still converted into a
+between-arm difference, and a between-arm difference in the mature fraction *is*
+the compositional term.
+
+`depth_confound.match_arm_depth()` equalises the distributions instead. Depth is
+binned on pooled quantiles and each bin keeps `min(n_normal, n_tumour)` cells
+from each arm. Afterwards the arms have the same depth histogram **by
+construction**, so a surviving difference cannot be a depth difference.
+
+There is no threshold in it to choose, which is the reason it is the right
+instrument for this question rather than a fourth attempt at picking a floor.
+
+### 14.2 · The gap survives
+
+| rung | unmatched | | matched | | |
+|---|---|---|---|---|---|
+| | gap | arms | **gap** | arms | n cells |
+| lineage | +25.1% | 2.36× | **+20.4%** | **1.02×** | 1,616 |
+| crypt_position | +25.1% | 2.36× | **+20.4%** | 1.02× | 1,616 |
+| best4 | +5.7% | 2.36× | **+5.7%** | 1.02× | 1,616 |
+
+**`best4`'s gap does not move at all** — it was never confounded, and matching
+confirms it rather than changing it. `lineage` loses about a fifth of its gap,
+so roughly 5 of the 25 points were residual imbalance and **20 were not**.
+
+Per patient, at `lineage`, on matched cells: median Δ(mature fraction) **−0.184**,
+negative in **7 of 10** patients. Seven of ten is suggestive and no more —
+binomial p ≈ 0.17 — and the two patients running the other way (SMC03, SMC10) are
+real heterogeneity, not noise to be explained away.
+
+### 14.3 · The decomposition under matching — the headline holds and sharpens
+
+GUCA2A, `stem_pole`/`lineage`, normal weighting:
+
+| | n | compositional | intrinsic | intrinsic estimable |
+|---|---|---|---|---|
+| unmatched | 10 | −5.83 | −25.68 | 9/10 |
+| **matched** | 10 | **−4.07** | **−26.32** | 8/10 |
+
+With cohort bands on the matched data:
+
+| term | 95% CI | |
+|---|---|---|
+| **intrinsic** | **[−79.7, −16.4]** | **excludes zero** |
+| compositional | [−23.4, +5.0] | contains zero |
+| interaction | [−5.1, +23.2] | contains zero |
+
+**The intrinsic term is unmoved by the strongest depth control available and its
+band excludes zero. The compositional term shrinks by 30% and its band does
+not.** §13.4's direction was computed on a rung that carried a caveat; that
+caveat is now addressed, and the direction held.
+
+**The compositional band containing zero is not evidence of absence.** It is
+[−23.4, +5.0] — a 28-point interval on ten patients. That is non-identifiability,
+the same finding G4 returned, and reading it as "there is no compositional
+component" would be exactly the error invariant 1 exists to prevent, one level up.
+
+### 14.4 · What matching costs, priced
+
+Comparability is not free. Rows by estimability at `lineage`, tier-A genes:
+
+| | ok | wide_interval | not_estimable |
+|---|---|---|---|
+| unmatched | 36 | 0 | 4 |
+| **matched** | **16** | **16** | **8** |
+
+**Half the estimable rows degrade.** Matching discards 75% of the cells (6,372 →
+1,616), and per-patient arms get thin — SMC05's matched tumour arm is 2 cells,
+SMC08's normal arm is 11.
+
+That trade is the project's own thesis arriving as a methodological fact:
+
+> **On this cohort you can have a comparison that is clean, or one that is
+> estimable, but not both at once.**
+
+A clean comparison costs three quarters of the data and pushes half of what
+remains below the positivity cutpoint. That is a sharper statement of
+non-identifiability than G4's count of patients, because it is not about this
+cohort being small — it is about the correction and the estimand competing for
+the same cells.
+
+### 14.5 · Status of the two rungs
+
+`lineage` and `crypt_position` are **quotable on matched cells** and remain
+unquotable unmatched. Anything computed on them must report `n` after matching
+and carry the estimability breakdown above, because the interval is what the
+matching cost and hiding it would make the method look free.
+
+`match_arm_depth` is tested in both directions
+(`tests/test_depth_confound.py`): it must erase a gap that is only depth, **and
+preserve a gap that is not**. A matcher that only did the first would launder
+real signal away, and would have been the fifth withdrawn guard.

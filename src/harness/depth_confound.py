@@ -193,3 +193,67 @@ def _reading(tracks: bool, matched: bool, ratio: float, rho: float) -> str:
         f"Clean on both counts: arms within {ratio:.1f}x on median depth and the "
         f"maturity call does not track depth (|rho|={rho:.2f})."
     )
+
+
+# ---------------------------------------------------------------------------
+# Matching the arms rather than only flooring them
+# ---------------------------------------------------------------------------
+
+
+def match_arm_depth(
+    depth: np.ndarray,
+    arm: np.ndarray,
+    *,
+    seed: int,
+    n_bins: int = 20,
+) -> np.ndarray:
+    """Subsample cells so both arms share a depth distribution. Returns a mask.
+
+    WHY A FLOOR IS NOT ENOUGH
+    -------------------------
+    A depth floor drops the shallowest cells and thins the rest to a common
+    target, which removes the *mechanism* by which depth reaches the maturity
+    call. It does not make the arms comparable: on Lee/SMC, after W1's floor, the
+    arms still differ 2.36x in median depth. Any residual depth sensitivity is
+    then still converted into a between-arm difference — which is the
+    compositional term.
+
+    This equalises the distributions by construction. Depth is binned on pooled
+    quantiles and each bin keeps ``min(n_normal, n_tumour)`` cells from each arm,
+    sampled without replacement. Afterwards the arms have the same depth
+    histogram, so a surviving difference in the maturity call cannot be a depth
+    difference.
+
+    IT IS EXPENSIVE AND THAT IS THE POINT
+    -------------------------------------
+    Matching discards most of the larger arm. If the compositional gap survives
+    on a fraction of the data, that is a stronger statement than the same gap on
+    all of it; if it disappears, the floor was hiding a confound rather than
+    removing one. Either way the answer is not an artefact of choosing a
+    threshold, because there is no threshold here to choose.
+
+    The caller must report ``mask.sum()`` alongside anything computed on it. A
+    matched subsample is a smaller cohort and its intervals are wider.
+    """
+    depth = np.asarray(depth, dtype=float)
+    arm = np.asarray(arm)
+    if depth.shape != arm.shape:
+        raise ValueError(f"depth has {depth.shape}, arm has {arm.shape}")
+    if depth.size == 0:
+        raise ValueError("no cells")
+    arms = sorted(set(arm.tolist()))
+    if len(arms) != 2:
+        raise ValueError(f"need exactly two arms to match, got {arms}")
+
+    rng = np.random.default_rng(seed)
+    bins = pd.qcut(pd.Series(depth), n_bins, labels=False, duplicates="drop").to_numpy()
+    keep = np.zeros(len(depth), dtype=bool)
+    for b in np.unique(bins[~pd.isna(bins)]):
+        in_bin = bins == b
+        per_arm = {a: np.flatnonzero(in_bin & (arm == a)) for a in arms}
+        take = min(len(idx) for idx in per_arm.values())
+        if take == 0:
+            continue
+        for idx in per_arm.values():
+            keep[rng.choice(idx, size=take, replace=False)] = True
+    return keep
