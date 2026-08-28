@@ -270,8 +270,10 @@ def _bulk_arm(
         counts[train_rows], cell_type[train_rows], genes, exclude_genes=[target]
     )
     # The target gene's own cell-type profile, from training patients only.
+    # include_targets is the point of this call, not an oversight — see
+    # bulk_recovery's module docstring on invariant 2.
     target_profile = reference_profiles(
-        counts[train_rows], cell_type[train_rows], genes
+        counts[train_rows], cell_type[train_rows], genes, include_targets=True
     ).loc[target]
 
     keep = [j for j, g in enumerate(genes) if g != target]

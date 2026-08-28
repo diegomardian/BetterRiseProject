@@ -11,6 +11,10 @@ The acceptance criteria are guesses about your side, not requirements on how you
 get there — if one is wrong or costlier than it looks, say so rather than
 building the wrong thing.
 
+> **W4 replied on 2026-08-23 and W2 answered** — see
+> [reply_w2_to_w4.md](reply_w2_to_w4.md). The W4 section below is superseded
+> by it; the W1 sections are still current.
+
 **Correction up front.** An earlier draft of this said the pilot had not been
 run, on the evidence that nothing in `results/` was W1's. That was wrong:
 `src/reference/jobs/run_pilot.py` exists, ten pilot arms have been run, and the
@@ -20,7 +24,96 @@ kappa is measured. Apologies — the ask below is narrower as a result.
 
 # W1 — one artifact, one team decision
 
-## W1-A · The S matrices — *the blocking item*
+## W1-A · The S matrices — **ACCEPTANCE WITHDRAWN 2026-08-26, see issue #35**
+
+> **The check below was wrong and could not have failed.** It compared
+> `panel_genes()` — symbols — against an S-matrix index that is Ensembl IDs, so
+> the intersection was between two disjoint namespaces and returned `none` for
+> all four matrices. It would have returned `none` if every panel gene were
+> present, which is what actually happened.
+>
+> Verified in Ensembl space: **GUCA2A (`ENSG00000197766`), CDX2, SFRP1 and SFRP2
+> are in all four matrices**; `best4` additionally carries GUCA2B, CA7 and OTOP2.
+> That is a real invariant-2 violation, and W2 signed it off.
+>
+> The deeper defect is that `assert_no_target_leakage` is namespace-blind — it
+> intersects two iterables of strings and cannot tell that one side is symbols
+> and the other Ensembl. `build_signature` calls it four times and all four
+> passed. A guard that cannot fail is worse than no guard. Fix tracked in #35.
+>
+> The rest of the table below still holds: sizes, compartments and index
+> membership were checked in the right namespace.
+
+All four passed the *other* published checks. The leakage row is retracted.
+
+| rung | genes x types | 500–2000 | no target leak | non-epithelial cols | on shared index |
+|---|---|---|---|---|---|
+| epithelial | 800 x 5 | PASS | PASS | PASS | 800/800 |
+| lineage | 800 x 6 | PASS | PASS | PASS | 800/800 |
+| crypt_position | 800 x 6 | PASS | PASS | PASS | 800/800 |
+| best4 | 800 x 6 | PASS | PASS | PASS | 800/800 |
+
+Two deviations from the spec, both fine and worth recording:
+
+- Versioned `0.1.0-pilot`, not `1.0.0`, and written to `results/{date}_{sha}/`
+  rather than `s_matrix_path()`'s `data/processed/reference/`. **Better than what
+  was asked** — it carries provenance. W2 reads them by glob; if you want
+  `s_matrix_path()` to find them later, that helper needs a pointer, which is
+  W2's to change.
+- Index is `gene_index_0.9.0`, not a `1.0.0`. Fine for a pilot; open decisions
+  #2/#3 still need settling before a full-cohort version.
+
+### But the rung *structure* has two problems, and one is a real bug
+
+Found while checking the matrices. Neither is a defect in the S matrices; both
+are in how the rungs are defined, and both hit the four-resolution curve.
+
+**1 · The epithelial rung's compositional term is structurally zero.**
+
+`mature_fraction` is 1.000000 for every patient, both arms, both axes, so
+Δ(mature fraction) = 0.000000 exactly:
+
+```
+opposite_lineage/epithelial   max |delta mature fraction| = 0.000000
+       stem_pole/epithelial   max |delta mature fraction| = 0.000000
+```
+
+At this rung "mature" is *all resolved epithelium*, and the denominator is also
+resolved epithelium — so the fraction is 1 by construction and the compositional
+arm cannot move. The rung contributes a guaranteed zero to the curve.
+
+This looks like a denominator choice rather than a deep problem. If the epithelial
+rung's denominator were **all cells** rather than resolved epithelial cells, it
+would measure epithelial content of the sample, which genuinely differs between
+normal and tumour and is a meaningful compositional quantity. **W1: worth a look
+— it is a small change with a large effect on what the coarsest rung means.**
+
+**2 · The degeneracy is axis-specific, which is better news than reported.**
+
+`lineage` and `crypt_position` are identical on `stem_pole` — confirmed
+independently: their S-matrix columns are bit-identical,
+`corr(differentiated, crypt_top) = 1.0000`, `np.allclose` True. But on
+`opposite_lineage` they separate:
+
+| axis | lineage | crypt_position | separate? |
+|---|---|---|---|
+| stem_pole | 0.5996 | 0.5996 | **no — identical** |
+| opposite_lineage | 0.3711 | 0.5326 | **yes** |
+
+So the curve is not lost, it is **axis-dependent**: two usable interior points on
+axis 2, one on axis 1. Combined with the harness result below — identical
+partitions give bit-identical estimates, genuinely different ones separate at
+33% — the picture is complete, and axis 2 is where the granularity contribution
+lives.
+
+**3 · 37% of epithelial cells are unresolved** (median `unresolved_fraction`
+0.367, up to 0.65 in one arm). Not a blocker, but it is a third of the compartment
+excluded before any biology, and it should be stated wherever the mature fraction
+is reported.
+
+---
+
+## W1-A (original ask, kept for the record)
 
 `build_signature()` works, `_select_markers` is implemented, the pilot has run.
 What does not exist yet is the emitted artifact W2 and W3 both join against.
@@ -87,8 +180,45 @@ W2's read, offered as input rather than a verdict:
   the sweep gives a target where the two rungs *do* separate, that is worth
   knowing before anyone concludes they cannot.
 
-**What W2 needs from you:** nothing immediately. Say whether you want the harness
-check above before or after your depth-target rerun.
+### The harness check is done — the estimator is cleared
+
+Run on a synthetic cohort with a genuinely nested structure: a coarse rung that
+pools `crypt_top` and `crypt_mid` into "mature", and a fine rung that calls only
+`crypt_top` mature. `src/harness/rungs.py`, tested in `tests/test_rungs.py`.
+
+**A · when the rungs genuinely differ:**
+
+| rung | n mature | mean normal | mean tumour | compositional | intrinsic |
+|---|---|---|---|---|---|
+| lineage (coarse) | 750 | 43.88 | 14.40 | −6.58 | **−11.79** |
+| crypt_position (fine) | 150 | 79.77 | 40.44 | −11.97 | **−7.87** |
+
+Relative gap: **33% on the intrinsic term, 45% on the compositional term.**
+
+**B · when the two rungs name the same cell types** — W1's observed case:
+
+```
+intrinsic: -11.794400 vs -11.794400    absolute gap 0.00e+00
+```
+
+**Conclusion: the estimator is not the explanation.** It resolves a real rung
+difference at a third of the effect size, and returns bit-identical answers only
+when the partitions are genuinely identical. So the degeneracy W1 measured is a
+statement about the labelling, and it can be reported as one.
+
+**A second thing fell out, and it is the more interesting one.** Between the two
+rungs the compositional and intrinsic terms move in *opposite* directions —
+coarse (−6.58, −11.79), fine (−11.97, −7.87) — while the total is roughly
+conserved (−18.4 vs −19.8). The granularity choice does not add or remove loss;
+it **reallocates it between the two mechanisms**. That is §6.2's "if it swings,
+that divergence is the contribution", demonstrated on a case where the ground
+truth is known. It also means a single-rung result would present a modelling
+choice as a measurement, exactly as README design decision 3 warns.
+
+**What W2 needs from you:** nothing blocking. Worth knowing whether your
+depth-target rerun produces a target where the rungs stop being the same
+partition — if it does, this reallocation is measurable on real data and it is a
+result rather than a caveat.
 
 ---
 

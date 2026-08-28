@@ -15,7 +15,9 @@ Produces:
 Blocked by: W1's five-patient pilot, end of week 2. Nothing else.
 
 ``classify_estimability`` is re-exported deliberately — W4 must use W2's rule
-rather than reimplementing the thresholds.
+rather than reimplementing the thresholds. So is its compositional twin,
+``classify_compositional_estimability`` (decision #22): the two arms are gated
+on different counts and must not be folded into one verdict.
 """
 
 from src.harness.controls import (
@@ -24,9 +26,13 @@ from src.harness.controls import (
     permute_labels_within_patient,
 )
 from src.harness.positivity import (
+    COMPOSITIONAL_CUTPOINTS,
     CUTPOINTS,
     Cutpoints,
+    classify_compositional_estimability,
+    classify_counts_frame,
     classify_estimability,
+    estimability_verdicts,
     gate_g4_verdict,
 )
 from src.harness.pseudobulk import (
@@ -38,6 +44,7 @@ from src.harness.results import write_harness_table
 from src.harness.truth import GroundTruth, analytic_terms, assert_identity_closes
 
 __all__ = [
+    "COMPOSITIONAL_CUTPOINTS",
     "CUTPOINTS",
     "HOUSEKEEPING_GENES",
     "Cutpoints",
@@ -45,7 +52,10 @@ __all__ = [
     "PseudobulkSample",
     "analytic_terms",
     "assert_identity_closes",
+    "classify_compositional_estimability",
+    "classify_counts_frame",
     "classify_estimability",
+    "estimability_verdicts",
     "gate_g4_verdict",
     "generate_pseudobulk",
     "housekeeping_panel",

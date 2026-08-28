@@ -11,10 +11,12 @@ import pandas as pd
 import pytest
 
 from src.estimator.kitagawa import (
+    ADDITIVE_WEIGHTINGS,
     attach_intrinsic_ci,
     bootstrap_over_patients,
     decompose,
     decompose_cohort,
+    identity_residual,
 )
 from src.harness.positivity import (
     CUTPOINTS,
@@ -80,19 +82,67 @@ def test_neither_case_is_flat():
     assert (d.compositional, d.intrinsic, d.interaction) == pytest.approx((0.0, 0.0, 0.0))
 
 
-def test_doubly_robust_identity_holds_with_zero_interaction():
-    """Pooled-reference weighting (Kline 2011) sums to total exactly, with the
-    interaction term at zero by construction — see kitagawa._doubly_robust_split."""
+def test_pooled_reference_closes_on_two_terms_not_three():
+    """docs/open_decisions.md #9. The pooled-reference split ("doubly_robust")
+    puts half the cross term into each arm, so compositional + intrinsic is
+    already the total and the third column is disclosure, not a summand."""
     d = decompose(**CASE, n_cells_mature=200, weighting="doubly_robust")
     total = (
         CASE["frac_mature_tumour"] * CASE["mean_tumour"]
         - CASE["frac_mature_normal"] * CASE["mean_normal"]
     )
-    assert d.compositional + d.intrinsic + d.interaction == pytest.approx(total)
-    assert d.interaction == pytest.approx(0.0)
+    assert d.compositional + d.intrinsic == pytest.approx(total)
+    assert d.compositional + d.intrinsic + d.interaction != pytest.approx(total)
+    assert "doubly_robust" not in ADDITIVE_WEIGHTINGS
 
 
-def test_doubly_robust_is_not_silently_either_plain_version():
+def test_pooled_reference_reports_the_real_cross_term_not_zero():
+    """The bug W2 caught: `interaction = 0.0` read as "no interaction here"
+    when the honest statement is "it is in the two arms, half each"."""
+    dr = decompose(**CASE, n_cells_mature=200, weighting="doubly_robust")
+    n = decompose(**CASE, n_cells_mature=200, weighting="normal")
+
+    assert dr.interaction != 0.0
+    assert dr.interaction == pytest.approx(n.interaction)
+
+
+def test_the_pooled_arms_are_the_normal_arms_plus_half_the_cross_term():
+    """Makes the folding legible: this is the algebra decision #9 turns on, so
+    it is asserted rather than left in a docstring."""
+    n = decompose(**CASE, n_cells_mature=200, weighting="normal")
+    dr = decompose(**CASE, n_cells_mature=200, weighting="doubly_robust")
+    half = n.interaction / 2.0
+
+    assert dr.compositional == pytest.approx(n.compositional + half)
+    assert dr.intrinsic == pytest.approx(n.intrinsic + half)
+
+
+def test_identity_residual_uses_each_weightings_own_identity():
+    """The helper exists so callers stop hard-coding a three-column sum."""
+    total = (
+        CASE["frac_mature_tumour"] * CASE["mean_tumour"]
+        - CASE["frac_mature_normal"] * CASE["mean_normal"]
+    )
+    for weighting in WEIGHTINGS:
+        d = decompose(**CASE, n_cells_mature=200, weighting=weighting)
+        assert identity_residual(d, total) == pytest.approx(0.0, abs=1e-12)
+
+
+def test_identity_residual_refuses_a_none_arm_rather_than_answering_zero():
+    """Invariant 1 again: an unestimable term has no residual, not a zero one."""
+    d = decompose(**CASE, n_cells_mature=3, weighting="normal")
+    unestimable = type(d)(
+        compositional=d.compositional,
+        intrinsic=None,
+        interaction=d.interaction,
+        weighting="normal",
+        n_cells_mature=3,
+    )
+    with pytest.raises(ValueError, match="not a residual of zero"):
+        identity_residual(unestimable, -3.6)
+
+
+def test_pooled_reference_is_not_silently_either_plain_version():
     """The whole point of the third weighting: it disagrees with both."""
     n = decompose(**CASE, n_cells_mature=200, weighting="normal")
     t = decompose(**CASE, n_cells_mature=200, weighting="tumour")
@@ -103,9 +153,11 @@ def test_doubly_robust_is_not_silently_either_plain_version():
     assert dr.intrinsic != pytest.approx(t.intrinsic)
 
 
-def test_doubly_robust_agrees_with_both_plain_versions_in_degenerate_cases():
+def test_the_weightings_agree_in_degenerate_cases():
     """Tier A/B-style cases (only one side moves) collapse the reference
-    choice, so all three weightings should agree."""
+    choice, so all three weightings should agree. The cross term is genuinely
+    zero here -- one of its two factors is -- so the pooled split's disclosed
+    interaction is zero for a real reason, not by construction."""
     pure_compositional = dict(
         frac_mature_normal=0.40, frac_mature_tumour=0.10, mean_normal=10.0, mean_tumour=10.0
     )
@@ -153,19 +205,19 @@ def test_negative_cell_count_is_an_error_not_a_verdict():
 
 
 def test_gate_g4_passes_when_most_patients_are_estimable():
-    v = gate_g4_verdict([200, 150, 80, 60, 5])
+    v = gate_g4_verdict([200, 150, 80, 60, 5], n_unmatched_patients=0)
     assert v["passes"] and v["fraction_below"] == pytest.approx(0.2)
 
 
 def test_gate_g4_fails_and_names_the_pre_committed_consequence():
-    v = gate_g4_verdict([2, 3, 4, 200])
+    v = gate_g4_verdict([2, 3, 4, 200], n_unmatched_patients=0)
     assert not v["passes"]
     assert "headline" in v["consequence"]
 
 
 def test_gate_g4_needs_patients():
     with pytest.raises(ValueError):
-        gate_g4_verdict([])
+        gate_g4_verdict([], n_unmatched_patients=0)
 
 
 # ---------------------------------------------------------------------------
@@ -317,3 +369,47 @@ def test_attach_intrinsic_ci_output_validates_against_the_frozen_schema():
     ci = bootstrap_over_patients(summary, n_boot=30, seed=0)
     merged = attach_intrinsic_ci(point, ci)
     validate_results(coerce_results(merged))
+
+
+# ---------------------------------------------------------------------------
+# G4's population — issue #9, decided 2026-08-23 before any result existed
+# ---------------------------------------------------------------------------
+
+
+def test_g4_requires_the_population_to_be_stated():
+    """No default. A default is how the wrong population gets used without
+    anyone choosing it, and the choice is unfalsifiable once results exist."""
+    with pytest.raises(TypeError):
+        gate_g4_verdict([200, 150, 80])  # type: ignore[call-arg]
+
+
+def test_g4_excludes_unmatched_patients_from_the_fraction():
+    """The GSE178341 shape: 36 matched, 26 without a normal arm.
+
+    Counting the 26 as zero-mature would add 26 guaranteed-below rows to 36 real
+    ones and push fraction_below toward the 50% line on a cohort-design fact.
+    """
+    matched = [200] * 30 + [1] * 6  # 6/36 genuinely below = 16.7%
+    with_unmatched = gate_g4_verdict(matched, n_unmatched_patients=26)
+    assert with_unmatched["n_patients"] == 36
+    assert with_unmatched["fraction_below"] == pytest.approx(6 / 36)
+    assert with_unmatched["passes"]
+
+    # The mistake this guards against, shown explicitly.
+    if_mixed = gate_g4_verdict(matched + [0] * 26, n_unmatched_patients=0)
+    assert if_mixed["fraction_below"] == pytest.approx(32 / 62)
+    assert not if_mixed["passes"]  # fails the gate on cohort design alone
+
+
+def test_g4_still_reports_the_coverage_fact():
+    """Excluded from the fraction, not from the record."""
+    v = gate_g4_verdict([200] * 36, n_unmatched_patients=26)
+    assert v["population"] == "matched_only"
+    assert v["n_unmatched_excluded"] == 26
+    assert v["n_patients_in_cohort"] == 62
+    assert v["matched_fraction"] == pytest.approx(36 / 62)
+
+
+def test_g4_rejects_a_negative_unmatched_count():
+    with pytest.raises(ValueError, match="negative"):
+        gate_g4_verdict([200], n_unmatched_patients=-1)
