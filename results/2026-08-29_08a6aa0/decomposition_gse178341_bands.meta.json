@@ -1,0 +1,33 @@
+{
+  "date": "2026-08-29",
+  "utc_timestamp": "2026-08-29T17:03:58+00:00",
+  "git_sha": "08a6aa0990196694c06160e84296cfc6c1db646b",
+  "git_sha_short": "08a6aa0",
+  "git_branch": "w2/one-labeller",
+  "git_dirty": false,
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "notes": "Patient-level bootstrap bands on the primary cohort, BOTH tumour arms.",
+  "name": "decomposition_gse178341_bands",
+  "n_rows": 1296,
+  "columns": [
+    "study_id",
+    "gene",
+    "granularity_rung",
+    "labeling_axis",
+    "weighting",
+    "term",
+    "ci_low",
+    "ci_high",
+    "n_boot",
+    "tumour_arm"
+  ],
+  "table_kind": "harness",
+  "cohort": "GSE178341",
+  "n_boot": 400,
+  "arms": "both carried; never collapse (amendment 1)"
+}

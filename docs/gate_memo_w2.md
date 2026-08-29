@@ -5,7 +5,7 @@ Every number in §1-§10 comes from simulated cells — nothing there is a resul
 about colorectal cancer, and what it establishes is that the machinery works and
 would produce an answer.
 
-**§11 is real, and it is a negative result.** The harness now runs on Lee/SMC,
+**§11 onward are real, and §18 is the primary cohort.** GSE178341 is decomposed (30 patients, both tumour arms) and G2 fails on every tier, so no biological claim follows. §11's original negative result stands as written: The harness now runs on Lee/SMC,
 and the first thing it found is that the maturity labels on that cohort are not
 separable from sequencing depth (issue #44). **No decomposition from those labels
 should be quoted, including as preliminary.** The banner therefore stays: real
@@ -25,7 +25,7 @@ Date: 2026-08-16 · Owner: W2 · Reads against
 | **G3** estimator recovers known ground truth | **preliminary PASS**, synthetic; the real-cell arm now runs | Oracle arm recovers the known split within 1% wherever the mature compartment is non-empty; interval coverage 0.90-1.00 above 20 mature cells. §13.3 is the first real decomposition it produced. |
 | **G4** <50% of patients below threshold | **FAIL at `best4` under BOTH tumour arms; every other rung NOT IDENTIFIABLE** | §12 as corrected by §17.1. 28/28 (filtered) and 24/28 (unfiltered) below the cutpoint at the finest rung, resolvable in both. Amendment 1's rule applies elsewhere: the arms disagree, so the pre-registered answer is not identifiable. The consequence fires on `best4`. |
 | **Ambient sensitivity** (feeds G1) | **measured**, synthetic | §10 — at the 10% exclusion cap real terms retain 94% and a compositional-only world acquires an intrinsic term worth 4.6% of its compositional one. The artefact is one-directional. |
-| **G2** control tiers separate | **FAILS as pre-registered** | §13.4. Tier A's loss is predominantly INTRINSIC not compositional (4.4x, and only that band excludes zero); tier B (MLH1) shows nothing; tier D (MS4A12) is not retained. Computed on a rung that carries a depth caveat — direction is striking, not yet quotable. |
+| **G2** control tiers separate | **FAILS on the PRIMARY cohort, every tier** | §18.2. n=27. Tier A (compositional control) reads intrinsic-dominant; tier B (intrinsic control) MLH1's intrinsic band contains zero; tier D (retained control) MS4A12 is indistinguishable from tier A at −0.662. Replicates Lee to two decimals. |
 
 ---
 
@@ -1336,3 +1336,117 @@ test could not have fired.
   rather than coercing it to True.
 - **G4's `best4` FAIL**, now under both arm definitions.
 - **The compositional gap survives depth matching**, by two independent methods.
+
+---
+
+## 18 · THE PRIMARY COHORT. GSE178341 decomposed, and G2 fails on every tier
+
+The gap decision #24.3 named is closed. W1 recorded GSE178341 in the manifest
+(#43); the three GEO files were fetched and **3/3 sha256 verified**;
+`emit_decomposition_summary.py` produced the per-patient mature-cell **means**
+that `mature_cell_counts_full` never carried and `decompose_cohort` requires.
+
+The means job reconciles exactly with `run_full_reference`: 62 patients → 26 with
+no normal epithelium (#9), 6 under 50 cells after QC, **30 kept** — the same 30.
+
+[`results/2026-08-29_08a6aa0/decomposition_gse178341.parquet`](../results/2026-08-29_08a6aa0/decomposition_gse178341.parquet)
+and its bands. Both tumour arms throughout; they are never collapsed (§17.1).
+
+### 18.1 · At n=27 the compositional term RESOLVES, and at n=10 it did not
+
+The single most important difference from §13–§14. Cohort bands, `stem_pole`/
+`lineage`, normal weighting, unfiltered arm, **n = 27 patients**:
+
+| gene | tier | compositional 95% CI | intrinsic 95% CI |
+|---|---|---|---|
+| **GUCA2A** | A | **[−8.05, −2.44]** ✗0 | **[−27.61, −14.45]** ✗0 |
+| **GUCA2B** | A | **[−7.73, −2.15]** ✗0 | **[−29.92, −11.91]** ✗0 |
+| **MS4A12** | **D** | **[−0.74, −0.19]** ✗0 | **[−2.70, −1.65]** ✗0 |
+| MLH1 | B | [−0.013, −0.005] ✗0 | [−0.009, +0.016] **∋0** |
+
+On Lee (n=10) tier A's compositional band was [−23.4, +5.0] and **contained
+zero**; §14.3 read that as non-identifiability rather than absence. **On the
+primary cohort at n=27 it excludes zero.** The interval was wide because the
+cohort was small, exactly as §9's re-costing predicted — and 2.7× the patients
+resolves it.
+
+That is the non-identifiability finding behaving as a *finding* rather than a
+dead end: it told us what n we needed, and at that n the term appears.
+
+The interaction term is also real and positive — GUCA2A [+2.03, +7.56], excluding
+zero — so all three components are non-zero and invariant 7's separate reporting
+is doing work rather than bookkeeping.
+
+### 18.2 · G2 FAILS. Every tier returns the wrong answer.
+
+Scale-free (term ÷ normal-arm baseline), unfiltered arm, n=27:
+
+| tier | gene | expected | intrinsic | compositional |
+|---|---|---|---|---|
+| A | GUCA2A | **compositional** | **−0.653** | −0.126 |
+| A | GUCA2B | compositional | −0.665 | −0.091 |
+| A | CA7 | compositional | −0.803 | −0.135 |
+| A | OTOP2 | compositional | −0.896 | −0.148 |
+| **D** | **MS4A12** | **neither** | **−0.662** | −0.133 |
+| C | CDX2 | mixed | −0.311 | −0.170 |
+| B | MLH1 | **intrinsic** | **+0.078** | −0.158 |
+| B | SFRP1 / SFRP2 | intrinsic | 0.000 / degenerate | — |
+
+Three pre-registered predictions, three failures:
+
+1. **Tier A was the COMPOSITIONAL control.** Its intrinsic term is 5× larger
+   relatively, and both bands exclude zero.
+2. **Tier B was the INTRINSIC control.** MLH1's intrinsic band contains zero;
+   SFRP1's baseline is 0.0000 and SFRP2's is 0.0023, both degenerate rather than
+   informative.
+3. **Tier D was the RETAINED control.** MS4A12 at −0.662 sits **inside tier A's
+   range** (−0.65 to −0.90) and both its bands exclude zero. The gene chosen
+   because it is kept is lost as hard as the genes chosen because they are lost.
+
+**`config/panel.yaml`'s falsification rule is not literally tripped** — it fires
+when A, B *and* D return the same answer, and B differs. But **A ≡ D is the core
+of it**, and per execution_plan §5 a G2 failure reads as *methods and validation
+paper, no biological claim*.
+
+### 18.3 · It replicates Lee to two decimals, which is the strongest thing here
+
+| | GSE178341 (n=27) | Lee/SMC (n=10) |
+|---|---|---|
+| MS4A12 intrinsic, relative | **−0.662** | **−0.662** |
+| MLH1 intrinsic, relative | +0.078 | +0.123 |
+| tier A range | −0.65 to −0.90 | −0.79 to −0.82 |
+
+**Two independent cohorts, different platforms, different patients, the same
+pattern.** That is far stronger than either alone, and it makes an
+implementation-error explanation much harder to sustain.
+
+It also matches what §17.2's audit predicted: the A-vs-D non-separation is a
+property of the estimator's structure — the intrinsic/compositional ratio is
+governed by `f_n/Δf` and the gene enters only through `m_t/m_n` — rather than
+evidence about the genes. **Replication confirms the artefact, not the biology.**
+
+### 18.4 · G4 and estimability on the primary cohort
+
+The amendment-1 reduction reproduces §17.1 exactly: **`best4` FAILs on both axes
+under both arms; every other rung is `not_identifiable`** because the arms
+disagree.
+
+Inside the decomposition, `best4` has **zero `ok` rows under either arm** —
+1,188 `not_estimable` and 162 `wide_interval` unfiltered, 1,134 `not_estimable`
+filtered. G4's finding, reproduced in the estimator rather than in the counts.
+
+The arms differ materially again: `filtered` keeps 23 patients with 15 estimable
+intrinsic terms; `unfiltered` keeps 27 with 27.
+
+### 18.5 · What this does and does not license
+
+- **The compositional term is estimable on the primary cohort at the coarse
+  rungs**, which §14 could not establish at n=10. That is the headline
+  methodological result.
+- **No biological claim follows**, because G2 fails and tier D is
+  indistinguishable from tier A. The controls do not license reading the tier A
+  numbers as differentiation biology.
+- **`lineage` still carries the depth caveat** (decision #24.1) and these numbers
+  are **unmatched**. The matched read is the next run, and on Lee it moved the
+  compositional term by 30% while leaving the intrinsic one unchanged.
+- **`best4` remains unusable** — the rung tier A is actually defined on.
