@@ -1,0 +1,179 @@
+{
+  "date": "2026-08-29",
+  "utc_timestamp": "2026-08-29T16:36:13+00:00",
+  "git_sha": "15408eadbefa5180b7b6e0c865c8637ac2971157",
+  "git_sha_short": "15408ea",
+  "git_branch": "w2/one-labeller",
+  "git_dirty": false,
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "notes": "Per-patient mean CP10K expression of panel tiers A+B+C+D WITHIN the mature cells of each arm. The input mature_cell_counts_full does not carry and decompose_cohort requires. Mirrors run_full_reference's loop: same QC, #11 unsorted filter, #16 ambient exclusions, skip rules and depth_quantile.",
+  "name": "mature_cell_means_full",
+  "n_rows": 2160,
+  "columns": [
+    "patient_id",
+    "study_id",
+    "gene",
+    "granularity_rung",
+    "labeling_axis",
+    "mean_normal",
+    "n_mature_normal",
+    "mean_tumour",
+    "n_mature_tumour"
+  ],
+  "table_kind": "harness",
+  "target_genes": [
+    "CA7",
+    "CDX2",
+    "GUCA2A",
+    "GUCA2B",
+    "MLH1",
+    "MS4A12",
+    "OTOP2",
+    "SFRP1",
+    "SFRP2"
+  ],
+  "label_target_genes": [
+    "CA7",
+    "GUCA2A",
+    "GUCA2B",
+    "OTOP2"
+  ],
+  "why_not_tier_E": "MUC2 and TFF3 are opposite_lineage markers; open decision #1 scopes the target set to this run.",
+  "depth_quantile": 0.1,
+  "join_to": "results\\2026-08-26_63ead2e\\mature_cell_counts_full.parquet",
+  "skipped": [
+    {
+      "patient_id": "C103",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C104",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C105",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C112",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C114",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C115",
+      "reason": "fewer than 50 cells after QC"
+    },
+    {
+      "patient_id": "C116",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C118",
+      "reason": "fewer than 50 cells after QC"
+    },
+    {
+      "patient_id": "C132",
+      "reason": "fewer than 50 cells after QC"
+    },
+    {
+      "patient_id": "C144",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C145",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C146",
+      "reason": "fewer than 50 cells after QC"
+    },
+    {
+      "patient_id": "C147",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C149",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C150",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C153",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C154",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C155",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C156",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C158",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C159",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C160",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C161",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C163",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C164",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C166",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C167",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C168",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C169",
+      "reason": "fewer than 50 cells after QC"
+    },
+    {
+      "patient_id": "C171",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C172",
+      "reason": "no normal epithelium (#9)"
+    },
+    {
+      "patient_id": "C173",
+      "reason": "fewer than 50 cells after QC"
+    }
+  ]
+}
