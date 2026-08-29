@@ -1,4 +1,28 @@
-"""Per-cell maturity labels for structurally different labelling axes. W4.
+"""SUPERSEDED. The one labeller is ``src.reference.labels.assign_labels``.
+
+**Nothing in the pipeline calls this module any more** (2026-08-28). It is kept
+importable so existing tests and notebooks still resolve, and kept documented
+rather than deleted so the record of why it was retired travels with the code.
+
+It thresholds a cohort-wide quantile of an inverted marker score, with no depth
+handling and no ``unresolved`` category. On Lee that made "mature" mean "sampled
+zero stem markers" — 32% of epithelial cells, 4.7x shallower than the rest — and
+since normal epithelium is 4.3x shallower than tumour, it manufactured a 46-point
+compositional loss in the hypothesised direction out of dropout. Issue #44, gate
+memo section 11.
+
+``assign_labels`` thins marker counts to a common depth, marks cells below the
+floor ``unresolved_depth`` (not scored, never counted as immature), takes cut
+points from each patient's own normal arm, and gates ``best4`` on its actual
+markers. Under it the same cohort's gap falls to 25 points and the two finest
+rungs stop being identical. Decision #13, answered.
+
+**Do not route around this by calling ``label_cohort`` again.** Two labellers is
+the condition that produced the bug; one of them being better is not a fix.
+
+--- original docstring ---
+
+Per-cell maturity labels for structurally different labelling axes. W4.
 
 Builds directly on ``src.reference.assert_no_target_leakage`` (CLAUDE.md
 invariant 2): before scoring any cell against an axis's marker genes, this

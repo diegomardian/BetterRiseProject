@@ -227,10 +227,36 @@ def test_cells_outside_the_compartment_are_na_not_immature(tmp_path):
 
     outside = cohort.labels.index.intersection(list(t_cells))
     assert len(outside) > 0
+    inside = cohort.labels.index.difference(outside)
     for col in maturity:
         assert cohort.labels.loc[outside, col].isna().all()
-        inside = cohort.labels.index.difference(outside)
-        assert cohort.labels.loc[inside, col].notna().all()
+        # An epithelial cell may ALSO be NA now — below the depth floor, which
+        # is "not asked" for a different reason. What must never happen is a
+        # silent False, which would put the cell in the denominator as immature.
+        assert not cohort.labels.loc[inside, col].fillna(True).isna().any()
+
+    # And the reason is recoverable rather than merged into one NA: W1's label
+    # column distinguishes non_epithelial from unresolved_depth.
+    reasons = set(cohort.labels["label_stem_pole__lineage".replace("__", "_", 1)].astype(str))
+    assert "unresolved_depth" in reasons or "non_epithelial" in reasons
+
+
+def test_the_depth_floor_fires_and_does_not_count_shallow_cells_as_immature(tmp_path):
+    """The fix for issue #44, at the seam where it was introduced.
+
+    The previous labeller had no depth handling, so a cell that sampled zero
+    stem markers scored maximally mature. W1's thins to a common depth and puts
+    cells below the floor in `unresolved_depth` — not scored, and above all not
+    counted as immature, which would move the compositional term.
+    """
+    raw_dir, _ = _mixed_compartment_fixture(tmp_path)
+    cohort = load_lee_cohort("smc", target_genes=PANEL_AB, raw_dir=raw_dir)
+    labels = cohort.labels["label_stem_pole_lineage"].astype(str)
+    assert (labels == "unresolved_depth").any(), "fixture no longer exercises the floor"
+
+    shallow = labels.index[labels == "unresolved_depth"]
+    for col in [c for c in cohort.labels.columns if c.startswith("mature__")]:
+        assert cohort.labels.loc[shallow, col].isna().all()
 
 
 def test_the_maturity_quantile_is_taken_within_the_compartment(tmp_path):
@@ -244,11 +270,17 @@ def test_the_maturity_quantile_is_taken_within_the_compartment(tmp_path):
         "smc", target_genes=PANEL_AB, raw_dir=raw_dir, label_compartment=None
     )
 
-    col = "mature__stem_pole__epithelial"
+    # NOT the `epithelial` rung: it is single-bin by design under W1's
+    # RUNG_SPECS ("the whole epithelium is one population"), so every scored
+    # cell is mature there and the column cannot differ. Use a rung that bins.
+    col = "mature__stem_pole__lineage"
     epithelium = restricted.labels.index[restricted.labels[col].notna()]
-    assert not restricted.labels.loc[epithelium, col].equals(
-        everything.labels.loc[epithelium, col].astype("boolean")
-    ), "restriction changed no epithelial call -- fixture no longer separates them"
+    assert len(epithelium) > 0
+    restricted_calls = restricted.labels.loc[epithelium, col]
+    everything_calls = everything.labels.loc[epithelium, col].astype("boolean")
+    assert not restricted_calls.equals(everything_calls), (
+        "restriction changed no epithelial call -- fixture no longer separates them"
+    )
 
 
 def test_labelling_everything_stays_available_and_says_so(tmp_path):
@@ -258,7 +290,13 @@ def test_labelling_everything_stays_available_and_says_so(tmp_path):
     )
     assert cohort.label_compartment is None
     maturity = [c for c in cohort.labels.columns if c.startswith("mature__")]
-    assert cohort.labels.loc[:, maturity].notna().all().all()
+    assert maturity
+    # Every cell keeps its ROW — that is what "stays available" means. It no
+    # longer means every cell gets a call: the depth floor legitimately leaves
+    # some unscored, and NA there is the honest value.
+    assert len(cohort.labels) == len(cohort.expression)
+    scored = cohort.labels.loc[:, maturity].notna().any(axis=1)
+    assert scored.any(), "labelling everything scored nothing"
 
 
 def test_an_empty_compartment_raises_rather_than_labelling_nothing(tmp_path):

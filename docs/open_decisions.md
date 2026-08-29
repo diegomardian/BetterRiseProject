@@ -2848,6 +2848,163 @@ is more work than the change being proposed.
 
 ---
 
+## 23 · G4 is ANSWERED and G1 should be WITHDRAWN — 2026-08-28
+
+**Raised:** W2 · **Owner:** the team · **Needed by:** the gate ·
+**Bears on:** [#46](https://github.com/diegomardian/BetterRiseProject/issues/46),
+[#37](https://github.com/diegomardian/BetterRiseProject/issues/37), decision #17
+
+Two gate criteria resolved on the same day, in opposite directions. Recorded
+together because the gate reads them together.
+
+### G4 — answered, and the pre-committed consequence fires
+
+`results/2026-08-28_e649023/g4_verdict_gse178341.parquet`, W1's full-cohort
+counts, 28 matched patients. **`best4` fails 28/28 on both axes, CI
+[0.879, 1.000] — resolvable.** Every other rung straddles the 0.50 line and is
+indeterminate at n=28.
+
+At the finest granularity rung **no patient in the cohort has enough mature cells
+to estimate an intrinsic term.** That is close to structural: `best4` is designed
+to be under 5% of epithelium, and 5% of a few hundred cells is below a cutpoint
+of 20 by construction. The granularity ladder runs out of statistical power
+before it runs out of rungs.
+
+§5's consequence — *"non-identifiability with diagnostics becomes the headline
+result, not a caveat. This is a real paper."* — **fires**, on `best4`, where the
+answer is unambiguous. Not on the indeterminate rungs, which say nothing either
+way. Gate memo §12.
+
+### G1 — cannot be used, and cannot be repaired
+
+It fails when the project's hypothesis is TRUE, under every population for M that
+anyone has tried (#46). Threshold 2 is frozen by having been seen to fail, so
+repairing it would destroy the pre-registration that is its only value.
+
+**W2 proposes withdrawing it as gate-bearing** rather than firing a consequence
+(*"pivot to snRNA-seq and spatial"*) from a criterion proven unable to pass. The
+full case, the alternatives considered, and what the project loses:
+[docs/g1_withdrawal_case.md](g1_withdrawal_case.md).
+
+**W2's ratification of amendment 2 missed this.** The five worlds in
+`g1_amendment.py` vary per-gene fold change against a flat background and have no
+mature compartment at all, so none of them could express the difference the
+criterion turned out to depend on. `simulate_compartment_world` and three tests
+now pin the limitation and reproduce the failure independently of W1's
+simulations. That does not un-ratify anything and it does not license W2 to
+propose the replacement — a third construction from the ratifier, after two have
+failed, would carry the least credibility of anyone's.
+
+### What is being asked
+
+1. Does G1 stop being gate-bearing, or does the project want a fresh
+   pre-registration written by someone unexposed to the failed constructions?
+2. Is the §4 evidence in the withdrawal case the accepted answer to the ambient
+   question, with its weaker form written into the paper's limitations now?
+3. Does G4's consequence fire as W2 reads it?
+
+**Decide before tier A is measured on real expression.** After that every option
+becomes unfalsifiable. `src/reference/checks.py` still returns `not_estimable`.
+
+---
+
+## 24 · Four gate decisions, taken 2026-08-28 — DECIDED by the repo owner
+
+Put to the owner with W2's recommendations and the trade-offs; all four
+recommendations adopted. Recorded together because they were decided together and
+the gate reads them together.
+
+### 24.1 · The depth floor stays at 0.10, and the primary read is depth-MATCHED
+
+**`depth_quantile` remains W1's committed 0.10. It is not raised.**
+
+The sweep showed raising it clears the residual confound at `lineage` and
+`crypt_position` (|ρ| 0.31 → 0.19 at q=0.25, → 0.03 at q=0.40). It was not
+adopted, for two reasons:
+
+1. **Moving a committed QC parameter after seeing what it does to a result** is
+   the move this project refuses everywhere else. W2 had seen the sweep before
+   recommending, and therefore recommended the option that does not benefit from
+   having seen it.
+2. **Raising the floor is arm-differential.** `depth_target` is a *pooled*
+   quantile and normal epithelium is 4.26× shallower, so the floor is in effect a
+   normal-arm filter: at q=0.40 it drops **70.4% of normal against 34.6% of
+   tumour**, and four patients end with 4–20 reference cells defining "mature"
+   for hundreds of tumour cells. That trades a confound for a selection effect in
+   the same term.
+
+**Instead, `harness.depth_confound.match_arm_depth` is the primary read for the
+two affected rungs.** It equalises the arms' depth distributions by construction
+— no threshold to choose — and addresses the diagnosed cause rather than a
+symptom. Corroborated by an independent 1:1 within-patient matcher run during the
+audit (+0.182 against W2's +20.4%).
+
+**What must travel with any matched number:** `n` after matching (1,616 of 6,372
+cells), the estimability cost (36/0/4 `ok`/`wide`/`not_estimable` becomes
+16/16/8), and the per-patient interval — which at the committed floor is
+**[−0.011, +0.342] and contains zero** (§17.3).
+
+### 24.2 · G1 is WITHDRAWN as a gate criterion
+
+Adopted from [`docs/g1_withdrawal_case.md`](g1_withdrawal_case.md). G1 fails when
+the project's hypothesis is TRUE under every population for M anyone has tried
+(#46), and threshold 2 is frozen by having been seen to fail. **Its pre-committed
+consequence — "pivot to snRNA-seq and spatial" — does not fire**, because firing
+it from a criterion proven unable to pass would be caused by the pre-registration
+rather than prevented by it.
+
+The ambient question is answered instead by §10's sensitivity sweep (at the 10%
+cap ambient manufactures ~5% of a real intrinsic term and **cannot** manufacture
+a compositional one), W1's depth-floor result (median |ρ| 0.13 against −0.92
+unthinned), and the plate-based subset. **That is weaker in kind than a criterion
+with a pre-committed consequence, and it goes into the paper's limitations now
+rather than at submission.**
+
+**A sequencing fact a reviewer is entitled to, recorded rather than left to be
+found:** PR #40, in which W2 ratified amendment 2, was merged by the repo owner —
+so the authority now withdrawing G1 also approved the version being withdrawn.
+What makes the withdrawal defensible is not who signed it but *when*:
+`src/reference/checks.py` still returns `not_estimable` and **tier A has never
+been measured on real expression.** If that ever stops being true before the
+withdrawal is settled, this decision should be reopened.
+
+`checks.py` keeps returning `not_estimable` permanently rather than being
+deleted — the file is the record that the criterion existed and was retired for
+cause.
+
+### 24.3 · GSE178341 gets recorded, and the decomposition runs there
+
+**Lee is not promoted to primary.** Swapping the primary and replication cohorts
+after seeing which one produced results is exactly the move a reviewer finds, and
+n=10 with four usable genes is a thin primary in any case.
+
+**W1 adds the manifest rows for GSE178341 and the ICBI table** ([#43](https://github.com/diegomardian/BetterRiseProject/issues/43)) — the
+files are on the cluster and the sha256 is one command. The decomposition then
+runs where the data lives, or the file ships here.
+
+**Until that lands, Stage 1 has no primary-cohort decomposition**, and everything
+in §13–§17 is explicitly a replication-cohort result. That is the single largest
+gap between the current state and a finished Stage 1, and it is a logistics
+problem rather than a scientific one.
+
+### 24.4 · Adversarial audit before any result table or gate verdict
+
+**Standing process change.** An independent agent, briefed to *refute* rather
+than confirm, runs against any artefact before it is published as a result table
+or quoted as a gate verdict.
+
+The evidence for the rule is the run that produced it: one agent, and it found a
+table already published from a statistic computed over the wrong population
+(§17.1), plus two claims of W2's that do not hold (§17.2, §17.4).
+
+**The part that decides it:** the `tumour_arm` collapse did not *feel* wrong. The
+dedup line that caused it cites invariant 5 and issue #36 by name, was written
+specifically to prevent a statistic over the wrong population, and W2 believed
+it. Ad-hoc auditing catches the errors you suspect. This project's recurring
+failure is the errors that look right — five withdrawn guards and counting — and
+those need someone whose job is to disagree.
+
+Recorded in CONTRIBUTING §6 alongside the clean-venv check.
 ## 23 · Stage 4's variance question, pre-specified before it runs — PROPOSED
 
 **Raised:** W3, 2026-08-28, from PR #49 · **Owner:** W3 (team confirms) ·

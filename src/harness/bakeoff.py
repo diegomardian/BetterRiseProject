@@ -12,7 +12,7 @@ run" are different statements and only one of them is reportable.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -63,6 +63,7 @@ def run_bakeoff(
     seed: int,
     arm: str = "tumour",
     target_genes: Iterable[str] = (),
+    alias_map: Mapping[str, str] | None = None,
     mature_label: str = "mature_colonocyte",
 ) -> tuple[pd.DataFrame, dict[str, str]]:
     """Run every available method over every sample. Returns ``(table, skipped)``.
@@ -74,10 +75,22 @@ def run_bakeoff(
     ``target_genes`` is asserted absent from the signature (invariant 2). Pass
     it; the check is cheap and the failure it prevents is a classifier that
     cannot detect the phenomenon it was built to detect.
+
+    ``alias_map`` maps target SYMBOLS onto the identifier space the signature is
+    indexed on, and is required whenever those differ. This call site was one of
+    the four that issue #35 found comparing symbols against Ensembl ids — an
+    intersection of two disjoint namespaces, empty whatever the data, reported as
+    a pass. W1 fixed the guard so it now REFUSES that comparison rather than
+    passing it; this passes the map so the check can actually run. A real
+    Ensembl-indexed S matrix without a map raises ``LeakageGuardError``, which is
+    the correct outcome and not a regression.
     """
     if target_genes:
         assert_no_target_leakage(
-            signature.index, target_genes, context="the bake-off signature"
+            signature.index,
+            target_genes,
+            context="the bake-off signature",
+            alias_map=alias_map,
         )
     usable, skipped = available_methods(list(methods))
     if not usable:
@@ -152,6 +165,7 @@ def signature_width_comparison(
     *,
     seed: int,
     target_genes: Iterable[str] = (),
+    alias_map: Mapping[str, str] | None = None,
     mature_label: str = "mature_colonocyte",
 ) -> pd.DataFrame:
     """Fraction recovery as a function of signature width. Settles §2.1 error #4.
@@ -176,7 +190,8 @@ def signature_width_comparison(
         narrowed = signature.loc[ranked[:width]]
         table, _ = run_bakeoff(
             samples, narrowed, [method], seed=seed,
-            arm="tumour", target_genes=target_genes, mature_label=mature_label,
+            arm="tumour", target_genes=target_genes, alias_map=alias_map,
+            mature_label=mature_label,
         )
         frames.append(table)
     return pd.concat(frames, ignore_index=True)

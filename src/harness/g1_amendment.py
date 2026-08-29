@@ -439,3 +439,90 @@ def null_pass_rate(*, seed: int, n_trials: int = 100_000) -> dict[str, float]:
         "p_g1_passes_on_a_null": float((one & two & three).mean()),
         "n_trials": float(n_trials),
     }
+
+
+# ---------------------------------------------------------------------------
+# The world W2's ratification could not represent — issue #46
+# ---------------------------------------------------------------------------
+#
+# The five worlds above vary per-gene fold change against a FLAT background.
+# None of them has a mature/immature compartment, so in none of them does a
+# gene's mean over all epithelium differ from its mean within mature cells.
+# That is exactly the axis along which G1 turned out to be broken, which is why
+# the ratification passed it: a harness that cannot represent a confound cannot
+# rule it out.
+#
+# This is not a proposed repair. Threshold 2 is frozen by having been seen to
+# fail, and W2 — having ratified the amendment — is the last party who should
+# propose a replacement. It encodes the NEGATIVE result so it cannot be
+# rediscovered as news.
+
+#: Mature-restricted genes are expressed in mature cells and ~nowhere else.
+#: Tier A and MS4A12 are both in this class — panel.yaml calls MS4A12
+#: "colonocyte-restricted yet frequently maintained" in one line, and that
+#: conjunction is the whole problem.
+RESTRICTED_SHARE: Final = 0.05
+
+
+def simulate_compartment_world(
+    *,
+    seed: int,
+    n_genes: int = 20_000,
+    n_cells: int = 3_000,
+    frac_mature_normal: float = 0.50,
+    frac_mature_tumour: float = 0.15,
+    tier_a_silencing: float = 0.15,
+) -> dict[str, object]:
+    """A cohort with a mature compartment, so depletion and silencing differ.
+
+    ``tier_a_silencing`` is the multiplicative shift applied to tier A **inside
+    surviving mature cells**. Set it to 1.0 for a composition-only world and
+    below 1.0 for the world where the project's claim is true.
+
+    Returns the within-bin percentiles the amendment's thresholds read, plus the
+    verdict, so a caller can ask what G1 says about a world with a known answer.
+    """
+    rng = np.random.default_rng(seed)
+    abundance = 10 ** rng.uniform(-2, 2, n_genes)
+
+    restricted = rng.random(n_genes) < RESTRICTED_SHARE
+    ranked = np.argsort(abundance, kind="stable")
+    panel = np.array(
+        [ranked[int(q * (n_genes - 1))] for q in (*TIER_A_QUANTILES, TIER_D_QUANTILE)]
+    )
+    restricted[panel] = True  # tier A and MS4A12 are all mature-restricted
+
+    # Per-cell mean in each compartment. Restricted genes are absent from
+    # immature cells; unrestricted genes are the same in both.
+    mature_normal = abundance.copy()
+    immature = np.where(restricted, 0.0, abundance)
+
+    mature_tumour = mature_normal.copy()
+    mature_tumour[panel[:-1]] *= tier_a_silencing  # tier A silenced, MS4A12 not
+
+    normal_mean = frac_mature_normal * mature_normal + (1 - frac_mature_normal) * immature
+    tumour_mean = frac_mature_tumour * mature_tumour + (1 - frac_mature_tumour) * immature
+
+    normal, tumour = (
+        rng.poisson(normal_mean * n_cells) / n_cells,
+        rng.poisson(tumour_mean * n_cells) / n_cells,
+    )
+    a, m, keep = ma_transform(normal, tumour)
+    percentile = np.full(n_genes, np.nan)
+    percentile[np.flatnonzero(keep)] = within_bin_percentile(a, m)
+
+    tier_a = percentile[panel[:-1]]
+    tier_d = float(percentile[panel[-1]])
+    finite = np.isfinite(tier_a) & True
+    result = (
+        amendment2_verdict(tier_a[finite], tier_d)
+        if finite.any() and np.isfinite(tier_d)
+        else {"verdict": "not_estimable", "failures": ["a panel gene dropped out"]}
+    )
+    return {
+        "hypothesis_is_true": tier_a_silencing < 1.0,
+        "tier_a_median_pct": float(np.nanmedian(tier_a)),
+        "tier_d_pct": tier_d,
+        "verdict": result["verdict"],
+        "failures": result.get("failures", []),
+    }

@@ -81,6 +81,37 @@ def mature_share_by_depth(
     )
 
 
+def max_attainable_rho(prevalence: float) -> float:
+    """The largest |rho| a BINARY label can reach, at this prevalence.
+
+    ``sqrt(3p(1-p))``. Spearman between a continuous variable and a binary one is
+    bounded by the binary's own variance, so a rare label cannot correlate
+    strongly with anything however completely it is determined:
+
+    ======  ==============
+    p       max |rho|
+    ======  ==============
+    0.50    0.866
+    0.05    0.377
+    0.0137  0.200
+    0.0014  0.066
+    ======  ==============
+
+    **Below p = 1.37% the 0.20 tolerance is mathematically unreachable**, so
+    ``maturity_tracks_depth`` cannot fire there no matter how completely depth
+    determines the label. On Lee/SMC the ``best4`` rung's tumour arm has 8 mature
+    cells in 5,564, capping |rho| at 0.066 — its "clean" reading was not evidence
+    of cleanliness, it was the ceiling.
+
+    It also makes raw |rho| incomparable ACROSS rungs whose prevalence differs by
+    orders of magnitude. Compare ``rho_vs_ceiling`` instead, which is what
+    :func:`depth_confound_report` reports alongside.
+    """
+    if not 0.0 <= prevalence <= 1.0:
+        raise ValueError(f"prevalence={prevalence} outside [0, 1]")
+    return float(np.sqrt(3.0 * prevalence * (1.0 - prevalence)))
+
+
 def _spearman(x: np.ndarray, y: np.ndarray) -> float:
     """Rank correlation, without pulling scipy into a diagnostic."""
     if len(x) < 3 or len(np.unique(y)) < 2 or len(np.unique(x)) < 2:
@@ -139,6 +170,9 @@ def depth_confound_report(
             "median_depth": float(np.median(depth[m])) if m.any() else float("nan"),
             "mature_share": float(is_mature[m].mean()) if m.any() else float("nan"),
             "rho_depth_vs_mature": _spearman(depth[m], is_mature[m].astype(float)),
+            "max_attainable_rho": max_attainable_rho(float(is_mature[m].mean()))
+            if m.any()
+            else float("nan"),
         }
 
     medians = [v["median_depth"] for v in per_arm.values() if np.isfinite(v["median_depth"])]
@@ -154,20 +188,47 @@ def depth_confound_report(
     ]
     worst_rho = max(rhos) if rhos else float("nan")
 
+    # A rare label cannot reach the tolerance however completely depth drives it,
+    # so report whether the test was even capable of firing. Without this the
+    # diagnostic reads "clean" on a rung where it could only ever read clean.
+    ceilings = [
+        v["max_attainable_rho"]
+        for v in per_arm.values()
+        if np.isfinite(v["max_attainable_rho"])
+    ]
+    ceiling = max(ceilings) if ceilings else float("nan")
+    reachable = bool(np.isfinite(ceiling) and ceiling >= rho_tolerance)
+
     tracks = bool(np.isfinite(worst_rho) and worst_rho >= rho_tolerance)
     matched = bool(np.isfinite(depth_ratio) and depth_ratio <= depth_ratio_tolerance)
     return {
         "per_arm": per_arm,
         "depth_ratio_between_arms": depth_ratio,
         "worst_within_arm_rho": worst_rho,
+        "max_attainable_rho": ceiling,
+        "rho_vs_ceiling": (
+            float(worst_rho / ceiling)
+            if np.isfinite(worst_rho) and np.isfinite(ceiling) and ceiling > 0
+            else float("nan")
+        ),
+        "tolerance_is_reachable": reachable,
         "maturity_tracks_depth": tracks,
         "arms_are_depth_matched": matched,
         "confounded": bool(tracks and not matched),
-        "reading": _reading(tracks, matched, depth_ratio, worst_rho),
+        "reading": _reading(tracks, matched, depth_ratio, worst_rho, reachable),
     }
 
 
-def _reading(tracks: bool, matched: bool, ratio: float, rho: float) -> str:
+def _reading(
+    tracks: bool, matched: bool, ratio: float, rho: float, reachable: bool = True
+) -> str:
+    if not reachable and not tracks:
+        return (
+            f"NOT TESTABLE: the mature label is too rare here for |rho| to reach "
+            f"the tolerance at all (ceiling sqrt(3p(1-p))). |rho|={rho:.2f} is "
+            f"not evidence of cleanliness — the test could only ever have "
+            f"returned clean. Read rho_vs_ceiling instead."
+        )
     if tracks and not matched:
         return (
             f"CONFOUNDED: the maturity call tracks depth within an arm "
@@ -193,3 +254,67 @@ def _reading(tracks: bool, matched: bool, ratio: float, rho: float) -> str:
         f"Clean on both counts: arms within {ratio:.1f}x on median depth and the "
         f"maturity call does not track depth (|rho|={rho:.2f})."
     )
+
+
+# ---------------------------------------------------------------------------
+# Matching the arms rather than only flooring them
+# ---------------------------------------------------------------------------
+
+
+def match_arm_depth(
+    depth: np.ndarray,
+    arm: np.ndarray,
+    *,
+    seed: int,
+    n_bins: int = 20,
+) -> np.ndarray:
+    """Subsample cells so both arms share a depth distribution. Returns a mask.
+
+    WHY A FLOOR IS NOT ENOUGH
+    -------------------------
+    A depth floor drops the shallowest cells and thins the rest to a common
+    target, which removes the *mechanism* by which depth reaches the maturity
+    call. It does not make the arms comparable: on Lee/SMC, after W1's floor, the
+    arms still differ 2.36x in median depth. Any residual depth sensitivity is
+    then still converted into a between-arm difference — which is the
+    compositional term.
+
+    This equalises the distributions by construction. Depth is binned on pooled
+    quantiles and each bin keeps ``min(n_normal, n_tumour)`` cells from each arm,
+    sampled without replacement. Afterwards the arms have the same depth
+    histogram, so a surviving difference in the maturity call cannot be a depth
+    difference.
+
+    IT IS EXPENSIVE AND THAT IS THE POINT
+    -------------------------------------
+    Matching discards most of the larger arm. If the compositional gap survives
+    on a fraction of the data, that is a stronger statement than the same gap on
+    all of it; if it disappears, the floor was hiding a confound rather than
+    removing one. Either way the answer is not an artefact of choosing a
+    threshold, because there is no threshold here to choose.
+
+    The caller must report ``mask.sum()`` alongside anything computed on it. A
+    matched subsample is a smaller cohort and its intervals are wider.
+    """
+    depth = np.asarray(depth, dtype=float)
+    arm = np.asarray(arm)
+    if depth.shape != arm.shape:
+        raise ValueError(f"depth has {depth.shape}, arm has {arm.shape}")
+    if depth.size == 0:
+        raise ValueError("no cells")
+    arms = sorted(set(arm.tolist()))
+    if len(arms) != 2:
+        raise ValueError(f"need exactly two arms to match, got {arms}")
+
+    rng = np.random.default_rng(seed)
+    bins = pd.qcut(pd.Series(depth), n_bins, labels=False, duplicates="drop").to_numpy()
+    keep = np.zeros(len(depth), dtype=bool)
+    for b in np.unique(bins[~pd.isna(bins)]):
+        in_bin = bins == b
+        per_arm = {a: np.flatnonzero(in_bin & (arm == a)) for a in arms}
+        take = min(len(idx) for idx in per_arm.values())
+        if take == 0:
+            continue
+        for idx in per_arm.values():
+            keep[rng.choice(idx, size=take, replace=False)] = True
+    return keep

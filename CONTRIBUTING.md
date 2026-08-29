@@ -139,6 +139,16 @@ python -m venv /tmp/ci && /tmp/ci/bin/pip install -e ".[dev]" && /tmp/ci/bin/pyt
 - [ ] Random seed fixed and logged, not left to the default
 - [ ] New data files have a `data/manifest.csv` row
 - [ ] Branch is `wN/...` or `shared/...`
+- [ ] **Adversarially audited, if this PR publishes a result table or quotes a
+      gate verdict** (decision #24.4). Brief an independent agent to *refute*
+      the claims, not to confirm them, and act on what it returns.
+
+**Why that last one is not optional.** One audit found a result table already
+published from a statistic computed over the wrong population — the dedup line
+that caused it cited invariant 5 and issue #36 by name and looked correct to the
+person who wrote it. Ad-hoc review catches the errors you suspect. This project's
+recurring failure is the errors that look right, and those need someone whose job
+is to disagree.
 
 ---
 

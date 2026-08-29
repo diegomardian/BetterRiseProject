@@ -21,11 +21,11 @@ Date: 2026-08-16 · Owner: W2 · Reads against
 
 | Gate | Status | Basis |
 |---|---|---|
-| **G1** ambient correction | **changed twice — premise and statistic; W2 has ratified the new statistic, see §0** | MA-vs-percentile per prereg amendment 2. The harness can say the criterion discriminates; it starts from corrected cells and still cannot test the correction itself. |
-| **G3** estimator recovers known ground truth | **preliminary PASS**, synthetic | Oracle arm recovers the known split within 1% wherever the mature compartment is non-empty; interval coverage 0.90–1.00 above 20 mature cells |
-| **G4** <50% of patients below threshold | **cannot answer yet — but the cohort can support the question, see §9** | Needs real patient-level mature-cell counts. `gate_g4_verdict()` is implemented, now reports a Wilson interval and a `resolvable` flag, and is waiting on data. At 36 matched patients the effective decision line is 33%, not 50%; at SMC's 10 it is 10% and G4 is not answerable. |
+| **G1** ambient correction | **WITHDRAWN as gate-bearing — decision #24.2** | It fails when the project's hypothesis is TRUE under every population tried (#46), and threshold 2 is frozen by having failed. Its pre-committed consequence does NOT fire. [g1_withdrawal_case.md](g1_withdrawal_case.md); §10 and decision #14 answer the ambient question instead, weaker in kind, and that goes in the paper's limitations. |
+| **G3** estimator recovers known ground truth | **preliminary PASS**, synthetic; the real-cell arm now runs | Oracle arm recovers the known split within 1% wherever the mature compartment is non-empty; interval coverage 0.90-1.00 above 20 mature cells. §13.3 is the first real decomposition it produced. |
+| **G4** <50% of patients below threshold | **FAIL at `best4` under BOTH tumour arms; every other rung NOT IDENTIFIABLE** | §12 as corrected by §17.1. 28/28 (filtered) and 24/28 (unfiltered) below the cutpoint at the finest rung, resolvable in both. Amendment 1's rule applies elsewhere: the arms disagree, so the pre-registered answer is not identifiable. The consequence fires on `best4`. |
 | **Ambient sensitivity** (feeds G1) | **measured**, synthetic | §10 — at the 10% exclusion cap real terms retain 94% and a compositional-only world acquires an intrinsic term worth 4.6% of its compositional one. The artefact is one-directional. |
-| **G2** control tiers separate | **not yet run** | Needs W1's pilot |
+| **G2** control tiers separate | **FAILS as pre-registered** | §13.4. Tier A's loss is predominantly INTRINSIC not compositional (4.4x, and only that band excludes zero); tier B (MLH1) shows nothing; tier D (MS4A12) is not retained. Computed on a rung that carries a depth caveat — direction is striking, not yet quotable. |
 
 ---
 
@@ -685,3 +685,654 @@ says "confounded" would be the fifth guard this project has had to withdraw.
 - **W1's labeller has not been run on Lee.** `load_lee_cohort` calls W4's. That
   comparison is the obvious next measurement and it should be run rather than
   assumed.
+
+---
+
+## 12 · G4 — ANSWERED. It fails at the finest rung, and that is a pre-registered outcome
+
+> **CORRECTED — see §17.1.** The table below silently used one tumour-arm
+> definition of two. The `best4` FAIL survives under both; every other row
+> and the supporting sentences are retracted, and the pre-registered verdict
+> at the coarse rungs is *not identifiable*.
+
+The first gate criterion with a real answer.
+[`results/2026-08-28_e649023/g4_verdict_gse178341.parquet`](../results/2026-08-28_e649023/g4_verdict_gse178341.parquet),
+from W1's `mature_cell_counts_full` on GSE178341, 28 matched patients (matched =
+observed in both tissues; C106 and C140 have one arm each and are excluded, not
+zeroed — decision #19).
+
+| axis | rung | below threshold | 95% CI | verdict |
+|---|---|---|---|---|
+| stem_pole | **best4** | **28/28 = 100%** | [0.879, 1.000] | **FAIL — resolvable** |
+| opposite_lineage | **best4** | **28/28 = 100%** | [0.879, 1.000] | **FAIL — resolvable** |
+| stem_pole | lineage | 13/28 = 46.4% | [0.295, 0.642] | PASS — *not resolvable* |
+| stem_pole | crypt_position | 13/28 = 46.4% | [0.295, 0.642] | PASS — *not resolvable* |
+| stem_pole | epithelial | 11/28 = 39.3% | [0.236, 0.576] | PASS — *not resolvable* |
+| opposite_lineage | lineage | 16/28 = 57.1% | [0.391, 0.735] | FAIL — *not resolvable* |
+| opposite_lineage | crypt_position | 18/28 = 64.3% | [0.458, 0.793] | FAIL — *not resolvable* |
+| opposite_lineage | epithelial | 11/28 = 39.3% | [0.236, 0.576] | PASS — *not resolvable* |
+
+### G4 does not have one answer, and that is not a hedge
+
+The mature population is **defined by the rung**, so the fraction of patients
+below the positivity cutpoint is too. Reporting a single G4 number would mean
+picking a rung and calling it the cohort. `g4_over_rungs()` therefore returns one
+verdict per (axis, rung) and has no single-row form.
+
+### What is resolvable and what is not
+
+**One thing is resolved: `best4` fails, on both axes, 28 of 28 patients.** The
+interval is [0.879, 1.000] — nowhere near the 0.50 line. At the finest
+granularity rung, **no patient in this cohort has enough mature cells to estimate
+an intrinsic term at all.**
+
+That is close to structural rather than surprising. `best4` is designed to be
+"under 5% of epithelium even in healthy colon" (`config/panel.yaml`, tier A's
+role), and 5% of a few hundred epithelial cells is below a cutpoint of 20 by
+construction. **The granularity ladder runs out of statistical power before it
+runs out of rungs.**
+
+**Everything else is indeterminate.** Five of the remaining six rungs straddle
+the 0.50 line, and the sixth (`opposite_lineage`/`crypt_position`, CI [0.458,
+0.793]) does too. §9.1 said a defensible call at n=28 needs 12 or fewer patients
+below; the observed counts are 11, 13, 16 and 18. **The cohort is one or two
+patients away from being able to answer its own gate criterion at the coarse
+rungs, and it is not there.**
+
+### The pre-committed consequence, taken
+
+`execution_plan.md` §5, G4 fail:
+
+> Non-identifiability finding with diagnostics becomes the headline result, not a
+> caveat. **This is a real paper.**
+
+**W2's reading: that consequence fires.** Not on the indeterminate rungs — those
+say nothing either way — but on `best4`, where the answer is unambiguous and
+robust. The finding is not "the method failed"; it is that **at the resolution
+where the compositional question is sharpest, the intrinsic question cannot be
+asked at all**, and the project can say so with a pre-registered threshold, a
+per-patient interval, and a positivity rule that was fixed before the number was
+seen.
+
+That is the third segment of this project's own decomposition — *not estimable* —
+arriving as the headline rather than as a footnote. It is the contribution
+CLAUDE.md's one-line summary names, and G4 firing is the evidence for it rather
+than an obstacle to it.
+
+### Why this number is trustworthy where §11's were not
+
+§11 found W4's Lee labels unusable — the maturity call there tracked depth at
+ρ = −0.92. These counts come from **W1's** labeller, which depth-matches, and W1
+ran W2's own diagnostic over it (`depth_confound_reference.parquet`, 32 patients
+× 2 axes × 4 rungs): median |ρ| **0.13**, and **`best4` is the least affected rung
+of all** — median |ρ| 0.069, tripping the confound on 6.2% of patients against
+17.2% for `lineage`.
+
+So the one resolvable verdict sits on the cleanest rung. That is luck, and it is
+worth saying it is luck rather than design.
+
+**Three caveats that do not change the verdict but belong beside it:**
+
+- The arms are **not** depth-matched on 20 of 32 patients (median ratio 1.64), so
+  the precondition for a depth artefact is present cohort-wide even though the
+  mechanism is largely absent. 17 of 256 patient-axis-rung combinations trip
+  both conditions — all at `lineage` or `crypt_position`, none at `best4`.
+- `lineage` and `crypt_position` return identical verdicts on `stem_pole` because
+  they are the same partition on most patients (issue #42). That is one rung
+  reported twice, not two agreeing measurements.
+- The cutpoint is still **provisional** (`n_cells_mature < 20`, execution_plan
+  §4). It has not been recalibrated on real cells — handoff task 6, still blocked.
+  A recalibration could move the indeterminate rungs; it will not move 28/28.
+
+---
+
+## 13 · One labeller, and the first real decomposition
+
+Decision #13 is answered by retiring the second labeller rather than reconciling
+two. `lee_io` now calls W1's `assign_labels`;
+`src/estimator/labels.py` is marked SUPERSEDED in place.
+
+### 13.1 · What the port fixed, and what it did not
+
+Measured on SMC, same cells, same diagnostic, before and after:
+
+| rung | gap (normal − tumour mature) | worst \|ρ\| | confounded |
+|---|---|---|---|
+| lineage | 46.1% → **25.1%** | 0.53 → **0.31** | yes → **yes** |
+| crypt_position | 45.9% → **25.1%** | 0.54 → **0.31** | yes → **yes** |
+| best4 | 5.4% → 5.7% | 0.04 → **0.055** | no → **no** |
+
+`best4` is now genuinely marker-gated — 55 cells, 0.9% of scored, against a
+design target of "under 5% of epithelium" — and no longer bit-identical to
+`crypt_position`. 708 of 7,080 epithelial cells (10%) are `unresolved_depth`
+instead of being called maximally mature.
+
+**`lineage` and `crypt_position` remain confounded at W1's committed
+`depth_quantile=0.10`, and their numbers must not be quoted.** Halving an
+artefact is not removing it.
+
+### 13.2 · The depth floor, as a sensitivity analysis and not a choice
+
+W2 is **not** proposing a new value. Reported because it changes what the
+residual confound means:
+
+| depth_quantile | dropped | gap, lineage | worst \|ρ\| | arms | confounded |
+|---|---|---|---|---|---|
+| 0.00 | 0% | +46.1% | 0.53 | 4.26× | yes |
+| **0.10 (committed)** | 10% | +25.1% | 0.31 | 2.36× | **yes** |
+| 0.25 | 25% | +30.5% | 0.19 | 1.33× | no |
+| 0.40 | 40% | +30.1% | **0.03** | 1.25× | no |
+| 0.50 | 50% | +27.4% | 0.07 | 1.16× | no |
+
+**The compositional gap does not collapse when the confound is removed.** It
+sits at 22–31 points wherever |ρ| is small, with no monotone trend that would
+let anyone tune it toward a preferred answer, while the confound itself falls
+from 0.53 to 0.03. The 46-point figure was inflated by dropout; **a ~25-point
+gap is not.**
+
+That is the first evidence on real cells that the compositional signal is not an
+artefact. It is also an argument for raising the committed floor — which W2 is
+deliberately not making, because raising a QC parameter after seeing what it does
+to a result is the move this project refuses. It belongs to the team.
+
+### 13.3 · The decomposition
+
+[`results/2026-08-28_033cd51/decomposition_lee_smc.parquet`](../results/2026-08-28_033cd51/decomposition_lee_smc.parquet)
+— 2,160 rows, 10 patients, panel tiers A+B+C+D, both axes, all four rungs, with
+patient-level bootstrap bands alongside.
+
+**Read the sidecar's `QUOTABILITY` field before using any of it.** The honest
+summary is that **no rung on this cohort is both clean and fully estimable**:
+
+| rung | status |
+|---|---|
+| `epithelial` | clean; **compositional exactly 0.0000 by construction** (one bin, so the mature fraction is 1.0 in both arms). Only its intrinsic term means anything. |
+| `lineage` | estimable, **confounded** — do not quote |
+| `crypt_position` | estimable, **confounded**, and numerically identical to `lineage` (#42) |
+| `best4` | clean, and **`not_estimable` for every patient and every gene** — 540 of 2,160 rows |
+
+`best4` reproduces G4's finding on a second cohort: at the finest rung there are
+55 mature cells in the entire study, so the intrinsic term does not exist. Those
+rows carry `intrinsic=None`, never `0.0` (invariant 1).
+
+### 13.4 · G2 — the control tiers do not separate as pre-registered
+
+> **WITHDRAWN — see §17.2.** "Tier A's loss is predominantly intrinsic" is
+> an arithmetic identity in the m_t -> 0 limit, is numerically identical for
+> tier D, and reverses at the rung tier A is defined on. Corrected verdict:
+> **G2 not evaluable on this cohort**.
+
+Medians at `lineage`, stem_pole, normal weighting, with cohort bands:
+
+| tier | gene | expected | compositional | intrinsic | intrinsic 95% CI |
+|---|---|---|---|---|---|
+| **A** | GUCA2A | compositional | −5.83 | **−25.68** | [−74.8, −16.9] ✗0 |
+| A | GUCA2B | compositional | −4.70 | −36.41 | [−67.1, −20.9] ✗0 |
+| A | CA7 | compositional | −0.56 | −2.53 | [−7.4, −1.8] ✗0 |
+| **B** | MLH1 | intrinsic | −0.004 | **+0.008** | [−0.02, +0.04] ∋0 |
+| B | SFRP1 | intrinsic | −0.000 | 0.000 | [−0.006, 0.000] ∋0 |
+| **D** | MS4A12 | neither | −0.17 | **−0.77** | [−1.43, −0.53] ✗0 |
+
+Three failures against the pre-registration, and the first is the one that
+matters:
+
+1. **Tier A's loss is predominantly INTRINSIC, not compositional** — 4.4× larger,
+   and only the intrinsic band excludes zero. The compositional band
+   [−27.9, +1.7] contains it.
+2. **Tier B shows nothing at all.** MLH1 was the intrinsic control and its term is
+   indistinguishable from zero.
+3. **Tier D is not retained.** MS4A12's intrinsic band excludes zero — though at
+   1/33 of GUCA2A's magnitude, so the tiers separate in size even where they do
+   not separate in sign.
+
+`config/panel.yaml`'s falsification rule is **not** literally tripped: it fires
+when A, B and D all return the same answer, and B differs. But the pre-registered
+pattern does not hold, and per §5 the honest reading of a G2 failure is *methods
+and validation paper, no biological claim* — which points the same way G4 already
+did.
+
+**And this is the rung that must not be quoted.** Tier A's intrinsic term is
+computed on `lineage`, where |ρ| = 0.31. The direction is striking and it is
+exactly what a pre-registration is for — but it is not yet a result, and W2 will
+not present it as one until the confound is closed.
+
+### 13.5 · Where the project stands
+
+Three of four gate criteria now have answers, and they agree:
+
+| | verdict |
+|---|---|
+| **G1** | withdrawal proposed — cannot pass when the hypothesis is true (§0.2, decision #23) |
+| **G2** | **fails as pre-registered** — the tiers do not separate in the specified pattern |
+| **G3** | preliminary PASS on synthetic; the real-cell arm now runs |
+| **G4** | **fails at `best4`, resolvable** — reproduced on a second cohort |
+
+Two independent criteria point at the same paper: **the non-identifiability
+finding, with diagnostics.** That is §5's pre-committed consequence for G4 and
+§5's reading of a G2 failure, and it is the paper CLAUDE.md's one-line summary
+describes — the third segment, *not estimable*, as the contribution rather than
+the caveat.
+
+The work still outstanding is bounded and known: close the residual depth
+confound at the two middle rungs (a team decision on the floor), run this on
+GSE178341 once its data is recorded (#43), and decide G1.
+
+---
+
+## 14 · The confound is closed by matching the arms, and the finding survives it
+
+> **WEAKENED — see §17.3.** The +20.4% headline is cell-pooled and violates
+> invariant 5; per patient the gap is +0.170 with a bootstrap CI of
+> [-0.011, +0.342] at the committed floor, which contains zero. The gap does
+> survive independent 1:1 within-patient depth matching.
+
+§13.1 left `lineage` and `crypt_position` confounded and unquotable. They are not
+any more, and closing it did not require touching a threshold.
+
+### 14.1 · Why a floor was never going to be enough
+
+W1's depth floor removes the *mechanism* — it thins marker counts to a common
+target so a shallow cell cannot read as mature through dropout. It does not make
+the arms **comparable**: after the floor, SMC's arms still differ **2.36×** in
+median depth. Any residual depth sensitivity is still converted into a
+between-arm difference, and a between-arm difference in the mature fraction *is*
+the compositional term.
+
+`depth_confound.match_arm_depth()` equalises the distributions instead. Depth is
+binned on pooled quantiles and each bin keeps `min(n_normal, n_tumour)` cells
+from each arm. Afterwards the arms have the same depth histogram **by
+construction**, so a surviving difference cannot be a depth difference.
+
+There is no threshold in it to choose, which is the reason it is the right
+instrument for this question rather than a fourth attempt at picking a floor.
+
+### 14.2 · The gap survives
+
+| rung | unmatched | | matched | | |
+|---|---|---|---|---|---|
+| | gap | arms | **gap** | arms | n cells |
+| lineage | +25.1% | 2.36× | **+20.4%** | **1.02×** | 1,616 |
+| crypt_position | +25.1% | 2.36× | **+20.4%** | 1.02× | 1,616 |
+| best4 | +5.7% | 2.36× | **+5.7%** | 1.02× | 1,616 |
+
+**`best4`'s gap does not move at all** — it was never confounded, and matching
+confirms it rather than changing it. `lineage` loses about a fifth of its gap,
+so roughly 5 of the 25 points were residual imbalance and **20 were not**.
+
+Per patient, at `lineage`, on matched cells: median Δ(mature fraction) **−0.184**,
+negative in **7 of 10** patients. Seven of ten is suggestive and no more —
+binomial p ≈ 0.17 — and the two patients running the other way (SMC03, SMC10) are
+real heterogeneity, not noise to be explained away.
+
+### 14.3 · The decomposition under matching — the headline holds and sharpens
+
+GUCA2A, `stem_pole`/`lineage`, normal weighting:
+
+| | n | compositional | intrinsic | intrinsic estimable |
+|---|---|---|---|---|
+| unmatched | 10 | −5.83 | −25.68 | 9/10 |
+| **matched** | 10 | **−4.07** | **−26.32** | 8/10 |
+
+With cohort bands on the matched data:
+
+| term | 95% CI | |
+|---|---|---|
+| **intrinsic** | **[−79.7, −16.4]** | **excludes zero** |
+| compositional | [−23.4, +5.0] | contains zero |
+| interaction | [−5.1, +23.2] | contains zero |
+
+**The intrinsic term is unmoved by the strongest depth control available and its
+band excludes zero. The compositional term shrinks by 30% and its band does
+not.** §13.4's direction was computed on a rung that carried a caveat; that
+caveat is now addressed, and the direction held.
+
+**The compositional band containing zero is not evidence of absence.** It is
+[−23.4, +5.0] — a 28-point interval on ten patients. That is non-identifiability,
+the same finding G4 returned, and reading it as "there is no compositional
+component" would be exactly the error invariant 1 exists to prevent, one level up.
+
+### 14.4 · What matching costs, priced
+
+Comparability is not free. Rows by estimability at `lineage`, tier-A genes:
+
+| | ok | wide_interval | not_estimable |
+|---|---|---|---|
+| unmatched | 36 | 0 | 4 |
+| **matched** | **16** | **16** | **8** |
+
+**Half the estimable rows degrade.** Matching discards 75% of the cells (6,372 →
+1,616), and per-patient arms get thin — SMC05's matched tumour arm is 2 cells,
+SMC08's normal arm is 11.
+
+That trade is the project's own thesis arriving as a methodological fact:
+
+> **On this cohort you can have a comparison that is clean, or one that is
+> estimable, but not both at once.**
+
+A clean comparison costs three quarters of the data and pushes half of what
+remains below the positivity cutpoint. That is a sharper statement of
+non-identifiability than G4's count of patients, because it is not about this
+cohort being small — it is about the correction and the estimand competing for
+the same cells.
+
+### 14.5 · Status of the two rungs
+
+`lineage` and `crypt_position` are **quotable on matched cells** and remain
+unquotable unmatched. Anything computed on them must report `n` after matching
+and carry the estimability breakdown above, because the interval is what the
+matching cost and hiding it would make the method look free.
+
+`match_arm_depth` is tested in both directions
+(`tests/test_depth_confound.py`): it must erase a gap that is only depth, **and
+preserve a gap that is not**. A matcher that only did the first would launder
+real signal away, and would have been the fifth withdrawn guard.
+
+
+---
+
+## 15 · The attenuation curve on real cells — and the cutpoint validated
+
+Handoff §5 task 5, the last unblocked harness item. The pseudobulk generator
+draws from **held-out real patients** rather than a simulated cohort, so the
+mixture, the dropout and the between-cell heterogeneity are real; only the
+composition and the shift are imposed, which is what keeps the truth known.
+
+**Oracle arm only, and stated.** The bulk arm deconvolves against a signature
+built from `config.genes`, and nu-SVR needs 500-2000 of them (§2.1 error #4).
+Lee retains ~16. Handed that, the bulk arm does not fail — it returns fractions
+that are noise wearing the shape of a result. `arms=("oracle",)` is the honest
+call, and `run_sweep`'s docstring says the parameter exists for this and not for
+making a number look better.
+
+GUCA2A, `stem_pole`/`lineage`, shift 0.5, 6 replicates per point, 1,200 cells per
+sample, 2 patients held out:
+
+| target mature fraction | median mature cells | recovered / true | estimability |
+|---|---|---|---|
+| 0.40 | 481 | **0.94** | ok |
+| 0.20 | 240 | **0.90** | ok |
+| 0.10 | 120 | **0.85** | ok |
+| 0.05 | 60 | 1.08 | ok |
+| 0.02 | 24 | 1.18 | wide_interval |
+| 0.00 | 0 | — | **not_estimable, 6/6** |
+
+### What it says
+
+**Recovery sits between 0.85 and 1.08 across the whole `ok` band** (≥50 mature
+cells) and degrades to 1.18 in `wide_interval` (20-49). The estimator does not
+collapse gracefully — below the band it **over**-estimates rather than
+attenuating, which is the more dangerous direction because an inflated intrinsic
+term reads as a stronger finding.
+
+**The pre-committed cutpoint is validated on real cells.** `ok` at ≥50 was chosen
+on synthetic data in week 5 and never checked against anything real. It lands
+almost exactly where recovery leaves ±15%. That is a threshold set before the
+measurement and vindicated by it, which is the only kind worth having.
+
+At a zero mature fraction every replicate returns `not_estimable`, and the
+estimator still emits a number alongside it — by design, since
+`kitagawa.decompose()` leaves the estimability call to the caller (invariant 1
+made visible at the call site rather than buried in the arithmetic). **The ratio
+of 2.00 at that grid point is computed on rows a consumer must null**, and is
+shown here only to make the failure mode visible.
+
+Shift 1.0 returns `NaN` for the ratio throughout, because the true intrinsic term
+is exactly zero and a ratio against zero is not a number. That is the null arm
+behaving correctly, not a gap in the table.
+
+
+---
+
+## 16 · The granularity curve is three points on axis 1 and four on axis 2
+
+Issue #42 reported `crypt_position` collapsing to a two-bin split on "~90% of
+patients". That number is the average of two very different ones, and the split
+matters because it carries the diagnosis.
+
+Re-split `rung_degeneracy_full.parquet` by axis — `lineage` vs `crypt_position`,
+30 patients:
+
+| axis | median Jaccard | bit-identical |
+|---|---|---|
+| `stem_pole` | **1.000** | **29 / 30** |
+| `opposite_lineage` | 0.779 | 7 / 30 |
+
+Reproduced on Lee/SMC: 1.0000 on 10/10 for `stem_pole`, 0.666 for
+`opposite_lineage`.
+
+### The mechanism is a predicate, not a tendency
+
+Both transcript axes score *immaturity* and `maturity_score` negates, so **"no
+stem marker detected" is the highest attainable maturity** — the zero-atom sits
+at the score **maximum**. On Lee, 60.0% of scored cells hold that single value,
+and that set is exactly the set with zero thinned counts across all five markers.
+
+With an atom of fraction `a` at the top of the reference arm: `q67` lands on the
+atom ⟺ `a > 1/3` (20/20 cases), and both cuts tie ⟺ `a > 2/3` (20/20). The
+reference-arm atom is median 0.82 on `stem_pole`, so the upper tertile is
+swallowed in every patient. Axis 2 escapes because TFF3 is detected in 71.3% of
+cells against OLFM4's 24.0% and LGR5's 1.8%. **Marker detection rate is the
+whole story.**
+
+### Why no score function fixes it
+
+Any score that is a function of the marker counts alone must give the atom cells
+the same value — their count vector is identically zero. Verified on six (mean of
+z-scores, sum of counts, max of z, PC1, rank-average, any-marker-detected):
+identical atom and identical tied count in all six. **That is a proof, not a
+sweep.**
+
+The formulations that break the tie use information beyond the markers and are
+worse. A depth-shrinkage score reaches a 0.0% atom — and within cells whose raw
+marker vector is identically zero, **Spearman(score, depth) = 1.0000 exactly.**
+It orders the atom by sequencing depth, which is arm-confounded. Manufactured
+resolution pointed straight at the compositional term; rejected.
+
+Raising the depth floor also clears the tie (at q ≥ 0.50) and is also rejected:
+retention at q=0.30 is **37.4% of normal against 75.8% of tumour**, a 38-point
+arm gap, on a reference arm already at a median 43 cells per patient. That trades
+a bin-count problem for arm-differential selection in the compositional term.
+
+### The structural finding, which belongs at the gate
+
+**Every positive marker of a mature colonocyte is on the frozen panel** —
+GUCA2A, GUCA2B, OTOP2, CA7, MS4A12, AQP8, CA1, CA2, CA4, SLC26A3, KRT20, FABP1,
+CEACAM7, PIGR, LGALS4, VIL1, SATB2. That is *why* axis 1 must define maturity by
+absence, and the zero-atom follows directly.
+
+`config/labeling_axes.yaml`'s header argues that freezing labels before the panel
+expanded is what saved them. **On axis 1 it did not save enough of them.** No
+cohort fixes that; it is a design consequence, and the honest report is a
+three-point curve on axis 1 with the reason attached.
+
+---
+
+## 17 · CORRECTIONS — an adversarial audit of §12, §13 and §14
+
+An independent audit was run against §12–§14 with instructions to refute rather
+than confirm. It found three errors, two of them mine and consequential. Every
+claim below was re-verified against the data before being accepted, and the
+sections above are **corrected here rather than quietly edited**, because the
+originals were circulated.
+
+### 17.1 · §12's G4 table silently used one tumour arm. RETRACTED and re-run.
+
+`results/2026-08-26_63ead2e/mature_cell_counts_full.parquet` is **928 rows =
+30 patients × 2 tissues × 2 axes × 4 rungs × 2 TUMOUR-ARM DEFINITIONS** — the
+`filtered` and `unfiltered` arms of prereg amendment 1 / decision #15.
+
+`g4_over_rungs` did not group by `tumour_arm`. Its per-patient dedup —
+
+```python
+per_patient = sub.groupby("patient_id", observed=True)["n_cells_mature"].first()
+```
+
+— therefore collapsed **two arm definitions**, not two duplicate rows, and
+`.first()` took whichever appeared first in file order. Measured: it selected
+`filtered` in **224 of 224** combinations. §12's table was 100% one arm, chosen by
+row order, and neither the parquet, the sidecar nor the memo recorded which.
+
+That comment cites invariant 5 and issue #36 by name. It was written to prevent a
+statistic computed over the wrong population, and it computed one.
+
+**Worse: the `filtered` arm contains five patients with *zero* epithelium** —
+C119, C137, C152, C165, C170, where inferCNV separated no aneuploid population.
+Median filtered epithelium is 93 cells against 810 unfiltered. Those five enter
+`fraction_below` as guaranteed-below on a **malignancy-calling** fact. That is
+precisely the failure `gate_g4_verdict`'s own docstring says it exists to
+prevent — a cohort-design fact reported as a positivity finding — reproduced one
+level up, in the function that consumes it.
+
+**Re-run per arm, with amendment 1's pre-committed reduction:**
+
+| axis | rung | `filtered` | `unfiltered` | verdict |
+|---|---|---|---|---|
+| stem_pole | **best4** | 28/28 FAIL ✔res | 24/28 FAIL ✔res | **FAIL** |
+| opposite_lineage | **best4** | 28/28 FAIL ✔res | 24/28 FAIL ✔res | **FAIL** |
+| stem_pole | lineage | 13/28 PASS ✘res | 1/28 PASS ✔res | **not identifiable** |
+| stem_pole | crypt_position | 13/28 PASS ✘res | 1/28 PASS ✔res | **not identifiable** |
+| stem_pole | epithelial | 11/28 PASS ✘res | 0/28 PASS ✔res | **not identifiable** |
+| opposite_lineage | lineage | 16/28 FAIL ✘res | 1/28 PASS ✔res | **not identifiable** |
+| opposite_lineage | crypt_position | 18/28 FAIL ✘res | 2/28 PASS ✔res | **not identifiable** |
+| opposite_lineage | epithelial | 11/28 PASS ✘res | 0/28 PASS ✔res | **not identifiable** |
+
+Amendment 1 pre-commits the answer when the arms disagree: **report both, treat
+disagreement as *not identifiable*, do not choose.** `g4_arms_agree()` performs
+that reduction and `g4_over_rungs` now refuses to collapse the arms at all.
+
+**What survives:** `best4` is a resolvable FAIL under **both** definitions, on
+both axes. **G4's verdict stands and is now stronger**, because it no longer
+depends on an arm choice nobody made deliberately.
+
+**What is retracted:**
+
+- "Every other rung straddles the 0.50 line… the cohort is one or two patients
+  away from being able to answer its own gate criterion." **False.** Under
+  `unfiltered` six of eight rows are resolvable PASSes, some by a wide margin.
+  The pre-registered verdict at the coarse rungs is *not identifiable* — which is
+  a stronger and more interesting statement than "indeterminate at n=28".
+- "No patient in this cohort has enough mature cells to estimate an intrinsic
+  term at all." **False.** Four do under `unfiltered`: C119 (45 best4 cells),
+  C165 (37), C129 (29), C122 (23).
+- **An arithmetic error:** §12 said "a defensible PASS at n=28 allows up to 12".
+  `largest_clean_pass(28) = 8`. The 12 is §9.1's **n=36** row transplanted onto
+  n=28. The effective line at n=28 is 28.6%, not 42.9%.
+- §9.1 and `gate_g4_verdict`'s docstring both say GSE178341 is "36 of 62
+  matched"; the table G4 actually ran on has 30 patients, 28 matched. Unreconciled.
+
+### 17.2 · §13.4's "tier A's loss is predominantly intrinsic" — WITHDRAWN
+
+The arithmetic was right and the conclusion does not follow.
+
+**It is an identity, not a measurement.** For GUCA2A the tumour arm's mature-cell
+mean is ~0 (median `m_t/m_n` = **0.0024**; GUCA2B 0.00017; CA7, OTOP2, MS4A12
+exactly 0). In that limit `interaction = Δf·Δm → −Δf·m_n = −compositional`.
+Measured, `median|comp + interaction| / median|comp|` = **0.0007** for GUCA2A.
+The compositional term is cancelled by the interaction to four significant
+figures, the total equals the intrinsic term, and `|intrinsic| > |compositional|`
+follows whenever `f_t < 2·f_n` — true for all ten patients. The "9 of 9 patients"
+corroboration is the identity restated.
+
+**It cannot tell tier A from tier D.** With `comp = Δf·m_n` and
+`intr = f_n·(m_t − m_n)`, the ratio is `(f_n/Δf)·(m_t/m_n − 1)` — the gene enters
+only through `m_t/m_n`, which is ~0 for every depleted gene. Per-patient ratios
+agree to three decimals across tiers and are predicted exactly by the mature
+fractions alone (SMC04: GUCA2A 6.015, MS4A12 6.017, SFRP2 6.017, predicted
+6.017). **4.4× is a property of the labelling, not of tier A.**
+
+**And §13.4's mitigating clause was backwards.** "MS4A12 at 1/33 of GUCA2A's
+magnitude, so the tiers separate in size" — both terms are linear in `m_n`, and
+MS4A12's baseline is 1.199 against GUCA2A's 33.87, a 28× ratio. On the scale-free
+`intrinsic / mean_normal` the tiers do **not** separate: tier A −0.787 to −0.822,
+**SFRP2 (B) −0.731**, **MS4A12 (D) −0.662**, CDX2 (C) −0.326, MLH1 (B) **+0.123**.
+That moves `panel.yaml`'s falsification rule *closer* to firing, not further.
+
+**§13.4 also dropped SFRP2** — tier B is `[MLH1, SFRP1, SFRP2]`, the table showed
+MLH1 and SFRP1 (whose baseline is 0.0000, degenerate rather than evidence) and
+omitted the one tier B gene behaving as pre-registered. "Tier B shows nothing at
+all" was a statement about MLH1 with the counter-example missing.
+
+**And it was evaluated at the wrong rung.** `panel.yaml` defines tier A as the
+"BEST4+ program, under 5% of epithelium" — its compositional prediction is about
+the `best4` population. At `best4`, GUCA2A's compositional term is **−9.54**, 64%
+*larger* than the −5.83 quoted from `lineage`, with `frac_mature_tumour = 0` in 9
+of 10 patients. The term **reverses at the rung tier A is defined on**.
+
+**Corrected verdict: G2 is not evaluable on this cohort**, matching G4's coarse
+rungs — not "G2 fails as pre-registered". `docs/prereg_g2_mlh1.md` §2.3 already
+warned that tier separation "can be satisfied by an estimator that merely tracks
+expression level"; that is what happened, and the sharper pre-registered test
+(MLH1-methylated vs MLH1-intact MMRd) was not run.
+
+Two smaller unflagged issues: the bands are on the **mean** while the point
+estimates are **medians** (GUCA2A intrinsic median −25.68, mean −42.61), so the
+"excludes zero / contains zero" reading pairs statistics that are not the same;
+and the ratio is weighting-dependent (`normal` 4.4×, `doubly_robust` 6.7×,
+`tumour` ~2200×), with only `normal` reported.
+
+### 17.3 · §14's gap — WEAKENED, and the direction survives
+
+**The headline number violated invariant 5.** +25.1% is a **cell-pooled** share,
+and SMC09 alone supplies 1,824 of 5,564 kept tumour cells. Per patient it is
+median 22.4 / mean 17.0.
+
+**Patient-level intervals, which §14 never gave:**
+
+| depth_quantile | mean per-patient gap | patient-bootstrap 95% CI |
+|---|---|---|
+| **0.10 (committed)** | +0.170 | **[−0.011, +0.342] — contains 0** |
+| 0.25 | +0.293 | [+0.071, +0.493] |
+| 0.40 | +0.287 | [+0.082, +0.473] |
+
+**At the floor the project has actually committed to, the compositional gap is
+not distinguishable from zero under the project's own unit of inference.**
+
+The floor sweep is also weaker than §14 presented it. Its "dropped" column is
+pooled and hides a 2–3× arm asymmetry — at q=0.40 it is **70.4% of normal against
+34.6% of tumour**, comparing 317 normal cells to 3,931 tumour. The rows are
+nested subsets rather than independent measurements. Per-patient reference arms
+collapse to 4–20 cells at the clean floors. And because the `lineage` cut is a
+median split of the reference, `mat_normal` tends to exactly 0.500 by
+construction, so part of the "stability" is the stability of the number 0.5.
+
+**What survives, and it is the part that matters.** Explicit 1:1 nearest-neighbour
+depth matching *within patient* — which the auditor ran and I had not —
+preserves the gap: **+0.182 at q=0.10** (704 pairs, 9/10 patients) and **+0.310
+at q=0.40**, with matched median depths agreeing to ~1%. That corroborates
+§14.2's `match_arm_depth` result (+20.4%) by an independent method. **The gap is
+not purely a depth artefact.** But the patient-level interval contains zero at
+both floors, so it is a direction with support, not an established effect.
+
+### 17.4 · §12 and §13's "best4 is the cleanest rung" — WITHDRAWN
+
+`|ρ|` between a continuous variable and a **binary** label is bounded by
+`sqrt(3p(1−p))`. Verified numerically against perfect separation. Below
+**p = 1.37% the 0.20 tolerance is mathematically unreachable.**
+
+On Lee/SMC's `best4` tumour arm — 8 mature cells in 5,564 — the ceiling is
+**0.066**. `best4` could not have been flagged confounded there however
+completely depth determined the label. The sidecar's `QUOTABILITY: best4 =
+"Clean of the confound (|rho| 0.055)"` was reading a ceiling as evidence.
+
+On GSE178341 the ceiling is not binding (median 0.381, 0 of 64 rows unreachable),
+so §12's numbers are computable — but the **cross-rung comparison is unfair**.
+Normalised by the attainable maximum, `best4` sits at **0.188** of its ceiling and
+`lineage` at **0.174**: `best4` is marginally the *most* affected rung, not the
+least. §12's "the one resolvable verdict sits on the cleanest rung" does not
+follow and is withdrawn.
+
+`depth_confound_report` now returns `max_attainable_rho`, `rho_vs_ceiling` and
+`tolerance_is_reachable`, and reports **NOT TESTABLE** rather than clean when the
+test could not have fired.
+
+### 17.5 · What the audit did not break
+
+- `wilson_interval` is exact against `statsmodels` to 1e-16, and the upper bound
+  of 1.0 at p=1 is algebraic, not a clamp.
+- `largest_clean_pass`'s logic is correct.
+- `_spearman`'s tie handling is exactly `scipy.stats.spearmanr` (agreement
+  0–1.1e-16). My own suspicion about average-ranks was wrong.
+- `depth_confound_report` raises on a nullable-boolean column containing `pd.NA`
+  rather than coercing it to True.
+- **G4's `best4` FAIL**, now under both arm definitions.
+- **The compositional gap survives depth matching**, by two independent methods.

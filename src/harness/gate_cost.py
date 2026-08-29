@@ -37,6 +37,7 @@ import pandas as pd
 
 from src.harness.positivity import (
     NON_IDENTIFIABILITY_HEADLINE_FRACTION,
+    gate_g4_verdict,
     wilson_interval,
 )
 
@@ -232,3 +233,167 @@ def widening_vs_plan(widths: pd.DataFrame, *, reference: str = "plan_assumed") -
         for row in median.itertuples()
     ]
     return median.sort_values(["term", "n_patients"]).reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# G4 against a real counts frame
+# ---------------------------------------------------------------------------
+
+
+#: A patient with both arms. Decision #19: G4's population is matched patients
+#: only, and ``n_unmatched_patients`` is required rather than defaulted, because
+#: a default is how the wrong population gets used without anyone choosing it.
+def matched_and_unmatched(counts: pd.DataFrame) -> tuple[set, set]:
+    """Split patient ids into those with both arms and those with one.
+
+    "Matched" is defined here as *observed in both tissues*, not as a column
+    somebody set upstream. The compositional term is a within-patient contrast,
+    so a patient with one arm contributes to neither side of it.
+    """
+    for column in ("patient_id", "tissue"):
+        if column not in counts.columns:
+            raise ValueError(f"counts is missing {column!r}")
+    arms = counts.groupby("patient_id", observed=True)["tissue"].nunique()
+    return set(arms[arms >= 2].index), set(arms[arms < 2].index)
+
+
+#: The two tumour-arm definitions of prereg amendment 1 / decision #15. W1's
+#: ``mature_cell_counts`` emits BOTH, and its docstring says "Report both
+#: definitions; do not pick one."
+TUMOUR_ARM_COLUMN: Final = "tumour_arm"
+
+
+def g4_over_rungs(counts: pd.DataFrame, *, arm: str = "tumour") -> pd.DataFrame:
+    """G4's verdict for every (axis, rung, tumour_arm) in a counts frame.
+
+    One row per group, because **G4 does not have a single answer**. The mature
+    population is defined by the rung, so the fraction below the positivity
+    threshold is too — and it is defined again by which tumour-arm definition is
+    in force, because the filtered arm drops tumour epithelium not called
+    malignant.
+
+    IT GROUPS BY ``tumour_arm``, AND THE FIRST VERSION DID NOT
+    ----------------------------------------------------------
+    That was a real defect and it reached a published table. W1's frame carries
+    both definitions stacked — 30 patients x 2 tissues x 2 axes x 4 rungs x
+    **2 arms**. Without grouping, the per-patient dedup below collapsed two *arm
+    definitions* rather than two duplicate rows, and ``.first()`` silently took
+    whichever came first in file order: ``filtered``, in **224 of 224**
+    combinations.
+
+    The verdicts differ enormously. At ``stem_pole``/``lineage``: 13 of 28
+    patients below the cutpoint under ``filtered``, **1 of 28** under
+    ``unfiltered``. Five patients have *zero* epithelium in the filtered arm
+    (C119, C137, C152, C165, C170 — no aneuploid population separated), so they
+    enter ``fraction_below`` as guaranteed-below on a **malignancy-calling**
+    fact. That is exactly the failure :func:`gate_g4_verdict`'s own docstring
+    says it exists to prevent — a cohort-design fact reported as a positivity
+    finding — reproduced one level up, in the function that consumes it.
+
+    Prereg amendment 1 pre-commits the answer when the two disagree: report both
+    and treat disagreement as **not identifiable** rather than choosing.
+    :func:`g4_arms_agree` does that reduction; this function does not do it for
+    you, because collapsing the arms is the mistake.
+    """
+    required = {"patient_id", "tissue", "labeling_axis", "granularity_rung", "n_cells_mature"}
+    missing = sorted(required - set(counts.columns))
+    if missing:
+        raise ValueError(f"counts is missing column(s) {missing}")
+
+    matched, unmatched = matched_and_unmatched(counts)
+    if not matched:
+        raise ValueError("no patient has both arms; G4's population is empty")
+
+    group_cols = ["labeling_axis", "granularity_rung"]
+    if TUMOUR_ARM_COLUMN in counts.columns:
+        group_cols.append(TUMOUR_ARM_COLUMN)
+
+    rows = []
+    for key, group in counts.groupby(group_cols, observed=True):
+        axis, rung = key[0], key[1]
+        tumour_arm = key[2] if len(key) > 2 else "unspecified"
+        sub = group[(group["tissue"] == arm) & (group["patient_id"].isin(matched))]
+        if sub.empty:
+            continue
+        # One row per patient. A patient counted twice is invariant 5's mistake
+        # one level up — it was the fourth instance of the bug family this repo
+        # keeps finding (issue #36).
+        per_patient = sub.groupby("patient_id", observed=True)["n_cells_mature"].first()
+        verdict = gate_g4_verdict(
+            [int(n) for n in per_patient], n_unmatched_patients=len(unmatched)
+        )
+        rows.append(
+            {
+                "labeling_axis": axis,
+                "granularity_rung": rung,
+                "tumour_arm": tumour_arm,
+                "arm": arm,
+                "n_patients": verdict["n_patients"],
+                "n_unmatched_excluded": verdict["n_unmatched_excluded"],
+                "n_below_threshold": verdict["n_below_threshold"],
+                "fraction_below": verdict["fraction_below"],
+                "fraction_below_ci_low": verdict["fraction_below_ci_low"],
+                "fraction_below_ci_high": verdict["fraction_below_ci_high"],
+                "threshold": verdict["threshold"],
+                "passes": verdict["passes"],
+                "resolvable": verdict["resolvable"],
+            }
+        )
+    return (
+        pd.DataFrame(rows)
+        .sort_values(["labeling_axis", "granularity_rung", "tumour_arm"])
+        .reset_index(drop=True)
+    )
+
+
+def g4_arms_agree(verdicts: pd.DataFrame) -> pd.DataFrame:
+    """Reduce per-arm verdicts to one, per prereg amendment 1.
+
+    The amendment pre-commits the answer: report both tumour-arm definitions and
+    treat disagreement as **not identifiable** rather than choosing between them.
+    A rung where ``filtered`` and ``unfiltered`` return different verdicts is not
+    a FAIL and not a PASS — it is a rung this cohort cannot answer, and saying so
+    is the pre-registered response rather than a hedge.
+
+    A rung where the arms agree but some arm cannot resolve its own interval is
+    also ``not_identifiable``: agreeing on an undecidable number is not agreement.
+    """
+    if TUMOUR_ARM_COLUMN not in verdicts.columns:
+        raise ValueError(
+            "verdicts has no tumour_arm column, so agreement between the two "
+            "definitions cannot be checked. Pass g4_over_rungs output from a "
+            "frame that carries both arms."
+        )
+    present = sorted(set(verdicts[TUMOUR_ARM_COLUMN]))
+    if len(present) < 2:
+        raise ValueError(
+            f"only one tumour-arm definition is present ({present}), so there is "
+            f"nothing to check agreement between. Prereg amendment 1 requires "
+            f"BOTH — reducing a single arm to a verdict is the choice the "
+            f"amendment exists to prevent."
+        )
+    rows = []
+    for (axis, rung), group in verdicts.groupby(
+        ["labeling_axis", "granularity_rung"], observed=True
+    ):
+        passes = set(group["passes"])
+        resolvable = bool(group["resolvable"].all())
+        if len(passes) > 1 or not resolvable:
+            verdict = "not_identifiable"
+        else:
+            verdict = "PASS" if passes == {True} else "FAIL"
+        rows.append(
+            {
+                "labeling_axis": axis,
+                "granularity_rung": rung,
+                "verdict": verdict,
+                "arms_agree": len(passes) == 1,
+                "all_arms_resolvable": resolvable,
+                "n_arms": int(len(group)),
+            }
+        )
+    return (
+        pd.DataFrame(rows)
+        .sort_values(["labeling_axis", "granularity_rung"])
+        .reset_index(drop=True)
+    )
