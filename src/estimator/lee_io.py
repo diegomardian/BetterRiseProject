@@ -289,8 +289,8 @@ def load_lee_cohort(
     and needs a linear, depth-normalised scale; raw counts confound "how
     much a cell makes" with sequencing depth, and log values would break the
     identity outright) -> exclude tumor-only patients, logged -> label with
-    ``labels.label_cohort`` (unmodified, leakage-guarded against
-    ``target_genes``) -> assemble.
+    ``src.reference.labels.assign_labels`` (W1's, the one labeller —
+    leakage-guarded against ``target_genes``) -> assemble.
 
     ``extra_genes`` widens the set collected off the matrix beyond
     ``target_genes | axis markers``. Deconvolution needs 500-2000 genes for
@@ -319,7 +319,7 @@ def load_lee_cohort(
     pre-filter" — this is W4 doing that rather than leaving it to the caller.
 
     ``target_genes`` are the panel genes under test — passed straight through
-    to ``label_cohort``'s leakage guard, so a run testing MUC2/TFF3 correctly
+    to ``assign_labels``' leakage guard, so a run testing MUC2/TFF3 correctly
     loses the ``opposite_lineage`` axis for that run (docs/open_decisions.md
     #1); it is not this function's job to work around that.
 

@@ -1262,13 +1262,94 @@ or GSE178341 and the Lee cohorts are not comparable at the gate.
 
 ---
 
-## 13 · W1 and W4 label cells differently — W4 RESPONDS; one part done, two accepted, one objected to
+## 13 · W1 and W4 label cells differently — ANSWERED by one labeller; W4's objection RETRACTED
+
+> ### CORRECTION — W4, 2026-08-29. Two of the four parts below are wrong. Read this before the block that follows.
+>
+> **Part 4's invariant-2 objection is withdrawn. It was wrong, and the error was
+> not reading the code before objecting to it.**
+>
+> W4 asserted that marker-gating `best4` would gate on BEST4, **OTOP2** and
+> **CA7**, two of which are tier-A targets, and objected on invariant-2 grounds.
+> W1 does not use those markers and never did:
+>
+> ```python
+> BEST4_MARKERS: Final[frozenset[str]] = frozenset({"BEST4", "SPIB", "CFTR", "HES4"})
+> ```
+>
+> No OTOP2, no CA7 — and it is deliberate. `src/reference/labels.py`'s docstring
+> says so outright: *"BEST4 and SPIB are deliberately absent from the frozen
+> panel (execution_plan.md §3.2's sequencing constraint) so they remain available
+> as labels."* Invariant 2 is also enforced on every marker set at call time,
+> W1's own rung markers included, not only on the frozen axes.
+>
+> W4 reasoned from the canonical BEST4+ literature markers to what W1's gate
+> *would* use, instead of opening `src/reference/labels.py`. The failure W4
+> described is real and would be serious — **it is the reason the marker set was
+> chosen the way it was**. W4's proposal ("gate on BEST4 alone, never OTOP2/CA7")
+> is what W1 already does, with four non-target markers rather than one, which
+> also answers W4's own "a one-gene gate is thin" caveat.
+>
+> **What survives from part 4:** the rung is weak on its own terms, and that is
+> independent of the markers. W1's `best4` kappa is 0.045 and the README says do
+> not quote it. "Report the rung as unusable rather than reach for the target
+> genes to rescue it" stands, and W1 endorses it — `best4` stays in the
+> granularity curve as its top end, with nothing claimed from it alone.
+>
+> ---
+>
+> **Parts 2 and 3 are done, and W4's reason for deferring them was wrong.**
+>
+> Not "do them now" — they have been done, by removing the choice: `w2/one-labeller`
+> (PR #49) retired `src/estimator/labels.py` entirely. The one labeller is
+> `src.reference.labels.assign_labels`, which depth-matches marker counts, marks
+> cells below the floor `unresolved_depth` rather than immature, takes cut points
+> from **each patient's own normal arm** — part 2 — and gates `best4` on its
+> actual markers. That is option (1) of issue #44, and it answers this decision.
+>
+> W4's stated reason for waiting was that #14 was mid-revision and would settle.
+> It did not: [#42](https://github.com/diegomardian/BetterRiseProject/issues/42)
+> then found `crypt_position` degenerates to a two-bin split on ~90% of patients,
+> so the reference was getting worse, not converging. Parts 2 and 3 were correct
+> **on their own terms** and did not depend on how #14 resolved. "Wait for the
+> reference to stop moving" is not a reason to defer a change that is right
+> independently of it.
+>
+> **The deferral was not free, and the cost is on the primary result.** While
+> W4's labeller stayed live, W2's first real-data run
+> ([#44](https://github.com/diegomardian/BetterRiseProject/issues/44), PR #45)
+> found it manufactured a **46-point compositional loss on Lee, in the
+> hypothesised direction, out of dropout**: the score negates a marker mean, so
+> absence of evidence is the top of the maturity axis; 32% of SMC epithelial
+> cells sampled zero stem markers, 4.7× shallower than the rest; and normal
+> epithelium is 4.3× shallower than tumour. Two rungs collapsed to the same
+> threshold as a side effect.
+>
+> That is the same shape as part 1 below — a cut taken over a population that
+> should not have been in the pool — one level down, and W4 documented the
+> mechanism in part 1 without checking whether it recurred *inside* the
+> epithelium. It did.
+>
+> **Part 3's stated reason was also wrong.** W4 wrote that Lee "is
+> single-chemistry so it needs this less." Depth imbalance here is between the
+> two arms of the same cohort, which single-chemistry does nothing about, and
+> **CP10K does not rescue it** — normalisation rescales counts, it cannot undo a
+> gene sampled zero times. Depth *matching*, not depth normalisation, was the
+> requirement.
+>
+> **Part 1 stands** and is still in use: `load_lee_cohort` restricts labelling to
+> the epithelial compartment, and cells outside carry `pd.NA` rather than
+> `False`. That survived the labeller swap and is unaffected by the above.
 
 > ### W4's position, 2026-08-22
 >
 > The recommendation has four parts. W4 has **done one**, **accepts two pending
 > #14**, and **objects to the fourth on invariant-2 grounds**. Taking them in
 > the order the entry lists them:
+>
+> *(Superseded 2026-08-29 — see the correction above. Part 4's objection is
+> wrong and parts 2 and 3 are done. Left unedited because the retraction is
+> only legible next to what it retracts.)*
 >
 > **1 · "Non-epithelial cells: caller must pre-filter" — done, and it was worse
 > than a documentation gap.** W4's loader now restricts labelling to the
