@@ -2848,6 +2848,63 @@ is more work than the change being proposed.
 
 ---
 
+## 23 · G4 is ANSWERED and G1 should be WITHDRAWN — 2026-08-28
+
+**Raised:** W2 · **Owner:** the team · **Needed by:** the gate ·
+**Bears on:** [#46](https://github.com/diegomardian/BetterRiseProject/issues/46),
+[#37](https://github.com/diegomardian/BetterRiseProject/issues/37), decision #17
+
+Two gate criteria resolved on the same day, in opposite directions. Recorded
+together because the gate reads them together.
+
+### G4 — answered, and the pre-committed consequence fires
+
+`results/2026-08-28_e649023/g4_verdict_gse178341.parquet`, W1's full-cohort
+counts, 28 matched patients. **`best4` fails 28/28 on both axes, CI
+[0.879, 1.000] — resolvable.** Every other rung straddles the 0.50 line and is
+indeterminate at n=28.
+
+At the finest granularity rung **no patient in the cohort has enough mature cells
+to estimate an intrinsic term.** That is close to structural: `best4` is designed
+to be under 5% of epithelium, and 5% of a few hundred cells is below a cutpoint
+of 20 by construction. The granularity ladder runs out of statistical power
+before it runs out of rungs.
+
+§5's consequence — *"non-identifiability with diagnostics becomes the headline
+result, not a caveat. This is a real paper."* — **fires**, on `best4`, where the
+answer is unambiguous. Not on the indeterminate rungs, which say nothing either
+way. Gate memo §12.
+
+### G1 — cannot be used, and cannot be repaired
+
+It fails when the project's hypothesis is TRUE, under every population for M that
+anyone has tried (#46). Threshold 2 is frozen by having been seen to fail, so
+repairing it would destroy the pre-registration that is its only value.
+
+**W2 proposes withdrawing it as gate-bearing** rather than firing a consequence
+(*"pivot to snRNA-seq and spatial"*) from a criterion proven unable to pass. The
+full case, the alternatives considered, and what the project loses:
+[docs/g1_withdrawal_case.md](g1_withdrawal_case.md).
+
+**W2's ratification of amendment 2 missed this.** The five worlds in
+`g1_amendment.py` vary per-gene fold change against a flat background and have no
+mature compartment at all, so none of them could express the difference the
+criterion turned out to depend on. `simulate_compartment_world` and three tests
+now pin the limitation and reproduce the failure independently of W1's
+simulations. That does not un-ratify anything and it does not license W2 to
+propose the replacement — a third construction from the ratifier, after two have
+failed, would carry the least credibility of anyone's.
+
+### What is being asked
+
+1. Does G1 stop being gate-bearing, or does the project want a fresh
+   pre-registration written by someone unexposed to the failed constructions?
+2. Is the §4 evidence in the withdrawal case the accepted answer to the ambient
+   question, with its weaker form written into the paper's limitations now?
+3. Does G4's consequence fire as W2 reads it?
+
+**Decide before tier A is measured on real expression.** After that every option
+becomes unfalsifiable. `src/reference/checks.py` still returns `not_estimable`.
 ## 23 · Stage 4's variance question, pre-specified before it runs — PROPOSED
 
 **Raised:** W3, 2026-08-28, from PR #49 · **Owner:** W3 (team confirms) ·

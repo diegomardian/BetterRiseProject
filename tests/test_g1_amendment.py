@@ -24,6 +24,7 @@ from src.harness.g1_amendment import (
     null_pass_rate,
     run_world,
     simulate_arms,
+    simulate_compartment_world,
     within_bin_percentile,
 )
 
@@ -211,3 +212,59 @@ def test_simulate_arms_rejects_a_cohort_with_no_cells():
     rng = np.random.default_rng(0)
     with pytest.raises(ValueError, match="n_cells"):
         simulate_arms(np.array([1.0]), np.array([1.0]), n_cells=0, rng=rng)
+
+
+# ---------------------------------------------------------------------------
+# The gap the ratification had — issue #46
+# ---------------------------------------------------------------------------
+
+
+def test_the_ratification_worlds_have_no_compartment_structure():
+    """Why W2's ratification passed a criterion that fails when we are right.
+
+    Every world in ``G1_WORLDS`` varies per-gene fold change against a flat
+    background, so a gene's mean over all epithelium is its mean everywhere.
+    The failure mode in #46 lives entirely in the difference between those two,
+    and a harness that cannot represent a confound cannot rule it out.
+
+    This test does not assert a fix. It pins the limitation so it cannot be
+    rediscovered as news.
+    """
+    for world in G1_WORLDS:
+        rng = np.random.default_rng(0)
+        abundance = 10 ** rng.uniform(-2, 2, 500)
+        panel = np.array([10, 20, 30, 40, 50])
+        fold = world.fold_change(abundance, panel, 500, rng)
+        # A compartment world would need a per-cell-type structure; a plain
+        # per-gene fold vector cannot express one.
+        assert np.asarray(fold).shape == (500,)
+
+
+def test_g1_fails_the_world_where_the_hypothesis_is_true():
+    """#46, reproduced through W2's own harness rather than accepted from W1.
+
+    Mature cells deplete and tier A is silenced inside the survivors — the
+    project's claim, exactly. G1 is owed a PASS and returns FAIL, because
+    MS4A12 is mature-restricted and sinks with its compartment while its
+    abundance-matched comparison set does not.
+    """
+    result = simulate_compartment_world(seed=7, tier_a_silencing=0.15)
+    assert result["hypothesis_is_true"]
+    assert result["verdict"] == "FAIL"
+    assert result["tier_d_pct"] < TIER_D_MIN_PERCENTILE
+    assert any("MS4A12" in f for f in result["failures"])
+
+
+def test_g1_also_fails_the_composition_only_world_so_it_cannot_discriminate():
+    """The two worlds owe different verdicts and G1 returns the same one.
+
+    That is the whole argument for withdrawal in docs/g1_withdrawal_case.md: a
+    criterion returning FAIL either way carries no information, and its
+    pre-committed consequence must not fire on it.
+    """
+    true_world = simulate_compartment_world(seed=7, tier_a_silencing=0.15)
+    comp_only = simulate_compartment_world(seed=7, tier_a_silencing=1.0)
+    assert comp_only["verdict"] == true_world["verdict"] == "FAIL"
+    # Tier A does separate; it is threshold 2 that sinks both.
+    assert true_world["tier_a_median_pct"] < comp_only["tier_a_median_pct"]
+    assert true_world["tier_d_pct"] == pytest.approx(comp_only["tier_d_pct"], abs=0.05)
