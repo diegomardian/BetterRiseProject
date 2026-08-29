@@ -179,15 +179,41 @@ def main() -> int:
 
         is_normal, is_tumour = tissue == "normal", tissue == "tumour"
 
-        # Matched WITHIN patient, and after labelling rather than before: the
-        # labels are a property of the cell, the matching is a property of the
-        # comparison. Subsampling before labelling would move the per-sample cut
-        # points too, which is a different intervention.
+        # The scorable population, computed ONCE. `labels.py` assigns
+        # UNRESOLVED with `epithelial & ~resolvable` and NON_EPITHELIAL from the
+        # compartment, and neither mask depends on the axis or the rung — so
+        # this set is identical across all eight combinations, and matching on
+        # it keeps the rungs comparable to each other.
+        first = labels[label_column(TRANSCRIPT_AXES[0], granularity_rungs()[0])]
+        first = first.astype(str).to_numpy()
+        scorable = (first != UNRESOLVED) & (first != NON_EPITHELIAL)
+
+        # Matched WITHIN patient, AFTER labelling, and ON THE SCORED EPITHELIUM.
+        #
+        # The last part is not a detail. Matching the POOLED population and then
+        # intersecting with the epithelium does not match the epithelium:
+        # immune cells are shallower than epithelial ones and the tumour arm
+        # carries more of them, so equalising the pooled distribution leaves the
+        # analysed subset unequal. Simulated on this deposit's shape, a 3.64x
+        # epithelial ratio came back at 1.87x that way and at 1.00x this way.
+        # The first version of this job did it the wrong way and would have
+        # reported "depth-matched" over cells that were not.
+        #
+        # After labelling rather than before, because the labels are a property
+        # of the cell and the matching is a property of the comparison;
+        # subsampling first would move the per-sample cut points too.
+        matched = np.ones(len(tissue), dtype=bool)
         if args.match_depth:
             depth_all = np.asarray(block.sum(axis=1), dtype=float).ravel()
-            matched = match_arm_depth(depth_all, tissue, seed=DEFAULT_SEED)
-        else:
-            matched = np.ones(len(tissue), dtype=bool)
+            idx = np.flatnonzero(scorable)
+            if idx.size and len(set(tissue[scorable].tolist())) == 2:
+                keep_mask = match_arm_depth(
+                    depth_all[scorable], tissue[scorable], seed=DEFAULT_SEED
+                )
+                matched = np.zeros(len(tissue), dtype=bool)
+                matched[idx[keep_mask]] = True
+            else:
+                matched = np.zeros(len(tissue), dtype=bool)
 
         for axis in TRANSCRIPT_AXES:
             for rung in granularity_rungs():
@@ -227,8 +253,8 @@ def main() -> int:
                         # #24.1: n after matching must travel with any matched
                         # number, because the cost is the point.
                         "depth_matched": bool(args.match_depth),
-                        "n_cells_before_matching": int(len(tissue)),
-                        "n_cells_after_matching": int(matched.sum()),
+                        "n_scorable_before_matching": int(scorable.sum()),
+                        "n_scorable_after_matching": int((scorable & matched).sum()),
                     })
         print(f"[{i}/{len(patients)}] {patient} — "
               f"{len([r for r in rows if r['patient_id']==patient])} rows")
@@ -292,7 +318,8 @@ def main() -> int:
             "normalisation": "CP10K, not logged",
             "depth_matched": bool(args.match_depth),
             "cells_retained_by_matching": (
-                float(out.n_cells_after_matching.sum() / out.n_cells_before_matching.sum())
+                float(out.n_scorable_after_matching.sum()
+                      / out.n_scorable_before_matching.sum())
                 if args.match_depth else 1.0
             ),
         },
