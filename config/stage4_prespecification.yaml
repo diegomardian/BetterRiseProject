@@ -1,0 +1,214 @@
+# =============================================================================
+# Stage 4 — how much of bulk GUCA2A and CDX2 does mature-colonocyte FRACTION
+# explain? Pre-specified before the analysis is run.
+#
+# STATUS: proposed — NOT YET LOCKED.
+#
+# execution_plan.md §6.2 asks this as the bulk arm's contribution to the paper,
+# and PR #49's decomposition now makes it a DIRECTIONAL prediction rather than
+# an open question. A directional prediction reported after the fact is a story;
+# reported before, it is a test. This file exists so it is the second one.
+#
+# The same mechanism as config/covariate_set.yaml: committed `proposed`, flipped
+# to `locked` in its own commit once the team confirms, and
+# `src/bulk/prespec.py:require_locked_prespec` refuses to let the analysis run
+# against a proposed spec. A pre-specification that does not stop you running is
+# a document, not a lock.
+#
+# Reasoning and the evidence behind the prediction: the comment on PR #49.
+# =============================================================================
+
+version: "1.0.0"
+status: proposed          # proposed | locked
+proposed_on: "2026-08-28"
+proposed_by: W3
+locked_on: null
+locked_by: null
+lock_authorisation: null
+
+# -----------------------------------------------------------------------------
+# The question, from execution_plan.md §6.2, unedited.
+# -----------------------------------------------------------------------------
+question: >
+  Does the fraction — rather than the marker — carry the prognostic signal in
+  TCGA? How much variance in bulk GUCA2A and CDX2 is explained by
+  mature-colonocyte fraction alone? If most of it, then CDX2, which already
+  influences adjuvant decisions, is substantially a differentiation-content
+  readout.
+
+# -----------------------------------------------------------------------------
+# THE PREDICTION. This is the part that must be written down first.
+#
+# PR #49 finds tier A's loss is predominantly INTRINSIC (all four of GUCA2A,
+# GUCA2B, CA7, OTOP2 have intrinsic bands excluding zero and compositional bands
+# containing it), while CDX2 runs the other way — compositional
+# [-0.409, -0.039] excluding zero, intrinsic containing it.
+#
+# The bulk arm sees the same asymmetry from the other side: GUCA2A sits at 1.40%
+# of normal in TCGA and 1.72% in GSE39582, while CDX2 sits at 94.7% and 84.8%.
+# Two markers of the SAME cell population cannot diverge ~55-fold if the only
+# thing that happened is that the cells left.
+#
+# If that reading is right, mature-colonocyte fraction should explain little of
+# bulk GUCA2A and comparatively more of bulk CDX2.
+# -----------------------------------------------------------------------------
+prediction:
+  primary:
+    statement: >
+      R-squared(GUCA2A ~ mature fraction) < R-squared(CDX2 ~ mature fraction),
+      in both cohorts independently.
+    rationale: >
+      Direction only, deliberately. A threshold here would be invented, and the
+      ordering is what the intrinsic/compositional split actually implies. It is
+      also the comparison least sensitive to how well deconvolution works, since
+      both genes are estimated against the same fraction with the same error.
+    disconfirmed_if: >
+      CDX2's R-squared is lower than GUCA2A's in either cohort. That would say
+      the marker whose loss is large is the one fraction explains, which is the
+      compositional reading and contradicts #49.
+
+  secondary:
+    statement: "R-squared(GUCA2A ~ mature fraction) < 0.25 in TCGA."
+    rationale: >
+      A committed number so the primary cannot be satisfied trivially by both
+      being near zero. Under a purely compositional account, bulk GUCA2A is
+      close to a linear readout of how much mature epithelium is in the sample,
+      and fraction ought to explain most of its variance. A quarter is a
+      deliberately generous ceiling for "little".
+    disconfirmed_if: >
+      R-squared >= 0.50. Between 0.25 and 0.50 is reported as neither
+      confirmed nor disconfirmed, and said in those words.
+
+  interpretation_note: >
+    None of this can establish the intrinsic reading. Bulk has no independent
+    read on cell-type identity (invariant 6). It can only ask whether the marker
+    pattern is one the compositional account can produce. A confirmed prediction
+    is consistency; a disconfirmed one is a real problem for #49.
+
+# -----------------------------------------------------------------------------
+# INSTRUMENT CHECKS. Without these a low R-squared is uninterpretable — it could
+# be biology or it could be that deconvolution does not work on this cohort, and
+# those have opposite consequences. Both are pre-committed, and the positive
+# control GATES the analysis: if the instrument fails, no R-squared is reported.
+#
+# Note what is NOT used as a control: a "known compositional" marker gene. Every
+# canonical mature-colonocyte marker is on the frozen panel, and which of them
+# are compositional is the question rather than an input to it. Picking one
+# would beg it.
+# -----------------------------------------------------------------------------
+instrument_checks:
+  positive_control:
+    name: non_epithelial_fraction_tracks_purity
+    statement: >
+      The deconvolved non-epithelial (stromal + immune + endothelial) fraction
+      correlates with (1 - ABSOLUTE purity) at Pearson r >= 0.5 on the samples
+      with an ABSOLUTE call.
+    rationale: >
+      This validates the instrument without assuming any gene's biology. Purity
+      is called from copy number, so it is independent of expression. If the
+      deconvolution cannot recover a fraction we already know from an orthogonal
+      assay, it cannot be trusted to recover one we do not.
+    on_failure: >
+      STOP. Report the instrument failure as the Stage 4 result and do not
+      report any R-squared. A fraction that does not track purity makes every
+      downstream number a statement about deconvolution error.
+
+  negative_control:
+    name: housekeeping_does_not_track_fraction
+    genes: [ACTB, GAPDH]
+    statement: "R-squared(housekeeping ~ mature fraction) < 0.10."
+    rationale: >
+      If a housekeeping gene tracks mature fraction, the model is picking up
+      library size, purity or composition structure rather than biology, and the
+      GUCA2A and CDX2 numbers inherit whatever that is.
+    on_failure: >
+      Report alongside the primary result and treat every R-squared as an upper
+      bound. Do not silently drop it.
+
+  w2_calibration: >
+    W2's attenuation sweep and bulk-recovery curve (§2.2) measure how well
+    bulk-derived fractions recover truth on held-out pseudobulk. Stage 4 reports
+    its R-squared against that curve rather than in isolation, because an
+    attenuated fraction depresses R-squared for reasons that are not biological.
+
+# -----------------------------------------------------------------------------
+# Model.
+# -----------------------------------------------------------------------------
+model:
+  outcome_scale: log2_cpm
+  outcome_genes: [GUCA2A, CDX2]
+  predictor: mature_colonocyte_fraction
+  form: ordinary_least_squares
+  covariate_context: expression_models   # from config/covariate_set.yaml
+  covariates_note: >
+    Purity enters here — it is a genuine confounder the moment the predictor is
+    expression-derived — and plate enters as a stratum or random effect, per the
+    covariate lock's `expression_models` context and open decision #14. The
+    covariate set is NOT re-opened by this file.
+  variance_reported: >
+    Partial R-squared for the fraction term, over and above the covariates, AND
+    the marginal R-squared of fraction alone. Both, because the first is the
+    honest adjusted quantity and the second is the one §6.2's sentence is about.
+  multiplicity: benjamini_hochberg_within_tier
+
+# -----------------------------------------------------------------------------
+# Cohorts. Invariant 4: estimate per study, never pool.
+# -----------------------------------------------------------------------------
+cohorts:
+  - name: TCGA-COAD/READ
+    role: primary
+    n_tumours: 624
+  - name: GSE39582
+    role: replication
+    n_tumours: 566
+    note: >
+      Affymetrix rather than RNA-seq. Deconvolution on an array cohort is its
+      own methodological question; if the S matrix cannot be applied to it,
+      report that rather than forcing it.
+pooling: >
+  Never. Each cohort is estimated independently and reported side by side, as
+  W3.8 did for the premise check. The prediction must hold in both to count as
+  confirmed.
+
+# -----------------------------------------------------------------------------
+# Granularity. The fraction is not one number — it depends on the rung.
+# -----------------------------------------------------------------------------
+granularity:
+  report_across_rungs: true
+  rungs_expected: [epithelial, lineage, crypt_position, best4]
+  usable_rungs_note: >
+    Issue #42: crypt_position degenerates to a two-bin split on ~90% of
+    patients and is identical to lineage on 37 of 60 patient-axis pairs, so the
+    granularity curve has THREE distinct points, not four. PR #49 adds a
+    per-rung QUOTABILITY field and reports that lineage and crypt_position
+    remain depth-confounded and must not be quoted.
+  quotability_rule: >
+    Report the curve across every rung, and mark each point with the rung's
+    QUOTABILITY from the reference run. A rung that must not be quoted for the
+    decomposition must not be quoted here either. If no rung is both quotable
+    and estimable, that is the Stage 4 result and it is reported as such.
+
+# -----------------------------------------------------------------------------
+# Estimability. Invariant 1.
+# -----------------------------------------------------------------------------
+estimability:
+  rule: >
+    A patient whose mature fraction is not estimable contributes `None`, never
+    0.0, and is excluded from the regression rather than entered as zero
+    fraction. Entering them as zero would manufacture exactly the compositional
+    signal this analysis is testing for.
+  reported: >
+    n excluded per cohort per rung, with the reason, as an attrition table —
+    the same shape build_design already emits for the survival models.
+
+# -----------------------------------------------------------------------------
+# What this file does NOT pre-specify, so the omissions are visible.
+# -----------------------------------------------------------------------------
+not_prespecified:
+  - which deconvolution method wins W2's bake-off — that is W2's call and this
+    analysis takes whichever it names
+  - the S matrix version, which depends on W1's rebuild after #35 and #49
+  - whether GSE39582 can carry a deconvolution at all
+  - any survival model. Stage 4's variance question is separate from whether
+    fraction predicts outcome, and mixing them in one pre-specification would
+    let a null in one be reported as the other.
