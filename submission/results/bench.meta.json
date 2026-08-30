@@ -1,0 +1,29 @@
+{
+  "date": "2026-08-29",
+  "utc_timestamp": "2026-08-30T03:26:26+00:00",
+  "git_sha": "730bec05c60b27ba5cc8ed2c85550d53d98e09ab",
+  "git_sha_short": "730bec0",
+  "git_branch": "w1/threshold-sweep",
+  "git_dirty": true,
+  "seed": 20260829,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "notes": "Standalone competitor benchmark.",
+  "n_replicates": 200,
+  "n_cells_per_arm": 2000,
+  "mean_normal": 20.0,
+  "worlds": {
+    "null": "Nothing happens. Every term is exactly 0. Anything reported is noise.",
+    "intrinsic_only": "Mature cells stay and go quiet. Compositional exactly 0 -- the positive control for the intrinsic arm.",
+    "compositional_only": "Mature cells leave; survivors are unchanged. Intrinsic exactly 0, so any intrinsic signal reported here is manufactured.",
+    "depleted_estimable": "Heavy depletion AND silencing, ~100 mature cells left. Both terms real and both estimable -- refusing here would be a false negative.",
+    "depleted_wide": "~20 mature cells: the wide-interval regime. Defined but barely.",
+    "annihilated": "NO mature tumour cell survives. The intrinsic estimand does not exist. This is the world the whole benchmark is for."
+  },
+  "skipped_methods": {
+    "cacoa": "cacoa is not installed; env/w4_estimator.yml pins r-devtools and cacoa installs from GitHub (kharchenkolab/cacoa). Not run, not skipped silently."
+  },
+  "SYNTHETIC": "Every number here comes from simulated cells with analytically known truth. Nothing in this directory is a result about colorectal cancer."
+}
