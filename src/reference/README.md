@@ -5,74 +5,90 @@
 **Owner:** Bode · **Env:** `env/w1_reference.yml` → `conda activate brp-w1`
 **Branch prefix:** `w1/…` · **Blocked by:** nothing
 
-> ## STATE — 2026-08-27
+> ## STATE — 2026-08-29
 >
-> **The W1 pipeline is complete and reproducible.** Ingest → QC → ambient →
-> malignancy → labels → counts → S matrices, on a shared index both arms agree
-> on. 903 tests pass locally (the 22 failures are W3's `bulk/` and missing local
-> deps, not W1). Branch `w1/decision-17-g1-threshold`, PR **#33**.
+> **W1 is complete. Nothing is blocked on W1.** Everything outstanding is a
+> response to something W1 raised, or another workstream's decision.
 >
-> ### The one thing that is blocked, and it is not implementation
+> ### The result, and what it may and may not be used for
 >
-> **G1's specification is wrong, and W1 stopped rather than patch it — see
-> [#46](https://github.com/diegomardian/BetterRiseProject/issues/46).**
+> The decomposition ran on GSE178341 — all tiers A–D, both axes, four rungs,
+> 32 patients, patient-level bootstrap. **On the depth-matched read exactly one
+> rung clears every check: `lineage`.**
 >
-> `src/reference/checks.py` returns `not_estimable` and **must keep returning
-> it.** That is the correct state, not a bug.
+> | GUCA2A at `lineage` | compositional | intrinsic |
+> |---|---|---|
+> | unmatched | −2.412 | −13.821 |
+> | **depth-matched** | −2.827 | **−14.741** |
 >
-> Amendment 2 defines `M = log₂(tumour mean / normal mean)` and never says which
-> cells the mean is over. Three populations were tested on simulation:
-> all-epithelium, within-mature, maturity-stratified. **All three FAIL the world
-> where the project's compositional hypothesis is true and nothing else is
-> wrong.** The cause is structural: MS4A12 is cell-type-restricted and threshold
-> 2 scores it against abundance-matched genes that are not, so any residual
-> composition moves it far more than its comparison set.
+> Tier A is the panel's designated *compositional* control, and it comes out
+> predominantly **intrinsic** — the pre-registered G2 pattern failing. **Depth
+> matching did not collapse it**, which is the test it had to survive: had the
+> intrinsic term been the arm depth imbalance, matching would have removed it.
+> W2's independent Lee result (#49) points the same way from data sharing no
+> cells, no platform and no labelling step.
 >
-> **W1 deliberately proposed no fourth construction.** Two of its own failed;
-> anything suggested next would be chosen knowing what failed, which is the exact
-> move the pre-registration exists to prevent. The design question is with the
-> team.
+> **What must travel with that number, every time:** one study, one rung, 45.4%
+> of cells after matching, and a cohort-level interval broadcast onto each
+> patient row rather than a per-patient one (#10). `best4` — the cleanest rung
+> on depth — cannot corroborate it, being unestimable on every patient.
 >
-> ### Two facts that constrain anyone picking this up
+> ### Why the other three rungs are out, each for a different reason
 >
-> 1. **Threshold 2 (MS4A12 ≥ 0.50) is frozen.** Committed 2026-08-25, since seen
->    to fail 31/31 patients. Any change now is indistinguishable from tuning,
->    whatever the justification. Thresholds 1 and 3 behaved correctly in every
->    test.
-> 2. **Tier A on real data is deliberately UNMEASURED.** Thresholds 1 and 3 are
->    the last unseen G1 inputs. Measuring them is the team's call, not the next
->    session's convenience.
+> | rung | why not |
+> |---|---|
+> | `epithelial` | Degenerate by construction — every scored cell is mature, so the compositional term is **exactly 0.000** and cannot move. Matching does not touch this. |
+> | `crypt_position` | Depth fixed by matching, but still a two-bin split on ~90% of patients (#42), so not an independent point on the curve. |
+> | `best4` | 1,134 rows unestimable, **0** `ok`, median 1 mature cell against a cutpoint of 50. This is G4 (#48) on W1's own cohort. |
 >
-> `results/2026-08-27_af3d19a/m_tie_structure.parquet` holds the MS4A12 numbers.
-> Note the reading withdrawn on #37: percentile 0.003 does **not** show MS4A12 is
-> silenced — it is equally consistent with pure composition.
+> ### Five things a new session must NOT undo
 >
-> ### Landed this week
+> 1. **`checks.py` returns `not_estimable` and must keep doing so.** G1's
+>    specification is unresolved (#46, #48). It is not stale code.
+> 2. **Threshold 2 (MS4A12 ≥ 0.50) is frozen.** Committed 2026-08-25, since seen
+>    to fail 31/31. Any change now is indistinguishable from tuning.
+> 3. **Tier A's G1 inputs are deliberately unmeasured.** Thresholds 1 and 3 are
+>    the last unseen G1 inputs; measuring them is the team's call.
+> 4. **No third G1 repair was proposed.** Two of W1's own failed; a third chosen
+>    after watching them fail is a rule iterated until it passes. A repair
+>    *exists* — match the comparison set on cell-type restriction, measurable in
+>    the normal arm alone — which is why "G1 is unrepairable" is not established
+>    (see the #48 review).
+> 5. **The measurement that would settle #42 is undone on purpose** — it is one
+>    step from an axis-change proposal, and the axes are frozen.
+>
+> ### Open, none of it W1's to move
 >
 > | | |
 > |---|---|
-> | `gene_index_1.0.0` | **39,236** genes, the intersection both arms measured; 23/23 panel |
-> | S matrices | four rungs at 1.0.0, **0 of 23 panel genes present** (#21), each with a `.meta.json` |
-> | Invariant 2 | was **unenforced** — guards compared symbols to Ensembl ids and passed vacuously (#35). Now refuses rather than passing. Four `0.1.0-pilot` matrices **retracted** |
-> | Decision #12 | applied at last; its committed patch would have been a no-op at full scale |
-> | Decision #21 | invariant 2 reads **broad** for the matrix, **narrow** for labels |
-> | Cohort | 62 → 22 unmatched (#9) → 4 lost to #11/#16 → 6 QC → **28 paired**, both tumour-arm definitions |
+> | **#48** | Withdraw G1 or re-specify it. W1's review showed the withdrawal premise does not hold. No cluster dependency — G1 has never run. |
+> | **#54** | Stage 4's primary prediction is satisfiable by a floor effect. Needs a low-abundance control **before the pre-spec locks** — it is `status: proposed`, and after the lock a control chosen with the result in view is not a control. |
+> | **#55 #56 #57** | Need reviewers. #55 is approved by W1 and waiting on W4. |
+> | **#42 #43 #8 #38** | With W3 and W4. |
 >
-> ### Open, all with other people
+> ### The single cheapest thing that would improve the result
 >
-> **#33** PR review · **#36** W2, `unresolved_fraction` gates nothing · **#37**
-> Amendment 2, ratified-with-condition, second reader done · **#38** W4, label
-> divergence · **#40** W2's ratification, one `rankdata` fix outstanding ·
-> **#42** `crypt_position` is a two-bin split on ~90% of patients ·
-> **#46** the G1 specification question above
+> **Run `match_arm_depth` on Lee's `lineage`.** #49 used the unmatched read for
+> the same reason W1's first decomposition did — both predated #24.1. On
+> GSE178341 matching cost 55% of cells but only ~7% of estimable rows and lost no
+> patient. Lee's arms are 2.36× apart, so it is the same operation.
+>
+> That is **one run**, and it is the difference between k = 1 and k = 2 — i.e.
+> between "there is nothing to meta-analyse" (decision #25) and §6.1's stated
+> output existing at all. It is W2's cohort, so W1 can ask but not do it.
 >
 > ### A pattern worth knowing before touching anything
 >
 > **Symbols and Ensembl ids meet in more places than anyone has enumerated, and
-> every collision fails silently.** Five instances this week, the last one
-> written by W1 in a job whose purpose was checking someone else's work. If you
-> add a comparison between two gene-name sets, assert the spaces match — do not
-> assume the intersection means what you think.
+> every collision fails silently.** Seven instances this week across three
+> workstreams, including two inside the guard written to end it and one in a job
+> whose only purpose was auditing someone else's code. The general fix adopted:
+> **a check that cannot fire must refuse, not report success.** If you add a
+> comparison between two gene-name sets, assert the spaces match.
+>
+> The same shape recurs beyond identifiers — `nan` compared against a threshold
+> returns `False` and reads as a pass; a filter that removes nothing reads as a
+> filter. Both happened in merged code this week.
 >
 > ### Measured at full scale
 >

@@ -57,6 +57,7 @@ from scipy import sparse  # noqa: E402
 from src.common.io import write_versioned_table  # noqa: E402
 from src.common.panel import axis_genes, granularity_rungs, tier_genes  # noqa: E402
 from src.common.provenance import DEFAULT_SEED, set_global_seeds  # noqa: E402
+from src.harness.depth_confound import match_arm_depth  # noqa: E402
 from src.reference.ingest import (  # noqa: E402
     assign_compartments,
     read_gse178341,
@@ -105,6 +106,16 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--patients", nargs="*", default=None)
     parser.add_argument("--allow-dirty", action="store_true")
+    # DECISION #24.1: match_arm_depth is the PRIMARY read for lineage and
+    # crypt_position. A depth floor removes the mechanism by which depth reaches
+    # the maturity call; it does not make the arms comparable, and W1 measured
+    # them 1.64x apart in median depth after the floor. This equalises the
+    # distributions by construction — no threshold to choose.
+    #
+    # A separate flag rather than the default, because the unmatched read is
+    # what results/2026-08-28_8965a6f was built from and the two must stay
+    # comparable. The name says which one a table came from.
+    parser.add_argument("--match-depth", action="store_true")
     args = parser.parse_args()
 
     data = Path(os.environ.get("BRP_DATA_DIR", "data")) / "raw" / "GSE178341"
@@ -167,11 +178,48 @@ def main() -> int:
         expr = sub / totals[:, None] * CP10K
 
         is_normal, is_tumour = tissue == "normal", tissue == "tumour"
+
+        # The scorable population, computed ONCE. `labels.py` assigns
+        # UNRESOLVED with `epithelial & ~resolvable` and NON_EPITHELIAL from the
+        # compartment, and neither mask depends on the axis or the rung — so
+        # this set is identical across all eight combinations, and matching on
+        # it keeps the rungs comparable to each other.
+        first = labels[label_column(TRANSCRIPT_AXES[0], granularity_rungs()[0])]
+        first = first.astype(str).to_numpy()
+        scorable = (first != UNRESOLVED) & (first != NON_EPITHELIAL)
+
+        # Matched WITHIN patient, AFTER labelling, and ON THE SCORED EPITHELIUM.
+        #
+        # The last part is not a detail. Matching the POOLED population and then
+        # intersecting with the epithelium does not match the epithelium:
+        # immune cells are shallower than epithelial ones and the tumour arm
+        # carries more of them, so equalising the pooled distribution leaves the
+        # analysed subset unequal. Simulated on this deposit's shape, a 3.64x
+        # epithelial ratio came back at 1.87x that way and at 1.00x this way.
+        # The first version of this job did it the wrong way and would have
+        # reported "depth-matched" over cells that were not.
+        #
+        # After labelling rather than before, because the labels are a property
+        # of the cell and the matching is a property of the comparison;
+        # subsampling first would move the per-sample cut points too.
+        matched = np.ones(len(tissue), dtype=bool)
+        if args.match_depth:
+            depth_all = np.asarray(block.sum(axis=1), dtype=float).ravel()
+            idx = np.flatnonzero(scorable)
+            if idx.size and len(set(tissue[scorable].tolist())) == 2:
+                keep_mask = match_arm_depth(
+                    depth_all[scorable], tissue[scorable], seed=DEFAULT_SEED
+                )
+                matched = np.zeros(len(tissue), dtype=bool)
+                matched[idx[keep_mask]] = True
+            else:
+                matched = np.zeros(len(tissue), dtype=bool)
+
         for axis in TRANSCRIPT_AXES:
             for rung in granularity_rungs():
                 call = cell_type_vector(labels, axis, rung)
                 raw = labels[label_column(axis, rung)].astype(str).to_numpy()
-                scored = (raw != UNRESOLVED) & (raw != NON_EPITHELIAL)
+                scored = (raw != UNRESOLVED) & (raw != NON_EPITHELIAL) & matched
                 mature = (call == MATURE) & scored
 
                 # Fractions over the RESOLVED epithelium, matching
@@ -202,6 +250,11 @@ def main() -> int:
                         "n_cells_mature": int(mat_t.sum()),
                         "n_mature_normal": int(mat_n.sum()),
                         "n_scored_normal": int(den_n), "n_scored_tumour": int(den_t),
+                        # #24.1: n after matching must travel with any matched
+                        # number, because the cost is the point.
+                        "depth_matched": bool(args.match_depth),
+                        "n_scorable_before_matching": int(scorable.sum()),
+                        "n_scorable_after_matching": int((scorable & matched).sum()),
                     })
         print(f"[{i}/{len(patients)}] {patient} — "
               f"{len([r for r in rows if r['patient_id']==patient])} rows")
@@ -231,7 +284,10 @@ def main() -> int:
     print("  it applies no cutpoint and nulls no intrinsic term.")
 
     path = write_versioned_table(
-        out, "decomposition_summary", seed=DEFAULT_SEED,
+        out,
+        "decomposition_summary_matched" if args.match_depth
+        else "decomposition_summary",
+        seed=DEFAULT_SEED,
         allow_dirty=args.allow_dirty,
         notes=(
             "Per-gene summary for src.estimator.kitagawa.decompose_cohort, "
@@ -243,6 +299,16 @@ def main() -> int:
             "resolved epithelium (#14). n_cells_mature is the tumour arm's "
             "count, the binding constraint on estimability. Tiers A-D; E "
             "excluded because MUC2/TFF3 are opposite_lineage markers (#1)."
+            + (
+                " DEPTH-MATCHED (#24.1): cells subsampled per patient so both "
+                "arms share a depth distribution, applied AFTER labelling since "
+                "the labels are a property of the cell and the matching is a "
+                "property of the comparison. n before and after matching travel "
+                "with every row."
+                if args.match_depth else
+                " UNMATCHED — the depth floor only. #24.1 makes the matched read "
+                "primary for lineage and crypt_position; run with --match-depth."
+            )
         ),
         extra_meta={
             "n_patients": int(out.patient_id.nunique()),
@@ -250,6 +316,12 @@ def main() -> int:
             "genes": genes,
             "depth_quantile": DEPTH_QUANTILE,
             "normalisation": "CP10K, not logged",
+            "depth_matched": bool(args.match_depth),
+            "cells_retained_by_matching": (
+                float(out.n_scorable_after_matching.sum()
+                      / out.n_scorable_before_matching.sum())
+                if args.match_depth else 1.0
+            ),
         },
     )
     print(f"\nwrote {path}")
