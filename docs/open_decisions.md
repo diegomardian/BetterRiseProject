@@ -3112,7 +3112,7 @@ A meta-analysis needs at least two quotable (study, rung) cells. **There is one.
 | GSE178341 | `crypt_position` | no — depth fixed, but still a two-bin split on ~90% of patients (#42) |
 | GSE178341 | `epithelial` | no — degenerate, Δfraction identically zero |
 | GSE178341 | `best4` | no — median 1 mature cell against a cutpoint of 50 |
-| Lee/SMC | `lineage` | **no** — still confounded after one labeller, \|rho\| 0.31, arms 2.36x (#49) |
+| Lee/SMC | `lineage`, depth-matched | **thin** — arms matched (2.36x → 1.02x), but 75% of cells discarded and half the estimable rows degrade: 36 ok → 16 ok / 16 wide / 8 not_estimable |
 | Lee/SMC | others | no — same disqualifications |
 
 **k = 1 is not a meta-analysis.** Combining one study with nothing is the
@@ -3143,10 +3143,47 @@ per-rung disqualifications that produced the non-identifiability finding, and it
 is the same finding one level up: the cohort does not contain two independent
 places to stand.
 
-### What would change it
+### CORRECTED 2026-08-29 — the Lee matched run had already happened
 
-A second cohort with a quotable rung. Lee's `lineage` would qualify if its
-residual confound were removed — `match_arm_depth` is available and was not
-applied there, since #49 used the unmatched read for the same reason W1's #53
-did. **That is one run, not one project**, and it is the cheapest route from
-k = 1 to k = 2 that exists.
+The first version of this entry said `match_arm_depth` *"was not applied"* to
+Lee. **It had been.**
+`results/2026-08-28_85615b4/decomposition_lee_smc_depth_matched.parquet` predates
+this entry by a day. I asserted a run had not happened without looking in
+`results/` for it — in an entry whose whole argument turned on that fact. The
+grep I did run was for the *analysis* (`meta_analy`, `random_effects`, `tau2`),
+not for the *input*, and it did not occur to me to look for the second.
+
+**What it says.** GUCA2A intrinsic **−26.32**, band **[−79.7, −16.4]**, excludes
+zero and is *unmoved* by matching (−25.68 unmatched). Compositional −4.07, band
+[−23.4, +5.0], contains zero. Arms 2.36× → **1.02×**.
+
+So **the direction replicates on both cohorts under matching** — a stronger
+statement than this entry originally made.
+
+### What that leaves — not k = 1, and not a clean k = 2
+
+W2's own cost note:
+
+> at `lineage`, 36 ok / 0 wide / 4 not_estimable becomes **16 / 16 / 8**. On this
+> cohort a comparison can be clean **or** estimable, not both.
+
+75% of cells discarded against 55% on GSE178341; half the estimable rows degrade
+against roughly 7% of ours. The asymmetry is *n* — 32 patients against 10.
+
+**Two cohorts have a matched `lineage` read pointing the same way, and the second
+is thin enough that W2 declines to call it clean and estimable at once.** Whether
+that supports a meta-analysis is a judgement about the second study's weight, not
+an arithmetic fact, and it belongs to the team rather than to this entry.
+
+### What survives unchanged
+
+- **No meta-analysis exists in `src/`.** §6.2 still names an output that does not
+  exist.
+- **`τ²` is unestimable at k = 2.** Still true, and now directly relevant rather
+  than hypothetical.
+- **The recommendation not to build one** — *stronger* now, not weaker. Combining
+  a 28-point-wide compositional band on ten patients with our 32 would produce a
+  pooled interval that looks more informative than either input. W2's sidecar
+  says it in their own words: *"the compositional band is 28 points wide on ten
+  patients. That is non-identifiability — the same finding G4 returned — not
+  evidence that the compositional component is zero."*
