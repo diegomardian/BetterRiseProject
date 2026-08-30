@@ -89,17 +89,35 @@ def main() -> int:
     parser.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args()
 
-    dpath = args.decomposition or sorted(
-        glob.glob("results/*/decomposition_gse178341_matched.parquet")
-        or glob.glob("results/*/decomposition_gse178341.parquet"),
-        key=os.path.getmtime,
-    )[-1]
+    # PREFER THE MATCHED READ, and say which one was used rather than letting a
+    # fallback decide silently. The first run of this job fell through to the
+    # unmatched decomposition because the matched one lived on another branch,
+    # and reported a result computed on the depth-confounded read without
+    # anything in the output saying so.
+    matched = sorted(glob.glob("results/*/decomposition_gse178341_matched.parquet"),
+                     key=os.path.getmtime)
+    unmatched = sorted(glob.glob("results/*/decomposition_gse178341.parquet"),
+                       key=os.path.getmtime)
+    if args.decomposition:
+        dpath = args.decomposition
+    elif matched:
+        dpath = matched[-1]
+    elif unmatched:
+        dpath = unmatched[-1]
+        print("!! no matched decomposition found — falling back to the UNMATCHED "
+              "read.\n   lineage and crypt_position carry a depth confound "
+              "there (#24.1, #45), so\n   any contrast from this run inherits "
+              "it. Merge w1/matched-decomposition.")
+    else:
+        raise SystemExit("no decomposition found under results/")
     cpath = args.cohort or sorted(
         glob.glob("results/*/cohort_table.parquet"), key=os.path.getmtime
     )[-1]
     dec = pd.read_parquet(dpath)
     cohort = pd.read_parquet(cpath)[["patient_id", "mlh1_stratum"]]
+    is_matched = dpath.endswith("_matched.parquet")
     print(f"decomposition: {dpath}")
+    print(f"  read: {'DEPTH-MATCHED (#24.1)' if is_matched else 'UNMATCHED'}")
     print(f"cohort table : {cpath}")
 
     mlh1 = dec[dec["gene"] == GENE].merge(cohort, on="patient_id", how="left")
@@ -211,9 +229,16 @@ def main() -> int:
             "point estimate is WITHHELD, per §5. Supporting evidence for G2, "
             "not its primary basis; G2 failed as pre-registered and this does "
             "not change that."
+            + (
+                " Computed on the DEPTH-MATCHED decomposition (#24.1)."
+                if is_matched else
+                " WARNING: computed on the UNMATCHED decomposition, where "
+                "lineage and crypt_position carry a depth confound."
+            )
         ),
         extra_meta={
             "decomposition": dpath, "cohort_table": cpath,
+            "depth_matched_read": bool(is_matched),
             "n_not_estimable_rows": int(len(excluded)),
             "min_per_arm": MIN_PER_ARM, "n_boot": N_BOOT,
             "prereg": "docs/prereg_g2_mlh1.md, 2026-08-22",
