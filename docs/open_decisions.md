@@ -3081,3 +3081,72 @@ unquotable here too.
 
 Confirm or amend, then one commit sets `status: locked`, `locked_on`,
 `locked_by`. It should land **before** the S matrices are rebuilt, not after.
+
+---
+
+## 25 · Invariant 4 cannot be satisfied on this data — there is one quotable cell, not two — RAISED 2026-08-29
+
+**Raised:** W1 · **Owner:** W1 + W4 (§6.1 is joint) · **Needed by:** the gate,
+because §6.1 names an output that does not exist
+
+### The deliverable
+
+`execution_plan.md` §6.1: *"Output by week 10: the per-patient split with
+three-way estimability at every rung and axis, **with meta-analytic CIs**."*
+
+CLAUDE.md invariant 4: *"Estimate per study, then meta-analyse. Never pool."* —
+with the stated benefit that random-effects meta-analysis *"yields between-study
+heterogeneity as a free robustness statistic."*
+
+**Nothing in `src/` implements one.** No `meta_analy`, no `random_effects`, no
+`tau2`. That is not an oversight to correct quietly; it is worth stating why it
+should stay unimplemented.
+
+### Why it cannot be done rather than has not been
+
+A meta-analysis needs at least two quotable (study, rung) cells. **There is one.**
+
+| study | rung | quotable? |
+|---|---|---|
+| GSE178341 | `lineage`, depth-matched | **yes** — its only disqualification was the depth confound, removed by construction (#24.1) |
+| GSE178341 | `crypt_position` | no — depth fixed, but still a two-bin split on ~90% of patients (#42) |
+| GSE178341 | `epithelial` | no — degenerate, Δfraction identically zero |
+| GSE178341 | `best4` | no — median 1 mature cell against a cutpoint of 50 |
+| Lee/SMC | `lineage` | **no** — still confounded after one labeller, \|rho\| 0.31, arms 2.36x (#49) |
+| Lee/SMC | others | no — same disqualifications |
+
+**k = 1 is not a meta-analysis.** Combining one study with nothing is the
+per-study estimate with extra machinery around it, and presenting it as a
+meta-analytic CI would overstate what the interval covers.
+
+### And k = 2 would not have delivered what §6.1 promised
+
+Even if Lee's `lineage` became quotable, `tau2` is essentially unestimable at
+k = 2 — a random-effects fit on two studies has one degree of freedom for the
+heterogeneity term and returns an interval driven by the prior or by whichever
+estimator is chosen. **The "free robustness statistic" §6.1 promises is not free
+at k = 2**, and would have needed saying even in the good case.
+
+### What W1 proposes
+
+1. **Do not implement it.** Building an engine to combine one study is worse than
+   not building one: it produces a number that looks meta-analytic and is not.
+2. **Report the per-study estimate as a per-study estimate**, with the count of
+   quotable cells stated. `results/2026-08-29_*/decomposition_gse178341_matched`
+   is one study, one rung, and should say so on its face.
+3. **Record the architecture rule as unsatisfiable on this data**, not violated.
+   Invariant 4 forbids pooling and requires meta-analysis; here neither is
+   available, and the honest report is the third thing — one study, named.
+
+**This is a limitation, not a failure to compute.** It follows from the same
+per-rung disqualifications that produced the non-identifiability finding, and it
+is the same finding one level up: the cohort does not contain two independent
+places to stand.
+
+### What would change it
+
+A second cohort with a quotable rung. Lee's `lineage` would qualify if its
+residual confound were removed — `match_arm_depth` is available and was not
+applied there, since #49 used the unmatched read for the same reason W1's #53
+did. **That is one run, not one project**, and it is the cheapest route from
+k = 1 to k = 2 that exists.
