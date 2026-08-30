@@ -225,7 +225,12 @@ class LeeCohort:
     """One cohort (SMC or KUL3), QC-filtered, labelled, ready to summarise."""
 
     study_id: str
-    cells: pd.DataFrame  # patient_id, tissue, author_cell_type/subtype
+    #: patient_id, tissue, author_cell_type/subtype, and ``n_counts`` — the real
+    #: library size from the streaming pass. ``n_counts`` is what
+    #: ``harness.depth_confound.match_arm_depth`` must be given; a sum over
+    #: ``expression`` or ``raw_counts`` covers only the retained genes and is
+    #: not a depth.
+    cells: pd.DataFrame
     expression: pd.DataFrame  # cells x genes-of-interest, CP10K, QC-passed
     labels: pd.DataFrame  # mature__{axis}__{rung} columns, QC-passed
     axis_gene_coverage: dict[str, list[str]]
@@ -279,6 +284,7 @@ def load_lee_cohort(
     extra_genes: Sequence[str] = (),
     keep_raw_counts: bool = False,
     label_compartment: str | None = EPITHELIAL_COMPARTMENT,
+    depth_quantile: float = 0.25,
 ) -> LeeCohort:
     """Load, QC, normalise and label one real Lee cohort end to end.
 
@@ -298,6 +304,27 @@ def load_lee_cohort(
     is roughly twenty — so W2's harness passes a marker panel here rather than
     re-parsing the matrix itself. Streaming cost is unchanged; only the number
     of rows retained grows.
+
+    ``depth_quantile`` DEFAULTS TO 0.25 TO MATCH GSE178341, AND MUST
+    ------------------------------------------------------------------
+    This used to be omitted, so ``assign_labels`` fell through to its own
+    default of 0.10 while every GSE178341 job — ``run_full_reference``,
+    ``build_decomposition_summary``, ``check_depth_confound``,
+    ``run_threshold_sweep``, ``run_pilot`` — passes ``DEPTH_QUANTILE = 0.25``.
+
+    That is not a tuning knob left at two settings. On axis 1 the mature call is
+    operationally "no stem marker detected at depth *d*" (open_decisions #14),
+    so *d* **is** the maturity gate and the mature fraction **is** the
+    compositional term. Measured on the committed SMC fixture, 0.10 -> 0.25
+    moves the depth target 2,370 -> 5,912 UMIs, takes ``unresolved_depth`` from
+    2 to 5 of 20 epithelial cells, and moves the mature fraction 0.111 -> 0.133.
+    Two cohorts gated at different depths do not put their compositional terms
+    on a comparable scale — the same objection open_decisions §13 raises against
+    pooled quantile cut points, one parameter along.
+
+    Passing anything else here means the result cannot be compared with a
+    GSE178341 estimate; ``labels.compositional_stability`` is the check that
+    says whether a study's Δf survived the change.
 
     ``keep_raw_counts`` additionally populates ``LeeCohort.raw_counts`` with
     the pre-CP10K integer counts. See the field's docstring for why the
@@ -473,6 +500,7 @@ def load_lee_cohort(
         rungs=tuple(rungs) if rungs is not None else None,
         totals=metrics.loc[labelled_index, "n_counts"].to_numpy(dtype=float),
         index=labelled_index,
+        depth_quantile=depth_quantile,
     )
     labels["patient_id"] = cells.loc[labelled_index, "patient_id"].to_numpy()
     labels["tissue"] = cells.loc[labelled_index, "tissue"].to_numpy()
@@ -509,6 +537,15 @@ def load_lee_cohort(
         for col in maturity_columns:
             widened[col] = widened[col].astype("boolean")
         labels = widened
+
+    # The REAL library size from the streaming pass, carried on the cohort.
+    # `harness.depth_confound.match_arm_depth` needs a per-cell depth, and this
+    # is the only correct one: summing `expression` or `raw_counts` sums the
+    # ~16 retained genes, which is not a depth (same trap the labeller comment
+    # above avoids). Without it here, a caller wanting to match arms has to
+    # re-stream the matrix or use a wrong number, and the wrong number is easier.
+    cells = cells.copy()
+    cells["n_counts"] = metrics.loc[cells.index, "n_counts"].to_numpy(dtype=float)
 
     return LeeCohort(
         study_id=study_id,

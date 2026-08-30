@@ -13,12 +13,15 @@ real gene index in both cohorts).
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from src.estimator import lee_io
 from src.estimator.kitagawa import decompose_cohort
 from src.estimator.lee_io import (
     EPITHELIAL_COMPARTMENT,
@@ -257,6 +260,68 @@ def test_the_depth_floor_fires_and_does_not_count_shallow_cells_as_immature(tmp_
     shallow = labels.index[labels == "unresolved_depth"]
     for col in [c for c in cohort.labels.columns if c.startswith("mature__")]:
         assert cohort.labels.loc[shallow, col].isna().all()
+
+
+def test_the_depth_quantile_defaults_to_the_value_gse178341_uses():
+    """The maturity gate must be the same number on both cohorts.
+
+    On axis 1 the mature call is "no stem marker detected at depth d", so d IS
+    the gate and the mature fraction IS the compositional term. Every
+    GSE178341 job passes DEPTH_QUANTILE = 0.25; this used to be omitted and
+    fell through to assign_labels' own 0.10, putting the two cohorts'
+    compositional terms on different scales with nothing saying so. If this
+    goes red, a cross-cohort comparison stopped being valid -- do not adjust
+    the number, fix the caller.
+    """
+    assert inspect.signature(load_lee_cohort).parameters["depth_quantile"].default == 0.25
+
+
+def test_the_depth_quantile_reaches_the_labeller_rather_than_being_accepted_and_dropped(
+    tmp_path,
+):
+    """A keyword that is accepted and ignored is worse than one that is absent."""
+    raw_dir, _ = _mixed_compartment_fixture(tmp_path)
+    seen = {}
+    real = lee_io.assign_labels
+
+    def spy(*args, **kwargs):
+        seen["depth_quantile"] = kwargs.get("depth_quantile")
+        return real(*args, **kwargs)
+
+    with mock.patch.object(lee_io, "assign_labels", spy):
+        load_lee_cohort("smc", target_genes=PANEL_AB, raw_dir=raw_dir, depth_quantile=0.25)
+    assert seen["depth_quantile"] == 0.25
+
+
+def test_the_cohort_carries_the_real_library_size_for_depth_matching():
+    """`match_arm_depth` needs a per-cell depth. Summing the ~16 retained genes
+    is not a depth, so the streaming pass's n_counts has to travel."""
+    cohort = load_lee_cohort("smc", target_genes=PANEL_AB, raw_dir=FIXTURES)
+    assert "n_counts" in cohort.cells.columns
+    assert (cohort.cells["n_counts"] > 0).all()
+
+    # NOT compared against `expression`: that frame is CP10K-normalised, so the
+    # two are on different scales and the comparison would be meaningless (it
+    # is also indexed on QC-passed cells only, so it would misalign). What
+    # matters is that this is a whole-transcriptome library size -- thousands
+    # of UMIs -- and not a sum over the ~16 retained genes.
+    assert cohort.cells["n_counts"].median() > 1_000, (
+        "n_counts looks like a sum over retained genes, not a library size"
+    )
+
+
+def test_changing_the_depth_quantile_changes_the_mature_fraction():
+    """The fix is material, not cosmetic: the gate moves the compositional term.
+    If these came out equal, the keyword would not be worth having."""
+    col = "mature__stem_pole__lineage"
+    fracs = {}
+    for q in (0.10, 0.25):
+        labels = load_lee_cohort(
+            "smc", target_genes=PANEL_AB, raw_dir=FIXTURES, depth_quantile=q
+        ).labels
+        scored = labels[col].notna()
+        fracs[q] = (labels.loc[scored, col] == True).sum() / scored.sum()  # noqa: E712
+    assert fracs[0.10] != fracs[0.25]
 
 
 def test_the_maturity_quantile_is_taken_within_the_compartment(tmp_path):
