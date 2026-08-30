@@ -162,6 +162,28 @@ not about MLH1 silencing in these tumours.
 That is not a failure of this analysis and not a mistake anyone could have caught
 before measuring. It is a design constraint discovered by running the design.
 
+### §7 already committed to this reading, before any of it was run
+
+`execution_plan.md` §7 — *Every branch ends in a result* — has a row for exactly
+this outcome:
+
+| If this happens | The paper is |
+|---|---|
+| **MLH1 fails to come out intrinsic** | Broken estimator (harness fails too) or **detection floor in the data (harness passes)** — both reportable, **decided by the harness** |
+
+**The harness passes.** G3 is a preliminary PASS: the oracle arm recovers the
+known split within 1% wherever the mature compartment is non-empty, with interval
+coverage 0.90–1.00 above 20 mature cells.
+
+So the disambiguation is pre-committed and it resolves to **detection floor in
+the data**, not a broken estimator. The expression scale above is the mechanism —
+0.039 CP10K, about one count per 250,000 UMIs — and §7 says in advance what to
+conclude from it.
+
+That matters for how this is written up: *"MLH1 is at the detection floor"* is
+not an explanation reached after seeing an inconvenient result. It is the branch
+the plan already named, selected by a criterion decided elsewhere and earlier.
+
 ### Standing, unchanged from §6
 
 **Supporting evidence for G2, not its primary basis. G2 failed as pre-registered
