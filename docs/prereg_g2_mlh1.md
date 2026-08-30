@@ -109,3 +109,100 @@ sharper line that costs nothing to commit to now and is worth nothing committed
 to later.
 
 G2 is a pre-committed gate criterion, so **this needs the team, not just W1.**
+
+---
+
+## RESULT — run 2026-08-29, three weeks after this document was written
+
+Executed by `src/reference/jobs/run_g2_mlh1_contrast.py` on the **depth-matched**
+decomposition (#24.1). Nothing above was edited.
+
+### The pre-registered direction held
+
+**18 of 18 evaluable combinations as predicted**, every interval excluding zero,
+direction consistent across all three usable rungs. Neither §5 falsifier fired.
+
+| `lineage`, matched | methylated | intact-MMRd | difference |
+|---|---|---|---|
+| `stem_pole`, doubly robust | −0.0172 | +0.0469 | **−0.0641** |
+| `opposite_lineage`, doubly robust | −0.0094 | +0.0372 | **−0.0466** |
+
+By §1's criterion — *"direction is the whole test"* — this passes.
+
+### But the predicted magnitude is absent, and the reason is the panel
+
+§1 predicted **high** intrinsic loss in `mlh1_methylated` and **near zero** in
+`mlh1_intact_mmrd`. What is there is a methylated arm at **−0.017** and a control
+arm at **+0.047** — both close to zero, with the separation coming as much from
+the control being positive as from the treatment being negative.
+
+The expression scale explains it:
+
+| gene | mean_normal | mean_tumour | loss within mature cells |
+|---|---|---|---|
+| GUCA2A | **24.499** | 0.508 | **97.9%** |
+| MLH1 | **0.039** | 0.022 | 43.6% |
+
+**MLH1 sits ~600× below GUCA2A — roughly one count per 250,000 UMIs.** The whole
+contrast rests on distinguishing 0.039 from 0.022 in per-cell means, in the
+regime where detection is largely a function of sequencing depth. At that level
+±0.05 is what noise looks like, which is why the control arm reads +0.047 rather
+than 0.
+
+### What this says about G2's tier-B failure
+
+**Tier B could not have validated the estimator whatever the biology did.**
+
+Tier B is the *intrinsic* control — the arm whose job is to demonstrate that the
+estimator can see silencing when silencing is present. It was populated with a
+gene too lowly expressed to measure per-cell in 10x data. G2's tier-B arm
+"showing nothing" is therefore a statement about MLH1's abundance in this assay,
+not about MLH1 silencing in these tumours.
+
+That is not a failure of this analysis and not a mistake anyone could have caught
+before measuring. It is a design constraint discovered by running the design.
+
+### §7 already committed to this reading, before any of it was run
+
+`execution_plan.md` §7 — *Every branch ends in a result* — has a row for exactly
+this outcome:
+
+| If this happens | The paper is |
+|---|---|
+| **MLH1 fails to come out intrinsic** | Broken estimator (harness fails too) or **detection floor in the data (harness passes)** — both reportable, **decided by the harness** |
+
+**The harness passes.** G3 is a preliminary PASS: the oracle arm recovers the
+known split within 1% wherever the mature compartment is non-empty, with interval
+coverage 0.90–1.00 above 20 mature cells.
+
+So the disambiguation is pre-committed and it resolves to **detection floor in
+the data**, not a broken estimator. The expression scale above is the mechanism —
+0.039 CP10K, about one count per 250,000 UMIs — and §7 says in advance what to
+conclude from it.
+
+That matters for how this is written up: *"MLH1 is at the detection floor"* is
+not an explanation reached after seeing an inconvenient result. It is the branch
+the plan already named, selected by a criterion decided elsewhere and earlier.
+
+### Standing, unchanged from §6
+
+**Supporting evidence for G2, not its primary basis. G2 failed as pre-registered
+and this does not change that.** What it adds is the reason one of the three arms
+failed, which is more useful than the failure alone.
+
+### Two caveats that belong with the number
+
+1. **`n_intact_mmrd` = 4**, one above §5's floor of 3. Depth matching cost the
+   control arm two patients.
+2. **The exclusion was not neutral.** Usable fractions: methylated 11 of 20
+   (55%), intact-MMRd 4 of 10 (40%) — the control arm was thinned harder, which
+   is the asymmetry §4 said to watch for. On the *unmatched* read the rates were
+   near-identical (39% against 40%); matching introduced the gap.
+
+### What is NOT claimed
+
+That MLH1 silencing was observed. A directional difference between two arms that
+both sit inside the noise band of a barely-detected transcript is consistent with
+the mechanism and with several other things. **The GUCA2A result stands on its
+own expression level; the control that was meant to corroborate it never had the
+dynamic range to do so.**
