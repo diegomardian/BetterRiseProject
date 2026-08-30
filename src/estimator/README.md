@@ -16,7 +16,7 @@ opinion.
 
 | Wk | Task | Done when |
 |----|------|-----------|
-| 1–2 | Lee ingest, QC, ambient correction (same pipeline **shape** as W1 — coordinate, do not share code prematurely) | Cells labelled, axes 1 and 2 |
+| 1–2 | Lee ingest, QC, ambient correction (~~same pipeline **shape** as W1~~ — **superseded:** labelling is W1's `assign_labels`, one labeller, issue #44) | Cells labelled, axes 1 and 2 |
 | 2–3 | Kitagawa standardisation: both weightings + interaction reported separately | **Unit-tested on synthetic data with analytically known answers** |
 | 3–4 | ~~Doubly-robust~~ **pooled-reference** reweighted version | Agreement with the plain version quantified. **Renamed:** it is a pooled-reference split, not AIPW — docs/open_decisions.md #9 |
 | 4 | Cross-check against cacoa and QuasiMed | Correlation reported |
@@ -71,14 +71,24 @@ doubly-robust — three rows per (patient, gene, rung, axis), one per weighting.
      **29.6 points** harder than its normal arm, because epithelium runs 3.9×
      deeper than immune and immune cells set the median. `qc_flags` now groups
      by (study, compartment) and requires the column.
-   - `classify_maturity` thresholds at a quantile *of whatever it is handed*.
-     Hand it a whole cohort and the non-epithelial majority — which carries no
-     stem markers, so scores as maximally mature on the inverted axis — drags
-     the cut into the immune mass. `load_lee_cohort` labels within epithelium
-     by default; cells outside carry `pd.NA`, never `False`.
+   - A maturity score built by negating a marker mean makes **absence of
+     evidence the top of the axis**, so a quantile of it selects for whatever
+     was sampled least. This bit twice. The non-epithelial majority carries no
+     stem markers, so it scored as maximally mature and dragged the cut into
+     the immune mass — `load_lee_cohort` labels within epithelium by default,
+     and cells outside carry `pd.NA`, never `False`. Then, one level down, 32%
+     of *epithelial* cells sampled zero stem markers too, 4.7× shallower than
+     the rest, and since normal epithelium is 4.3× shallower than tumour that
+     manufactured a **46-point compositional loss in the hypothesised direction
+     out of dropout** (issue #44). CP10K does not rescue it — normalisation
+     rescales counts, it cannot undo a gene sampled zero times.
 
-   Run `differential_retention()` before believing any compositional number.
-   docs/open_decisions.md #12 and #13, and `results/notes/w4.1_lee_qc.md`.
+   **This module no longer labels.** `src/estimator/labels.py` is superseded;
+   the one labeller is `src.reference.labels.assign_labels`, which depth-matches
+   and takes cut points from each patient's own normal arm. Two labellers is the
+   condition that produced the bug. Run `differential_retention()` before
+   believing any compositional number. docs/open_decisions.md #12 and #13,
+   `results/notes/w4.1_lee_qc.md`, and issues #42/#44.
 
 ## Cross-checks
 
