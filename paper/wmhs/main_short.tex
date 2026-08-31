@@ -30,7 +30,7 @@ Simulation and Intervention-Aware Reasoning}
 % other, which given what this paper is about would be an embarrassing way to be
 % wrong. What the short build drops from the main text, its appendix carries.
 \newif\iffull
-\fulltrue
+\fullfalse
 
 \newcommand{\notest}{\textsc{not estimable}}
 
@@ -64,19 +64,13 @@ curve still sits near 1 and still tightens with $n$, so it looks like a
 validated estimator. One line detects it --- compare against the \emph{realised}
 truth and test whether the difference is identically zero. Ours was, across
 119{,}600 runs. What that curve certified was a selective-prediction rule for a
-cell-type-resolved measurement: a standardisation decomposition, the identity
-behind target trial emulation, given a third output \notest{} for the case where
-no cell of the relevant type survives and the estimand has no referent. The
-blind curve reported the rule validated. Calibrated properly against its own
-pre-registered criteria the rule fails outright on one draw pool, returning no
-cutpoint at any tested count; on the other it returns $ok = 90$ against a
-committed 50. The previously reported 120 was an artifact of a grid carrying no
-point in the interval where the criteria actually cross. A synthetic benchmark
-then locates
-what the rule was actually buying: three ungated methods invent an effect in
-$200/200$ replicates where the estimand does not exist, but a width gate
-suppresses that as completely as our count gate while costing no detections. The
-finiteness check, not the threshold, does the work.
+cell-type-resolved measurement, given a third output \notest{} for the case
+where no cell of the relevant type survives and the estimand has no referent.
+Calibrated properly against its own pre-registered criteria the rule fails
+outright on one draw pool and returns $ok = 90$ against a committed 50 on the
+other. A synthetic benchmark locates what it was buying: a width gate suppresses
+invented effects as completely as our count gate while costing no detections.
+The finiteness check, not the threshold, does the work.
 \end{abstract}
 
 

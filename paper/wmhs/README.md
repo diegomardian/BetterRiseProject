@@ -5,17 +5,37 @@ Simulation and Intervention-Aware Reasoning](https://wmhs-neurips.github.io/WMHS
 NeurIPS 2026, Atlanta.
 **Deadline:** 15 September 2026, AoE. **Non-archival, double-blind.**
 **Limits:** 9 pages of main text (full paper) or 4 (extended abstract).
-References and appendices do not count. Currently ~6.5 pages of main text.
+References and appendices do not count. Both versions are built and both fit.
 
 A **responsible-use statement covering limitations and impact is mandatory** —
 a submission without one is desk-rejected. It is `sections/responsible.tex`,
 rendered as §5. Do not cut it for space.
 
-## Build
+## Two builds, one source
+
+| | file | main text | limit |
+|---|---|---|---|
+| Full paper | `main.tex` | 6 pages | 9 |
+| Extended abstract | `main_short.tex` | 4 pages | 4 |
+
+Both `\input` the same `sections/` files and differ only in the `\iffull` flag
+set at the top. **The short build is a strict subset of the same prose, not a
+rewrite** — so a number cannot say one thing in one version and something else
+in the other, which given what this paper argues is the one way it must not be
+wrong. Whatever the short build drops from the main text, its appendix carries
+verbatim.
+
+The short build drops: the related-work survey, Table 1 and the invented-effect
+detail, the conformal aside, the grid caveats, the modal-outcome result, and the
+two withdrawn guards. It keeps the whole of §2 — the general form, the
+trial-simulator instantiation and the one-line check — Figure 1, and the
+mandatory responsible-use statement.
 
 ```
-pdflatex main && bibtex main && pdflatex main && pdflatex main
+./build.sh          # builds both and FAILS if either exceeds its page limit
 ```
+
+Or by hand: `pdflatex main && bibtex main && pdflatex main && pdflatex main`.
 
 `neurips_2026.sty` is **not vendored here.** Download the official workshop
 style from the NeurIPS site and drop it beside `main.tex`. The document loads it
@@ -73,16 +93,14 @@ item 3, and re-deriving the number is why the module is here.
       still a preprint, no journal version exists, so the bioRxiv entry is
       correct. All eight added entries were checked against the publishers'
       own records — see the header of `refs.bib`.
-- [ ] Decide full paper (9pp) vs extended abstract (4pp). The section order was
-      chosen so the first four pages stand alone: §1-§3 carry the headline
-      result, the general form, the venue instantiation and Figure 1. A 4-page
-      version is `setup` + `blind` + `calibration` with §4's Table 1 moved to
-      an appendix.
+- [ ] Decide which to submit. Both build and both fit; `main.tex` is the
+      recommendation, `main_short.tex` is ready if you want it.
 
 ## Layout
 
 ```
-main.tex                 preamble, abstract, and the \input list
+main.tex                 full paper — preamble, abstract, \input list, \fulltrue
+main_short.tex           extended abstract — the same, \fullfalse
 sections/setup.tex       §1  the decomposition and the rule
 sections/blind.tex       §2  the recovery curve, the general form, the
                              trial-simulator instantiation, the one-line check
@@ -90,12 +108,16 @@ sections/calibration.tex §3  what a correct calibration returns (Figure 1)
 sections/withdrawn.tex       two more checks that could not fire — inside §3
 sections/bench.tex       §4  what abstention buys (Table 1), and the closer
 sections/responsible.tex §5  the mandatory responsible-use statement
+sections/benchtable.tex      Table 1 — main text (full) or appendix (short)
+sections/gridcaveats.tex     ditto
+sections/modaloutcome.tex    ditto
 sections/appendix.tex    Appendices A-D
 sections/llm.tex         Appendix E, LLM use
 refs.bib                bibliography
 make_fig1.py            Figure 1
 make_fig3.py            Figure 2
 _tables.py              resolves a result table by name
+build.sh                builds both and enforces both page limits
 check_anonymity.sh      double-blind guard; run before the final build
 make_artifact.sh        builds the anonymised code release §5 promises
 PATCHES.md              working record of corrections, with what is still open

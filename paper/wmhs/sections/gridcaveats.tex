@@ -1,0 +1,24 @@
+\textbf{The coarse grid was not measuring where the criteria first hold. It was
+reporting the first point it happened to carry past them}, and reporting it with
+a stability that came from having nowhere else to land. At 50 replicates the
+filled grid does not resolve either --- the returned value wanders between 45 and
+90 with the seed --- so the number in this paragraph rests on the replicate count
+as much as on the grid, with the caveat Appendix~\ref{app:limitations} attaches
+to it.
+
+This is the same failure as \S\ref{sec:blind} in a second statistic. A recovery
+curve that cannot see the estimator still draws a smooth line; a grid that
+cannot resolve a crossing still returns a stable number. Both look like
+measurements, and in both cases the fix was to ask what the statistic was a
+function of rather than to look harder at its output.
+
+Two further caveats belong with the number. The calibration
+table's lowest bin merged replicates holding \emph{no} interval --- the
+abstention case --- with those holding one. Comparisons against \texttt{NaN}
+return false, so undefined intervals scored as coverage \emph{and}
+discrimination failures, and the reported row read $(0.36, 0.31)$ where the
+defined replicates give $(0.72, 0.62)$, exactly half. \textbf{An abstention
+counted silently as a failure, inside the routine calibrating the rule built to
+prevent exactly that.} And both rates were reported as bare point estimates; at
+50 replicates the coverage crossing does not resolve
+(Appendix~\ref{app:limitations}).

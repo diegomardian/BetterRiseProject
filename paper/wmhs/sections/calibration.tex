@@ -4,19 +4,32 @@
 Three acceptance criteria were fixed in a design document before any sweep ran:
 a detectable halving of per-cell output, $s = 0.5$; interval coverage of 90\%;
 and discrimination of 80\%, the probability the interval excludes zero at that
-effect. The cutpoints follow mechanically --- the smallest $n$ meeting both
-criteria, and the smallest meeting coverage alone. The pre-registration is
+effect.\iffull{} The cutpoints follow mechanically --- the smallest $n$ meeting
+both criteria, and the smallest meeting coverage alone.\fi The pre-registration is
 mechanical rather than documentary: the panel, the labelling axes and the
-falsification rule are frozen in a configuration file with a
-\texttt{frozen\_on} stamp and mirrored by an exact-value assertion in the test
-suite, so continuous integration fails if anyone edits one without the other.
+falsification rule are frozen in a configuration file
+\iffull
+with a \texttt{frozen\_on} stamp and mirrored by an exact-value assertion in the
+test suite, so continuous integration fails if anyone edits one without the
+other.
+\else
+and asserted in the test suite, so continuous integration fails if anyone edits
+one without the other.
+\fi
 
 Run properly on real held-out cells, the committed cutpoint of 50 does not come
 back (Figure~\ref{fig:calibration}). The generator filters eligibility on
 patient alone, so both synthetic arms draw from the held-out patients' cells of
-\emph{both} tissues pooled. The design document lists what stays fixed and never
+\emph{both} tissues pooled.
+\iffull
+The design document lists what stays fixed and never
 mentions tissue. Nobody made that choice; an implementation detail made it, and
-it changes the answer. So we report both readings rather than the one that
+it changes the answer.
+\else
+The design document never mentions tissue: nobody made
+that choice, an implementation detail made it, and it changes the answer.
+\fi
+So we report both readings rather than the one that
 yields a cutpoint. Pooled, the routine returns no cutpoint at all: discrimination
 never reaches the 0.80 target in any count bin, topping out at 0.78 across 13
 seeds at 50 replicates and at 0.75 across 8 seeds at 500. Restricted to the
@@ -25,7 +38,12 @@ paper repeats itself.
 
 \begin{figure}[t]
 \centering
+\iffull
 \includegraphics[width=\linewidth]{figures/fig1_calibration.pdf}
+\else
+\includegraphics[width=0.88\linewidth]{figures/fig1_calibration.pdf}
+\fi
+\iffull
 \caption{\textbf{The committed cutpoint is not what the pre-registered procedure
 returns, under either reading of an unspecified design choice.} Dashed lines mark
 the targets fixed before the sweep. Shading marks the committed rule's three
@@ -34,6 +52,12 @@ returns no cutpoint at any tested count. \emph{Right:} under a second reading of
 the same unspecified choice it does return one --- $ok = 90$ once the grid
 carries points in the interval where the criteria cross, against a perfectly
 stable 100 when it does not. The committed value is 50 in both panels.}
+\else
+\caption{\textbf{The committed cutpoint is not what the pre-registered procedure
+returns, under either reading of an unspecified design choice.} Dashed lines are
+the targets fixed before the sweep; shading marks the committed rule's three
+states; the committed value is 50 in both panels.}
+\fi
 \label{fig:calibration}
 \end{figure}
 
@@ -41,53 +65,25 @@ stable 100 when it does not. The committed value is 50 in both panels.}
 a mature \emph{fraction} against a fixed 2{,}000 cells, so the counts it can
 reach are $\{0, 20, 40, 100, 200, 400, 800\}$ --- nothing between 40 and 100. On
 the reference pool it returns $ok = 100$ on every one of the eight seeds at 500
-replicates, and on twelve of thirteen at 50, and that stability is what made the
-number look like a measurement. We added nine
+replicates\iffull{}, and on twelve of thirteen at 50,\fi{} and that stability is
+what made the number look like a measurement. We added nine
 fractions inside the gap, reaching 50, 60, 70, 80, 90, 110, 120, 130 and 150,
 and changed nothing else. \textbf{The answer moves to 90}, and the crossing it
 was hiding becomes legible: median discrimination runs $0.728$ at 45 mature
 cells, $0.789$ at 65 and $0.858$ at 90, so the pre-registered target of $0.80$
 falls between 65 and 90 --- inside the interval the committed grid could not
-reach. Seven of eight seeds return $ok = 90$, $wide = 45$; the eighth returns 65,
-which is where discrimination sits at $0.789$ against a $0.80$ target. Against
-committed values of 50 and 20, the calibrated rule is roughly twice as strict on
-both cutpoints. The pooled draw returns no cutpoint under either grid.
+reach. Seven of eight seeds return $ok = 90$, $wide = 45$\iffull{}; the eighth
+returns 65, which is where discrimination sits at $0.789$ against a $0.80$
+target\fi{}. Against committed values of 50 and 20, the calibrated rule is
+roughly twice as strict on both cutpoints. The pooled draw returns no cutpoint
+under either grid.
 
-\textbf{The coarse grid was not measuring where the criteria first hold. It was
-reporting the first point it happened to carry past them}, and reporting it with
-a stability that came from having nowhere else to land. At 50 replicates the
-filled grid does not resolve either --- the returned value wanders between 45 and
-90 with the seed --- so the number in this paragraph rests on the replicate count
-as much as on the grid, with the caveat Appendix~\ref{app:limitations} attaches
-to it.
+\iffull
+\input{sections/gridcaveats.tex}
+\fi
 
-This is the same failure as \S\ref{sec:blind} in a second statistic. A recovery
-curve that cannot see the estimator still draws a smooth line; a grid that
-cannot resolve a crossing still returns a stable number. Both look like
-measurements, and in both cases the fix was to ask what the statistic was a
-function of rather than to look harder at its output.
-
-Two further caveats belong with the number. The calibration
-table's lowest bin merged replicates holding \emph{no} interval --- the
-abstention case --- with those holding one. Comparisons against \texttt{NaN}
-return false, so undefined intervals scored as coverage \emph{and}
-discrimination failures, and the reported row read $(0.36, 0.31)$ where the
-defined replicates give $(0.72, 0.62)$, exactly half. \textbf{An abstention
-counted silently as a failure, inside the routine calibrating the rule built to
-prevent exactly that.} And both rates were reported as bare point estimates; at
-50 replicates the coverage crossing does not resolve
-(Appendix~\ref{app:limitations}).
-
-\paragraph{On real data, abstention is the modal outcome.} At the finest
-annotation resolution, the one the compositional question is defined on, $28/28$
-patients abstain under one pre-registered population definition and $24/28$
-under the other. Both fail the pre-committed 50\% line. The specification
-produces this, not the data: 5\% of a few hundred cells falls below a cutpoint of
-20 by construction, so the resolution is defined at a granularity its own cohort
-cannot support. At coarser resolutions the two definitions disagree and the
-pre-registered response is \emph{not identifiable} rather than a choice --- all
-six coarse combinations return that verdict, where a method forced to pick one
-definition returns six confident numbers.
-
+\iffull
+\input{sections/modaloutcome.tex}
 \input{sections/withdrawn.tex}
+\fi
 

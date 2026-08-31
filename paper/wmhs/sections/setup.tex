@@ -5,9 +5,16 @@ A tissue model reports a differentiation marker down 90\% between a patient's
 healthy and diseased sample. Two mechanisms produce that observation and they
 imply different interventions. Either the cells making the marker have left, a
 \emph{compositional} change, or those cells remain and produce less, an
-\emph{intrinsic} change. Bulk measurement cannot separate them. Single-cell
+\emph{intrinsic} change.
+\iffull
+Bulk measurement cannot separate them. Single-cell
 measurement can, but only where enough of the relevant cells survive in both
-arms. The separating estimator is Kitagawa's demographic standardisation
+arms.
+\else
+Separating them needs single-cell measurement, and only works where enough of
+the relevant cells survive in both arms.
+\fi
+The separating estimator is Kitagawa's demographic standardisation
 \citep{kitagawa1955}. Write $f$ for the fraction of cells of the type in
 question and $m$ for their mean per-cell output:
 \begin{equation}
@@ -33,6 +40,7 @@ not ask'' are values a downstream average cannot tell apart. The rule gating
 those verdicts is a cutpoint on $n$, the count of relevant cells in the diseased
 arm: answer at $n \geq 50$, flag a wide interval from 20 to 49, abstain below 20.
 
+\iffull
 \paragraph{Related work.} Cell-count filters of this shape are standard rather
 than novel. Pseudobulk pipelines drop samples below a minimum cell count
 \citep{crowell2020}, and differential-abundance methods --- scCODA
@@ -45,4 +53,13 @@ geifman2017} and is therefore something you can \emph{calibrate} and get wrong,
 and that it should emit a third verdict rather than silently dropping rows ---
 because a dropped row and a row estimated at zero are indistinguishable
 downstream.
+\else
+\paragraph{Related work.} Cell-count filters of this shape are standard rather
+than novel (Appendix~\ref{app:benchtable}); cacoa \citep{petukhov2022} is
+closest. Our claim is not the filter, but that the filter is a
+selective-prediction rule \citep{chow1970,geifman2017} --- something you can
+\emph{calibrate} and get wrong --- and that it should emit a third verdict rather
+than silently drop rows, because a dropped row and a row estimated at zero are
+indistinguishable downstream.
+\fi
 

@@ -1,0 +1,22 @@
+\begin{table}[h]
+\small
+\centering
+\caption{Per-world refusals over 200 replicates, for three variants of identical
+arithmetic, plus what the ungated variants invent. The width gate abstains when
+the 95\% half-width on the intrinsic term exceeds the detectable effect the
+design document names; both gates take their parameters from that same document.}
+\label{tab:bench}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+& \textbf{count gate (ours)} & \textbf{width gate} & \textbf{no gate} \\
+\midrule
+\texttt{annihilated} --- estimand undefined & $200/200$ & $200/200$ & $0/200$ \\
+\texttt{depleted\_wide} --- $\sim$20 mature cells & $88/200$ & $0/200$ & $0/200$ \\
+four other worlds & 0 & 0 & 0 \\
+\midrule
+false confidence & $0.00$ & $0.00$ & $1.00$ \\
+detection rate where estimable & $0.853$ & $1.000$ & $1.000$ \\
+median absolute error & $0.111$ & $0.122$ & $0.122$ \\
+\bottomrule
+\end{tabular}
+\end{table}

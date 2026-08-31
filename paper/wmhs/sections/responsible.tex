@@ -6,17 +6,31 @@ one.} Our instance is differentiation-marker loss in colorectal cancer, and we
 report \emph{no} finding about the biology. The pre-registered control panel
 names genes expected to move compositionally, genes expected to move
 intrinsically, and one chosen because disease \emph{retains} it, which should
-leave both arms alone. The falsification rule was written into the configuration
+leave both arms alone. \iffull
+The falsification rule was written into the configuration
 file in week 0, before any analysis code existed --- \emph{if tiers A, B and D
 all return the same answer, the estimator is broken and no biological claim may
 be made} --- and it is mirrored by an exact-value assertion in the test suite, so
-continuous integration fails if anyone edits it. Across the eight strata of the
-primary cohort the retained-gene control moves by $-1.000$ to $-0.951$ relative
+continuous integration fails if anyone edits it.
+\else
+The falsification rule --- if all three tiers return the same answer, no
+biological claim may be made --- was written into the configuration file in week
+0, before any analysis code existed, and is asserted in the test suite.
+\fi Across the eight strata of the
+primary cohort
+\iffull
+the retained-gene control moves by $-1.000$ to $-0.951$ relative
 to its own baseline, against $-1.000$ to $-0.952$ for the compositional
 controls: the retained-gene control sits \emph{inside} the compositional
 controls' range almost exactly. The intrinsic control sits at 0.04 CP10K against
 19.4 and 24.9 for the two abundant compositional ones, too low to measure per
-cell, so its tier never tested the estimator at all. The pre-committed
+cell, so its tier never tested the estimator at all.
+\else
+the retained-gene control lands \emph{inside} the compositional
+controls' range almost exactly, and the intrinsic control is too low-expressed to
+measure per cell, so its tier never tested the estimator at all.
+\fi
+The pre-committed
 consequence fired, and we take it: \emph{methods and validation only, no
 biological claim}. A second cohort on a second platform reproduces the pattern,
 which \textbf{confirms the artefact rather than the biology}. Cell fractions
@@ -25,8 +39,8 @@ the tiers.
 
 \paragraph{The misuse to guard against} is reading \notest{} as ``no effect''.
 Here a confident null reads as ``the surviving cells are behaving normally'', a
-mechanism claim with treatment implications
-(Appendix~\ref{app:limitations}).
+mechanism claim with treatment implications\iffull{}
+(Appendix~\ref{app:limitations})\fi.
 
 \paragraph{Limitations.} Our calibration covers one gene, one axis, one
 weighting, one cohort. The result shows \emph{this} rule failing \emph{its own}
@@ -42,4 +56,5 @@ code, not cell-level matrices: \artifacturl.
 inherits Equation~\ref{eq:kitagawa}'s identifiability problem, and a system
 always returning a number cannot separate a measured effect from an unaskable
 question. Adding abstention costs little. \emph{Calibrating} abstention is the
-step people skip. Publish the attempt, including when it yields no cutpoint.
+step people skip.\iffull{} Publish the attempt, including when it yields no
+cutpoint.\fi

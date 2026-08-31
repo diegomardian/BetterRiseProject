@@ -33,16 +33,24 @@ exactly like a validated estimator, because sampling error does shrink with $n$
 --- and it would do all of that if the estimator were replaced by any other
 estimator with the same property.
 
+\iffull
 The condition is not that the estimator is wrong, and not that it is right. It
 is that the estimator and the generator share sufficient statistics. That is a
 property of the plumbing rather than of the model, so it survives code review,
 leaves no trace in the curve, and does not announce itself in any residual.
+\else
+The condition is not that the estimator is wrong. It is that the estimator and
+the generator share sufficient statistics --- a property of the plumbing, so it
+survives code review and leaves no trace in the curve.
+\fi
 
+\iffull
 \paragraph{Why this is the default, not an exotic case.} Oracle arms exist
 precisely so the estimator sees clean inputs, and the cleanest available input is
 the summary the generator just computed. Wiring the estimator to the generator's
 own stratum means is the shortest path to an arm that runs, and it is the first
 arm most pipelines get.
+\fi
 
 \paragraph{What this looks like in a trial simulator.} Nothing above is about
 cells. Take an external control arm drawn from a patient simulator: the generator
@@ -79,7 +87,13 @@ exactly at the abstention point --- $5.000$, $2.000$ and $1.333$ at the three
 tested shifts, with zero variance across replicates --- a constant, read at the
 time as a two-fold over-estimate in the dangerous direction.
 
+\iffull
 The statistic is not worthless: it still catches an estimator that fails to
 reproduce its input, and the design ships a broken-estimator control returning
 $0.0$ for which the ratio comes out zero. It simply could not certify the arm it
 was being used to certify.
+\else
+The statistic is not worthless --- it still catches an estimator that fails to
+reproduce its input. It simply could not certify the arm it was being used to
+certify.
+\fi

@@ -1,3 +1,34 @@
+\iffull\else
+\section{Material carried in the full paper's main text}
+\label{app:benchtable}
+
+The four-page build moves the following out of the main text unchanged. Nothing
+here is written differently from the nine-page version --- both builds
+\texttt{\textbackslash input} the same files, so a number cannot differ between
+them.
+
+\subsection*{Related work}
+Cell-count filters of this shape are standard rather than novel. Pseudobulk
+pipelines drop samples below a minimum cell count \citep{crowell2020}, and
+differential-abundance methods --- scCODA \citep{buettner2021}, Milo
+\citep{dann2022}, propeller \citep{phipson2022}, DA-seq \citep{zhao2021} ---
+test composition without an expression arm, so they never face this estimand.
+cacoa \citep{petukhov2022} is closest: it separates compositional from
+expression shifts explicitly.
+
+\subsection*{The benchmark table}
+\input{sections/benchtable.tex}
+
+\subsection*{What the grid was reporting, and two caveats}
+\input{sections/gridcaveats.tex}
+
+\subsection*{On real data, abstention is the modal outcome}
+\input{sections/modaloutcome.tex}
+
+\subsection*{Two more checks that could not fire}
+\input{sections/withdrawn.tex}
+\fi
+
 \appendix
 \section{The withdrawn guards}
 \label{app:withdrawn}
