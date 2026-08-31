@@ -1307,7 +1307,10 @@ both floors, so it is a direction with support, not an established effect.
 
 `|ρ|` between a continuous variable and a **binary** label is bounded by
 `sqrt(3p(1−p))`. Verified numerically against perfect separation. Below
-**p = 1.37% the 0.20 tolerance is mathematically unreachable.**
+**p = 1.3516% the 0.20 tolerance is mathematically unreachable.** (Solving
+`sqrt(3p(1−p)) = 0.20` gives p = 0.013516; at the 1.37% this memo previously
+carried, the bound is **0.2013**, which is *above* the tolerance — so the check
+can still fire there, and the sentence asserted the opposite.)
 
 On Lee/SMC's `best4` tumour arm — 8 mature cells in 5,564 — the ceiling is
 **0.066**. `best4` could not have been flagged confounded there however
