@@ -239,3 +239,37 @@ def test_the_headline_numbers_in_findings_md_are_the_numbers_this_code_produces(
     assert refusals.loc["naive-delta-mean", "false_confidence_rate"] == 1.0
     assert sens.loc["kitagawa+positivity", "detection_rate"] == pytest.approx(0.853, abs=0.005)
     assert sens.loc["kitagawa-no-gate", "detection_rate"] == 1.0
+
+
+def test_variance_gate_refuses_where_the_estimand_does_not_exist():
+    """The width gate's finiteness guard is the load-bearing line.
+
+    With no mature tumour cell the SE is undefined, and ``nan > threshold`` is
+    False -- so a width gate written the obvious way would decline to abstain
+    in exactly the world the estimand does not exist. This asserts the guard
+    fires, and it fails against a version that compares before checking.
+    """
+    from submission.competitors import VarianceGateKitagawaMethod
+
+    world = next(w for w in BENCH_WORLDS if w.name == "annihilated")
+    method = VarianceGateKitagawaMethod()
+    for replicate in range(20):
+        out = method.fit(generate_sample(world, seed=20260829, replicate=replicate))
+        assert out.refused is True
+        assert out.intrinsic is None
+
+
+def test_the_width_criterion_never_binds_on_this_benchmark():
+    """The finding, asserted so it cannot drift out of the paper silently.
+
+    In depleted_wide the widest interval over 200 replicates is still far
+    narrower than the detectable effect the design document names, so the
+    width gate reduces to its finiteness guard and refuses nothing there --
+    while the count cutpoint refuses 88 of 200.
+    """
+    bench, _ = run_bench(seed=20260829, n_replicates=200)
+    wide = bench[bench["world"] == "depleted_wide"]
+    by_method = wide.groupby("method")["refused"].sum()
+
+    assert by_method["kitagawa+variance-gate"] == 0
+    assert by_method["kitagawa+positivity"] == 88

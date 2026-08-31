@@ -164,6 +164,105 @@ class KitagawaNoGateMethod(DecompositionMethod):
         return MethodOutput(d.compositional, d.intrinsic)
 
 
+class VarianceGateKitagawaMethod(DecompositionMethod):
+    """Kitagawa behind a WIDTH gate rather than a COUNT gate.
+
+    The natural alternative primitive, and the fairest competitor in this file
+    after the ablation. Instead of asking "are there enough mature tumour
+    cells", it asks "is the interval on the intrinsic term narrow enough to
+    resolve the effect the design says it must detect" -- and abstains when it
+    is not.
+
+    Both the effect size and the confidence level come from the SAME design
+    document as the count cutpoint (a halving of per-cell output, s = 0.5), so
+    neither gate is tuned against the other on this benchmark.
+
+    THE FINITENESS GUARD IS THE WHOLE POINT. With no mature tumour cell the
+    standard error is undefined, and ``nan > threshold`` is ``False`` in numpy
+    and in pandas -- so a width gate written the obvious way SILENTLY DECLINES
+    TO ABSTAIN in exactly the world the estimand does not exist. That is the
+    same NaN coercion this project found inside its own calibration routine.
+    We guard it explicitly here, which makes this competitor stronger than the
+    version most people would write, and the comparison correspondingly fairer.
+    """
+
+    name = "kitagawa+variance-gate"
+    can_refuse = True
+
+    #: Detect a halving of per-cell output. The design document's own s = 0.5.
+    DETECTABLE_SHIFT = 0.5
+    #: Two-sided 95%, matching the interval the estimator already reports.
+    Z = 1.959963984540054
+
+    @staticmethod
+    def _mature_moments(expr: np.ndarray, n_mature: int) -> tuple[float, float]:
+        """Mean and variance among mature cells, without needing the mask.
+
+        Immature cells express exactly 0.0, and a zero contributes nothing to
+        either the sum or the sum of squares, so both moments over the mature
+        subset are recoverable from the full arm given ``n_mature``.
+        """
+        total = float(expr.sum())
+        total_sq = float((expr**2).sum())
+        mean = total / n_mature
+        var = max(total_sq / n_mature - mean**2, 0.0)
+        return mean, var
+
+    def fit(self, sample, *, weighting: str = "normal") -> MethodOutput:
+        n_t = int(sample.n_mature_tumour)
+        n_n = int(round(sample.frac_mature_normal * sample.expr_normal.size))
+
+        compositional = (sample.frac_mature_tumour - sample.frac_mature_normal) * (
+            sample.mean_normal
+        )
+
+        if n_t < 1 or n_n < 1:
+            return MethodOutput(
+                compositional=compositional,
+                intrinsic=None,
+                estimability="not_estimable",
+                refused=True,
+                refusal_reason=(
+                    "no mature cell in one arm, so the standard error of the "
+                    "per-cell mean is undefined -- not large. Reached only "
+                    "because the finiteness of the SE is checked before it is "
+                    "compared against the threshold."
+                ),
+            )
+
+        mean_t, var_t = self._mature_moments(sample.expr_tumour, n_t)
+        mean_n, var_n = self._mature_moments(sample.expr_normal, n_n)
+
+        # SE of the intrinsic term f_N (m_T - m_N), treating f_N as fixed.
+        se = sample.frac_mature_normal * float(np.sqrt(var_t / n_t + var_n / n_n))
+        half_width = self.Z * se
+        detectable = abs(
+            sample.frac_mature_normal * (self.DETECTABLE_SHIFT - 1.0) * sample.mean_normal
+        )
+
+        if not np.isfinite(half_width) or half_width > detectable:
+            return MethodOutput(
+                compositional=compositional,
+                intrinsic=None,
+                estimability="not_estimable",
+                refused=True,
+                refusal_reason=(
+                    f"half-width {half_width:.4g} exceeds the detectable effect "
+                    f"{detectable:.4g}; the interval cannot resolve a halving"
+                ),
+            )
+
+        d = decompose(
+            sample.frac_mature_normal,
+            sample.frac_mature_tumour,
+            sample.mean_normal,
+            sample.mean_tumour,
+            n_cells_mature=n_t,
+            weighting=weighting,
+        )
+        return MethodOutput(d.compositional, d.intrinsic, estimability="ok")
+
+
 # ---------------------------------------------------------------------------
 # What the literature actually does
 # ---------------------------------------------------------------------------
@@ -252,6 +351,7 @@ class CacoaMethod(DecompositionMethod):
 DEFAULT_METHODS: tuple[DecompositionMethod, ...] = (
     KitagawaPositivityMethod(),
     KitagawaNoGateMethod(),
+    VarianceGateKitagawaMethod(),
     NaiveDeltaMeanMethod(),
     PseudobulkDEMethod(),
     CompositionOnlyMethod(),

@@ -42,7 +42,8 @@ Five methods run; a sixth is reported as skipped.
 
 | method | can refuse | returned a number | **false confidence** | median \|intrinsic\| invented |
 |---|---|---|---|---|
-| `kitagawa+positivity` (ours) | yes | 0 / 200 | **0.00** | — (refused all 200) |
+| `kitagawa+positivity` (ours, count gate) | yes | 0 / 200 | **0.00** | — (refused all 200) |
+| `kitagawa+variance-gate` (width gate) | yes | 0 / 200 | **0.00** | — (refused all 200) |
 | `composition-only` | no | 0 / 200 | **0.00** | — (*no intrinsic arm at all*) |
 | `kitagawa-no-gate` | no | 200 / 200 | **1.00** | 7.99 |
 | `pseudobulk-de` | no | 200 / 200 | **1.00** | 7.99 |
@@ -69,24 +70,62 @@ scored where the estimand **does** exist and a real intrinsic effect is present:
 
 | method | detection rate | median abs error | median signed error |
 |---|---|---|---|
-| `kitagawa-no-gate` | 1.000 | 0.122 | +0.017 |
-| `kitagawa+positivity` (ours) | **0.853** | **0.111** | +0.007 |
+| `kitagawa+variance-gate` | **1.000** | 0.122 | −0.005 |
+| `kitagawa-no-gate` | 1.000 | 0.122 | −0.005 |
+| `kitagawa+positivity` (ours) | 0.853 | **0.111** | −0.002 |
 | `pseudobulk-de` | 1.000 | 3.435 | −3.435 |
 | `naive-delta-mean` | 1.000 | 6.329 | −6.329 |
 | `composition-only` | 0.000 | — | — |
 
-**The trade is 14.7% of detections for 100% of the false confidence.** The gate
-declines to answer in 88 of 600 cases where an answer was available — all of them
-in the `depleted_wide` regime, ~20 mature cells, right at the cutpoint.
+**Our count gate trades 14.7% of detections for 100% of the false confidence.**
+It declines to answer in 88 of 600 cases where an answer was available — all of
+them in the `depleted_wide` regime, ~20 mature cells, right at the cutpoint. Its
+median absolute error is *slightly lower* where it does answer (0.111 vs 0.122),
+but that is a selection effect, not an accuracy gain: the cases it drops are the
+noisy low-n ones.
 
-And the gate does not cost accuracy where it does answer: median absolute error
-is *slightly lower* with the gate (0.111 vs 0.122), because the cases it drops
-are the noisy low-n ones.
+**The width gate buys the same refusal for free**, and this is the result that
+went against our expectation. `kitagawa+variance-gate` is the same arithmetic
+behind a different primitive — abstain when the 95% half-width on the intrinsic
+term exceeds the detectable effect the design document names — and it scores
+0.00 false confidence *and* a detection rate of 1.000.
 
 `naive-delta-mean` and `pseudobulk-de` are biased by −6.33 and −3.43 because they
 never standardise: they report compositional loss as silencing. That is a
 different failure from false confidence and is included so the two are not
 conflated.
+
+## Result 3 — the count cutpoint is not what does the work
+
+Per-world refusals, the three gated/ungated variants of identical arithmetic:
+
+| world | ours (count) | width gate | ablation (no gate) |
+|---|---|---|---|
+| `annihilated` (estimand undefined) | **200 / 200** | **200 / 200** | 0 / 200 |
+| `depleted_wide` (~20 mature cells) | **88 / 200** | 0 / 200 | 0 / 200 |
+| all four other worlds | 0 | 0 | 0 |
+
+The width criterion **never binds on this benchmark**. In `depleted_wide` the
+widest interval across 200 replicates is 1.081 against a detectable effect of
+3.967 — a factor of 3.7 clear — so the width gate reduces to its *finiteness
+guard*, and that guard alone is enough to score 0.00 false confidence.
+
+**Read plainly: on this benchmark the only part of any gate that does work is
+the check that the estimand exists at all.** Our count cutpoint's extra 88
+refusals in the ~20-cell regime buy nothing measurable here. That is evidence
+against the specific primitive we committed to, and it converges with the
+independent finding that calibrating the cutpoint does not return the committed
+value of 50.
+
+**The finiteness guard is the load-bearing line, and it is easy to omit.** With
+no mature tumour cell the SE is undefined, and `nan > threshold` is `False` in
+numpy and pandas — so a width gate written the obvious way *silently declines to
+abstain* in exactly the world the estimand does not exist. Ours checks
+finiteness before comparing (`competitors.py`,
+`VarianceGateKitagawaMethod.fit`), which makes this competitor stronger than the
+version most people would write. That is the same NaN coercion this project
+found inside its own calibration routine, arriving here as a boolean in a
+comparison rather than a number in a column.
 
 ## Why the ablation is the load-bearing comparison
 
@@ -113,6 +152,13 @@ context showing the ungated behaviour is what the field does.
 4. **The cutpoint is not this benchmark's.** `n < 20` comes from
    `harness.positivity.CUTPOINTS`, the project's own pre-committed rule, so our
    method is scored against a threshold chosen before this benchmark existed —
-   but it is still *our* threshold, and 0.835 would move if it moved.
+   but it is still *our* threshold, and 0.853 would move if it moved.
 5. **One estimand.** Only the intrinsic term's estimability is tested. The
    compositional arm has its own degeneracy problem, which this does not touch.
+6. **Result 3 is a statement about this benchmark's regimes, not about count
+   rules in general.** The width criterion fails to bind here partly because the
+   detectable effect the design names — a halving of per-cell output — is large
+   relative to the sampling error at 2,000 cells per arm. A smaller detectable
+   effect, or a heavier-tailed expression model than Poisson, would move the
+   binding point. What survives regardless is that the finiteness guard, not the
+   threshold, is what catches the undefined estimand.
