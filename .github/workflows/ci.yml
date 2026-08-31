@@ -22,7 +22,7 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Lint
-        run: ruff check src tests
+        run: ruff check src tests submission
 
       - name: Test
         # Enforces CLAUDE.md invariants 1, 2, 3, 5 and 10. A red build here means

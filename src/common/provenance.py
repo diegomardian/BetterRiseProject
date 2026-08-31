@@ -38,10 +38,71 @@ def git_sha() -> str:
     return _git("rev-parse", "HEAD") or "unknown"
 
 
+#: Untracked paths that never make a tree dirty.
+#:
+#: Caches and editor droppings, plus ``results/`` — and that last one is a real
+#: exemption rather than an oversight. This guard exists to catch untracked
+#: *code*: a producing script the recorded sha does not contain. A results table
+#: is the output being stamped, and every committed result passed through an
+#: untracked state on its way in, so a job writing two tables would otherwise
+#: refuse its own second write. A guard that fires on the thing it is meant to
+#: certify gets switched off, and then it is not a guard.
+_IGNORABLE_UNTRACKED: tuple[str, ...] = (
+    ".DS_Store",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    "results",
+)
+
+
+def _is_ignorable(path: str) -> bool:
+    """Whether an untracked path is exempt.
+
+    Matched on whole path *components*, not as a substring: ``results`` must not
+    exempt ``my_results_script.py``. A loose match here would quietly widen the
+    exemption every time somebody named a file conveniently.
+    """
+    return any(part in _IGNORABLE_UNTRACKED for part in path.split("/"))
+
+
+def untracked_files() -> list[str]:
+    """Untracked paths git can see, minus caches and editor droppings.
+
+    Separate from ``git_is_dirty`` so the sidecar can *name* them. A table
+    stamped with a clean sha whose producing script is untracked is the failure
+    this exists to make visible: the sha points at a commit that does not
+    contain the code that ran.
+    """
+    status = _git("status", "--porcelain", "--untracked-files=all")
+    if not status:
+        return []
+    out = []
+    for line in status.splitlines():
+        # Porcelain v1: two status columns, a space, then the path.
+        if line[:2] != "??":
+            continue
+        path = line[3:].strip().strip('"')
+        if not _is_ignorable(path):
+            out.append(path)
+    return sorted(out)
+
+
 def git_is_dirty() -> bool:
-    """True if tracked files differ from HEAD. Unknown git state counts as dirty."""
+    """True if the working tree differs from HEAD, untracked files included.
+
+    Untracked counts. This check used to pass ``--untracked-files=no``, so a
+    table produced by a script that was never committed recorded a *clean* sha
+    pointing at a commit that did not contain the script. Three results reached
+    an internal report that way. The sha is a claim that the commit reproduces
+    the table; an untracked producer falsifies it.
+
+    Unknown git state counts as dirty.
+    """
     status = _git("status", "--porcelain", "--untracked-files=no")
-    return True if status is None else bool(status)
+    if status is None:
+        return True
+    return bool(status) or bool(untracked_files())
 
 
 def git_branch() -> str:
@@ -114,6 +175,7 @@ def provenance_record(*, seed: int, notes: str | None = None) -> dict[str, Any]:
         "git_sha_short": sha[:7],
         "git_branch": git_branch(),
         "git_dirty": git_is_dirty(),
+        "git_untracked": untracked_files(),
         "seed": int(seed),
         "python": sys.version.split()[0],
         "platform": platform.platform(),
