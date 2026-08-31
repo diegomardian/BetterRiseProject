@@ -49,11 +49,20 @@ item 3, and re-deriving the number is why the module is here.
 
 ## Before submitting
 
-- [ ] **Fill in `\artifacturl` in `main.tex`.** §5 promises a code release and
-      the submission is double-blind, so it must be an anonymising mirror
-      (`anonymous.4open.science`), never `github.com/...`. Until you do,
-      `./check_anonymity.sh` fails and the placeholder renders **in red** in
+- [ ] **Build and publish the artifact, then fill in `\artifacturl`.**
+      Run `./make_artifact.sh` — it produces an anonymised copy and verifies it.
+      Publishing is yours: anonymous.4open.science, or a fresh repo with no
+      history. Then paste the URL into `\artifacturl` in `main.tex`. Until you
+      do, `./check_anonymity.sh` fails and the placeholder renders **in red** in
       the PDF, so it cannot ship unnoticed.
+
+      The repository de-anonymises three ways, and only the third is obvious:
+      **git history** carries six committer identities, two on an institutional
+      domain — an affiliation in an email address survives every scrub that only
+      edits files, which is why the artifact ships without `.git`;
+      `.github/CODEOWNERS` names a GitHub handle seven times; and
+      `CONTRIBUTING.md` carries the clone URL. `make_artifact.sh` handles all
+      three and refuses to pass if any survives.
 - [ ] **Run `./check_anonymity.sh` after the final build.** It greps the
       sources *and* the built PDF for identifying strings, checks the PDF
       metadata, and fails on the unfilled placeholder. Exit 0 means safe.
@@ -88,5 +97,6 @@ make_fig1.py            Figure 1
 make_fig3.py            Figure 2
 _tables.py              resolves a result table by name
 check_anonymity.sh      double-blind guard; run before the final build
+make_artifact.sh        builds the anonymised code release §5 promises
 PATCHES.md              working record of corrections, with what is still open
 ```
