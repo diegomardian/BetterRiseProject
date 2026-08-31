@@ -16,6 +16,7 @@ from src.bulk.prespec import (
     PRESPEC_PATH,
     PrespecError,
     load_prespec,
+    matched_null_genes,
     outcome_genes,
     positive_control_gates_the_analysis,
     prediction,
@@ -71,17 +72,53 @@ def test_every_prediction_arm_says_what_would_disconfirm_it(spec, arm):
     assert text, f"{arm} has an empty disconfirmed_if"
 
 
-def test_the_primary_prediction_is_directional_not_thresholded(spec):
-    """Direction only, so the result does not hinge on an invented number."""
+def test_the_primary_names_both_genes_and_the_matched_null(spec):
     statement = prediction(spec, "primary")["statement"]
-    assert "<" in statement
     assert "GUCA2A" in statement and "CDX2" in statement
+    assert "matched null" in statement.lower()
+    assert "percentile" in statement.lower()
 
 
-def test_the_secondary_prediction_commits_to_a_number(spec):
-    """So the primary cannot be satisfied trivially by both being near zero."""
-    assert "0.25" in prediction(spec, "secondary")["statement"]
-    assert "0.50" in prediction(spec, "secondary")["disconfirmed_if"]
+def test_the_primary_declares_the_indeterminate_case(spec):
+    """Both above or neither above must not be resolved toward either arm."""
+    text = prediction(spec, "primary")["disconfirmed_if"].lower()
+    assert "indeterminate" in text
+    assert "both" in text and "neither" in text
+
+
+def test_neither_arm_compares_a_raw_r_squared(spec):
+    """Issue #54: R-squared is a share of variance, so at the assay floor it
+    measures abundance rather than biology. Both arms must be expressed as a
+    percentile within, or excess over, the abundance-matched null."""
+    for arm in ("primary", "secondary"):
+        statement = prediction(spec, arm)["statement"].lower()
+        if "r-squared" in statement:
+            assert "percentile" in statement or "excess" in statement, arm
+
+
+def test_reintroducing_a_raw_r_squared_arm_fails_to_load(tmp_path):
+    """The guard that stops #54's defect being undone by a later edit."""
+    raw = yaml.safe_load(PRESPEC_PATH.read_text(encoding="utf-8"))
+    raw["prediction"]["primary"]["statement"] = (
+        "R-squared(GUCA2A ~ fraction) < R-squared(CDX2 ~ fraction)."
+    )
+    path = tmp_path / "regressed.yaml"
+    path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    with pytest.raises(PrespecError, match="confounded with abundance"):
+        load_prespec(path)
+
+
+def test_the_withdrawn_arms_are_kept_with_their_reasons(spec):
+    """#54 was raised on the #50 review and not addressed before it merged. The
+    record of what was withdrawn and why travels with the file, so the same
+    statistic is not re-proposed."""
+    withdrawn = spec["prediction"]["withdrawn_arms"]
+    assert len(withdrawn) >= 3
+    for arm in withdrawn:
+        assert arm["why"].strip()
+        assert arm["withdrawn"].strip()
+    statements = " ".join(a["statement"] for a in withdrawn)
+    assert "slope" in statements  # the alternative, tested and rejected
 
 
 def test_an_arm_with_no_disconfirming_condition_fails_to_load(tmp_path):
@@ -118,10 +155,32 @@ def test_the_positive_control_does_not_use_a_panel_gene(spec):
     assert "purity" in text.lower()
 
 
-def test_a_negative_control_is_named_with_a_threshold(spec):
-    negative = spec["instrument_checks"]["negative_control"]
+def test_the_high_abundance_negative_control_names_its_own_gap(spec):
+    """ACTB and GAPDH test the top of the range. #54's point is that the floor
+    is where the confound lives, and this check must say it does not cover it."""
+    negative = spec["instrument_checks"]["negative_control_high_abundance"]
     assert negative["genes"]
     assert "0.10" in negative["statement"]
+    assert "floor" in negative["known_gap"].lower()
+
+
+def test_a_low_abundance_negative_control_exists(spec):
+    """Issue #54's actual ask. Drawn by rule rather than named, so it cannot be
+    chosen after seeing the result."""
+    low = spec["instrument_checks"]["negative_control_low_abundance"]
+    assert low["genes"] is None, "must be drawn by rule, not hand-picked"
+    assert "abundance-matched" in low["statement"].lower()
+    assert low["on_failure"].strip()
+
+
+def test_the_matched_null_rule_is_fully_committed(spec):
+    """Every parameter that could be tuned after the fact is in the file."""
+    null = spec["matched_null"]
+    for key in ("abundance_window_log2", "min_detection_rate"):
+        assert key in null["candidates"], key
+    assert isinstance(null["max_genes"], int)
+    assert isinstance(null["seed"], int)
+    assert null["honest_limitation"].strip()
 
 
 # ---------------------------------------------------------------------------
@@ -176,3 +235,91 @@ def test_the_file_is_valid_yaml_and_round_trips():
     text = PRESPEC_PATH.read_text(encoding="utf-8")
     assert yaml.safe_dump(yaml.safe_load(text))
     assert textwrap.dedent(text).strip()
+
+
+# ---------------------------------------------------------------------------
+# The matched-null draw — issue #54's fix, as code rather than prose
+# ---------------------------------------------------------------------------
+
+
+def _toy(n_genes=400, n_samples=60):
+    """Genes spread across abundance, plus a couple of named panel genes."""
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(0)
+    ids = [f"ENSG{i:08d}" for i in range(n_genes)]
+    levels = np.linspace(0.5, 12.0, n_genes)
+    x = pd.DataFrame(
+        rng.normal(levels, 0.05, size=(n_samples, n_genes)).clip(0),
+        columns=ids,
+    )
+    index_map = pd.DataFrame(
+        {
+            "gene_symbol": [f"SYM{i}" for i in range(n_genes)],
+            "on_panel": ["False"] * n_genes,
+        },
+        index=pd.Index(ids, name="ensembl_id"),
+    )
+    return x, index_map, ids
+
+
+def test_the_null_is_drawn_at_the_targets_abundance(spec):
+    x, index_map, ids = _toy()
+    target = ids[200]
+    drawn = matched_null_genes(x, index_map, target, spec)
+    window = spec["matched_null"]["candidates"]["abundance_window_log2"]
+    med = x.median(axis=0)
+    assert drawn
+    assert (med[drawn] - med[target]).abs().max() <= window + 1e-9
+
+
+def test_the_target_is_never_in_its_own_null(spec):
+    x, index_map, ids = _toy()
+    assert ids[200] not in matched_null_genes(x, index_map, ids[200], spec)
+
+
+def test_panel_genes_are_excluded_from_the_null(spec):
+    """They are the outcome variables. A panel gene in the null would put the
+    thing being measured into what it is measured against."""
+    x, index_map, ids = _toy()
+    target = ids[200]
+    neighbour = ids[201]
+    index_map.loc[neighbour, "on_panel"] = "True"
+    assert neighbour not in matched_null_genes(x, index_map, target, spec)
+
+
+def test_the_draw_is_deterministic_under_the_committed_seed(spec):
+    """Invariant 10's spirit: the same input gives the same null, and the seed
+    is in the config rather than chosen at run time."""
+    x, index_map, ids = _toy()
+    first = matched_null_genes(x, index_map, ids[200], spec)
+    second = matched_null_genes(x, index_map, ids[200], spec)
+    assert first == second
+
+
+def test_the_null_is_capped_at_the_committed_size(spec):
+    x, index_map, ids = _toy(n_genes=4000)
+    drawn = matched_null_genes(x, index_map, ids[2000], spec)
+    assert len(drawn) <= spec["matched_null"]["max_genes"]
+
+
+def test_no_matched_candidates_raises_rather_than_widening_the_window(spec):
+    """Widening it after seeing that nothing qualified is a change to the
+    pre-specification, not a run-time decision."""
+    import pandas as pd
+
+    x, index_map, _ = _toy(n_genes=3)
+    x = pd.DataFrame({"ENSG00000000": [1.0] * 5, "ENSG00000001": [40.0] * 5})
+    index_map = pd.DataFrame(
+        {"gene_symbol": ["A", "B"], "on_panel": ["False", "False"]},
+        index=pd.Index(["ENSG00000000", "ENSG00000001"], name="ensembl_id"),
+    )
+    with pytest.raises(PrespecError, match="Widening the window"):
+        matched_null_genes(x, index_map, "ENSG00000000", spec)
+
+
+def test_a_target_absent_from_the_matrix_is_a_loud_failure(spec):
+    x, index_map, _ = _toy()
+    with pytest.raises(PrespecError, match="not in the expression matrix"):
+        matched_null_genes(x, index_map, "ENSG99999999", spec)

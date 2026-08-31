@@ -3112,14 +3112,19 @@ failure is the errors that look right — five withdrawn guards and counting —
 those need someone whose job is to disagree.
 
 Recorded in CONTRIBUTING §6 alongside the clean-venv check.
-## 23 · Stage 4's variance question, pre-specified before it runs — PROPOSED
+## 26 · Stage 4's variance question, pre-specified before it runs — PROPOSED, AMENDED
 
 **Raised:** W3, 2026-08-28, from PR #49 · **Owner:** W3 (team confirms) ·
 **Needed by:** before the S matrices are rebuilt and Stage 4 runs
 
-Numbered **23** because #9 through #17 each currently mean two different things
-on `main` — see the warning at the top of this file. Picking the next free
-number rather than the next number.
+**Renumbered 23 → 26 on 2026-08-30.** It was filed as #23 on the 28th, picking
+what was then the next free number specifically to avoid a collision. W2 landed
+a different #23 — "G4 is ANSWERED and G1 should be WITHDRAWN" — while this PR
+was open, so the attempt failed. That is now **ten** colliding numbers (#9–#17
+and #23), and it demonstrates the point better than the warning does: picking a
+free number is not enough when two people pick concurrently. The collision list
+at the top of this file still has no owner, and this entry is evidence that
+per-author number ranges or a monotonic counter is now worth ten minutes.
 
 [`config/stage4_prespecification.yaml`](../config/stage4_prespecification.yaml),
 committed `status: proposed`.
@@ -3183,6 +3188,50 @@ GSE39582 can carry a deconvolution at all.
 It also carries #42 and #49 forward: the granularity curve has **three** distinct
 points rather than four, and any rung marked unquotable for the decomposition is
 unquotable here too.
+
+### Amended 2026-08-30, before locking — issue #54
+
+W1 raised this on the #50 review and it was **not addressed before #50 merged**.
+Re-filed as [#54](https://github.com/diegomardian/BetterRiseProject/issues/54)
+because the window closes at the lock commit. The objection is correct and both
+original prediction arms are withdrawn.
+
+**R-squared is a share of variance, so a gene near the assay floor loses it to
+measurement noise whatever its biology.** GUCA2A sits at 1.40% of normal and
+CDX2 at 94.7% — a ~68-fold difference in dynamic range against a common noise
+floor — so the original arms compared abundance, not biology.
+
+Reproduced independently before acting. Simulated with **both genes purely
+compositional**, differing only in level, sweeping the assay floor:
+
+| floor sd | GUCA2A-like R² | CDX2-like R² | GUCA2A-like slope | CDX2-like slope |
+|---|---|---|---|---|
+| 0.05 | 0.891 | 0.871 | 0.742 | 0.989 |
+| 1.00 | 0.705 | 0.862 | 0.739 | 1.000 |
+| 5.00 | 0.129 | 0.867 | 0.523 | 1.009 |
+| 20.0 | 0.000 | 0.842 | 0.023 | 1.010 |
+
+Both original arms are satisfied at floor sd >= 2 on data with **no intrinsic
+component anywhere**. Worse, the severity depends on a noise parameter nobody
+knows in advance, so the 0.25 threshold could not have been given a meaning
+before the run.
+
+**#54's fallback suggestion — a log-log slope, as scale-free — was tested and is
+also confounded** (right-hand columns). It is recorded in the config's
+`withdrawn_arms` so nobody re-proposes it.
+
+**The fix, which is #54's preferred one generalised:** an abundance-matched null.
+For each outcome gene, draw non-panel genes at the same tumour expression level
+by a committed algorithmic rule, and judge that gene's R-squared by its
+**percentile within that null** rather than by its raw value or against another
+gene. Same excess-over-null idiom W3.4 used for Cramer's V and PVCA.
+
+A distribution rather than one matched control gene: a single control is a point
+estimate of a noisy quantity, and drawing 200 costs nothing. Measured feasible
+on real data — GUCA2A has 769 qualifying candidates in TCGA, CDX2 has 191.
+
+`load_prespec` now **refuses to load** an arm that states a raw R-squared without
+a percentile or excess, so the defect cannot be reintroduced by a later edit.
 
 ### To lock it
 
