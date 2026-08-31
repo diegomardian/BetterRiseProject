@@ -49,14 +49,21 @@ item 3, and re-deriving the number is why the module is here.
 
 ## Before submitting
 
-- [ ] **Anonymise any code link.** The repository is not anonymous. A
-      double-blind submission needs `anonymous.4open.science` or equivalent;
-      §5 promises a code release, so this is load-bearing.
+- [ ] **Fill in `\artifacturl` in `main.tex`.** §5 promises a code release and
+      the submission is double-blind, so it must be an anonymising mirror
+      (`anonymous.4open.science`), never `github.com/...`. Until you do,
+      `./check_anonymity.sh` fails and the placeholder renders **in red** in
+      the PDF, so it cannot ship unnoticed.
+- [ ] **Run `./check_anonymity.sh` after the final build.** It greps the
+      sources *and* the built PDF for identifying strings, checks the PDF
+      metadata, and fails on the unfilled placeholder. Exit 0 means safe.
 - [ ] Rebuild both figures from freshly written tables and confirm the captions
       still match what the tables say.
 - [ ] `grep -c 'undefined' main.log` returns 0 after a full four-pass build.
-- [ ] Verify the `petukhov2022` (cacoa) venue in `refs.bib` — it moved off
-      bioRxiv and the entry is not confirmed.
+- [x] ~~Verify the `petukhov2022` (cacoa) venue.~~ Done 2026-08-31: cacoa is
+      still a preprint, no journal version exists, so the bioRxiv entry is
+      correct. All eight added entries were checked against the publishers'
+      own records — see the header of `refs.bib`.
 - [ ] Decide full paper (9pp) vs extended abstract (4pp). The section order was
       chosen so the first four pages stand alone: §1-§3 carry the headline
       result, the general form, the venue instantiation and Figure 1. A 4-page
@@ -80,5 +87,6 @@ refs.bib                bibliography
 make_fig1.py            Figure 1
 make_fig3.py            Figure 2
 _tables.py              resolves a result table by name
+check_anonymity.sh      double-blind guard; run before the final build
 PATCHES.md              working record of corrections, with what is still open
 ```

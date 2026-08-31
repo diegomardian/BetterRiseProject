@@ -16,16 +16,31 @@
 > H1b (Figure 1 regenerated; the `ok = 120` annotation is gone) ·
 > H2 (bench re-run from a committed tree).
 >
+> **Bibliography verified 2026-08-31.** All eight added entries checked against
+> the publishers' own records — author order, title, venue, volume, issue, pages.
+> All correct as written. cacoa was the flagged one: still a preprint, so the
+> bioRxiv entry is right rather than stale.
+>
 > **Also landed, beyond the patch list:** the sweep behind Figure 1 is now
 > committed as `src/harness/calibration_gap.py` and reproduces the previously
 > published tables exactly; the provenance check counts untracked files and
 > names them in the sidecar, with a regression test that fails against the old
 > version; Appendix Fig. 2 has a table and a `make_fig3.py` behind it.
 >
-> **Still open.** G2 (cut three of the five Appendix A items) · G3 (the
-> abstention figure is gone; nothing references it) · the two §4 defects remain
-> live *by choice* and the appendix says so · anonymise any code link before
-> submitting · verify the cacoa citation venue · full paper vs 4-page abstract.
+> **G2 — checked, and the premise had already changed.** G2 says cut three of
+> five Appendix A items. The list is already down to three: the two "ordinary
+> implementation errors" were cut before this pass. Of the three left, G2
+> explicitly says *keep* items 1 and 2, and item 3 (the provenance stamp) is now
+> the one defect in the paper that is closed — fixed, regression-tested, and the
+> reason §3's numbers could be re-derived. Cutting three would delete everything
+> G2 wanted kept. Did what the cut was *for* instead: replaced the defensive
+> framing ("we record them because they circulated internally") with what the
+> reader gets, and corrected the count in `withdrawn.tex` — three items are
+> described, two are named and not described.
+>
+> **Still open.** G3 (the abstention figure is gone; nothing references it) · the
+> two §4 defects remain live *by choice* and the appendix says so · fill in
+> `\artifacturl` and run `check_anonymity.sh` · full paper vs 4-page abstract.
 
 
 `main.tex` is edited and complete. These are the changes I could not make because

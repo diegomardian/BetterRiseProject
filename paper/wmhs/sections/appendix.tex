@@ -2,13 +2,14 @@
 \section{The withdrawn guards}
 \label{app:withdrawn}
 
-These fail the test the paper applies throughout. A different group writing
-correct code would not meet them. We record them because they circulated
-internally, not because they are findings. Two further entries --- a leakage
-guard checked against a symbol list that could not contain the identifiers under
-comparison, and an acceptance test comparing gene symbols against Ensembl
-identifiers over an empty intersection --- were ordinary implementation errors
-and are omitted.
+Three defects, recorded because each one survived ordinary review and because
+the first two are this paper's argument in a third and fourth instance: a
+statistic computed over a population nobody chose, and a check that could not
+fail. Two further entries --- a leakage guard checked against a symbol list that
+could not contain the identifiers under comparison, and an acceptance test
+comparing gene symbols against Ensembl identifiers over an empty intersection ---
+were ordinary implementation errors with nothing to learn from, and are named
+here rather than described.
 
 \begin{enumerate}\itemsep3pt
 \item \textbf{A de-duplication that collapsed two population definitions.} A
@@ -54,11 +55,12 @@ sidecar names them, so the gap sits beside the hash rather than waiting to be
 reconstructed from commit timestamps.
 \end{enumerate}
 
-Items 1 and 2 are one failure twice over, a statistic computed over a population
-nobody chose. Someone trying to prevent exactly that failure wrote both. Neither
-felt wrong, and both survived ordinary review. Item 3 is why
-\S\ref{sec:calibration}'s numbers are re-derived here from a committed, seeded
-table rather than quoted from the report that first carried them.
+Items 1 and 2 are one failure twice over. Someone trying to prevent exactly that
+failure wrote both; neither felt wrong, and both survived ordinary review. Item 3
+is why \S\ref{sec:calibration}'s numbers are re-derived here from a committed,
+seeded table rather than quoted from the report that first carried them --- and
+it is the one defect in this paper that is now closed, with the sweep committed
+and the check tested against the input it used to pass.
 
 \paragraph{What is and is not fixed.} Three guards carry regression tests that
 fail against the version they replace. The width gate's finiteness guard
