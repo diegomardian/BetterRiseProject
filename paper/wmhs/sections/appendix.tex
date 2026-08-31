@@ -117,21 +117,25 @@ generator whose realised summary statistics the estimator does not receive.
 \centering
 \includegraphics[width=\linewidth]{figures/fig3_generator_statistic.pdf}
 \caption{Ratio of recovered to true intrinsic effect, median and IQR over 50
-replicates, for both draw pools. An earlier internal report used this curve to
+replicates at the detectable effect, for both draw pools. An earlier internal report used this curve to
 conclude the committed cutpoint was ``validated on real cells''. The curve
 behaves well wherever the rule says ``estimate'', and on this arm carries no
 information about the estimator. The single-cell estimate applies
 \texttt{decompose()} to the sweep's own realised summary statistics and
 reproduces them exactly, with
-$\max|\hat{\imath} - i_{\text{realised}}| = 0$ over all 4{,}400 rows, leaving the
-ratio equal to $i_{\text{realised}}/i_{\text{parametric}}$. The statistic still
+$\max|\hat{\imath} - i_{\text{realised}}| = 0$ over all 119{,}600 oracle rows,
+leaving the ratio equal to
+$i_{\text{realised}}/i_{\text{parametric}}$. A further 29{,}900 rows carry no
+ratio at all: at $s = 1$ the parametric intrinsic term is exactly zero, so the
+design's own null control is the one point where this validation statistic
+cannot be evaluated. The statistic still
 discriminates an estimator failing to reproduce its input, and the design
 document ships a broken-estimator control returning $0.0$ for which the ratio
 comes out zero. The oracle arm by construction is not such an estimator, so
 validating it here is circular. The value at the abstention point, read at the
-time as a two-fold over-estimate in the dangerous direction, is $1/(1-s)$ scaled
-by the realised-over-parametric mature fraction, $481/480$, with zero variance
-across replicates.}
+time as a two-fold over-estimate in the dangerous direction, is exactly
+$1/(1-s)$: the realised and requested mature fractions agree there, so the
+closed form carries no scale factor.}
 \label{fig:generator}
 \end{figure}
 

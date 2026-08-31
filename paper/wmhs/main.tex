@@ -47,7 +47,7 @@ realised truth over requested truth, a property of the generator alone. The
 curve still sits near 1 and still tightens with $n$, so it looks like a
 validated estimator. One line detects it --- compare against the \emph{realised}
 truth and test whether the difference is identically zero. Ours was, across
-4{,}400 runs. What that curve certified was a selective-prediction rule for a
+119{,}600 runs. What that curve certified was a selective-prediction rule for a
 cell-type-resolved measurement: a standardisation decomposition, the identity
 behind target trial emulation, given a third output \notest{} for the case where
 no cell of the relevant type survives and the estimand has no referent. The
@@ -189,14 +189,16 @@ the interval is the whole question. We do not use them there yet.
 An earlier internal report validated the cutpoint on real held-out cells and
 concluded it was sound. The statistic it used was a recovery curve: generate
 samples with known composition and a known shift, run the estimator, plot
-recovered against true. Ours sat between 0.95 and 1.07 wherever the rule said
-``estimate'' (Appendix Fig.~\ref{fig:generator}). That is what a working
-estimator looks like.
+recovered against true. Ours ran between 1.00 and 1.07 wherever the rule said
+``estimate'' on the reference draw --- 0.86 to 1.18 on the pooled one --- and
+tightened with $n$ on both (Appendix Fig.~\ref{fig:generator}). That is what a
+working estimator looks like.
 
 It is also what this one looks like with the estimator divided out. The
 estimator in that arm applies Equation~\ref{eq:kitagawa} to the sample's
 \emph{own} realised summary statistics, so it reproduces them exactly. Across
-all 4{,}400 rows, $\max|\hat{\imath} - i_{\text{realised}}| = 0$. The ratio is
+all 119{,}600 oracle rows of the committed sweep,
+$\max|\hat{\imath} - i_{\text{realised}}| = 0$. The ratio is
 therefore $i_{\text{realised}} / i_{\text{parametric}}$: what the generator drew
 over what it was asked for. The estimator does not appear in it.
 
@@ -220,10 +222,10 @@ condition is a property of the plumbing, not of the model, so it survives code
 review and leaves no trace in the curve. \textbf{One line detects it:} compare
 the estimate against the \emph{realised} truth rather than the parametric truth,
 and assert the difference is not identically zero. Ours was zero everywhere. In
-our case the curve took the closed form $1/(1-s)$ scaled by the
-realised-over-requested mature fraction, with zero variance across all 50
-replicates at each shift --- a constant, read at the time as a two-fold
-over-estimate in the dangerous direction. The statistic is not worthless: it
+our case the curve takes the closed form $1/(1-s)$ exactly at the
+abstention point --- $5.000$, $2.000$ and $1.333$ at the three tested shifts,
+with zero variance across replicates --- a constant, read at the time as a
+two-fold over-estimate in the dangerous direction. The statistic is not worthless: it
 still catches an estimator that fails to reproduce its input, and the design
 ships a broken-estimator control returning $0.0$ for which the ratio comes out
 zero. It simply could not certify the arm it was being used to certify.

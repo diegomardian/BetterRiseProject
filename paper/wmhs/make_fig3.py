@@ -2,8 +2,8 @@
 """Appendix Figure 2 — the recovery curve, and why it carries no estimator.
 
 Every number on the axes comes from
-the newest ``results/<date>_<sha>/calibration_gap_recovery_r500.parquet``, the
-same sweep that produces Figure 1. Nothing is transcribed. Run from the repo root:
+the newest ``results/<date>_<sha>/calibration_gap_recovery.parquet`` (the 50-
+replicate run). Nothing is transcribed. Run from the repo root:
 
     python paper/wmhs/make_fig3.py
 
@@ -24,7 +24,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
-TABLE_NAME = "calibration_gap_recovery_r500"
+TABLE_NAME = "calibration_gap_recovery"
 OUT = Path("paper/wmhs/figures/fig3_generator_statistic.pdf")
 
 DETECTABLE_SHIFT = 0.5
