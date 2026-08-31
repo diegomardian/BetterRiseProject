@@ -1,0 +1,48 @@
+\section{Setup: a decomposition that answers when it should not}
+\label{sec:intro}
+
+A tissue model reports a differentiation marker down 90\% between a patient's
+healthy and diseased sample. Two mechanisms produce that observation and they
+imply different interventions. Either the cells making the marker have left, a
+\emph{compositional} change, or those cells remain and produce less, an
+\emph{intrinsic} change. Bulk measurement cannot separate them. Single-cell
+measurement can, but only where enough of the relevant cells survive in both
+arms. The separating estimator is Kitagawa's demographic standardisation
+\citep{kitagawa1955}. Write $f$ for the fraction of cells of the type in
+question and $m$ for their mean per-cell output:
+\begin{equation}
+\underbrace{(f_T - f_N)\, m_N}_{\text{compositional}} \;+\;
+\underbrace{f_N\, (m_T - m_N)}_{\text{intrinsic}} \;+\;
+\underbrace{(f_T - f_N)(m_T - m_N)}_{\text{interaction}}
+\;=\; f_T m_T - f_N m_N .
+\label{eq:kitagawa}
+\end{equation}
+Economists know this as Oaxaca--Blinder \citep{oaxaca1973,blinder1973},
+epidemiologists as standardisation \citep{kline2011}. The same identity sits
+under synthetic control arms \citep{abadie2010} and target trial emulation
+\citep{hernan2016}. Any system reporting a group-resolved quantity inherits its
+identifiability problem.
+
+The problem is that Equation~\ref{eq:kitagawa} returns a number for any input.
+The intrinsic term is a difference of two means over cells of one type. When the
+diseased arm holds none of those cells, ``mean output per surviving cell of this
+type'' has no referent, and the estimator still returns a number. So our
+estimator returns one of three verdicts: an estimate, a wide-interval estimate,
+or \notest{}, where the term is \texttt{None} and never $0.0$. Zero and ``we did
+not ask'' are values a downstream average cannot tell apart. The rule gating
+those verdicts is a cutpoint on $n$, the count of relevant cells in the diseased
+arm: answer at $n \geq 50$, flag a wide interval from 20 to 49, abstain below 20.
+
+\paragraph{Related work.} Cell-count filters of this shape are standard rather
+than novel. Pseudobulk pipelines drop samples below a minimum cell count
+\citep{crowell2020}, and differential-abundance methods --- scCODA
+\citep{buettner2021}, Milo \citep{dann2022}, propeller \citep{phipson2022},
+DA-seq \citep{zhao2021} --- test composition without an expression arm, so they
+never face this estimand. cacoa \citep{petukhov2022} is closest: it separates
+compositional from expression shifts explicitly. Our claim is not the filter. It
+is that the filter is a selective-prediction rule \citep{chow1970,elyaniv2010,
+geifman2017} and is therefore something you can \emph{calibrate} and get wrong,
+and that it should emit a third verdict rather than silently dropping rows ---
+because a dropped row and a row estimated at zero are indistinguishable
+downstream.
+

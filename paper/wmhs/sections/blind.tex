@@ -1,0 +1,85 @@
+\section{The recovery curve could not see the estimator}
+\label{sec:blind}
+
+An earlier internal report validated the cutpoint on real held-out cells and
+concluded it was sound. The statistic it used was a recovery curve: generate
+samples with known composition and a known shift, run the estimator, plot
+recovered against true. Ours ran between 1.00 and 1.07 wherever the rule said
+``estimate'' on the reference draw --- 0.86 to 1.18 on the pooled one --- and
+tightened with $n$ on both (Appendix Fig.~\ref{fig:generator}). That is what a
+working estimator looks like.
+
+It is also what this one looks like with the estimator divided out. The
+estimator in that arm applies Equation~\ref{eq:kitagawa} to the sample's
+\emph{own} realised summary statistics, so it reproduces them exactly. Across
+all 119{,}600 oracle rows of the committed sweep,
+$\max|\hat{\imath} - i_{\text{realised}}| = 0$. The ratio is therefore
+$i_{\text{realised}} / i_{\text{parametric}}$: what the generator drew over what
+it was asked for. The estimator does not appear in it.
+
+\paragraph{The general form.} Let $\theta$ be the parameter a simulator is asked
+for, $\theta_{\text{realised}}$ the value the draw actually took --- which
+differs from $\theta$ by sampling alone --- and $\hat\theta$ the estimator's
+output. A recovery curve plots $\hat\theta / \theta$. Now suppose the estimator
+is a deterministic function of the same sufficient statistics the generator used
+to construct the draw. Then $\hat\theta = \theta_{\text{realised}}$
+\emph{identically}, not approximately, and
+\[
+\frac{\hat\theta}{\theta} \;=\; \frac{\theta_{\text{realised}}}{\theta},
+\]
+in which the estimator does not appear. The curve is a diagnostic of the
+generator's sampling behaviour. It will sit near 1, tighten with $n$, and look
+exactly like a validated estimator, because sampling error does shrink with $n$
+--- and it would do all of that if the estimator were replaced by any other
+estimator with the same property.
+
+The condition is not that the estimator is wrong, and not that it is right. It
+is that the estimator and the generator share sufficient statistics. That is a
+property of the plumbing rather than of the model, so it survives code review,
+leaves no trace in the curve, and does not announce itself in any residual.
+
+\paragraph{Why this is the default, not an exotic case.} Oracle arms exist
+precisely so the estimator sees clean inputs, and the cleanest available input is
+the summary the generator just computed. Wiring the estimator to the generator's
+own stratum means is the shortest path to an arm that runs, and it is the first
+arm most pipelines get.
+
+\paragraph{What this looks like in a trial simulator.} Nothing above is about
+cells. Take an external control arm drawn from a patient simulator: the generator
+samples covariates, assigns outcomes with a specified mean per stratum, and you
+ask it for a treatment effect $\theta$. You estimate that effect by
+standardisation over the same strata --- G-computation, which is
+Equation~\ref{eq:kitagawa}'s identity under another name, and the estimator that
+target trial emulation \citep{hernan2016} rests on. If the estimator standardises over
+the strata the generator sampled within, weighting the stratum means the draw
+\emph{realised}, it returns $\theta_{\text{realised}}$ and the recovery curve is
+the generator's sampling error and nothing else. It will sit near 1, tighten with
+cohort size, and certify nothing about the estimator. The same holds whenever a
+virtual control arm's outcome model \emph{is} the generator's outcome model,
+which is the natural first thing to build and the natural first thing to
+validate this way.
+
+What breaks the degeneracy is not a better plot. It is an arm in which the
+estimator sees only what an analyst would see --- patient records, not the
+generator's parameters --- and does something the generator did not: fits a
+propensity model, smooths, handles censoring, or is misspecified on purpose.
+Then $\hat\theta \neq \theta_{\text{realised}}$ and the curve carries information
+about the estimator again.
+
+\paragraph{The one-line check.} Compare the estimate against the \emph{realised}
+truth rather than the parametric truth, and test whether the difference is
+identically zero:
+\begin{center}
+\texttt{assert not np.allclose(est - truth\_realised, 0.0)}
+\end{center}
+If it is zero, the recovery curve cannot see the estimator, and the arm needs a
+generator whose realised summary statistics the estimator does not receive.
+Ours was zero everywhere. In our case the curve takes the closed form $1/(1-s)$
+exactly at the abstention point --- $5.000$, $2.000$ and $1.333$ at the three
+tested shifts, with zero variance across replicates --- a constant, read at the
+time as a two-fold over-estimate in the dangerous direction.
+
+The statistic is not worthless: it still catches an estimator that fails to
+reproduce its input, and the design ships a broken-estimator control returning
+$0.0$ for which the ratio comes out zero. It simply could not certify the arm it
+was being used to certify.

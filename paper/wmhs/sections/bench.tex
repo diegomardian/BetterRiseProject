@@ -1,0 +1,80 @@
+\section{What abstention buys, and which part of it}
+\label{sec:bench}
+
+We measured what alternatives do where the estimand does not exist, on synthetic
+cells whose truth is available in closed form (Appendix~\ref{app:bench}). Mature
+cells draw Poisson; immature cells express nothing; one world sets the diseased
+mature fraction to zero.
+
+\begin{table}[h]
+\small
+\centering
+\caption{Per-world refusals over 200 replicates, for three variants of identical
+arithmetic, plus what the ungated variants invent. The width gate abstains when
+the 95\% half-width on the intrinsic term exceeds the detectable effect the
+design document names; both gates take their parameters from that same document.}
+\label{tab:bench}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+& \textbf{count gate (ours)} & \textbf{width gate} & \textbf{no gate} \\
+\midrule
+\texttt{annihilated} --- estimand undefined & $200/200$ & $200/200$ & $0/200$ \\
+\texttt{depleted\_wide} --- $\sim$20 mature cells & $88/200$ & $0/200$ & $0/200$ \\
+four other worlds & 0 & 0 & 0 \\
+\midrule
+false confidence & $0.00$ & $0.00$ & $1.00$ \\
+detection rate where estimable & $0.853$ & $1.000$ & $1.000$ \\
+median absolute error & $0.111$ & $0.122$ & $0.122$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Ungated methods invent large effects. On a scale where the reference per-cell
+mean is 20.0, the ungated ablation and pseudobulk differential expression each
+invent a median $|$intrinsic$|$ of 7.99, and a naive difference of arm means
+reports the entire 20.0-point drop as silencing in cells that are not there. We
+include that last one to fix the scale, not as a serious competitor: nobody
+proposes it as an intrinsic-effect estimator. Composition-only methods score no
+false confidence for a different reason again --- they have no intrinsic arm at
+all, which is inapplicability rather than caution.
+
+\paragraph{The result that went against us.} The fair competitor is the width
+gate, and it does the job as well as ours for free. It suppresses false
+confidence completely, like our count gate, but costs no detections. The width
+criterion never binds: in \texttt{depleted\_wide} the widest interval over 200
+replicates is 1.081 against a detectable effect of 3.967, a factor of 3.7 clear.
+So the width gate reduces to its \emph{finiteness guard} --- and that guard
+alone is enough. \textbf{On this benchmark the only part of any gate that does
+work is the check that the estimand exists at all.} Our count cutpoint's extra
+88 refusals buy nothing measurable. Its slightly lower median error is a
+selection effect, not an accuracy gain: it drops the noisy low-$n$ cases.
+\S\ref{sec:calibration} found the same cutpoint unsupported by a second and
+independent route.
+
+\paragraph{The finiteness guard is one line, and easy to omit.} With no mature
+cell in an arm the standard error is undefined, and \texttt{nan > threshold} is
+\texttt{False} in numpy and in pandas. A width gate written the obvious way
+therefore \emph{declines to abstain} in exactly the world the estimand does not
+exist. We check finiteness before comparing, which makes this competitor
+stronger than the version most people would write. It is also the same coercion
+we later found inside our own calibration routine (\S\ref{sec:blind}), arriving
+there as a boolean in a rate instead of a number in a column.
+
+\paragraph{Why a count cutpoint at all, rather than conformal prediction?}
+Conformal methods give distribution-free coverage for a target that exists but
+is uncertain \citep{vovk2005,angelopoulos2023}. The failure here is prior to
+that: the parameter has no referent, so there is nothing to cover, and an
+exchangeability argument over calibration data cannot manufacture one. Existence
+and uncertainty are different questions, and the results above suggest we
+answered the first one with a tool sized for the second. Conformal intervals are
+the right instrument for the \emph{wide} verdict, where the estimand exists and
+the interval is the whole question. We do not use them there yet.
+
+\paragraph{Where this leaves the rule.} Two independent routes now say the same
+thing about the count cutpoint, and neither says what we expected. The benchmark
+says its extra refusals buy nothing a finiteness check does not already buy. The
+calibration says the value its own criteria return is 90, not the committed 50,
+and that the previously reported 120 was a property of the grid. The
+three-verdict output survives both. What does not survive is the committed
+number, and the belief that either a recovery curve or a coarse grid had
+confirmed it.

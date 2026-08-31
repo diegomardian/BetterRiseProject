@@ -77,41 +77,25 @@ the largest bound over different arms. We describe both as live rather than
 repaired, because a paper reporting that checks are hard to get right should not
 claim fixes it has not landed.
 
-\section{The statistic that could not see the estimator}
+\section{The curve itself}
 \label{app:generator}
 
-The failure in \S\ref{sec:blind} has a general form worth stating apart from our
-instance, because the setup that produces it is the default one.
+\S\ref{sec:blind} states the general form and the one-line check. This appendix
+carries the curve it was read off, and two details that belong with it rather
+than in the argument.
 
-Let $\theta$ be the parameter a simulator is asked for, $\hat{\theta}$ the
-estimator's output, and $\theta_{\text{realised}}$ the value the draw actually
-took --- which differs from $\theta$ by sampling alone. A recovery curve plots
-$\hat{\theta}/\theta$. Now suppose the estimator is a deterministic function of
-the same sufficient statistics the generator used to construct the draw. Then
-$\hat{\theta} = \theta_{\text{realised}}$ identically, not approximately, and
-\[
-\frac{\hat{\theta}}{\theta} \;=\; \frac{\theta_{\text{realised}}}{\theta},
-\]
-in which the estimator does not appear. The curve is a diagnostic of the
-generator's sampling behaviour. It will sit near 1, tighten with $n$, and look
-exactly like a validated estimator, because sampling error does shrink with $n$
---- and it would do all of that if the estimator were replaced by any other
-estimator with the same property.
+The sweep is the one behind Figure~\ref{fig:calibration}, run by
+\texttt{src.harness.calibration\_gap}. Its result table carries a
+\texttt{max\_abs\_residual\_vs\_realised} column, which is the one-line check
+persisted rather than re-derived: it is identically zero exactly when the curve
+cannot see the estimator. It is zero on every row.
 
-\paragraph{Why this is easy to walk into.} Oracle arms are built precisely so the
-estimator sees clean inputs, and the cleanest available input is the summary the
-generator just computed. The condition is a property of the plumbing rather than
-of the model, so it survives code review, does not depend on the estimator being
-wrong, and leaves no trace in the curve.
-
-\paragraph{The one-line check.} Compare the estimate against the \emph{realised}
-truth rather than the parametric truth, and test whether the difference is
-identically zero:
-\begin{center}
-\texttt{assert not np.allclose(est - truth\_realised, 0.0)}
-\end{center}
-If it is zero the recovery curve cannot see the estimator, and the arm needs a
-generator whose realised summary statistics the estimator does not receive.
+The second detail is where the statistic is not merely uninformative but
+undefined. At $s = 1$ --- the design's own null control, the arm that exists to
+confirm the estimator recovers zero when nothing happened --- the parametric
+intrinsic term is exactly $0$, so the ratio divides by zero. 29{,}900 of the
+sweep's rows carry no value at all. The one point the design included to check
+the statistic is the one point at which the statistic cannot be evaluated.
 
 \begin{figure}[h]
 \centering

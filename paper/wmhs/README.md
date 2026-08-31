@@ -5,7 +5,7 @@ Simulation and Intervention-Aware Reasoning](https://wmhs-neurips.github.io/WMHS
 NeurIPS 2026, Atlanta.
 **Deadline:** 15 September 2026, AoE. **Non-archival, double-blind.**
 **Limits:** 9 pages of main text (full paper) or 4 (extended abstract).
-References and appendices do not count. Currently ~6.2 pages of main text.
+References and appendices do not count. Currently ~6.5 pages of main text.
 
 A **responsible-use statement covering limitations and impact is mandatory** —
 a submission without one is desk-rejected. It is `sections/responsible.tex`,
@@ -57,16 +57,25 @@ item 3, and re-deriving the number is why the module is here.
 - [ ] `grep -c 'undefined' main.log` returns 0 after a full four-pass build.
 - [ ] Verify the `petukhov2022` (cacoa) venue in `refs.bib` — it moved off
       bioRxiv and the entry is not confirmed.
-- [ ] Decide full paper (9pp) vs extended abstract (4pp). See `PATCHES.md`.
+- [ ] Decide full paper (9pp) vs extended abstract (4pp). The section order was
+      chosen so the first four pages stand alone: §1-§3 carry the headline
+      result, the general form, the venue instantiation and Figure 1. A 4-page
+      version is `setup` + `blind` + `calibration` with §4's Table 1 moved to
+      an appendix.
 
 ## Layout
 
 ```
-main.tex               §1-§4, the figure float, and the \input list
-sections/withdrawn.tex  the two guards that could not fire — sits inside §4
-sections/responsible.tex §5, the mandatory responsible-use statement
-sections/appendix.tex   Appendices A-D
-sections/llm.tex        Appendix E, LLM use
+main.tex                 preamble, abstract, and the \input list
+sections/setup.tex       §1  the decomposition and the rule
+sections/blind.tex       §2  the recovery curve, the general form, the
+                             trial-simulator instantiation, the one-line check
+sections/calibration.tex §3  what a correct calibration returns (Figure 1)
+sections/withdrawn.tex       two more checks that could not fire — inside §3
+sections/bench.tex       §4  what abstention buys (Table 1), and the closer
+sections/responsible.tex §5  the mandatory responsible-use statement
+sections/appendix.tex    Appendices A-D
+sections/llm.tex         Appendix E, LLM use
 refs.bib                bibliography
 make_fig1.py            Figure 1
 make_fig3.py            Figure 2
