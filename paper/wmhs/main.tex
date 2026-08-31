@@ -1,0 +1,345 @@
+\documentclass{article}
+
+% Official NeurIPS 2026 workshop style, unmodified. No geometry, spacing or
+% float overrides live in this file. The style file says tweaking it risks desk
+% rejection, so the page budget gets met by writing less.
+\usepackage[dblblindworkshop]{neurips_2026}
+
+\workshoptitle{World Models for High-Stakes Health: Reliable Clinical Trial
+Simulation and Intervention-Aware Reasoning}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath,amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{caption}
+
+\captionsetup{font=small,labelfont=bf}
+\newcommand{\notest}{\textsc{not estimable}}
+
+\title{The recovery curve measures the simulator:\\
+a validation blind spot, and the abstention rule it hid}
+
+\author{%
+  Anonymous Author(s) \\
+  Affiliation \\
+  Address \\
+  \texttt{email} \\
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Simulate with known truth, run the estimator, plot recovered against true. This
+is how virtual control arms, patient-level simulators and in-silico trial
+pipelines are validated. We show the curve can be structurally incapable of
+seeing the estimator. If the estimator is a deterministic function of the
+sufficient statistics the generator drew, it cancels: the ratio reduces to
+realised truth over requested truth, a property of the generator alone. The
+curve still sits near 1 and still tightens with $n$, so it looks like a
+validated estimator. One line detects it --- compare against the \emph{realised}
+truth and test whether the difference is identically zero. Ours was, across
+4{,}400 runs. What that curve certified was a selective-prediction rule for a
+cell-type-resolved measurement: a standardisation decomposition, the identity
+behind target trial emulation, given a third output \notest{} for the case where
+no cell of the relevant type survives and the estimand has no referent. The
+blind curve reported the rule validated. Calibrated properly against its own
+pre-registered criteria the rule fails outright on one draw pool, returning no
+cutpoint at any tested count; on the other it returns $ok = 90$ against a
+committed 50. The previously reported 120 was an artifact of a grid carrying no
+point in the interval where the criteria actually cross. A synthetic benchmark
+then locates
+what the rule was actually buying: three ungated methods invent an effect in
+$200/200$ replicates where the estimand does not exist, but a width gate
+suppresses that as completely as our count gate while costing no detections. The
+finiteness check, not the threshold, does the work.
+\end{abstract}
+
+\section{Setup: a decomposition that answers when it should not}
+\label{sec:intro}
+
+A tissue model reports a differentiation marker down 90\% between a patient's
+healthy and diseased sample. Two mechanisms produce that observation and they
+imply different interventions. Either the cells making the marker have left, a
+\emph{compositional} change, or those cells remain and produce less, an
+\emph{intrinsic} change. Bulk measurement cannot separate them. Single-cell
+measurement can, but only where enough of the relevant cells survive in both
+arms. The separating estimator is Kitagawa's demographic standardisation
+\citep{kitagawa1955}. Write $f$ for the fraction of cells of the type in
+question and $m$ for their mean per-cell output:
+\begin{equation}
+\underbrace{(f_T - f_N)\, m_N}_{\text{compositional}} \;+\;
+\underbrace{f_N\, (m_T - m_N)}_{\text{intrinsic}} \;+\;
+\underbrace{(f_T - f_N)(m_T - m_N)}_{\text{interaction}}
+\;=\; f_T m_T - f_N m_N .
+\label{eq:kitagawa}
+\end{equation}
+Economists know this as Oaxaca--Blinder \citep{oaxaca1973,blinder1973},
+epidemiologists as standardisation \citep{kline2011}. The same identity sits
+under synthetic control arms \citep{abadie2010} and target trial emulation
+\citep{hernan2016}. Any system reporting a group-resolved quantity inherits its
+identifiability problem.
+
+The problem is that Equation~\ref{eq:kitagawa} returns a number for any input.
+The intrinsic term is a difference of two means over cells of one type. When the
+diseased arm holds none of those cells, ``mean output per surviving cell of this
+type'' has no referent, and the estimator still returns a number. So our
+estimator returns one of three verdicts: an estimate, a wide-interval estimate,
+or \notest{}, where the term is \texttt{None} and never $0.0$. Zero and ``we did
+not ask'' are values a downstream average cannot tell apart. The rule gating
+those verdicts is a cutpoint on $n$, the count of relevant cells in the diseased
+arm: answer at $n \geq 50$, flag a wide interval from 20 to 49, abstain below 20.
+
+\paragraph{Related work.} Cell-count filters of this shape are standard rather
+than novel. Pseudobulk pipelines drop samples below a minimum cell count
+\citep{crowell2020}, and differential-abundance methods --- scCODA
+\citep{buettner2021}, Milo \citep{dann2022}, propeller \citep{phipson2022},
+DA-seq \citep{zhao2021} --- test composition without an expression arm, so they
+never face this estimand. cacoa \citep{petukhov2022} is closest: it separates
+compositional from expression shifts explicitly. Our claim is not the filter. It
+is that the filter is a selective-prediction rule \citep{chow1970,elyaniv2010,
+geifman2017} and is therefore something you can \emph{calibrate} and get wrong,
+and that it should emit a third verdict rather than silently dropping rows ---
+because a dropped row and a row estimated at zero are indistinguishable
+downstream.
+
+\section{What abstention buys, and which part of it}
+\label{sec:bench}
+
+We measured what alternatives do where the estimand does not exist, on synthetic
+cells whose truth is available in closed form (Appendix~\ref{app:bench}). Mature
+cells draw Poisson; immature cells express nothing; one world sets the diseased
+mature fraction to zero.
+
+\begin{table}[h]
+\small
+\centering
+\caption{Per-world refusals over 200 replicates, for three variants of identical
+arithmetic, plus what the ungated variants invent. The width gate abstains when
+the 95\% half-width on the intrinsic term exceeds the detectable effect the
+design document names; both gates take their parameters from that same document.}
+\label{tab:bench}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+& \textbf{count gate (ours)} & \textbf{width gate} & \textbf{no gate} \\
+\midrule
+\texttt{annihilated} --- estimand undefined & $200/200$ & $200/200$ & $0/200$ \\
+\texttt{depleted\_wide} --- $\sim$20 mature cells & $88/200$ & $0/200$ & $0/200$ \\
+four other worlds & 0 & 0 & 0 \\
+\midrule
+false confidence & $0.00$ & $0.00$ & $1.00$ \\
+detection rate where estimable & $0.853$ & $1.000$ & $1.000$ \\
+median absolute error & $0.111$ & $0.122$ & $0.122$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Ungated methods invent large effects. On a scale where the reference per-cell
+mean is 20.0, the ungated ablation and pseudobulk differential expression each
+invent a median $|$intrinsic$|$ of 7.99, and a naive difference of arm means
+reports the entire 20.0-point drop as silencing in cells that are not there. We
+include that last one to fix the scale, not as a serious competitor: nobody
+proposes it as an intrinsic-effect estimator. Composition-only methods score no
+false confidence for a different reason again --- they have no intrinsic arm at
+all, which is inapplicability rather than caution.
+
+\paragraph{The result that went against us.} The fair competitor is the width
+gate, and it does the job as well as ours for free. It suppresses false
+confidence completely, like our count gate, but costs no detections. The width
+criterion never binds: in \texttt{depleted\_wide} the widest interval over 200
+replicates is 1.081 against a detectable effect of 3.967, a factor of 3.7 clear.
+So the width gate reduces to its \emph{finiteness guard} --- and that guard
+alone is enough. \textbf{On this benchmark the only part of any gate that does
+work is the check that the estimand exists at all.} Our count cutpoint's extra
+88 refusals buy nothing measurable. Its slightly lower median error is a
+selection effect, not an accuracy gain: it drops the noisy low-$n$ cases.
+\S\ref{sec:calibration} finds the same cutpoint unsupported by a second and
+independent route.
+
+\paragraph{The finiteness guard is one line, and easy to omit.} With no mature
+cell in an arm the standard error is undefined, and \texttt{nan > threshold} is
+\texttt{False} in numpy and in pandas. A width gate written the obvious way
+therefore \emph{declines to abstain} in exactly the world the estimand does not
+exist. We check finiteness before comparing, which makes this competitor
+stronger than the version most people would write. It is also the same coercion
+we later found inside our own calibration routine (\S\ref{sec:blind}), arriving
+there as a boolean in a rate instead of a number in a column.
+
+\paragraph{Why a count cutpoint at all, rather than conformal prediction?}
+Conformal methods give distribution-free coverage for a target that exists but
+is uncertain \citep{vovk2005,angelopoulos2023}. The failure here is prior to
+that: the parameter has no referent, so there is nothing to cover, and an
+exchangeability argument over calibration data cannot manufacture one. Existence
+and uncertainty are different questions, and the results above suggest we
+answered the first one with a tool sized for the second. Conformal intervals are
+the right instrument for the \emph{wide} verdict, where the estimand exists and
+the interval is the whole question. We do not use them there yet.
+
+\section{The recovery curve could not see the estimator}
+\label{sec:blind}
+
+An earlier internal report validated the cutpoint on real held-out cells and
+concluded it was sound. The statistic it used was a recovery curve: generate
+samples with known composition and a known shift, run the estimator, plot
+recovered against true. Ours sat between 0.95 and 1.07 wherever the rule said
+``estimate'' (Appendix Fig.~\ref{fig:generator}). That is what a working
+estimator looks like.
+
+It is also what this one looks like with the estimator divided out. The
+estimator in that arm applies Equation~\ref{eq:kitagawa} to the sample's
+\emph{own} realised summary statistics, so it reproduces them exactly. Across
+all 4{,}400 rows, $\max|\hat{\imath} - i_{\text{realised}}| = 0$. The ratio is
+therefore $i_{\text{realised}} / i_{\text{parametric}}$: what the generator drew
+over what it was asked for. The estimator does not appear in it.
+
+\paragraph{The general form.} Let $\theta$ be the parameter a simulator is asked
+for, $\theta_{\text{realised}}$ the value the draw actually took, and
+$\hat\theta$ the estimator's output. A recovery curve plots
+$\hat\theta / \theta$. If the estimator is a deterministic function of the same
+sufficient statistics the generator used to build the draw, then
+$\hat\theta = \theta_{\text{realised}}$ identically, and
+\[
+\frac{\hat\theta}{\theta} \;=\; \frac{\theta_{\text{realised}}}{\theta},
+\]
+which contains no estimator. The curve is a diagnostic of the generator's
+sampling behaviour. It sits near 1. It tightens with $n$, because sampling error
+does. It would do both if the estimator were replaced by any other estimator
+with the same property.
+
+This is not exotic. Oracle arms exist so the estimator sees clean inputs, and
+the cleanest available input is the summary the generator just computed. The
+condition is a property of the plumbing, not of the model, so it survives code
+review and leaves no trace in the curve. \textbf{One line detects it:} compare
+the estimate against the \emph{realised} truth rather than the parametric truth,
+and assert the difference is not identically zero. Ours was zero everywhere. In
+our case the curve took the closed form $1/(1-s)$ scaled by the
+realised-over-requested mature fraction, with zero variance across all 50
+replicates at each shift --- a constant, read at the time as a two-fold
+over-estimate in the dangerous direction. The statistic is not worthless: it
+still catches an estimator that fails to reproduce its input, and the design
+ships a broken-estimator control returning $0.0$ for which the ratio comes out
+zero. It simply could not certify the arm it was being used to certify.
+
+\section{What the blind curve hid}
+\label{sec:calibration}
+
+Three acceptance criteria were fixed in a design document before any sweep ran:
+a detectable halving of per-cell output, $s = 0.5$; interval coverage of 90\%;
+and discrimination of 80\%, the probability the interval excludes zero at that
+effect. The cutpoints follow mechanically --- the smallest $n$ meeting both
+criteria, and the smallest meeting coverage alone. The pre-registration is
+mechanical rather than documentary: the panel, the labelling axes and the
+falsification rule are frozen in a configuration file with a
+\texttt{frozen\_on} stamp and mirrored by an exact-value assertion in the test
+suite, so continuous integration fails if anyone edits one without the other.
+
+Run properly on real held-out cells, the committed cutpoint of 50 does not come
+back (Figure~\ref{fig:calibration}). The generator filters eligibility on
+patient alone, so both synthetic arms draw from the held-out patients' cells of
+\emph{both} tissues pooled. The design document lists what stays fixed and never
+mentions tissue. Nobody made that choice; an implementation detail made it, and
+it changes the answer. So we report both readings rather than the one that
+yields a cutpoint. Pooled, the routine returns no cutpoint at all: discrimination
+never reaches the 0.80 target in any count bin, topping out at 0.78 across 13
+seeds at 50 replicates and at 0.75 across 8 seeds at 500. Restricted to the
+reference tissue it does return one, and that is where the second lesson of this
+paper repeats itself.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig1_calibration.pdf}
+\caption{\textbf{The committed cutpoint is not what the pre-registered procedure
+returns, under either reading of an unspecified design choice.} Dashed lines mark
+the targets fixed before the sweep. Shading marks the committed rule's three
+states. \emph{Left:} with the draw pool our sweep code implements, the routine
+returns no cutpoint at any tested count. \emph{Right:} under a second reading of
+the same unspecified choice it does return one --- $ok = 90$ once the grid
+carries points in the interval where the criteria cross, against a perfectly
+stable 100 when it does not. The committed value is 50 in both panels.}
+\label{fig:calibration}
+\end{figure}
+
+\paragraph{The grid was reporting its own resolution.} Our committed grid varies
+a mature \emph{fraction} against a fixed 2{,}000 cells, so the counts it can
+reach are $\{0, 20, 40, 100, 200, 400, 800\}$ --- nothing between 40 and 100. On
+the reference pool it returns $ok = 100$ on every one of the eight seeds at 500
+replicates, and on twelve of thirteen at 50, and that stability is what made the
+number look like a measurement. We added nine
+fractions inside the gap, reaching 50, 60, 70, 80, 90, 110, 120, 130 and 150,
+and changed nothing else. \textbf{The answer moves to 90}, and the crossing it
+was hiding becomes legible: median discrimination runs $0.728$ at 45 mature
+cells, $0.790$ at 65 and $0.858$ at 90, so the pre-registered target of $0.80$
+falls between 65 and 90 --- inside the interval the committed grid could not
+reach. Seven of eight seeds return $ok = 90$, $wide = 45$; the eighth returns 65,
+which is where discrimination sits at $0.790$ against a $0.80$ target. Against
+committed values of 50 and 20, the calibrated rule is roughly twice as strict on
+both cutpoints. The pooled draw returns no cutpoint under either grid.
+
+\textbf{The coarse grid was not measuring where the criteria first hold. It was
+reporting the first point it happened to carry past them}, and reporting it with
+a stability that came from having nowhere else to land. At 50 replicates the
+filled grid does not resolve either --- the returned value wanders between 45 and
+90 with the seed --- so the number in this paragraph rests on the replicate count
+as much as on the grid, with the caveat Appendix~\ref{app:limitations} attaches
+to it.
+
+This is the same failure as \S\ref{sec:blind} in a second statistic. A recovery
+curve that cannot see the estimator still draws a smooth line; a grid that
+cannot resolve a crossing still returns a stable number. Both look like
+measurements, and in both cases the fix was to ask what the statistic was a
+function of rather than to look harder at its output.
+
+Two further caveats belong with the number. The calibration
+table's lowest bin merged replicates holding \emph{no} interval --- the
+abstention case --- with those holding one. Comparisons against \texttt{NaN}
+return false, so undefined intervals scored as coverage \emph{and}
+discrimination failures, and the reported row read $(0.36, 0.31)$ where the
+defined replicates give $(0.72, 0.62)$, exactly half. \textbf{An abstention
+counted silently as a failure, inside the routine calibrating the rule built to
+prevent exactly that.} And both rates were reported as bare point estimates; at
+50 replicates the coverage crossing does not resolve
+(Appendix~\ref{app:limitations}).
+
+\paragraph{Where this leaves the rule.} Two independent routes now say the same
+thing about the count cutpoint, and neither says what we expected. The benchmark
+says its extra refusals buy nothing a finiteness check does not already buy. The
+calibration says the value its own criteria return is 90, not the committed 50,
+and that the previously reported 120 was a property of the grid. The
+three-verdict output survives both. What does not survive is the committed
+number, and the belief that either a recovery curve or a coarse grid had
+confirmed it.
+
+\paragraph{On real data, abstention is the modal outcome.} At the finest
+annotation resolution, the one the compositional question is defined on, $28/28$
+patients abstain under one pre-registered population definition and $24/28$
+under the other. Both fail the pre-committed 50\% line. The specification
+produces this, not the data: 5\% of a few hundred cells falls below a cutpoint of
+20 by construction, so the resolution is defined at a granularity its own cohort
+cannot support. At coarser resolutions the two definitions disagree and the
+pre-registered response is \emph{not identifiable} rather than a choice --- all
+six coarse combinations return that verdict, where a method forced to pick one
+definition returns six confident numbers.
+
+\input{sections/withdrawn.tex}
+
+\section{Responsible use, limitations and impact}
+\label{sec:responsible}
+
+\input{sections/responsible.tex}
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\clearpage
+\input{sections/appendix.tex}
+\input{sections/llm.tex}
+
+\end{document}

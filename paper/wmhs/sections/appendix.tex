@@ -1,0 +1,250 @@
+\appendix
+\section{The withdrawn guards}
+\label{app:withdrawn}
+
+These fail the test the paper applies throughout. A different group writing
+correct code would not meet them. We record them because they circulated
+internally, not because they are findings. Two further entries --- a leakage
+guard checked against a symbol list that could not contain the identifiers under
+comparison, and an acceptance test comparing gene symbols against Ensembl
+identifiers over an empty intersection --- were ordinary implementation errors
+and are omitted.
+
+\begin{enumerate}\itemsep3pt
+\item \textbf{A de-duplication that collapsed two population definitions.} A
+per-patient de-duplication took the first row per patient from a frame carrying
+\emph{two} pre-registered definitions of the diseased arm, selecting one by file
+order. Measured, the same one in 224 of 224 combinations. Neither the result
+table, nor its sidecar, nor the internal report recorded which. The offending
+line cites the violated invariant by name in its own comment. Five patients under
+the selected definition held zero cells of the relevant compartment for a
+disease-calling reason and entered the statistic as guaranteed abstentions,
+turning a cohort-design fact into a positivity finding. Re-run per definition,
+the finding at the finest resolution survives under both, and the coarse
+resolutions become \emph{not identifiable}, a stronger statement than the
+indeterminacy originally reported.
+
+\item \textbf{A join that validated its keys and never its counts.} We assembled
+the primary decomposition table by joining per-patient \emph{means} from one job
+onto per-patient \emph{fractions} and cell counts from another. The two jobs
+label cells at different quality-control thresholds, 0.10 and 0.25 of the depth
+distribution, so the mature-cell populations differ by a median factor of 1.26 on
+the reference arm and 1.35 on the comparison arm. Every term in
+Equation~\ref{eq:kitagawa} multiplied a fraction over one set of cells by a mean
+over another. The count the abstention rule reads came from the first labelling,
+the mean it gated from the second. The producing job's documentation asserts a
+loop mirroring the other pipeline exactly and enumerates the filters. The
+threshold is the single filter the loop does not mirror. The join written ``so
+the two cannot drift'' validates join keys and never the counts each side
+implies. The replacement job derives fractions, means, counts and estimability
+from a single labelling call per patient, then asserts its counts against the
+committed counting function. That assertion is the one line missing before.
+
+\item \textbf{A provenance stamp blind to uncommitted code.} Every result must
+carry a commit hash and a fixed seed, and the writer refuses a table lacking
+either. The dirtiness check guarding the hash ignored untracked files, so a table
+produced by a script never committed recorded a clean hash pointing at a commit
+lacking the script. In one case the producing script entered the repository 83
+seconds \emph{after} the table it wrote got stamped clean against the previous
+commit. Three results reached an internal report this way, one of them the
+calibration behind this paper's central figure. Re-deriving that calibration also
+surfaced the replicate count: the uncommitted run used 6 per grid point against
+the design document's 50 to 100. The check now counts untracked files and the
+sidecar names them, so the gap sits beside the hash rather than waiting to be
+reconstructed from commit timestamps.
+\end{enumerate}
+
+Items 1 and 2 are one failure twice over, a statistic computed over a population
+nobody chose. Someone trying to prevent exactly that failure wrote both. Neither
+felt wrong, and both survived ordinary review. Item 3 is why
+\S\ref{sec:calibration}'s numbers are re-derived here from a committed, seeded
+table rather than quoted from the report that first carried them.
+
+\paragraph{What is and is not fixed.} Three guards carry regression tests that
+fail against the version they replace. The width gate's finiteness guard
+(\S\ref{sec:bench}) fails against the version comparing before checking; the
+attainable-bound identity (\S\ref{sec:calibration}) is tested at four
+prevalences; and the provenance check in item~3 now counts untracked files and
+names them in the sidecar, against a fixture repository holding an uncommitted
+producing script --- the input that made the old check return clean. The sweep
+behind Figure~\ref{fig:calibration} is committed with it, so the number and the
+code that produced it now travel together. \textbf{The two defects in
+\S\ref{sec:calibration} do not yet carry regression tests, and the code that
+produced them is unchanged.} The undefined-interval coercion still returns
+\texttt{False} on a null interval and still lets an abstention score as a
+failure; the independent-maxima pairing still takes the worst correlation and
+the largest bound over different arms. We describe both as live rather than
+repaired, because a paper reporting that checks are hard to get right should not
+claim fixes it has not landed.
+
+\section{The statistic that could not see the estimator}
+\label{app:generator}
+
+The failure in \S\ref{sec:blind} has a general form worth stating apart from our
+instance, because the setup that produces it is the default one.
+
+Let $\theta$ be the parameter a simulator is asked for, $\hat{\theta}$ the
+estimator's output, and $\theta_{\text{realised}}$ the value the draw actually
+took --- which differs from $\theta$ by sampling alone. A recovery curve plots
+$\hat{\theta}/\theta$. Now suppose the estimator is a deterministic function of
+the same sufficient statistics the generator used to construct the draw. Then
+$\hat{\theta} = \theta_{\text{realised}}$ identically, not approximately, and
+\[
+\frac{\hat{\theta}}{\theta} \;=\; \frac{\theta_{\text{realised}}}{\theta},
+\]
+in which the estimator does not appear. The curve is a diagnostic of the
+generator's sampling behaviour. It will sit near 1, tighten with $n$, and look
+exactly like a validated estimator, because sampling error does shrink with $n$
+--- and it would do all of that if the estimator were replaced by any other
+estimator with the same property.
+
+\paragraph{Why this is easy to walk into.} Oracle arms are built precisely so the
+estimator sees clean inputs, and the cleanest available input is the summary the
+generator just computed. The condition is a property of the plumbing rather than
+of the model, so it survives code review, does not depend on the estimator being
+wrong, and leaves no trace in the curve.
+
+\paragraph{The one-line check.} Compare the estimate against the \emph{realised}
+truth rather than the parametric truth, and test whether the difference is
+identically zero:
+\begin{center}
+\texttt{assert not np.allclose(est - truth\_realised, 0.0)}
+\end{center}
+If it is zero the recovery curve cannot see the estimator, and the arm needs a
+generator whose realised summary statistics the estimator does not receive.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{figures/fig3_generator_statistic.pdf}
+\caption{Ratio of recovered to true intrinsic effect, median and IQR over 50
+replicates, for both draw pools. An earlier internal report used this curve to
+conclude the committed cutpoint was ``validated on real cells''. The curve
+behaves well wherever the rule says ``estimate'', and on this arm carries no
+information about the estimator. The single-cell estimate applies
+\texttt{decompose()} to the sweep's own realised summary statistics and
+reproduces them exactly, with
+$\max|\hat{\imath} - i_{\text{realised}}| = 0$ over all 4{,}400 rows, leaving the
+ratio equal to $i_{\text{realised}}/i_{\text{parametric}}$. The statistic still
+discriminates an estimator failing to reproduce its input, and the design
+document ships a broken-estimator control returning $0.0$ for which the ratio
+comes out zero. The oracle arm by construction is not such an estimator, so
+validating it here is circular. The value at the abstention point, read at the
+time as a two-fold over-estimate in the dangerous direction, is $1/(1-s)$ scaled
+by the realised-over-parametric mature fraction, $481/480$, with zero variance
+across replicates.}
+\label{fig:generator}
+\end{figure}
+
+\section{The competitor benchmark}
+\label{app:bench}
+
+Six worlds, 200 replicates, 2{,}000 cells per arm, seed 20260829. Mature cells
+express $\mathrm{Poisson}(\mu)$ in reference tissue and $\mathrm{Poisson}(\mu s)$
+in diseased tissue; immature cells express nothing. The arm mean is
+$f \times$ (mean among mature), exactly what Equation~\ref{eq:kitagawa} splits,
+so the truth is available in closed form rather than by simulation. The world
+that matters sets the diseased mature fraction to zero: no diseased mature cell
+survives and the intrinsic estimand has no referent.
+
+Six methods, of which five run. \texttt{cacoa} ships as an adapter that reports
+its own unavailability rather than being silently absent --- it installs from
+GitHub and is not in the pinned environment --- so it appears as a named skip
+with a reason.
+
+\paragraph{The width gate.} Abstain when the 95\% half-width on the intrinsic
+term exceeds the detectable effect, both taken from the same design document as
+the count cutpoint, so neither gate is tuned against the other here. The
+per-cell moments are recovered from the full arm without needing the mature-cell
+mask, because immature cells express exactly zero and contribute nothing to
+either the sum or the sum of squares. \textbf{Finiteness is checked before the
+comparison.} Written the obvious way --- comparing first --- the gate returns
+\texttt{False} on an undefined standard error and declines to abstain in exactly
+the world that motivates it.
+
+\paragraph{Limitations.} Everything here is synthetic, and the generative model
+is exactly the one Equation~\ref{eq:kitagawa} assumes, which is a favourable
+setting. It tests the gate, not robustness to a misspecified model. The
+competitors are faithful reimplementations, not the published software. The
+naive difference of arm means and pseudobulk DE answer a slightly different
+question, so their bias is partly unfair to them; the false-confidence result
+does not depend on them and the ablation does not depend on them at all. That
+the width criterion never binds is a statement about these regimes: a halving of
+per-cell output is large relative to sampling error at 2{,}000 cells per arm, and
+a smaller detectable effect or a heavier-tailed expression model would move the
+binding point. What survives regardless is that the finiteness guard, not the
+threshold, catches the undefined estimand.
+
+\section{Extended limitations}
+\label{app:limitations}
+
+\paragraph{Keeping the third verdict distinct.} The third verdict is a value, not
+a flag, and the results writer refuses a row carrying a number where none
+belongs. The guard is necessary and insufficient.
+\S\ref{sec:calibration}\emph{(ii)} shows the same coercion two layers up as a
+boolean, inside a rate whose denominator the writer never sees. We report the
+interaction term separately rather than folding it into either arm. Anyone
+reusing the decomposition should keep all three properties. The method is not
+wrong. Its output flattens easily.
+
+\paragraph{The calibration's own rates carry no interval, and the replicate
+count does not buy what it looks like it buys.} Coverage and discrimination are
+reported as bare point estimates, though the project's other
+proportion-against-a-line carries a Wilson interval and a \emph{resolvable} flag
+for exactly this reason. At 50 replicates the crossing does not resolve: the
+returned cutpoint wanders between 45 and 90 with the seed. At 500 it does, with
+7 of 8 seeds returning $ok = 90$ --- \textbf{but this stabilises Monte Carlo
+noise only, and not the quantity a reader will take it for.} Ten patients with
+two held out per replicate admit just 45 distinct holdout pairs, so at 500
+replicates each pair is drawn roughly eleven times and the estimate converges to
+the value over those 45 pairs rather than to a population value. The
+patient-level uncertainty is unchanged by the replicate count and is not
+quantified anywhere in this paper. A reader should treat $ok = 90$ as what this
+procedure returns on this cohort, not as a cutpoint with an interval on it. That
+is the same error the paper documents twice elsewhere --- a statistic reporting
+more precision than its inputs support --- and we flag it here rather than let a
+larger replicate count imply otherwise.
+
+\paragraph{The two draw pools differ in more than one way at once.} Neither
+matches the population the estimator meets in real data. There the reference arm
+holds reference-tissue cells and the comparison arm does not, whereas the second
+reading puts reference-tissue cells into \emph{both} arms. A generator drawing
+each arm from its own tissue is a third option we did not implement, because the
+imposed shift would then sit on top of a real between-tissue difference and the
+truth would stop being known. The two pools also differ in target-gene
+dispersion, in how many distinct cells a replicate draws from (662 mature cells
+against 3{,}824, sampled with replacement), and in whether the mature-cell
+distribution is unimodal or a mixture of two tissues. The sweep varies all three
+together and identifies none. A dispersion-only account predicts discrimination
+rising with $\sqrt{n}$, and neither curve does. Per-pool descriptive statistics
+travel in the result sidecar, with their scope named in the field names: all
+patients, before the shift, not the cells a replicate draws.
+
+\paragraph{Depth matching is expensive.} The matching removing the
+absence-defined axis's depth mechanism discards roughly three quarters of the
+cells and pushes about half the remaining estimable rows below the positivity
+cutpoint. On that cohort you get a clean comparison or an estimable one. The
+trade belongs to the correction rather than to the cohort size, and the
+abstention rule is what makes it visible.
+
+\paragraph{Estimation runs per study, and the meta-analysis does not exist.}
+Batch correction removes between-dataset variation, which is where the
+compositional signal lives, so estimates run per study rather than pooled. Our
+design named meta-analytic intervals as an output and the data cannot supply
+them. A meta-analysis needs two quotable (study, rung) cells and this project
+has one, the primary cohort's lineage rung on the depth-matched read. At
+$k = 1$ an engine combining one study returns a number looking meta-analytic
+without being one.
+
+\paragraph{The unit of inference is the patient.} All bootstrapping resamples
+patients, never cells. An earlier internal result violated this and reported a
+cell-pooled difference of $+25.1\%$ where a single patient supplied 1{,}824 of
+5{,}564 cells. Recomputed per patient the difference is $+0.170$ with a 95\%
+interval of $[-0.011, +0.342]$, containing zero. The direction survives
+independent 1:1 within-patient depth matching at $+0.182$, so a direction with
+support rather than an established effect.
+
+\paragraph{Ambient contamination.} A sensitivity sweep at the committed 10\%
+exclusion cap shows ambient signal manufacturing an intrinsic term of about 4.6\%
+of a real compositional term, and never manufacturing a compositional one. The
+asymmetry matters. Ambient contaminates the arm this work reports as unestimable,
+not the arm it reports as measurable.

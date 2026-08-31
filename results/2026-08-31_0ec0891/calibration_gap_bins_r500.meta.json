@@ -1,0 +1,72 @@
+{
+  "date": "2026-08-31",
+  "utc_timestamp": "2026-08-31T14:10:30+00:00",
+  "git_sha": "0ec08916a76a8a36f728a1e31555923ae71aefbd",
+  "git_sha_short": "0ec0891",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": true,
+  "seed": 20260831,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "calibration_gap_bins_r500",
+  "n_rows": 224,
+  "columns": [
+    "n_replicates",
+    "n_cells_mature",
+    "coverage",
+    "discrimination",
+    "median_ci_width",
+    "shift",
+    "verdict",
+    "pool",
+    "grid",
+    "seed"
+  ],
+  "table_kind": "harness",
+  "committed_cutpoints": {
+    "ok": 50,
+    "wide": 20
+  },
+  "criteria": {
+    "detectable_shift": 0.5,
+    "coverage_target": 0.9,
+    "discrimination_target": 0.8
+  },
+  "cohort": "GSE132465 (SMC), 10 matched patients, sha256-verified against data/manifest.csv",
+  "target_gene": "GUCA2A",
+  "labelling": "label_stem_pole_lineage, mature = 'differentiated'",
+  "n_replicates": 500,
+  "n_boot": 200,
+  "n_bins": 12,
+  "committed_grid_targets": [
+    800,
+    400,
+    200,
+    100,
+    40,
+    20,
+    0
+  ],
+  "extended_grid_targets": [
+    800,
+    400,
+    200,
+    150,
+    130,
+    120,
+    110,
+    100,
+    90,
+    80,
+    70,
+    60,
+    50,
+    40,
+    20,
+    0
+  ],
+  "what_this_answers": "The committed grid has no point between 40 and 100 mature cells, so the reported ok=120 could not be distinguished from any value in that interval. The extended grid adds nine fractions inside it and changes nothing else.",
+  "note_dirty": "Written from a working tree carrying the submission/ width-gate change. Re-run after committing for a clean stamp; the sweep is seeded and deterministic, so only the stamp changes."
+}

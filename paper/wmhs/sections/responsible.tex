@@ -1,0 +1,45 @@
+% §5 body. Required by the workshop CFP: a submission without a responsible-use
+% statement covering limitations and impact is desk-rejected.
+
+\paragraph{No biological or clinical claim is made, and the controls forbid
+one.} Our instance is differentiation-marker loss in colorectal cancer, and we
+report \emph{no} finding about the biology. The pre-registered control panel
+names genes expected to move compositionally, genes expected to move
+intrinsically, and one chosen because disease \emph{retains} it, which should
+leave both arms alone. The falsification rule was written into the configuration
+file in week 0, before any analysis code existed --- \emph{if tiers A, B and D
+all return the same answer, the estimator is broken and no biological claim may
+be made} --- and it is mirrored by an exact-value assertion in the test suite, so
+continuous integration fails if anyone edits it. Across the eight strata of the
+primary cohort the retained-gene control moves by $-1.000$ to $-0.951$ relative
+to its own baseline, against $-1.000$ to $-0.952$ for the compositional
+controls: the retained-gene control sits \emph{inside} the compositional
+controls' range almost exactly. The intrinsic control sits at 0.04 CP10K against
+19.4 and 24.9 for the two abundant compositional ones, too low to measure per
+cell, so its tier never tested the estimator at all. The pre-committed
+consequence fired, and we take it: \emph{methods and validation only, no
+biological claim}. A second cohort on a second platform reproduces the pattern,
+which \textbf{confirms the artefact rather than the biology}. Cell fractions
+govern the ratio between the arms, so this estimator was never going to separate
+the tiers.
+
+\paragraph{The misuse to guard against} is reading \notest{} as ``no effect''.
+Here a confident null reads as ``the surviving cells are behaving normally'', a
+mechanism claim with treatment implications
+(Appendix~\ref{app:limitations}).
+
+\paragraph{Limitations.} Our calibration covers one gene, one axis, one
+weighting, one cohort. The result shows \emph{this} rule failing \emph{its own}
+criteria here, not cell-count rules failing in general. A draw-pool choice the
+design document never makes moves the answer, the replicates are not
+independent, and the absence-defined axis still tracks depth at 60\% of the
+correlation its own prevalence permits (Appendix~\ref{app:limitations}). Both
+cohorts are public, de-identified and previously published, and since single-cell
+genotypes remain re-identifiable in principle we release derived summaries and
+code, not cell-level matrices.
+
+\paragraph{Broader impact.} Any system reporting cell-type-resolved quantities
+inherits Equation~\ref{eq:kitagawa}'s identifiability problem, and a system
+always returning a number cannot separate a measured effect from an unaskable
+question. Adding abstention costs little. \emph{Calibrating} abstention is the
+step people skip. Publish the attempt, including when it yields no cutpoint.

@@ -1,0 +1,31 @@
+\section{Use of large language models}
+\label{app:llm}
+
+
+A language-model coding assistant working under author direction produced
+substantial parts of this work: the estimator jobs, the calibration sweep, the
+figure code and this manuscript. We operate the standing audit rule the same way.
+Result tables and gate verdicts go to an independently prompted agent instructed
+to refute rather than confirm them.
+
+The arrangement cuts both ways. Two of the defects reported here surfaced through
+that audit. The two in \S\ref{sec:calibration} surfaced from re-deriving an
+internal report's numbers against the underlying tables instead of quoting them.
+The grid artifact in \S\ref{sec:calibration} surfaced the same way, from asking
+what the sweep's reported cutpoint was a function of. Assistant-written code also
+\emph{introduced} errors. The join in Appendix~\ref{app:withdrawn} came from it,
+as did a mispairing of a statistic with the wrong arm's bound, and the second of
+those got reproduced once more inside the analysis of its own fix before plotting
+the result caught it.
+
+We draw no conclusion beyond the one the paper already argues. The defects
+surviving are the ones no check was capable of catching, and the remedy is to
+test each check against an input forcing it to fail. Every number in this paper
+is read by the figure code from a result table carrying a commit hash and a fixed
+seed, with two exceptions we name rather than smooth over: figures reproduced
+from the superseded internal report are labelled as such in their captions, and
+the paired rates in \S\ref{sec:calibration}\emph{(ii)} are quoted from that
+report because the run that produced them was never committed --- which is
+Appendix~\ref{app:withdrawn} item 3, and the reason the calibration was re-derived
+for this paper rather than cited from it. Every number was independently
+re-derived before reaching the text.
