@@ -1,0 +1,89 @@
+{
+  "date": "2026-08-31",
+  "utc_timestamp": "2026-08-31T17:00:56+00:00",
+  "git_sha": "593e11ed162ebda5551a9465441174efbbb758af",
+  "git_sha_short": "593e11e",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260831,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "calibration_gap_cutpoints_r500",
+  "n_rows": 32,
+  "columns": [
+    "pool",
+    "grid",
+    "seed",
+    "n_grid_points",
+    "returned_a_cutpoint",
+    "ok",
+    "wide",
+    "max_discrimination"
+  ],
+  "table_kind": "harness",
+  "n_replicates": 500,
+  "n_boot": 200,
+  "n_bins": 12,
+  "n_cells_per_arm": 2000,
+  "n_seeds": 8,
+  "seeds": [
+    20260831,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "cohort": "GSE132465 (SMC), 10 matched patients, sha256-verified against data/manifest.csv",
+  "target_gene": "GUCA2A",
+  "labelling": "label_stem_pole_lineage, mature = 'differentiated'",
+  "pools": {
+    "pooled": "eligibility filtered on patient alone \u2014 both arms draw from both tissues. What the sweep code implements.",
+    "reference": "reference-tissue cells only. A second reading of the same unspecified design choice."
+  },
+  "committed_grid_targets": [
+    0,
+    20,
+    40,
+    100,
+    200,
+    400,
+    800
+  ],
+  "extended_grid_targets": [
+    0,
+    20,
+    40,
+    50,
+    60,
+    70,
+    80,
+    90,
+    100,
+    110,
+    120,
+    130,
+    150,
+    200,
+    400,
+    800
+  ],
+  "committed_cutpoints": {
+    "ok": 50,
+    "wide": 20
+  },
+  "criteria": {
+    "detectable_shift": 0.5,
+    "coverage_target": 0.9,
+    "discrimination_target": 0.8
+  },
+  "what_this_answers": "The committed grid has no point between 40 and 100 mature cells, so a cutpoint returned from it cannot be distinguished from any value in that interval. The extended grid adds nine fractions inside it and changes nothing else.",
+  "n_oracle_sweep_rows": 736000,
+  "max_abs_residual_vs_realised": 0.0,
+  "recovery_curve_note": "The oracle estimate reproduces the sweep's own realised summary statistics, so max|intrinsic_hat - intrinsic_true_realised| is identically zero and the recovery ratio reduces to realised/parametric truth. The curve carries no information about the estimator. This field is that one-line check."
+}
