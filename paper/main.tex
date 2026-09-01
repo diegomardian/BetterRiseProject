@@ -1,0 +1,451 @@
+\documentclass{article}
+
+% Official NeurIPS 2026 workshop style, unmodified. No geometry, spacing or float
+% overrides live in this file. The style file says tweaking it risks desk
+% rejection, so the page budget gets met by writing less.
+\usepackage[dblblindworkshop]{neurips_2026}
+
+\workshoptitle{I Can't Believe It's Not Better (ICBINB): Failure Modes of AI in Biology}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath,amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{caption}
+
+\captionsetup{font=small,labelfont=bf}
+\newcommand{\notest}{\textsc{not estimable}}
+
+\title{The label reads the instrument:\\
+four structural failure modes in marker-based cell-state measurement}
+
+% ANONYMISED for double-blind review. The style option is `dblblindworkshop`,
+% so no author names, affiliations or emails may appear in the submitted PDF.
+% Restore the author block only for the camera-ready.
+\author{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+A marker vanishes from a diseased tissue: did the cells making it leave, or did
+the survivors turn it down? Single-cell data promises the answer bulk cannot
+give. We built that measurement for colorectal cancer behind four guards --- a
+pre-registered control panel, a confound diagnostic, a simulation-based
+validation sweep, and an abstention rule --- and all four passed while measuring
+nothing. The failures are structural rather than coding errors, and each one is
+invisible to the guard built to catch it. Our sharpest result is a bound: a
+correlation-threshold check against a binary label of prevalence $p$ cannot
+exceed $\sqrt{3p(1-p)}$, so on rare cell types the check is arithmetically
+incapable of firing and reports \emph{clean}. The blind spot sits exactly on the
+populations worth resolving. We show three further cases --- a control panel that
+cannot separate its tiers for algebraic reasons and whose failure
+\emph{replicates} across cohorts, a validation curve in which the estimator
+cancels exactly so the curve measures the simulator, and an abstention rule whose
+own calibration scores refusals as failures. We also report where these failures
+\emph{stop}: the same depth mechanism, tested on bulk data from the same disease
+with the arms unbalanced in the same way, does not transfer. We give the
+one-line diagnostics that would have caught each case, and one instance of
+catching a fifth prospectively.
+\end{abstract}
+
+\section{The measurement, and the trap underneath it}
+\label{sec:intro}
+
+A differentiation marker falls 90\% between a patient's healthy and diseased
+tissue. Two mechanisms produce the drop and they point to different
+interventions. The cells making the marker have gone, a \emph{compositional}
+change. Or those cells remain and produce less, an \emph{intrinsic} change. Bulk
+expression cannot separate the two. Single-cell data separates them by counting
+cells of the type in question in each arm and averaging their output. Write $f$
+for the fraction of such cells and $m$ for their mean per-cell output. Kitagawa's
+demographic standardisation \citep{kitagawa1955} splits the observed contrast:
+\begin{equation}
+\underbrace{(f_T - f_N)\, m_N}_{\text{compositional}} \;+\;
+\underbrace{f_N\, (m_T - m_N)}_{\text{intrinsic}} \;+\;
+\underbrace{(f_T - f_N)(m_T - m_N)}_{\text{interaction}}
+\;=\; f_T m_T - f_N m_N .
+\label{eq:kitagawa}
+\end{equation}
+Economists call the identity Oaxaca--Blinder \citep{oaxaca1973,blinder1973},
+epidemiologists call it standardisation \citep{kline2011}. Nothing here
+criticises the estimator, which is arithmetic.
+
+\paragraph{The trap.} Equation~\ref{eq:kitagawa} needs $f$, and $f$ needs a
+label: which cells belong to the type in question. Labelling needs marker genes.
+The markers of the mature cell type \emph{are} the genes whose expression the
+measurement averages, since $m$ is their mean. Using them as labels makes a
+silenced cell indistinguishable from an absent one, the exact confusion the study
+exists to resolve, so a leakage invariant bars them.
+
+What remains is defining the state by the \emph{absence} of markers of the
+opposite state. Everything in \S\ref{sec:depth} follows from that one forced
+move, and the move is forced for any panel where a state's positive markers
+double as the quantity of interest.
+
+\paragraph{What is and is not new here.} That sequencing depth confounds
+single-cell labels is known; dropout is the founding problem of the field
+\citep{kharchenko2014}, and compositional inference
+\citep{buttner2021sccoda,dann2022milo} and deconvolution
+\citep{newman2019cibersortx} each carry their own literature on it. Confounded
+analyses surviving standard controls is also documented
+\citep{squair2021confronting}. \textbf{Our contribution is not the confound. It
+is that the standard guards against it are structurally unable to detect it},
+and that this is demonstrable from the guard's own algebra before any data is
+collected.
+
+\paragraph{Contributions.}
+\begin{itemize}
+\item \textbf{A closed-form blindness bound} (\S\ref{sec:ceiling}). A correlation
+  check against a binary label of prevalence $p$ is bounded by
+  $\sqrt{3p(1-p)}$. Any tolerance above that bound is a check that cannot fail,
+  and rare populations put it there. On our data the check never fires on 32 of
+  48 patient-by-resolution combinations and reports the rarest resolution as the
+  cleanest of four.
+\item \textbf{A boundary condition} (\S\ref{sec:boundary}). The same mechanism
+  tested on bulk data from the same disease, with the arms unbalanced in the same
+  way, does \emph{not} transfer. The failure mode is specific to absence-defined
+  labels at single-cell depth, not to marker-based measurement generally.
+\item \textbf{Two further structural failures} (\S\ref{sec:controls},
+  \S\ref{sec:oracle}): a control panel that cannot separate its own tiers for
+  reasons available from the estimator's algebra, whose non-separation
+  \emph{replicates} across cohorts; and a validation curve in which the estimator
+  cancels exactly, leaving a property of the simulator.
+\item \textbf{Diagnostics.} A one-line check for each, and one case
+  (\S\ref{sec:takeaways}) where the same class of defect was caught
+  \emph{before} the analysis ran rather than after.
+\end{itemize}
+
+Our test throughout: \emph{would a different group, writing correct code, still
+hit this?} Five defects from our own history fail that test and sit in
+Appendix~\ref{app:ours} as record rather than finding.
+
+\section{The label reads the instrument}
+\label{sec:depth}
+
+A cell gets called mature when no marker of the stem-like state appears in it.
+Whether a marker appears depends on how deeply the cell was sequenced. The label
+is therefore a function of the instrument as well as the biology.
+
+On the replication cohort the maturity call correlates with library size at
+$\rho = +0.33$ against an attainable bound of $0.52$ for a label of its
+prevalence --- 63\% of the largest value the statistic can take,
+\emph{after} the correction below. Following \S\ref{sec:ceiling}, we state the
+pairing explicitly: \textbf{both the correlation and the bound are computed on
+the depleted arm}, from that arm's own prevalence. Reporting a
+maximum-over-arms correlation against the other arm's bound is the error
+\S\ref{sec:ceiling} describes us making three times, and it is the reason this
+sentence names the arm. Normalising to counts per 10{,}000 changes nothing,
+because scaling never undoes a zero.
+
+\paragraph{Why the label has to look like this.} The design did not pick this
+over an alternative. The markers of the mature state are the genes the intrinsic
+term averages, so the leakage invariant bars them from the label, and what
+remains is the absence of markers of the opposite state. Any panel where a
+state's positive markers double as the quantity of interest lands in the same
+place, with a label reading dropout.
+
+\paragraph{The correction, and what it costs.} Thinning each cell's marker counts
+to a common depth before scoring, then refusing to score cells below the floor,
+removes the mechanism instead of adjusting for it. A cell too shallow to have
+shown a marker gets marked unscored, never immature. That is an abstention
+verdict applied to a \emph{label}, on the same grounds as the one applied to an
+estimate in \S\ref{sec:abstention}. The two arms stay incomparable at 2.36$\times$
+apart in median depth, so we additionally equalise their depth distributions by
+construction, keeping $\min(n_N, n_T)$ cells per depth bin. The equalisation
+costs three quarters of the cells, and the surviving rows shift from 36/0/4 to
+16/16/8 across \emph{estimate}, \emph{wide} and \emph{abstain}. \textbf{On this
+cohort you get a clean comparison or an estimable one, never both.} The trade
+belongs to the correction, not to the cohort size.
+
+An earlier internal figure put this artefact far larger, in the hypothesised
+direction. We could not re-derive it and have withdrawn it; the episode and what
+it cost are in Appendix~\ref{app:withdrawn}, and the lesson is
+\S\ref{sec:takeaways}'s last.
+
+\section{Where the failure stops}
+\label{sec:boundary}
+
+A failure mode that appears everywhere we looked is hard to distinguish from a
+pipeline that never had signal. So we tested the same mechanism where it should
+\emph{not} apply: bulk RNA-seq from the same disease, $n = 624$ tumours and 51
+matched normals, where the marker's level is measured directly rather than
+inferred from a label.
+
+\textbf{The precondition holds.} The arms are unbalanced in depth exactly as in
+\S\ref{sec:depth} --- median library size 36.5M in the diseased arm against 48.4M
+in the healthy one, $p = 5 \times 10^{-10}$. Note the sign is \emph{reversed}
+from the single-cell cohort, where the healthy arm is the shallower one.
+
+\textbf{The mechanism does not transfer.} Non-detection of the marker is flat
+across library-size deciles at $\leq 1.6\%$ per decile, against the
+80.8\%~$\rightarrow$~8.5\% monotone gradient the single-cell cohort shows. Library
+size explains $r^2 = 0.046$ of the marker's variance, and the association runs
+the wrong way for a dropout artefact: deeper libraries carry \emph{less} of the
+marker, where dropout would make shallow samples read low. Conditioning on
+library size moves the distributional test that this arm's conclusion rests on
+from $p = 0.982$ to $p = 0.992$.
+
+\textbf{What this buys.} The failure in \S\ref{sec:depth} is not a property of
+marker-based measurement in general, nor of this disease, nor of these genes. It
+is a property of \emph{labels defined by absence, at depths where absence is
+mostly sampling}. At $\sim$36M reads there is no dropout to mistake for signal;
+at $\sim$5{,}000 counts per cell there is little else. Stating where a failure
+mode stops is what makes it a finding rather than an anecdote, and it is the
+control we most nearly failed to run.
+
+\section{The confound check cannot fire where the science is}
+\label{sec:ceiling}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig_ceiling.pdf}
+\caption{\textbf{A correlation-threshold confound check goes structurally blind
+on rare cell types.} \emph{Left:} the attainable bound $\sqrt{3p(1-p)}$ against
+the prevalence of the labelled state, with every patient-by-resolution
+measurement plotted at its own prevalence and correlation, in the depleted arm.
+Below $p = 1.37\%$ the 0.20 tolerance sits above the bound and the check never
+fires. \emph{Right:} each correlation as a share of its own bound. The three
+resolutions look alike on the reference arm at 0.17 to 0.18. On the depleted arm
+the rarest runs at twice the others, the opposite of what the raw statistic
+reports.}
+\label{fig:ceiling}
+\end{figure}
+
+The obvious guard against \S\ref{sec:depth} correlates the maturity call against
+sequencing depth and flags anything above a tolerance. Ours sat at
+$|\rho| \geq 0.20$. The guard never fired on the rarest annotation resolution,
+and a results sidecar recorded that resolution as the cleanest of four.
+
+The guard was never going to fire. The correlation between a continuous variable
+and a \emph{binary} label of prevalence $p$ carries a bound of
+$\sqrt{3p(1-p)}$, which we verified numerically against perfect separation. Below
+$p = 1.37\%$ a tolerance of 0.20 sits above the bound. On one cohort the rarest
+resolution held 8 positive cells in 5{,}564, a bound of 0.066, and the check
+returned ``clean, $|\rho| = 0.055$''. On the primary cohort the depleted arm's
+prevalence at that resolution runs 0.6\% with a bound of 0.137, \textbf{under the
+tolerance on 32 of 48 patient-by-resolution combinations}.
+
+Normalising by the attainable bound inverts the ranking
+(Figure~\ref{fig:ceiling}, right). The rarest resolution sits at 0.185 of its
+bound on the depleted arm against 0.092 and 0.094 for the two coarser ones.
+\textbf{The blind spot sits exactly where the science is.} Rare populations are
+the ones worth resolving, and the ones this class of check never flags.
+
+\paragraph{Our repair inherited the defect.} We fixed the diagnostic to report
+the attainable bound alongside the statistic. The fix took the worst correlation
+and the largest bound as \emph{independent} maxima over the two arms, so the
+statistic and its bound sometimes came from different arms. Correcting the
+pairing moves 66 of 190 patient-by-resolution rows, by up to 3.9$\times$, and
+flips the reachability flag at the rarest resolution from ``capable of firing''
+on \textbf{64 of 64} combinations down to 16.
+
+We then made the same error a third time, inside the analysis of the fix.
+Normalising the shipped table after the fact requires pairing a
+maximum-over-arms correlation with one arm's prevalence, and 21 of 166 rows then
+sit \emph{above their own bound}, 8 of them where that arm's prevalence is zero.
+The violation appears the moment you plot the points against the bound, and stays
+invisible in a table. The diagnostic now persists both arms' correlation, bound,
+prevalence and depth, so nobody downstream repeats the pairing --- and
+\S\ref{sec:depth}'s headline number is reported under that discipline.
+
+\section{The control panel cannot separate, and it replicates}
+\label{sec:controls}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig_tiers.pdf}
+\caption{\textbf{The retained-gene control gets lost as hard as the compositional
+controls.} Relative intrinsic change per gene, one point per stratum, on the
+primary cohort. Strata cross two quality-control floors, two population
+definitions, and matched against unmatched. Tier D was chosen because disease
+retains the gene, which should leave both arms alone. Tier D lands inside tier
+A's range. Tier B, the intrinsic control, changes sign between strata.}
+\label{fig:tiers}
+\end{figure}
+
+Our pre-registered control panel names three tiers. Genes expected to move
+because cells vanished (A). Genes expected to move because cells went quiet (B).
+And one chosen because disease \emph{retains} it, which should leave both arms
+alone (D). Tier D is the check deciding whether the decomposition measures what
+it claims.
+
+Across all eight strata of the primary cohort, the retained-gene control moves by
+$-0.57$ to $-0.82$ relative to its own baseline, against $-0.62$ to $-1.11$ for
+the compositional controls (Figure~\ref{fig:tiers}). The intrinsic control
+changes \emph{sign} between strata. Tier D, the gene chosen because disease keeps
+it, gets lost about as hard as the genes chosen because disease removes them.
+
+\paragraph{Algebra produces this, not biology.} With
+$\mathrm{comp} = \Delta f\, m_N$ and $\mathrm{intr} = f_N (m_T - m_N)$, the ratio
+between the arms equals $(f_N/\Delta f)(m_T/m_N - 1)$. The gene enters only
+through $m_T/m_N$, which sits near zero for \emph{any} strongly depleted gene.
+Measured per patient, the ratios agree to three decimals across tiers and follow
+from the cell fractions alone. This estimator was never going to separate the
+tiers, at any sample size, for any genes with this depletion profile.
+
+\paragraph{And the failure replicates.} A second cohort with different patients
+shows the same pattern, agreeing to two decimal places on the retained control.
+Replication across cohorts is the standard evidence a finding is not an artefact
+of one dataset. Here it shows the artefact is not an artefact of one dataset.
+\textbf{A structural failure replicates}, and a control panel reproducing its own
+non-separation looks exactly like a control panel that works. The bulk arm sees
+the tier-D gene lost $\sim$200-fold at the median as well --- recorded before the
+decomposition existed --- so the panel's tier assignment, not the estimator
+alone, is implicated.
+
+\section{The validation curve cannot see the estimator}
+\label{sec:oracle}
+
+The standard way to validate an estimator like ours is simulation. Generate
+samples with a known composition and a known shift, run the estimator, plot
+recovered against true. Ours sat between 0.95 and 1.07 wherever the abstention
+rule said ``estimate''. An internal report read the curve as the cutpoint being
+validated on real cells.
+
+The estimator in that arm applies Equation~\ref{eq:kitagawa} to the sample's
+\emph{own} realised summary statistics, so it reproduces them exactly. Across all
+4{,}400 runs, $\max|\hat{\imath} - \imath_{\text{realised}}| = 0$. The recovery
+ratio therefore equals
+$\imath_{\text{realised}} / \imath_{\text{parametric}}$, a comparison between
+what the generator was asked for and what it drew, in which the estimator
+cancels. Validating the arm with the ratio is circular.
+
+The tell sat in the internal report and got read the wrong way. At a zero mature
+fraction the ratio takes the value 2.004167, read at the time as the estimator
+over-estimating two-fold in the direction reading as a stronger finding. The
+value is $1/(1-s)$ scaled by the realised-over-requested mature fraction, a
+closed form with \emph{zero variance} across all 50 replicates, taking the values
+5.010417, 2.004167 and 1.336111 at the three shifts. A constant got read as a
+measurement.
+
+The statistic still catches an estimator failing to reproduce its input. The
+design document ships a broken-estimator control returning $0.0$, and the ratio
+comes out zero for it. The oracle arm by construction is not such an estimator,
+and the design never says so.
+
+\section{What we do instead, and what it costs}
+\label{sec:abstention}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig1_calibration.pdf}
+\caption{\textbf{Calibrating the abstention rule returns 120 cells against a
+committed 50, or nothing at all.} Coverage and discrimination against the cells
+available to the intrinsic comparison. Dashed lines mark the targets fixed before
+the sweep, shading marks the committed rule's three states. The two panels differ
+only in a draw-pool choice the design document never makes.}
+\label{fig:calibration}
+\end{figure}
+
+The response to all four failures is letting the estimator refuse. Our
+decomposition returns one of three verdicts per patient, gene and resolution: an
+estimate, a wide-interval estimate, or \notest{}, where the intrinsic term is
+\texttt{None} and never $0.0$. Zero and ``we did not ask'' are the two values a
+downstream average cannot tell apart. Abstention dominates where the
+compositional question gets sharpest. At the finest resolution 28 of 28 patients
+abstain under one population definition and 24 of 28 under the other.
+
+\paragraph{The rule's own calibration fails.} Three acceptance criteria were
+fixed before any sweep ran: a detectable halving of per-cell output, 90\%
+interval coverage, and 80\% discrimination. Running the procedure on held-out
+real cells for the first time, the committed cutpoint of 50 cells is not what
+comes back (Figure~\ref{fig:calibration}). Under the draw pool our sweep code
+implements, no tested count meets both criteria and the routine returns nothing.
+Under a second reading of the same unspecified choice, it returns 120.
+
+\paragraph{And the calibration table scored refusals as failures.} Its lowest bin
+merged the replicates holding no interval, the abstention case, with those
+holding one. Comparisons against \texttt{NaN} return false, so undefined
+intervals counted as coverage \emph{and} discrimination failures. The published
+row read $(0.36, 0.31)$ where the defined replicates give $(0.72, 0.62)$, exactly
+half. \textbf{An abstention silently counted as a failure, inside the routine
+calibrating the rule built to prevent exactly this.} The coercion arrived as a
+boolean in a rate rather than a number in a column, where the writer's assertion
+never sees it.
+
+\section{What to take from this}
+\label{sec:takeaways}
+
+\textbf{Report the attainable bound beside every threshold check.} A correlation
+against a rare binary label never exceeds $\sqrt{3p(1-p)}$. A threshold above
+that bound is a check unable to fail. Where the bound sits below the threshold,
+the honest output is \emph{not testable} rather than \emph{clean}, an abstention
+verdict for the check on the same grounds as one for an estimate.
+
+\textbf{Ask whether a control panel could separate before you run it.} Ours could
+not, for reasons available from the estimator's algebra alone, with no data. The
+question costs an afternoon and we never asked.
+
+\textbf{Ask what your validation statistic is a function of.} If your model is a
+deterministic function of the sufficient statistics your simulator drew, the
+recovery curve measures the simulator. Oracle-arm designs hit this often, and one
+line of code checks it: compare the estimate to the realised truth and see
+whether the difference is identically zero.
+
+\textbf{Treat replication of a structural failure as the null it is.} Two cohorts
+agreeing rules out a dataset-specific artefact. It rules out nothing about an
+estimator-specific one. Conversely, find where the failure \emph{stops}
+(\S\ref{sec:boundary}): a mechanism that survives every test you run is
+indistinguishable from a pipeline with no sensitivity.
+
+\textbf{Keep a statistic and its bound in the same row.} Three of the errors here
+were one error: two halves of a ratio taken from different populations. A table
+recording the statistic without recording which population produced it invites
+the mistake, and every consumer downstream accepts the invitation.
+
+\paragraph{The same defect, caught prospectively.} Every failure above was found
+after the check reported clean. One was not, and the difference is instructive.
+Planning a downstream analysis, we pre-registered a prediction of the form
+``variance explained for gene X is lower than for gene Y''. A reviewer objected
+before it ran: $R^2$ is a share of variance, so a gene near the assay floor loses
+it to noise whatever its biology, and our two genes sit 68-fold apart in dynamic
+range. Simulated with \emph{both} genes purely compositional and differing only
+in abundance, the low-abundance gene returns $R^2$ falling $0.891 \rightarrow
+0.000$ as the noise floor rises while the high-abundance gene holds near $0.86$
+--- the prediction confirmed with nothing to find. The proposed scale-free
+alternative, a log--log slope, is confounded the same way ($0.742$ against
+$0.989$, collapsing to $0.023$). The fix was to judge each gene against an
+\emph{abundance-matched null} of genes at its own expression level, which is
+\S\ref{sec:ceiling}'s ``report the bound beside the statistic'' in a second
+guise. \textbf{The distinguishing feature was not insight. It was that the
+specification was written down, in a form that could be objected to, before the
+numbers existed.}
+
+\textbf{Your most-quoted number should be the one you can re-derive.} The figure
+we withdrew (Appendix~\ref{app:withdrawn}) circulated internally for weeks and
+shaped decisions before anyone tried to reproduce it. The producing script was
+never committed.
+
+\section*{Ethics and reproducibility}
+
+Both cohorts are public, de-identified, previously published human tumour
+single-cell datasets used under their deposited terms; the bulk cohort in
+\S\ref{sec:boundary} is likewise public and de-identified. We collected no new
+human data. Single-cell genotypes remain re-identifiable in principle, so we
+release derived per-patient summary statistics and code rather than cell-level
+matrices. We make no biological claim. The control panel in \S\ref{sec:controls}
+fails, and the failure is this paper's subject. Nothing here counts as evidence
+about colorectal cancer, differentiation, or any marker gene. The figure code
+reads every number in this paper from a versioned result table rather than a
+transcription, each table carries a commit hash and a fixed seed, and each number
+got independently re-derived before reaching the text --- with the one exception
+recorded in Appendix~\ref{app:withdrawn}.
+
+\input{sections/llm.tex}
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\clearpage
+\appendix
+\input{sections/appendix.tex}
+
+\end{document}
