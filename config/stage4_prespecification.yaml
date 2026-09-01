@@ -15,7 +15,8 @@
 # against a proposed spec. A pre-specification that does not stop you running is
 # a document, not a lock.
 #
-# Reasoning and the evidence behind the prediction: the comment on PR #49.
+# Reasoning: the comment on PR #49. AMENDED 2026-08-30 for issue #54 — see
+# `prediction.withdrawn_arms` and decision #26.
 # =============================================================================
 
 version: "1.0.0"
@@ -52,38 +53,88 @@ question: >
 # If that reading is right, mature-colonocyte fraction should explain little of
 # bulk GUCA2A and comparatively more of bulk CDX2.
 # -----------------------------------------------------------------------------
+#
+# AMENDED 2026-08-30, before locking, in response to issue #54. The original
+# arms were a bare R-squared comparison between GUCA2A and CDX2 and a bare
+# R-squared < 0.25 threshold. Both were unsound and are withdrawn — see
+# `withdrawn_arms` at the bottom of this block for what they said and why they
+# could be satisfied with nothing intrinsic in the data.
 prediction:
+  statistic: >
+    For each outcome gene: R-squared of that gene on mature-colonocyte fraction,
+    expressed as its PERCENTILE within an abundance-matched null distribution of
+    non-panel genes (see `matched_null`). Never a raw R-squared, and never a
+    raw R-squared compared between two genes.
+  statistic_rationale: >
+    R-squared is a share of variance, so a gene near the assay floor loses it to
+    measurement noise whatever its biology. GUCA2A sits at 1.40% of normal and
+    CDX2 at 94.7% — a ~68-fold difference in dynamic range against a common
+    noise floor — so comparing their R-squared compares their abundance. The
+    matched null removes that by asking a different question: is this gene's
+    R-squared larger than that of genes at the SAME abundance? Same
+    excess-over-null idiom W3.4 used for Cramer's V and PVCA.
+
   primary:
     statement: >
-      R-squared(GUCA2A ~ mature fraction) < R-squared(CDX2 ~ mature fraction),
-      in both cohorts independently.
+      GUCA2A's R-squared falls WITHIN its abundance-matched null (percentile
+      <= 0.95) while CDX2's rises ABOVE its own (percentile > 0.95), in both
+      cohorts independently.
     rationale: >
-      Direction only, deliberately. A threshold here would be invented, and the
-      ordering is what the intrinsic/compositional split actually implies. It is
-      also the comparison least sensitive to how well deconvolution works, since
-      both genes are estimated against the same fraction with the same error.
+      This is the intrinsic/compositional split stated in a form that abundance
+      cannot fake. If GUCA2A's loss is intrinsic, fraction explains no more of
+      it than of any equally-expressed gene with no differentiation story. If
+      CDX2's small loss is compositional, fraction explains more of it than
+      abundance alone predicts.
     disconfirmed_if: >
-      CDX2's R-squared is lower than GUCA2A's in either cohort. That would say
-      the marker whose loss is large is the one fraction explains, which is the
-      compositional reading and contradicts #49.
+      GUCA2A exceeds its matched null (percentile > 0.95) while CDX2 does not.
+      That is the compositional reading and it contradicts #49. If BOTH exceed,
+      or NEITHER does, the result is indeterminate and is reported in those
+      words rather than resolved toward either arm.
 
   secondary:
-    statement: "R-squared(GUCA2A ~ mature fraction) < 0.25 in TCGA."
+    statement: >
+      CDX2's excess over its matched null median is greater than GUCA2A's, in
+      both cohorts.
     rationale: >
-      A committed number so the primary cannot be satisfied trivially by both
-      being near zero. Under a purely compositional account, bulk GUCA2A is
-      close to a linear readout of how much mature epithelium is in the sample,
-      and fraction ought to explain most of its variance. A quarter is a
-      deliberately generous ceiling for "little".
+      An effect-size companion to the primary's threshold test, so a result
+      that sits either side of the 0.95 line by a hair is not reported as a
+      clean answer. Excess is a difference of two R-squared values computed at
+      the SAME abundance, so it is comparable in a way the raw values are not.
     disconfirmed_if: >
-      R-squared >= 0.50. Between 0.25 and 0.50 is reported as neither
-      confirmed nor disconfirmed, and said in those words.
+      GUCA2A's excess exceeds CDX2's in either cohort.
 
   interpretation_note: >
     None of this can establish the intrinsic reading. Bulk has no independent
     read on cell-type identity (invariant 6). It can only ask whether the marker
     pattern is one the compositional account can produce. A confirmed prediction
     is consistency; a disconfirmed one is a real problem for #49.
+
+  withdrawn_arms:
+    - statement: "R-squared(GUCA2A) < R-squared(CDX2)"
+      withdrawn: "2026-08-30, issue #54, before locking"
+      why: >
+        Satisfied on simulated data where BOTH genes are purely compositional
+        and differ only in abundance. Reproduced: under pure composition with an
+        assay floor, the 1.4%-of-normal gene returns R-squared 0.891 -> 0.000 as
+        the floor rises while the 94.7% gene holds at ~0.86. The arm measured
+        the floor, not the biology.
+    - statement: "R-squared(GUCA2A) < 0.25 in TCGA"
+      withdrawn: "2026-08-30, issue #54, before locking"
+      why: >
+        Added so the primary could not be satisfied by both values being near
+        zero. It does not close the other route, where the low one is low for a
+        technical reason. Its threshold is also uninterpretable: the value of
+        R-squared at GUCA2A's abundance depends on the assay floor, which is not
+        known in advance, so 0.25 could not be given a meaning before the run.
+    - statement: "log-log slope of expression on fraction, instead of R-squared"
+      withdrawn: "2026-08-30, considered and rejected"
+      why: >
+        Issue #54 offered this as an alternative to the matched control, on the
+        grounds that it is scale-free. Tested on the same simulation and it is
+        NOT: under pure composition the slope reads 0.742 for the low-abundance
+        gene against 0.989 for the high-abundance one, and collapses to 0.023 as
+        the floor rises. Floor effects bias the slope as well as the variance
+        share. Recorded so nobody re-proposes it.
 
 # -----------------------------------------------------------------------------
 # INSTRUMENT CHECKS. Without these a low R-squared is uninterpretable — it could
@@ -96,6 +147,45 @@ prediction:
 # are compositional is the question rather than an input to it. Picking one
 # would beg it.
 # -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# THE ABUNDANCE-MATCHED NULL. Issue #54's fix, generalised from one control gene
+# to a distribution — a single matched control is a point estimate of a noisy
+# quantity, and the draw rule below costs nothing extra to run.
+#
+# The rule is ALGORITHMIC and committed here rather than a hand-picked gene
+# list, so it cannot be adjusted after seeing which genes landed in it. It is
+# implemented in src/bulk/prespec.py:matched_null_genes and pinned by tests.
+# -----------------------------------------------------------------------------
+matched_null:
+  candidates:
+    on_shared_index: true          # config/gene_index/gene_index_1.0.0.txt
+    exclude_frozen_panel: true     # all 23, whatever their tier
+    exclude_self: true
+    abundance_window_log2: 0.25    # |median log2CPM(candidate) - target| <= this
+    min_detection_rate: 0.50       # detected in >= 50% of tumours in that cohort
+  max_genes: 200
+  seed: 20260830
+  sampling: >
+    If more candidates qualify than `max_genes`, take a random sample of that
+    size under `seed`. Deterministic, and the seed is committed here rather than
+    chosen at run time.
+  feasibility_measured_2026_08_30: >
+    In TCGA at the 1.0.0 index: GUCA2A (tumour median log2CPM 2.843) has 769
+    qualifying candidates, CDX2 (8.119) has 191. Both far above `max_genes`, so
+    the null is a sample rather than a census in both cases, and the window does
+    not need widening.
+  reported: >
+    The null's median and 5th/95th percentiles, the target gene's R-squared, its
+    percentile within the null, and its excess over the null median — per gene,
+    per cohort, per rung. The null distribution itself is written to the results
+    table, not summarised away, so a reader can see its shape.
+  honest_limitation: >
+    The matched genes are not guaranteed to lack a differentiation story; some
+    will have one. That is why this is a null DISTRIBUTION rather than a control
+    gene. The claim it supports is narrow and exact: "this gene's R-squared is
+    or is not larger than that of typical genes at the same abundance". It is
+    not "these genes have no biology".
+
 instrument_checks:
   positive_control:
     name: non_epithelial_fraction_tracks_purity
@@ -113,7 +203,7 @@ instrument_checks:
       report any R-squared. A fraction that does not track purity makes every
       downstream number a statement about deconvolution error.
 
-  negative_control:
+  negative_control_high_abundance:
     name: housekeeping_does_not_track_fraction
     genes: [ACTB, GAPDH]
     statement: "R-squared(housekeeping ~ mature fraction) < 0.10."
@@ -124,6 +214,30 @@ instrument_checks:
     on_failure: >
       Report alongside the primary result and treat every R-squared as an upper
       bound. Do not silently drop it.
+    known_gap: >
+      ACTB and GAPDH are both high-expressed, so this pair tests the TOP of the
+      dynamic range and leaves the floor untested — which is where GUCA2A sits
+      and where issue #54 showed the confound lives. That gap is closed by
+      `negative_control_low_abundance` below, not by this check.
+
+  negative_control_low_abundance:
+    name: floor_genes_do_not_track_fraction
+    genes: null      # drawn by rule, not named — see `matched_null`
+    statement: >
+      The abundance-matched null drawn at GUCA2A's expression level has a median
+      R-squared, and that median is reported as the floor's baseline. If it
+      exceeds 0.10, something at the floor tracks fraction generally.
+    rationale: >
+      Issue #54's ask, and the direct answer to it. A gene at 1.4% of normal
+      loses R-squared to the assay floor whatever its biology, so a low
+      R-squared for GUCA2A is only informative against genes that share its
+      abundance. This is that reference, drawn by a committed rule rather than
+      hand-picked.
+    on_failure: >
+      A matched-null median above 0.10 means fraction predicts low-abundance
+      expression in general — most likely a detection-rate artefact, since
+      deeper samples detect more of everything. Report it, and report the
+      primary as indeterminate rather than confirmed.
 
   w2_calibration: >
     W2's attenuation sweep and bulk-recovery curve (§2.2) measure how well
