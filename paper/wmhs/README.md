@@ -33,6 +33,7 @@ mandatory responsible-use statement.
 
 ```
 ./build.sh          # builds both and FAILS if either exceeds its page limit
+./make_overleaf.sh  # bundles overleaf.zip for upload
 ```
 
 Or by hand: `pdflatex main && bibtex main && pdflatex main && pdflatex main`.
@@ -118,6 +119,7 @@ make_fig1.py            Figure 1
 make_fig3.py            Figure 2
 _tables.py              resolves a result table by name
 build.sh                builds both and enforces both page limits
+make_overleaf.sh        bundles overleaf.zip (tex + bib + figures only)
 check_anonymity.sh      double-blind guard; run before the final build
 make_artifact.sh        builds the anonymised code release §5 promises
 PATCHES.md              working record of corrections, with what is still open
