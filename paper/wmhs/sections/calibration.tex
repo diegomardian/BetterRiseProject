@@ -66,15 +66,26 @@ a mature \emph{fraction} against a fixed 2{,}000 cells, so the counts it can
 reach are $\{0, 20, 40, 100, 200, 400, 800\}$ --- nothing between 40 and 100. On
 the reference pool it returns $ok = 100$ on every one of the eight seeds at 500
 replicates\iffull{}, and on twelve of thirteen at 50,\fi{} and that stability is
-what made the number look like a measurement. We added nine
+what made the number look like a measurement.
+
+\iffull
+The superseded internal report gave 120, and we cannot reproduce it: 120 is not
+a count the committed grid can reach. Whatever produced it was not the committed
+configuration, and the run is the uncommitted one of
+Appendix~\ref{app:withdrawn} item~3, so there is nothing left to re-derive it
+from. We report that rather than reconcile it.
+\fi
+
+We added nine
 fractions inside the gap, reaching 50, 60, 70, 80, 90, 110, 120, 130 and 150,
 and changed nothing else. \textbf{The answer moves to 90}, and the crossing it
 was hiding becomes legible: median discrimination runs $0.728$ at 45 mature
 cells, $0.789$ at 65 and $0.858$ at 90, so the pre-registered target of $0.80$
 falls between 65 and 90 --- inside the interval the committed grid could not
-reach. Seven of eight seeds return $ok = 90$, $wide = 45$\iffull{}; the eighth
-returns 65, which is where discrimination sits at $0.789$ against a $0.80$
-target\fi{}. Against committed values of 50 and 20, the calibrated rule is
+reach. Seven of eight seeds return $ok = 90$, $wide = 45$; the eighth disagrees
+and returns 65\iffull{}, which is the count where discrimination sits at $0.789$
+against a $0.80$ target --- close enough to the line that a seed can land either
+side of it\fi{}. Against committed values of 50 and 20, the calibrated rule is
 roughly twice as strict on both cutpoints. The pooled draw returns no cutpoint
 under either grid.
 

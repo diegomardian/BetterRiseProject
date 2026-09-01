@@ -59,7 +59,7 @@ cell in an arm the standard error is undefined, and \texttt{nan > threshold} is
 therefore \emph{declines to abstain} in exactly the world the estimand does not
 exist. We check finiteness before comparing, which makes this competitor
 stronger than the version most people would write. It is also the same coercion
-we later found inside our own calibration routine (\S\ref{sec:blind}), arriving
+sitting inside our own calibration routine (\S\ref{sec:calibration}), arriving
 there as a boolean in a rate instead of a number in a column.
 
 \iffull
@@ -79,7 +79,7 @@ the interval is the whole question. We do not use them there yet.
 thing about the count cutpoint, and neither says what we expected. The benchmark
 says its extra refusals buy nothing a finiteness check does not already buy;
 the calibration says the value its own criteria return is 90, not the committed
-50.\iffull{} The previously reported 120 was a property of the grid.\fi{} The
+50. The
 three-verdict output survives both. What does not survive is the committed
 number, and the belief that either a recovery curve or a coarse grid had
 confirmed it.
