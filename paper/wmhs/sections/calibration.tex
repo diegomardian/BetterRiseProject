@@ -105,6 +105,20 @@ under either grid.
 \fi
 
 \iffull
+\paragraph{And 90 is not a cutpoint with an interval on it.} At 50 replicates
+the crossing does not resolve at all --- the returned value wanders between 45
+and 90 with the seed. At 500 it does, 7 of 8 seeds returning $ok = 90$, but that
+stabilises Monte Carlo noise and not the quantity a reader will take it for. Ten
+patients with two held out per replicate admit just \textbf{45 distinct holdout
+pairs}, so at 500 replicates each pair is drawn about eleven times and the
+estimate converges to the value over those 45 pairs rather than to a population
+value. The patient-level uncertainty is unchanged by the replicate count and is
+not quantified anywhere in this paper. Read $ok = 90$ as what this procedure
+returns on this cohort. Reporting it with an interval would be the same error
+this paper documents twice elsewhere, one section later.
+\fi
+
+\iffull
 \input{sections/gridcaveats.tex}
 \fi
 

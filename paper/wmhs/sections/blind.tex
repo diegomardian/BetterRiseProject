@@ -17,6 +17,34 @@ $\max|\hat{\imath} - i_{\text{realised}}| = 0$. The ratio is therefore
 $i_{\text{realised}} / i_{\text{parametric}}$: what the generator drew over what
 it was asked for. The estimator does not appear in it.
 
+\iffull
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig3_generator_statistic.pdf}
+\caption{Ratio of recovered to true intrinsic effect, median and IQR over 50
+replicates at the detectable effect, for both draw pools. An earlier internal report used this curve to
+conclude the committed cutpoint was ``validated on real cells''. The curve
+behaves well wherever the rule says ``estimate'', and on this arm carries no
+information about the estimator. The single-cell estimate applies
+\texttt{decompose()} to the sweep's own realised summary statistics and
+reproduces them exactly, with
+$\max|\hat{\imath} - i_{\text{realised}}| = 0$ over all 119{,}600 oracle rows,
+leaving the ratio equal to
+$i_{\text{realised}}/i_{\text{parametric}}$. A further 29{,}900 rows carry no
+ratio at all: at $s = 1$ the parametric intrinsic term is exactly zero, so the
+design's own null control is the one point where this validation statistic
+cannot be evaluated. The statistic still
+discriminates an estimator failing to reproduce its input, and the design
+document ships a broken-estimator control returning $0.0$ for which the ratio
+comes out zero. The oracle arm by construction is not such an estimator, so
+validating it here is circular. The value at the abstention point, read at the
+time as a two-fold over-estimate in the dangerous direction, is exactly
+$1/(1-s)$: the realised and requested mature fractions agree there, so the
+closed form carries no scale factor.}
+\label{fig:generator}
+\end{figure}
+\fi
+
 \paragraph{The general form.} Let $\theta$ be the parameter a simulator is asked
 for, $\theta_{\text{realised}}$ the value the draw actually took --- which
 differs from $\theta$ by sampling alone --- and $\hat\theta$ the estimator's
@@ -44,37 +72,18 @@ The condition is not that the estimator is wrong, and not that it is right. It
 is that the estimator and the generator share sufficient statistics. That is a
 property of the plumbing rather than of the model, so it survives code review,
 leaves no trace in the curve, and does not announce itself in any residual.
-
-\iffull
-\paragraph{This is a sharp case of known advice.} The simulation-study
-literature already says the data-generating mechanism should not coincide with
-the analysis model; ADEMP \citep{morris2019} is the standard framing and names
-the data-generating mechanism and the methods as separate items precisely so
-that they can be compared. What that guidance does not give you is a test. The
-case here is the degenerate one --- not a diagnostic weakened by overlap but a
-diagnostic that is \emph{identically} uninformative, with the estimator
-algebraically absent from the statistic --- and the contribution is that this
-case is detectable in one line, from the run you already have.
 \else
 The condition is not that the estimator is wrong. It is that the estimator and
 the generator share sufficient statistics --- a property of the plumbing, so it
 survives code review and leaves no trace in the curve.
 \fi
 
-\iffull
-\else
-The simulation-study literature already warns that the data-generating
-mechanism should not coincide with the analysis model \citep{morris2019}. What
-it does not give you is a test for the degenerate case, where the estimator is
-algebraically absent rather than merely correlated with the generator.
-\fi
-
 \paragraph{Why this is the default, not an exotic case.} Oracle arms exist
 precisely so the estimator sees clean inputs, and the cleanest available input is
 the summary the generator just computed. Wiring the estimator to the generator's
 own stratum means is the shortest path to an arm that runs, and it is the first
-arm most pipelines get.
-\fi
+arm most pipelines get. This is not a strawman we built to knock down: it is the
+arm we shipped.
 
 \paragraph{What this looks like in a trial simulator.} Nothing above is about
 cells. Take an external control arm drawn from a patient simulator: the generator
@@ -117,6 +126,29 @@ as the estimate improves. That curve is about the estimator. The unadjusted
 difference is there to show the curve is not useless --- it ignores the strata,
 so it is confounded, and the curve catches it immediately at a ratio near 2.4.
 
+\iffull
+\begin{table}[h]
+\small
+\centering
+\caption{Four estimators of the same treatment effect, at 5{,}000 patients per
+cohort. The first three recover it; only the last two are telling you anything
+about themselves. The residual column is the one-line check, and it is the only
+column here that separates them.}
+\label{tab:trial}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+& \textbf{recovered / requested} & \textbf{max $|\hat\theta - \theta_{\text{realised}}|$}
+& \textbf{sees the estimator?} \\
+\midrule
+G-computation, generator's strata & $0.998$ & $0$          & no \\
+IPW, saturated propensity         & $0.998$ & $8\times10^{-15}$ & no \\
+IPW, cross-fitted                 & $0.993$ & $0.297$      & yes \\
+unadjusted difference             & $2.441$ & $4.78$       & yes \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\fi
 The lesson is not that oracle arms are bad. It is that \emph{near 1 and
 tightening} is compatible with the estimator having been divided out, and that
 the residual against realised truth is what separates the two.

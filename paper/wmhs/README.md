@@ -15,8 +15,13 @@ rendered as §5. Do not cut it for space.
 
 | | file | main text | limit |
 |---|---|---|---|
-| Full paper | `main.tex` | 6 pages | 9 |
+| Full paper | `main.tex` | 7 pages | 9 |
 | Extended abstract | `main_short.tex` | 4 pages | 4 |
+
+Limits verified against the CFP's own text on 2026-08-31: *"Full Papers: at most
+9 pages of main text. Extended Abstracts: at most 4 pages of main text.
+References and appendices do not count toward the page limit, but the main text
+must be self-contained."* The extended-abstract cap is **4**, not 6.
 
 Both `\input` the same `sections/` files and differ only in the `\iffull` flag
 set at the top. **The short build is a strict subset of the same prose, not a

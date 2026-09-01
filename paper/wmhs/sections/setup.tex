@@ -41,7 +41,29 @@ those verdicts is a cutpoint on $n$, the count of relevant cells in the diseased
 arm: answer at $n \geq 50$, flag a wide interval from 20 to 49, abstain below 20.
 
 \iffull
-\paragraph{Related work.} Cell-count filters of this shape are standard rather
+\paragraph{Related work: validating a method against a simulator.} Evaluating a
+statistical method by simulating from a known truth and measuring recovery is
+long-standing practice with a written methodology behind it. Burton et
+al.~\citep{burton2006} set out how such a study should be designed and
+protocolled; ADEMP \citep{morris2019} gives the structure now in general use,
+and names the data-generating mechanism and the methods under evaluation as
+\emph{separate} items --- precisely so that the second can be assessed against
+the first. That separation is exactly the property our arm lost, and the
+guidance is right. What it does not supply is a test. It tells you the
+generating mechanism should not coincide with the analysis model; it does not
+tell you how to find out whether yours does, and in our case reading the code
+would not have told us either (\S\ref{sec:blind}).
+
+The case we describe is the degenerate end of that advice. It is not a
+diagnostic weakened because the generator and the estimator share assumptions.
+It is a diagnostic in which the estimator is \emph{algebraically absent} --- the
+recovery ratio is a function of the generator alone, so the curve is unchanged
+if the estimator is replaced by any other with the same property. That is
+checkable in one line on the sweep you already have, and our contribution is
+that line and the demonstration that two estimators from different literatures
+can both fail it.
+
+\paragraph{Related work: the abstention rule.} Cell-count filters of this shape are standard rather
 than novel. Pseudobulk pipelines drop samples below a minimum cell count
 \citep{crowell2020}, and differential-abundance methods --- scCODA
 \citep{buettner2021}, Milo \citep{dann2022}, propeller \citep{phipson2022},

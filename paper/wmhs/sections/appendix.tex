@@ -124,6 +124,7 @@ intrinsic term is exactly $0$, so the ratio divides by zero. 29{,}900 of the
 sweep's rows carry no value at all. The one point the design included to check
 the statistic is the one point at which the statistic cannot be evaluated.
 
+\iffull\else
 \begin{figure}[h]
 \centering
 \includegraphics[width=\linewidth]{figures/fig3_generator_statistic.pdf}
@@ -149,6 +150,7 @@ $1/(1-s)$: the realised and requested mature fractions agree there, so the
 closed form carries no scale factor.}
 \label{fig:generator}
 \end{figure}
+\fi
 
 \section{The competitor benchmark}
 \label{app:bench}
@@ -201,6 +203,7 @@ interaction term separately rather than folding it into either arm. Anyone
 reusing the decomposition should keep all three properties. The method is not
 wrong. Its output flattens easily.
 
+\iffull\else
 \paragraph{The calibration's own rates carry no interval, and the replicate
 count does not buy what it looks like it buys.} Coverage and discrimination are
 reported as bare point estimates, though the project's other
@@ -218,6 +221,7 @@ procedure returns on this cohort, not as a cutpoint with an interval on it. That
 is the same error the paper documents twice elsewhere --- a statistic reporting
 more precision than its inputs support --- and we flag it here rather than let a
 larger replicate count imply otherwise.
+\fi
 
 \paragraph{The two draw pools differ in more than one way at once.} Neither
 matches the population the estimator meets in real data. There the reference arm

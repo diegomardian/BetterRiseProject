@@ -63,8 +63,8 @@ exist. We check finiteness before comparing, which makes this competitor
 stronger than the version most people would write. It is also the same coercion
 sitting inside our own calibration routine (\S\ref{sec:calibration}), arriving
 there as a boolean in a rate instead of a number in a column.
+\fi
 
-\iffull
 \paragraph{Why a count cutpoint at all, rather than conformal prediction?}
 Conformal methods give distribution-free coverage for a target that exists but
 is uncertain \citep{vovk2005,angelopoulos2023}. The failure here is prior to
@@ -74,8 +74,6 @@ and uncertainty are different questions, and the results above suggest we
 answered the first one with a tool sized for the second. Conformal intervals are
 the right instrument for the \emph{wide} verdict, where the estimand exists and
 the interval is the whole question. We do not use them there yet.
-\fi
-\fi
 
 \paragraph{Where this leaves the rule.} Two independent routes now say the same
 thing about the count cutpoint, and neither says what we expected. The benchmark
