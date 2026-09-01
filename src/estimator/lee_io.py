@@ -255,6 +255,11 @@ class LeeCohort:
     #: Exclude them before deconvolution (CLAUDE.md invariant 2) — W2's
     #: ``bulk_recovery.reference_profiles(..., exclude_genes=[target])`` does.
     raw_counts: pd.DataFrame = field(default_factory=pd.DataFrame)
+    #: Per-cell library size over the WHOLE transcriptome, indexed like
+    #: ``expression``. This is the depth a confound diagnostic needs, and it
+    #: cannot be recovered from ``raw_counts``: that frame holds the panel genes
+    #: only, and a sum over a dozen genes is not a sequencing depth.
+    n_counts: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
 
 
 _FILES: Final[dict[str, dict[str, str]]] = {
@@ -527,6 +532,7 @@ def load_lee_cohort(
             if keep_raw_counts
             else pd.DataFrame(index=expression.index)
         ),
+        n_counts=metrics.loc[expression.index, "n_counts"].astype(float),
     )
 
 

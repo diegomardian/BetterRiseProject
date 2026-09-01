@@ -180,9 +180,10 @@ in the full count is more so in half of it. Our constraint is not that the label
 is statistically dependent on the test data. It is that the label is a reading of
 how much data there was.
 
-\emph{Reference-based probabilistic annotators} score a cell against whole
-expression profiles rather than a handful of binary marker calls, which does
-reduce the fragility of absence-defined labels. The leakage invariant still
+\emph{Reference-based probabilistic annotators} --- SingleR \citep{aran2019},
+CellTypist \citep{dominguezconde2022} --- score a cell against whole expression
+profiles rather than a handful of binary marker calls, which does reduce the
+fragility of absence-defined labels. The leakage invariant still
 applies --- the target genes must be withheld from the reference --- and what
 remains of the profile is measured through the same detection process. A softer
 label is not a depth-independent one. We regard this as the most promising
@@ -220,17 +221,18 @@ now state only as the post-correction residual of 60\%.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.85\linewidth]{figures/fig_ceiling.pdf}
+\includegraphics[width=0.80\linewidth]{figures/fig_ceiling.pdf}
 \caption{\textbf{A correlation-threshold confound check goes structurally blind
-on rare cell types.} The attainable bound $\sqrt{3p(1-p)}$ against the
-prevalence $p$ of the labelled state. Below $p = 1.3516\%$ a tolerance of
-$0.20$ sits above the bound, so no data can make the check fire: the shaded
-region is where it reports clean by construction. Markers give each annotation
-resolution's median prevalence in the diseased arm on the primary cohort. We
-plot prevalence rather than the observed correlations because no committed table
-carries a \emph{per-arm} correlation --- only the maximum over arms --- and
-pairing that with one arm's prevalence is the mispairing this section reports
-making three times.}
+at both ends of its own range.} Per-arm rows on the replication cohort, one point
+per patient $\times$ annotation resolution $\times$ arm.
+\emph{Left:} each arm's $|\rho|$ against depth, plotted at \emph{that arm's}
+prevalence, with the bound $\sqrt{3p(1-p)}$. Shaded regions are where a
+tolerance of $0.20$ exceeds the bound and no data can make the check fire ---
+below $p = 1.3516\%$ and, symmetrically, above $98.65\%$. \emph{Right:} the same
+correlations as a share of the bound each could reach. The rarest resolution
+sits at $0.375$ of its own bound against $0.184$ and $0.139$ for the two coarser
+ones: normalised, it is the \emph{most} affected, which is the opposite of what
+the raw statistic reports.}
 \label{fig:ceiling}
 \end{figure}
 
@@ -258,18 +260,22 @@ defined prevalence in the arm being paired. Each count below names its filter.
 Below $p = 1.3516\%$ a tolerance of 0.20 sits above the bound. Solving
 $\sqrt{3p(1-p)} = 0.20$ gives $p = 0.013516$; at $1.37\%$, the figure an earlier
 draft of this paper carried, the bound is $0.2013$ and the check \emph{can} still
-fire, which is the error this section exists to warn about, made by us, in the
-sentence warning about it. On one cohort the rarest resolution held 8 positive
-cells in 5{,}564, a bound of 0.066, and the check returned ``clean,
-$|\rho| = 0.055$''. On the primary cohort the depleted arm's prevalence at that
-resolution runs 0.6\% with a bound of 0.137, \textbf{under the tolerance on 32 of
-the 48 depleted-arm combinations at that resolution}.
+fire --- the error this section exists to warn about, made by us, in the sentence
+warning about it. Measured per arm on the replication cohort
+(Figure~\ref{fig:ceiling}), \textbf{58 of 160 patient-by-resolution-by-arm rows
+cannot reach the tolerance at their own prevalence}: 18 of 40 at the rarest
+resolution, where the median prevalence is 4.7\%, and \textbf{40 of 40 at the
+coarsest}, where every epithelial cell is called mature, the prevalence is
+exactly $1.000$ and the bound is exactly zero. The bound vanishes as $p \to 1$ just as it
+does as $p \to 0$: \textbf{degenerate labels are invisible at either extreme},
+and the two extremes are the finest and coarsest resolutions we ran.
 
 Normalising by the attainable bound inverts the ranking
-(Figure~\ref{fig:ceiling}, right). The rarest resolution sits at 0.185 of its
-bound on the depleted arm against 0.092 and 0.094 for the two coarser ones.
-\textbf{The blind spot sits exactly where the science is.} Rare populations are
-the ones worth resolving, and the ones this class of check never flags.
+(Figure~\ref{fig:ceiling}, right): the rarest resolution sits at 0.375 of its own
+bound against 0.184 and 0.139 for the two coarser ones, so the resolution the raw
+statistic called cleanest is the most affected. \textbf{The blind spot sits exactly where
+the science is.} Rare populations are the ones worth resolving, and the ones this
+class of check never flags.
 
 \paragraph{Our repair inherited the defect, twice.} We fixed the diagnostic to
 report the attainable bound alongside the statistic. The fix took the worst
@@ -281,15 +287,17 @@ firing'' on \textbf{64 of 64} combinations down to 16. We then made the same
 error a third time inside the analysis of the fix, which put 21 of 166 rows
 \emph{above their own bound}. The violation appears the moment the points are
 plotted against the bound and stays invisible in a table. The diagnostic now
-persists both arms' correlation, bound, prevalence and depth, so nobody
-downstream repeats the pairing.
+persists one row per arm --- correlation, bound, prevalence and depth together,
+from the same cells --- so nothing downstream has to pair them. That table is what
+Figure~\ref{fig:ceiling} is drawn from; before it existed the figure could show
+the bound or the correlations, not both.
 
 \section{The control panel cannot separate, and it replicates}
 \label{sec:controls}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.85\linewidth]{figures/fig_tiers.pdf}
+\includegraphics[width=0.80\linewidth]{figures/fig_tiers.pdf}
 \caption{\textbf{The retained-gene control gets lost as hard as the compositional
 controls.} Relative intrinsic change per gene, one point per stratum, on the
 primary cohort. Strata cross two quality-control floors, two population
@@ -408,7 +416,7 @@ instances of one mechanism is a failure mode.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.85\linewidth]{figures/fig3_generator_statistic.pdf}
+\includegraphics[width=0.80\linewidth]{figures/fig3_generator_statistic.pdf}
 \caption{\textbf{A validation curve that behaves well and carries no information
 about the estimator.} Ratio of recovered to true intrinsic effect, median and IQR
 over replicates, for both draw pools. The curve sits near 1 wherever the
@@ -459,7 +467,7 @@ construction is not such an estimator, and the design never says so.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.85\linewidth]{figures/fig1_calibration.pdf}
+\includegraphics[width=0.80\linewidth]{figures/fig1_calibration.pdf}
 \caption{\textbf{Calibrating the abstention rule does not return the committed
 cutpoint of 50, under either reading of an unspecified design choice.} Coverage
 and discrimination against the cells available to the intrinsic comparison.
@@ -534,7 +542,9 @@ data, before you run it} (\S\ref{sec:controls}). Ours could not separate, for tw
 compounding reasons: a tier was mis-specified, and the estimator's algebra makes
 mis-specified and correct tiers produce the same output once every gene is
 depleted. Both were available from the panel and one baseline table, with no
-decomposition. The question costs an afternoon and we never asked.
+decomposition. The question costs an afternoon and we never asked. And treat
+replication of a structural failure as the null it is: two cohorts agreeing rules
+out a dataset-specific artefact and nothing about an estimator-specific one.
 
 \textbf{Judge a per-gene statistic against an abundance-matched null, not against
 another gene} (\S\ref{sec:floor}). Draw off-panel genes at the outcome gene's own
@@ -562,10 +572,6 @@ resolved by a statistic \S\ref{sec:oracle} shows could not see the estimator, so
 one blind check licensed a conclusion about another. Write down which check
 each of your commitments depends on, and the graph will usually be shorter and
 more circular than it felt while building it.
-
-\textbf{Treat replication of a structural failure as the null it is}
-(\S\ref{sec:controls}). Two cohorts and two platforms agreeing rules out a
-dataset-specific artefact. It rules out nothing about an estimator-specific one.
 
 
 \bibliographystyle{plainnat}

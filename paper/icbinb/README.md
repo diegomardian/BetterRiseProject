@@ -32,14 +32,26 @@ committed tables. Regenerate there and copy across; do not edit either in place.
 
 ## Known gaps
 
-- `chengliu2016` in `refs.bib` is **unverified** — it carries a `note` saying so.
-  It is cited for the bound on correlation against a binary variable. Confirm the
-  exact reference before submitting.
-- SingleR and CellTypist are named in prose in §2 without citations, because
-  Crossref returned wrong matches for both and an unverified citation is worse
-  than none in this paper in particular. Add them if you can confirm them.
-- Figure 1 plots the bound and the observed prevalences, **not** per-point
-  correlations. No committed table carries a per-arm rho — only `worst_rho`, the
-  max over arms — and pairing that with one arm's prevalence is the mispairing
-  §3 reports making three times. Persist per-arm rho and the scatter becomes
-  available.
+All three gaps from the first draft are now closed.
+
+- **`chengliu2016` verified.** Cheng & Liu, *A short note on the maximal
+  point-biserial correlation under non-normality*, British Journal of
+  Mathematical and Statistical Psychology 69(3):344-351, doi 10.1111/bmsp.12075.
+  The abstract names the uniform distribution explicitly, which is the case ranks
+  put us in. The earlier entry had the wrong journal. Appendix~B also derives the
+  bound in four lines, so the result no longer depends on the citation at all.
+- **SingleR and CellTypist cited** — Aran et al. 2019 and Dominguez Conde et al.
+  2022, both verified against PubMed.
+- **Figure 1 plots the real scatter.** `src/reference/jobs/depth_confound_per_arm.py`
+  persists one row per (patient, axis, rung, arm), so each correlation sits beside
+  its own arm's bound and nothing downstream has to pair them.
+
+Regenerate the per-arm table with:
+
+```
+python -m src.reference.jobs.depth_confound_per_arm
+```
+
+It runs on Lee/SMC, which is the cohort present in `data/raw/`. The primary
+cohort's equivalent job (`src/reference/jobs/check_depth_confound.py`) still
+flattens to `worst_rho` and needs the same treatment when GSE178341 is available.

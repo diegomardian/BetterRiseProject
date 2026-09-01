@@ -3,14 +3,12 @@
 
     python paper/icbinb/make_figs.py
 
-WHAT THIS DELIBERATELY DOES NOT PLOT. An earlier caption described the ceiling
-figure as every patient-by-resolution point at "its own prevalence and
-correlation". No committed table carries a per-arm correlation --- only
-``worst_rho``, the maximum over the two arms --- so drawing that scatter would
-mean pairing a max-over-arms statistic with one arm's prevalence, which is
-precisely the mispairing the paper reports making three times. The figure shows
-what is backed: the bound, the tolerance, the crossing, and where this cohort's
-prevalences actually fall against it.
+The ceiling figure plots each arm's correlation against THAT ARM's prevalence,
+from ``depth_confound_per_arm``. It could not before: the shipped table keeps
+only ``worst_rho``, the maximum over arms, and pairing that with one arm's
+prevalence is the mispairing the paper reports making three times.
+``src/reference/jobs/depth_confound_per_arm.py`` persists the per-arm rows,
+which is what made an honest scatter possible.
 """
 
 from __future__ import annotations
@@ -29,13 +27,15 @@ import yaml  # noqa: E402
 
 OUT = Path("paper/icbinb/figures")
 TOLERANCE = 0.20
+COLOURS = {"best4": "#d62728", "lineage": "#1f77b4",
+           "crypt_position": "#2ca02c", "epithelial": "#9467bd"}
 
 
 def bound(p):
     return np.sqrt(3 * p * (1 - p))
 
 
-def crossing(tol=TOLERANCE):
+def crossing(tol: float = TOLERANCE) -> float:
     """Smallest prevalence at which the tolerance is attainable."""
     from scipy.optimize import brentq
 
@@ -43,48 +43,68 @@ def crossing(tol=TOLERANCE):
 
 
 def fig_ceiling() -> None:
-    counts = pd.read_parquet(newest("mature_cell_counts_full"))
+    per_arm = pd.read_parquet(newest("depth_confound_per_arm"))
     p_cross = crossing()
 
-    fig, ax = plt.subplots(figsize=(9.0, 2.7))
-    grid = np.geomspace(1e-4, 0.5, 400)
-    ax.plot(grid, bound(grid), lw=1.6, color="#1f77b4",
-            label=r"attainable bound $\sqrt{3p(1-p)}$")
-    ax.axhline(TOLERANCE, ls="--", lw=1.1, color="#d62728",
-               label=f"tolerance $|\\rho| \\geq {TOLERANCE:.2f}$")
-    ax.axvline(p_cross, ls=":", lw=1.1, color="#444444")
-    ax.axvspan(1e-4, p_cross, color="#ececec", zorder=0)
-    ax.text(1.6e-4, 0.62, "the check cannot fire\nat any prevalence in here",
-            fontsize=7.5, color="#555555", va="top")
-    ax.annotate(f"$p = {p_cross*100:.4f}\\%$", xy=(p_cross, 0.02),
-                xytext=(p_cross * 1.5, 0.10), fontsize=7.5, color="#111111",
-                arrowprops=dict(arrowstyle="-", lw=0.7, color="#111111"))
+    fig, (left, right) = plt.subplots(1, 2, figsize=(9.2, 2.9))
 
-    # Where this cohort's labels actually sit. Prevalence only: no committed
-    # table carries a per-arm correlation to pair with it.
-    tumour = counts[counts["tissue"] != "normal"]
-    for rung, marker in zip(sorted(tumour["granularity_rung"].unique()),
-                            "os^vD", strict=False):
-        rows = tumour[tumour["granularity_rung"] == rung]["mature_fraction"]
-        rows = rows[(rows > 0) & (rows < 1)]
-        if rows.empty:
+    grid = np.geomspace(1e-4, 1.0, 500)
+    left.plot(grid, bound(grid), lw=1.6, color="#111111", zorder=3,
+              label=r"bound $\sqrt{3p(1-p)}$")
+    left.axhline(TOLERANCE, ls="--", lw=1.1, color="#d62728", zorder=3,
+                 label=f"tolerance {TOLERANCE:.2f}")
+    left.axvspan(1e-4, p_cross, color="#ececec", zorder=0)
+    left.axvspan(1 - p_cross, 1.0, color="#ececec", zorder=0)
+
+    for rung, g in per_arm.groupby("granularity_rung"):
+        ok = g[np.isfinite(g["prevalence"]) & np.isfinite(g["abs_rho"])]
+        if ok.empty:
             continue
-        med = float(rows.median())
-        ax.plot([med], [bound(med)], marker=marker, ms=6, color="#2ca02c",
-                mec="white", mew=0.8, ls="none", label=f"{rung} (median $p$)")
+        left.scatter(ok["prevalence"].clip(1.2e-4, 1.0), ok["abs_rho"], s=13,
+                     alpha=0.55, color=COLOURS.get(rung, "#777777"),
+                     edgecolor="white", lw=0.3, zorder=4, label=rung)
 
-    ax.set_xscale("log")
-    ax.set_xlim(1e-4, 0.5)
-    ax.set_ylim(0, 0.95)
-    ax.set_xlabel("prevalence $p$ of the labelled state (diseased arm)")
-    ax.set_ylabel(r"largest attainable $|\rho|$")
-    ax.tick_params(labelsize=7.5)
-    for side in ("top", "right"):
-        ax.spines[side].set_visible(False)
-    ax.legend(frameon=False, fontsize=7.5, loc="upper left")
+    left.set_xscale("log")
+    left.set_xlim(1e-4, 1.0)
+    left.set_ylim(0, 0.95)
+    left.set_xlabel("prevalence $p$ of the mature call, within arm")
+    left.set_ylabel(r"$|\rho|$ against depth")
+    left.set_title("each arm at its own prevalence,\nagainst what that "
+                   "prevalence permits", fontsize=8.5, linespacing=1.4)
+    left.legend(frameon=False, fontsize=6.5, loc="upper left", ncol=2)
+
+    order = ["epithelial", "crypt_position", "lineage", "best4"]
+    present = [r for r in order if r in set(per_arm["granularity_rung"])]
+    data = [per_arm.loc[per_arm["granularity_rung"] == r, "rho_vs_ceiling"]
+            .replace([np.inf, -np.inf], np.nan).dropna().to_numpy()
+            for r in present]
+    parts = right.boxplot(data, vert=False, widths=0.6, patch_artist=True,
+                          medianprops=dict(color="#111111", lw=1.4),
+                          flierprops=dict(marker=".", ms=3, alpha=0.5))
+    for patch, r in zip(parts["boxes"], present, strict=False):
+        patch.set_facecolor(COLOURS.get(r, "#777777"))
+        patch.set_alpha(0.35)
+    right.set_yticklabels(present, fontsize=7.5)
+    right.set_xlabel(r"$|\rho|$ as a share of its own bound")
+    right.set_title("normalised by what each could reach",
+                    fontsize=8.5, linespacing=1.4)
+
+    for ax in (left, right):
+        ax.tick_params(labelsize=7.5)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+
     fig.tight_layout()
     fig.savefig(OUT / "fig_ceiling.pdf", bbox_inches="tight")
+
+    unreachable = int((~per_arm["tolerance_is_reachable"]).sum())
     print(f"  crossing at p = {p_cross*100:.4f}%")
+    print(f"  {unreachable} of {len(per_arm)} arm-rows cannot reach the tolerance")
+    for rung, g in per_arm.groupby("granularity_rung"):
+        bad = int((~g["tolerance_is_reachable"]).sum())
+        print(f"    {rung:16s} median p {g['prevalence'].median():.4f}  "
+              f"unreachable {bad}/{len(g)}  "
+              f"median rho/ceiling {g['rho_vs_ceiling'].median():.3f}")
     print(f"  wrote {OUT/'fig_ceiling.pdf'}")
 
 
@@ -106,8 +126,7 @@ def fig_tiers() -> None:
 
     fig, ax = plt.subplots(figsize=(9.0, 2.2))
     for i, t in enumerate(["A", "B", "D"]):
-        rows = per[per["tier"] == t]["rel"].to_numpy()
-        rows = np.clip(rows, -1.05, 0.5)
+        rows = np.clip(per[per["tier"] == t]["rel"].to_numpy(), -1.05, 0.5)
         ax.scatter(rows, np.full_like(rows, i) + np.random.default_rng(0)
                    .uniform(-0.13, 0.13, len(rows)),
                    s=22, color=colour[t], alpha=0.65, edgecolor="white", lw=0.5)

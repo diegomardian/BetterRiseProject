@@ -52,6 +52,38 @@ nobody chose, and someone trying to prevent exactly that failure wrote both. The
 de-duplication cites the violated invariant by name in its own comment. Neither
 felt wrong, and both survived ordinary review.
 
+\section{The bound, derived}
+\label{app:bound}
+
+\S\ref{sec:ceiling} rests on one inequality, so here it is in full rather than by
+citation. \citet{chengliu2016} give the maximal point-biserial correlation under
+several non-normal distributions including the uniform; the uniform case is the
+one a rank statistic puts you in, and it is four lines.
+
+Let $Y$ be binary with $\Pr(Y = 1) = p$, and let $X$ be the \emph{ranks} of the
+continuous variable, so $X \sim \mathrm{Uniform}(0,1)$ in the limit. Then
+$\mathrm{Var}(X) = 1/12$ and $\mathrm{Var}(Y) = p(1-p)$. The covariance is
+maximised by perfect separation, with the $p$-fraction carrying $Y = 1$ occupying
+the top $p$ of the ranks, giving $\mathbb{E}[XY] = p\,(1 - p/2)$ and
+\[
+\mathrm{Cov}(X, Y) \;=\; p\left(1 - \tfrac{p}{2}\right) - \tfrac{1}{2}p
+\;=\; \tfrac{1}{2}p(1-p),
+\qquad
+\rho_{\max} \;=\; \frac{\tfrac{1}{2}p(1-p)}
+{\sqrt{\tfrac{1}{12}\,p(1-p)}} \;=\; \sqrt{3p(1-p)}.
+\]
+Two consequences the paper uses. Solving $\sqrt{3p(1-p)} = 0.20$ gives
+$p = 1.3516\%$: below that prevalence a tolerance of $0.20$ is unreachable and
+the check cannot fire on any data. And $\rho_{\max} \to 0$ as $p \to 1$ just as
+it does as $p \to 0$, so the check is blind at \emph{both} ends of its range.
+
+We verified the identity numerically against perfect separation at
+$p = 0.005$, $0.013516$, $0.05$, $0.10$, $0.30$ and $0.50$ with two million
+points each, agreeing to better than $10^{-13}$ at every prevalence. The
+regression test in the repository asserts it at four prevalences, including the
+$0.866$ ceiling at $p = 0.5$ that surprises people.
+
+
 \section{Extended notes}
 \label{app:extended}
 
@@ -111,11 +143,3 @@ the zero-atom sits at the score maximum. Any score that is a function of the
 marker counts alone gives those cells the same value, verified across six
 formulations. The formulations breaking the tie use information beyond the
 markers and order the atom by sequencing depth, which is arm-confounded.
-
-\paragraph{The prevalence bound collapses at both ends.} $\sqrt{3p(1-p)}$ goes to
-zero as $p \to 1$ just as it does as $p \to 0$. On the coarsest resolution every
-epithelial cell is called mature, prevalence is exactly $1.000$, the bound is
-exactly zero, and the correlation is undefined on all 64 patient-by-axis rows ---
-the check reports nothing at all. Degenerate labels are invisible to this check
-at either extreme, and the two extremes are the coarsest and the finest
-resolution we ran.
