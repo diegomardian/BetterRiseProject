@@ -1,0 +1,121 @@
+\section{Five defects that were ours}
+\label{app:ours}
+
+These five fail the test the paper applies throughout, since a different group
+writing correct code would not meet them. They appear here because they
+circulated internally and the record of what got published matters more than a
+tidy account.
+
+\begin{enumerate}\itemsep3pt
+\item \textbf{A leakage guard blind to its own namespace.} The invariant barring
+a measurement target from defining the labels it gets measured against was
+checked against a symbol list unable to contain the identifiers under
+comparison. The guard passed on every input, including inputs violating it.
+
+\item \textbf{An acceptance test over two disjoint identifier spaces.} It
+compared gene symbols against database accessions. An empty intersection follows
+by construction, so the assertion held on every run.
+
+\item \textbf{A de-duplication that collapsed two population definitions.} A
+per-patient de-duplication took the first row per patient from a frame carrying
+\emph{two} pre-registered definitions of the diseased arm, selecting one by file
+order. Measured, the same one in 224 of 224 combinations. Neither the result
+table nor its sidecar recorded which. Five patients under the selected definition
+held zero cells of the relevant compartment for a disease-calling reason and
+entered the statistic as guaranteed abstentions, turning a cohort-design fact
+into a positivity finding.
+
+\item \textbf{A join that validated its keys and never its counts.} We assembled
+the primary decomposition table by joining per-patient \emph{means} from one job
+onto per-patient \emph{fractions} from another. The two jobs label cells at
+different quality-control thresholds, so the populations differ by a median
+factor of 1.26 and 1.35 on the two arms, and every term in
+Equation~\ref{eq:kitagawa} multiplied a fraction over one set of cells by a mean
+over another. The producing job's documentation asserts a loop mirroring the
+other pipeline's filters and enumerates them. The threshold is the one filter the
+loop misses. The replacement derives fractions, means, counts and estimability
+from a single labelling call, then asserts its counts against the committed
+counting function, which is the one line missing before.
+
+\item \textbf{A provenance stamp blind to uncommitted code.} Every result must
+carry a commit hash and a fixed seed. The dirtiness check guarding the hash
+ignored untracked files, so a table produced by a script never committed recorded
+a clean hash pointing at a commit lacking the script. In one case the script
+entered the repository 83 seconds \emph{after} the table it wrote got stamped
+clean against the previous commit. The check now counts untracked files and the
+sidecar names them, tested against a repository holding an uncommitted producing
+script --- the input that made the old check return clean.
+\end{enumerate}
+
+Items 3 and 4 are one failure twice over, a statistic computed over a population
+nobody chose, and someone trying to prevent exactly that failure wrote both. The
+de-duplication cites the violated invariant by name in its own comment. Neither
+felt wrong, and both survived ordinary review.
+
+\section{Extended notes}
+\label{app:extended}
+
+\paragraph{The unit of inference is the patient.} All bootstrapping resamples
+patients, never cells --- the pseudoreplication point of \citet{squair2021}. An
+earlier internal result violated this and reported a cell-pooled difference of
+$+25.1\%$ where a single patient supplied 1{,}824 of 5{,}564 cells. Recomputed
+per patient the difference is $+0.170$ with a 95\% interval of
+$[-0.011, +0.342]$, containing zero. The direction survives independent 1:1
+within-patient depth matching at $+0.182$, making it a direction with support
+rather than an established effect.
+
+\paragraph{Estimation runs per study, and the meta-analysis does not exist.}
+Batch correction removes between-dataset variation, which is where the
+compositional signal lives, so estimates run per study rather than pooled. Our
+design named meta-analytic intervals as an output, and we now report that the
+data cannot supply them. A meta-analysis needs two quotable (study, resolution)
+cells and this project has one: the primary cohort's middle resolution on the
+depth-matched read. Every other cell fails for a reason matching leaves
+untouched. One coarser resolution is a two-bin split on about 90\% of patients,
+the coarsest is degenerate by construction, the finest carries a median of one
+usable cell, and the replication cohort's middle resolution stays confounded at
+$\rho = 0.31$. At $k = 1$ an engine combining one study returns a number looking
+meta-analytic without being one. The cohort holds one place to stand, which is
+the non-identifiability finding one level up.
+
+\paragraph{The two draw pools of \S\ref{sec:abstention} differ in more than one
+way.} Neither matches the population the estimator meets in real data. There the
+reference arm holds reference-tissue cells and the comparison arm does not,
+whereas the second reading puts reference-tissue cells into \emph{both}. A
+generator drawing each arm from its own tissue is a third option we did not
+implement, because the imposed shift would then sit on top of a real
+between-tissue difference and the truth would stop being known. The pools also
+differ in target-gene dispersion, in how many distinct cells a replicate draws
+from, and in whether the mature-cell distribution is unimodal or a mixture. The
+sweep varies all three together and identifies none. A dispersion-only account
+predicts discrimination rising with $\sqrt{n}$, and neither curve does.
+
+\paragraph{Replicates are not independent, and more of them do not fix it.} Ten
+patients with two held out per replicate admit 45 distinct holdout pairs, so
+every replicate count above that reuses pairs and every interval quoted on the
+calibration runs optimistic. Raising the replicate count stabilises Monte Carlo
+noise and converges the estimate to the value over those 45 pairs rather than to
+a population value. The patient-level uncertainty is unchanged by the replicate
+count and is not quantified anywhere in this paper: read the returned cutpoint as
+what this procedure gives on this cohort, not as a number with an interval on it.
+
+\paragraph{One resolution is degenerate by construction.} At the coarsest
+resolution every scored cell belongs to the type in question, so the
+compositional term sits at exactly zero and only the intrinsic term carries
+information. Two intermediate resolutions are the same partition on most
+patients, making one measurement reported twice rather than two agreeing
+measurements. Measuring the score distribution established both facts rather than
+assuming them. Both annotation axes score \emph{immaturity} and the score gets
+negated, so ``no marker detected'' becomes the maximum attainable maturity and
+the zero-atom sits at the score maximum. Any score that is a function of the
+marker counts alone gives those cells the same value, verified across six
+formulations. The formulations breaking the tie use information beyond the
+markers and order the atom by sequencing depth, which is arm-confounded.
+
+\paragraph{The prevalence bound collapses at both ends.} $\sqrt{3p(1-p)}$ goes to
+zero as $p \to 1$ just as it does as $p \to 0$. On the coarsest resolution every
+epithelial cell is called mature, prevalence is exactly $1.000$, the bound is
+exactly zero, and the correlation is undefined on all 64 patient-by-axis rows ---
+the check reports nothing at all. Degenerate labels are invisible to this check
+at either extreme, and the two extremes are the coarsest and the finest
+resolution we ran.

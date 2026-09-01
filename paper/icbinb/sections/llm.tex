@@ -1,0 +1,22 @@
+\section*{Use of large language models}
+\label{sec:llm}
+
+A language-model coding assistant working under author direction wrote code
+throughout this project --- the estimator jobs, the calibration sweep, the
+diagnostics and the figure code --- and assisted in drafting this manuscript.
+Every claim, every number and every design decision is the authors', derived
+from the committed tables and verified against them before reaching the text. We
+also operate a standing audit rule: result tables and gate verdicts go to an
+independently prompted agent instructed to refute rather than confirm them.
+
+The arrangement cuts both ways, and the paper is partly about the fact that it
+does. Two of the failures reported here surfaced through such an audit. Two of
+the errors in Appendix~\ref{app:ours} came from assistant-written code, and the
+mispairing in \S\ref{sec:ceiling} got introduced, repaired incorrectly, then
+reproduced a third time inside the analysis of its own repair before plotting the
+result caught it.
+
+We draw no conclusion beyond the one the paper already argues in
+\S\ref{sec:intro}. Assistance changes how fast code and analysis appear. It
+leaves untouched which checks go structurally blind, and multiplies the cost of
+writing one.
