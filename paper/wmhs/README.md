@@ -70,23 +70,19 @@ item 3, and re-deriving the number is why the module is here.
 
 ## Before submitting
 
-- [ ] **Build and publish the artifact, then fill in `\artifacturl`.**
-      Run `./make_artifact.sh` — it produces an anonymised copy and verifies it.
-      Publishing is yours: anonymous.4open.science, or a fresh repo with no
-      history. Then paste the URL into `\artifacturl` in `main.tex`. Until you
-      do, `./check_anonymity.sh` fails and the placeholder renders **in red** in
-      the PDF, so it cannot ship unnoticed.
-
-      The repository de-anonymises three ways, and only the third is obvious:
-      **git history** carries six committer identities, two on an institutional
-      domain — an affiliation in an email address survives every scrub that only
-      edits files, which is why the artifact ships without `.git`;
-      `.github/CODEOWNERS` names a GitHub handle seven times; and
-      `CONTRIBUTING.md` carries the clone URL. `make_artifact.sh` handles all
-      three and refuses to pass if any survives.
 - [ ] **Run `./check_anonymity.sh` after the final build.** It greps the
-      sources *and* the built PDF for identifying strings, checks the PDF
-      metadata, and fails on the unfilled placeholder. Exit 0 means safe.
+      sources *and* the built PDF for identifying strings and checks the PDF
+      metadata, which is where an author name leaks without appearing on any
+      page. Exit 0 means safe. It passes today.
+
+      No artifact link ships: §5 states the release *policy* — derived summaries
+      and code, never cell-level matrices — without pointing at a URL. If that
+      ever changes, `./make_artifact.sh` builds an anonymised copy, and note
+      that the repository de-anonymises three ways: **git history** carries six
+      committer identities, two on an institutional domain (an affiliation in an
+      email address survives every scrub that only edits files, which is why
+      that script drops `.git`), `.github/CODEOWNERS` names a GitHub handle
+      seven times, and `CONTRIBUTING.md` carries the clone URL.
 - [ ] Rebuild both figures from freshly written tables and confirm the captions
       still match what the tables say.
 - [ ] `grep -c 'undefined' main.log` returns 0 after a full four-pass build.
@@ -121,6 +117,6 @@ _tables.py              resolves a result table by name
 build.sh                builds both and enforces both page limits
 make_overleaf.sh        bundles overleaf.zip (tex + bib + figures only)
 check_anonymity.sh      double-blind guard; run before the final build
-make_artifact.sh        builds the anonymised code release §5 promises
+make_artifact.sh        builds an anonymised code release, if one is ever wanted
 PATCHES.md              working record of corrections, with what is still open
 ```

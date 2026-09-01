@@ -3,9 +3,8 @@
 #
 # The paper's own rule is that a check unable to fail is worse than no check, so
 # this one is written to fail: it greps the sources AND the built PDF for the
-# things that actually de-anonymise a submission, and it fails on the unfilled
-# artifact placeholder too, so §5 cannot promise a code release that points
-# nowhere.
+# things that actually de-anonymise a submission, and checks the PDF's own
+# metadata, which is where an author name leaks without appearing on any page.
 set -uo pipefail
 cd "$(dirname "$0")"
 fail=0
@@ -19,18 +18,6 @@ if hits=$(grep -rniE "$PATTERNS" main.tex sections/ refs.bib 2>/dev/null); then
   note "identifying strings in the LaTeX sources:"; echo "$hits" | sed 's/^/        /'
 else
   echo "  ok    no identifying strings in main.tex, sections/, refs.bib"
-fi
-
-echo "artifact link:"
-if grep -q "ANONYMISED-ARTIFACT-URL" main.tex; then
-  note "the artifact URL is still the placeholder — §5 promises a code release."
-  echo "        Create an anonymising mirror (e.g. anonymous.4open.science) and"
-  echo "        replace \\artifacturl in main.tex. Never the real repository."
-else
-  echo "  ok    artifact URL filled in"
-  if grep -E '\\newcommand\{\\artifacturl\}' main.tex | grep -qiE 'github\.com|gitlab'; then
-    note "the artifact URL points at a real forge — that de-anonymises the submission."
-  fi
 fi
 
 echo "built PDF:"
