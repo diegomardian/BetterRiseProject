@@ -18,6 +18,7 @@ Simulation and Intervention-Aware Reasoning}
 \usepackage{nicefrac}
 \usepackage{microtype}
 \usepackage{graphicx}
+\usepackage{mdframed}
 \usepackage{caption}
 
 \captionsetup{font=small,labelfont=bf}
@@ -35,7 +36,7 @@ Simulation and Intervention-Aware Reasoning}
 
 
 \title{The recovery curve measures the simulator:\\
-a validation blind spot, and the abstention rule it hid}
+a validation blind spot in simulation-based pipelines}
 
 \author{%
   Anonymous Author(s) \\
@@ -48,23 +49,18 @@ a validation blind spot, and the abstention rule it hid}
 \maketitle
 
 \begin{abstract}
-Simulate with known truth, run the estimator, plot recovered against true. This
-is how virtual control arms, patient-level simulators and in-silico trial
-pipelines are validated. We show the curve can be structurally incapable of
-seeing the estimator. If the estimator is a deterministic function of the
-sufficient statistics the generator drew, it cancels: the ratio reduces to
-realised truth over requested truth, a property of the generator alone. The
-curve still sits near 1 and still tightens with $n$, so it looks like a
-validated estimator. One line detects it --- compare against the \emph{realised}
-truth and test whether the difference is identically zero. Ours was, across
-119{,}600 runs. What that curve certified was a selective-prediction rule for a
-cell-type-resolved measurement, given a third output \notest{} for the case
-where no cell of the relevant type survives and the estimand has no referent.
-Calibrated properly against its own pre-registered criteria the rule fails
-outright on one draw pool and returns $ok = 90$ against a committed 50 on the
-other. A synthetic benchmark locates what it was buying: a width gate suppresses
-invented effects as completely as our count gate while costing no detections.
-The finiteness check, not the threshold, does the work.
+Simulate with known truth, run the estimator, plot recovered against true: this
+is how virtual control arms and in-silico trial pipelines are validated. We show
+the curve can be structurally incapable of seeing the estimator. If the estimator
+is a deterministic function of the sufficient statistics the generator drew, it
+cancels, and the ratio becomes realised truth over requested truth --- a property
+of the generator alone. The curve still sits near 1 and still tightens with $n$.
+One line detects it: compare against the \emph{realised} truth and test whether
+the difference is identically zero. Ours was, across 119{,}600 runs. In a patient
+simulator this catches G-computation \emph{and} saturated-propensity weighting,
+a different method whose curve is identical to machine precision, while
+cross-fitting breaks the degeneracy and restores an informative curve. The
+abstention rule our blind curve had certified does not survive recalibration.
 \end{abstract}
 
 
@@ -76,7 +72,14 @@ The finiteness check, not the threshold, does the work.
 \input{sections/setup.tex}
 \input{sections/blind.tex}
 \input{sections/calibration.tex}
+\iffull
 \input{sections/bench.tex}
+\fi
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+\input{sections/conclusion.tex}
 
 \section{Responsible use, limitations and impact}
 \label{sec:responsible}

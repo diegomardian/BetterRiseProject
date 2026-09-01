@@ -18,8 +18,8 @@ test composition without an expression arm, so they never face this estimand.
 cacoa \citep{petukhov2022} is closest: it separates compositional from
 expression shifts explicitly.
 
-\subsection*{The benchmark table}
-\input{sections/benchtable.tex}
+\subsection*{What abstention buys, and which part of it}
+\input{sections/bench.tex}
 
 \subsection*{What the grid was reporting, and two caveats}
 \input{sections/gridcaveats.tex}
@@ -47,14 +47,10 @@ here rather than described.
 \item \textbf{A de-duplication that collapsed two population definitions.} A
 per-patient de-duplication took the first row per patient from a frame carrying
 \emph{two} pre-registered definitions of the diseased arm, selecting one by file
-order. Measured, the same one in 224 of 224 combinations. Neither the result
-table, nor its sidecar, nor the internal report recorded which. The offending
-line cites the violated invariant by name in its own comment. Five patients under
-the selected definition held zero cells of the relevant compartment for a
-disease-calling reason and entered the statistic as guaranteed abstentions,
-turning a cohort-design fact into a positivity finding. Re-run per definition,
-the finding at the finest resolution survives under both, and the coarse
-resolutions become \emph{not identifiable}, a stronger statement than the
+order --- the same one in 224 of 224 combinations, and neither the table, its
+sidecar nor the internal report recorded which. Re-run per definition, the
+finding at the finest resolution survives under both and the coarse resolutions
+become \emph{not identifiable}, which is a stronger statement than the
 indeterminacy originally reported.
 
 \item \textbf{A join that validated its keys and never its counts.} We assembled
@@ -75,16 +71,13 @@ committed counting function. That assertion is the one line missing before.
 
 \item \textbf{A provenance stamp blind to uncommitted code.} Every result must
 carry a commit hash and a fixed seed, and the writer refuses a table lacking
-either. The dirtiness check guarding the hash ignored untracked files, so a table
-produced by a script never committed recorded a clean hash pointing at a commit
-lacking the script. In one case the producing script entered the repository 83
-seconds \emph{after} the table it wrote got stamped clean against the previous
-commit. Three results reached an internal report this way, one of them the
-calibration behind this paper's central figure. Re-deriving that calibration also
-surfaced the replicate count: the uncommitted run used 6 per grid point against
-the design document's 50 to 100. The check now counts untracked files and the
-sidecar names them, so the gap sits beside the hash rather than waiting to be
-reconstructed from commit timestamps.
+either --- but the dirtiness check ignored untracked files, so a table produced
+by a script that was never committed recorded a \emph{clean} hash pointing at a
+commit that did not contain the script. Three results reached an internal report
+this way, one of them the calibration behind this paper's central figure.
+Re-deriving it also surfaced the replicate count: that run used 6 per grid point
+against the design document's 50 to 100. The check now counts untracked files
+and the sidecar names them.
 \end{enumerate}
 
 Items 1 and 2 are one failure twice over. Someone trying to prevent exactly that
@@ -100,9 +93,9 @@ fail against the version they replace. The width gate's finiteness guard
 attainable-bound identity (\S\ref{sec:calibration}) is tested at four
 prevalences; and the provenance check in item~3 now counts untracked files and
 names them in the sidecar, against a fixture repository holding an uncommitted
-producing script --- the input that made the old check return clean. The sweep
-behind Figure~\ref{fig:calibration} is committed with it, so the number and the
-code that produced it now travel together. \textbf{The two defects in
+producing script --- the input that made the old check return clean. The
+calibration sweep is committed with it, so the number and the code that produced
+it now travel together. \textbf{The two defects in
 \S\ref{sec:calibration} do not yet carry regression tests, and the code that
 produced them is unchanged.} The undefined-interval coercion still returns
 \texttt{False} on a null interval and still lets an abstention score as a
@@ -118,7 +111,7 @@ claim fixes it has not landed.
 carries the curve it was read off, and two details that belong with it rather
 than in the argument.
 
-The sweep is the one behind Figure~\ref{fig:calibration}, run by
+The sweep is the calibration one, run by
 \texttt{src.harness.calibration\_gap}. Its result table carries a
 \texttt{max\_abs\_residual\_vs\_realised} column, which is the one-line check
 persisted rather than re-derived: it is identically zero exactly when the curve

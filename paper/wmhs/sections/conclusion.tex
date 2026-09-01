@@ -1,0 +1,23 @@
+\iffull
+Two of this paper's three statistics could not fail. A recovery curve in which
+the estimator cancels still draws a smooth line; a grid that cannot resolve a
+crossing still returns a stable number; a confound diagnostic whose tolerance
+sits above its own attainable bound still reports clean. Each looked like a
+measurement, and in every case the fix was to ask what the statistic was a
+function of rather than to look harder at its output.
+\fi
+
+That question has a cheap answer for recovery curves specifically, and the
+answer generalises past our instance: compare against the realised draw rather
+than the requested parameter, and assert the difference is not identically zero.
+It costs one line, it runs on the sweep you already have, and in a patient
+simulator it separates two estimators whose curves agree to machine precision.
+We would rather it had been in our design document than in our findings.
+
+\iffull\else
+A synthetic benchmark (Appendix~\ref{app:benchtable}) locates what that rule was
+buying: three ungated methods invent an effect in $200/200$ replicates where the
+estimand does not exist, but a width gate suppresses that as completely as our
+count gate while costing no detections. The finiteness check, not the threshold,
+does the work.
+\fi

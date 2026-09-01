@@ -18,7 +18,7 @@ one without the other.
 \fi
 
 Run properly on real held-out cells, the committed cutpoint of 50 does not come
-back (Figure~\ref{fig:calibration}). The generator filters eligibility on
+back\iffull{} (Figure~\ref{fig:calibration})\fi. The generator filters eligibility on
 patient alone, so both synthetic arms draw from the held-out patients' cells of
 \emph{both} tissues pooled.
 \iffull
@@ -36,6 +36,7 @@ seeds at 50 replicates and at 0.75 across 8 seeds at 500. Restricted to the
 reference tissue it does return one, and that is where the second lesson of this
 paper repeats itself.
 
+\iffull
 \begin{figure}[t]
 \centering
 \iffull
@@ -60,7 +61,20 @@ states; the committed value is 50 in both panels.}
 \fi
 \label{fig:calibration}
 \end{figure}
+\fi
 
+
+\iffull\else
+\paragraph{The grid was reporting its own resolution.} The committed grid varies
+a mature \emph{fraction} against a fixed 2{,}000 cells, so it can reach no count
+between 40 and 100, and returns $ok = 100$ on every seed. Adding nine fractions
+inside that gap and changing nothing else moves the answer to 90, against a
+committed 50: the crossing it was hiding runs $0.728$ at 45 mature cells,
+$0.789$ at 65 and $0.858$ at 90. A grid that cannot resolve a crossing still
+returns a stable number, which is \S\ref{sec:blind}'s failure in a second
+statistic.
+\fi
+\iffull
 \paragraph{The grid was reporting its own resolution.} Our committed grid varies
 a mature \emph{fraction} against a fixed 2{,}000 cells, so the counts it can
 reach are $\{0, 20, 40, 100, 200, 400, 800\}$ --- nothing between 40 and 100. On
@@ -88,6 +102,7 @@ against a $0.80$ target --- close enough to the line that a seed can land either
 side of it\fi{}. Against committed values of 50 and 20, the calibrated rule is
 roughly twice as strict on both cutpoints. The pooled draw returns no cutpoint
 under either grid.
+\fi
 
 \iffull
 \input{sections/gridcaveats.tex}

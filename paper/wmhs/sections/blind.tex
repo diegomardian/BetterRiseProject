@@ -24,9 +24,15 @@ output. A recovery curve plots $\hat\theta / \theta$. Now suppose the estimator
 is a deterministic function of the same sufficient statistics the generator used
 to construct the draw. Then $\hat\theta = \theta_{\text{realised}}$
 \emph{identically}, not approximately, and
+\begin{mdframed}[linewidth=0.5pt,innertopmargin=4pt,innerbottommargin=4pt]
 \[
-\frac{\hat\theta}{\theta} \;=\; \frac{\theta_{\text{realised}}}{\theta},
+\frac{\hat\theta}{\theta} \;=\; \frac{\theta_{\text{realised}}}{\theta}
 \]
+\vspace{-1.2em}
+\begin{center}
+\texttt{assert not np.allclose(est - truth\_realised, 0.0)}
+\end{center}
+\end{mdframed}
 in which the estimator does not appear. The curve is a diagnostic of the
 generator's sampling behaviour. It will sit near 1, tighten with $n$, and look
 exactly like a validated estimator, because sampling error does shrink with $n$
@@ -38,6 +44,17 @@ The condition is not that the estimator is wrong, and not that it is right. It
 is that the estimator and the generator share sufficient statistics. That is a
 property of the plumbing rather than of the model, so it survives code review,
 leaves no trace in the curve, and does not announce itself in any residual.
+
+\iffull
+\paragraph{This is a sharp case of known advice.} The simulation-study
+literature already says the data-generating mechanism should not coincide with
+the analysis model; ADEMP \citep{morris2019} is the standard framing and names
+the data-generating mechanism and the methods as separate items precisely so
+that they can be compared. What that guidance does not give you is a test. The
+case here is the degenerate one --- not a diagnostic weakened by overlap but a
+diagnostic that is \emph{identically} uninformative, with the estimator
+algebraically absent from the statistic --- and the contribution is that this
+case is detectable in one line, from the run you already have.
 \else
 The condition is not that the estimator is wrong. It is that the estimator and
 the generator share sufficient statistics --- a property of the plumbing, so it
@@ -45,6 +62,13 @@ survives code review and leaves no trace in the curve.
 \fi
 
 \iffull
+\else
+The simulation-study literature already warns that the data-generating
+mechanism should not coincide with the analysis model \citep{morris2019}. What
+it does not give you is a test for the degenerate case, where the estimator is
+algebraically absent rather than merely correlated with the generator.
+\fi
+
 \paragraph{Why this is the default, not an exotic case.} Oracle arms exist
 precisely so the estimator sees clean inputs, and the cleanest available input is
 the summary the generator just computed. Wiring the estimator to the generator's
@@ -67,21 +91,41 @@ virtual control arm's outcome model \emph{is} the generator's outcome model,
 which is the natural first thing to build and the natural first thing to
 validate this way.
 
-What breaks the degeneracy is not a better plot. It is an arm in which the
-estimator sees only what an analyst would see --- patient records, not the
-generator's parameters --- and does something the generator did not: fits a
-propensity model, smooths, handles censoring, or is misspecified on purpose.
-Then $\hat\theta \neq \theta_{\text{realised}}$ and the curve carries information
-about the estimator again.
+\paragraph{So we built one.} Describing the fix is not demonstrating it, so
+Figure~\ref{fig:trial} runs that simulator: three covariate strata, treatment
+assigned with a stratum-dependent probability so the strata confound, a
+requested effect of $\theta = 3$, and four estimators of it over cohorts from
+100 to 5{,}000 patients.
+
+Three of the four sit near 1 and tighten with cohort size --- the picture of a
+validated estimator. Two of those three are exactly blind. G-computation over
+the generator's own strata returns the realised effect with
+$\max|\hat\theta - \theta_{\text{realised}}| = 0$, as the algebra says it must.
+\textbf{So does inverse-probability weighting with a saturated propensity
+model}, which is a different method from a different literature written in
+different code, and which we added expecting it to be the non-degenerate
+comparison. With the propensity estimated per stratum it is the same functional
+of the same statistics, and its recovery curve is G-computation's to machine
+precision. Whether an estimator shares sufficient statistics with the generator
+is not visible in the code. It is visible in one column.
+
+Cross-fitting breaks it. Fit the propensity on one fold and apply it to the
+other, so the weights on a patient come from data that patient is not in, and
+the estimator becomes a different functional: still consistent, still sitting
+near 1, but now with a residual that is non-zero at every cohort size and shrinks
+as the estimate improves. That curve is about the estimator. The unadjusted
+difference is there to show the curve is not useless --- it ignores the strata,
+so it is confounded, and the curve catches it immediately at a ratio near 2.4.
+
+The lesson is not that oracle arms are bad. It is that \emph{near 1 and
+tightening} is compatible with the estimator having been divided out, and that
+the residual against realised truth is what separates the two.
 
 \paragraph{The one-line check.} Compare the estimate against the \emph{realised}
 truth rather than the parametric truth, and test whether the difference is
-identically zero:
-\begin{center}
-\texttt{assert not np.allclose(est - truth\_realised, 0.0)}
-\end{center}
-If it is zero, the recovery curve cannot see the estimator, and the arm needs a
-generator whose realised summary statistics the estimator does not receive.
+identically zero --- the assertion boxed above. If it is zero, the recovery
+curve cannot see the estimator, and the arm needs a generator whose realised
+summary statistics the estimator does not receive.
 Ours was zero everywhere. In our case the curve takes the closed form $1/(1-s)$
 exactly at the abstention point --- $5.000$, $2.000$ and $1.333$ at the three
 tested shifts, with zero variance across replicates --- a constant, read at the
@@ -97,3 +141,19 @@ The statistic is not worthless --- it still catches an estimator that fails to
 reproduce its input. It simply could not certify the arm it was being used to
 certify.
 \fi
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig4_trial_recovery.pdf}
+\caption{\textbf{The recovery curve cannot distinguish an estimator from its
+generator; one column can.} A patient simulator with confounded assignment and a
+requested effect $\theta = 3$. \emph{Left:} recovery curves, median and IQR over
+200 replicates. Three estimators sit near 1 and tighten with cohort size.
+\emph{Right:} the residual against the \emph{realised} effect, log scale, shaded
+band at machine zero. It is identically zero for G-computation over the
+generator's own strata \emph{and for saturated-propensity IPW}, whose curve is
+the same line --- both are the same functional of the statistics the generator
+drew. Cross-fitted IPW is consistent and non-zero, so its curve is a statement
+about the estimator. The unadjusted difference is what a working curve catches.}
+\label{fig:trial}
+\end{figure}
