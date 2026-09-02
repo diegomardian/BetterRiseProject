@@ -33,8 +33,20 @@ PAGE LIMIT
   not count, and neither do the ethics and reproducibility statements — which
   is why those sit after the bibliography in main.tex. Do not move them back.
 
-  The paper is currently at exactly 8 of 8. There is no slack: anything you add
-  needs something cut. Check by finding which page the bibliography starts on.
+  IT FITS, AND ONLY JUST. Compiled against the NeurIPS geometry, the main text
+  fills page 8 to the bottom and the References heading sits at the TOP of
+  page 9. There is no margin: anything you add needs something cut first.
+
+  Check where the MAIN TEXT ENDS, not where the bibliography starts. Those are
+  different questions and it is easy to measure the wrong one -- a draft of
+  this paper spilled ~81 words onto page 9 while a checker that looked for the
+  References heading still reported "8 pages", because the heading had simply
+  moved down the page rather than onto a new one. build.sh measures the spill;
+  trust it over eyeballing.
+
+  figures/fig_tiers.pdf is bundled but NOT included by main.tex. It was cut to
+  make the limit; section 4 states every number it showed. If the real style
+  turns out to leave room, re-adding it is one \includegraphics line.
 
 COMPILER
   pdfLaTeX. Overleaf runs bibtex automatically; if references show as [?],

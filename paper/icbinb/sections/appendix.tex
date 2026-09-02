@@ -13,58 +13,58 @@ checked against a symbol list unable to contain the identifiers under
 comparison. The guard passed on every input, including inputs violating it.
 
 \item \textbf{An acceptance test over two disjoint identifier spaces.} It
-compared gene symbols against database accessions. An empty intersection follows
-by construction, so the assertion held on every run.
+compared gene symbols against database accessions. An empty intersection
+follows by construction, so the assertion held on every run.
 
 \item \textbf{A de-duplication that collapsed two population definitions.} A
 per-patient de-duplication took the first row per patient from a frame carrying
-\emph{two} pre-registered definitions of the diseased arm, selecting one by file
-order. Measured, the same one in 224 of 224 combinations. Neither the result
-table nor its sidecar recorded which. Five patients under the selected definition
-held zero cells of the relevant compartment for a disease-calling reason and
-entered the statistic as guaranteed abstentions, turning a cohort-design fact
-into a positivity finding.
+\emph{two} pre-registered definitions of the diseased arm, selecting one by
+file order. Measured, the same one in 224 of 224 combinations. Neither the
+result table nor its sidecar recorded which. Five patients under the selected
+definition held zero cells of the relevant compartment for a disease-calling
+reason and entered the statistic as guaranteed abstentions, turning a
+cohort-design fact into a positivity finding.
 
 \item \textbf{A join that validated its keys and never its counts.} We assembled
-the primary decomposition table by joining per-patient \emph{means} from one job
-onto per-patient \emph{fractions} from another. The two jobs label cells at
+the primary decomposition table by joining per-patient \emph{means} from one
+job onto per-patient \emph{fractions} from another. The two jobs label cells at
 different quality-control thresholds, so the populations differ by a median
 factor of 1.26 and 1.35 on the two arms, and every term in
-Equation~\ref{eq:kitagawa} multiplied a fraction over one set of cells by a mean
-over another. The producing job's documentation asserts a loop mirroring the
-other pipeline's filters and enumerates them. The threshold is the one filter the
-loop misses. The replacement derives fractions, means, counts and estimability
-from a single labelling call, then asserts its counts against the committed
-counting function, which is the one line missing before.
+Equation~\ref{eq:kitagawa} multiplied a fraction over one set of cells by a
+mean over another. The producing job's documentation asserts a loop mirroring
+the other pipeline's filters and enumerates them. The threshold is the one
+filter the loop misses. The replacement derives fractions, means, counts and
+estimability from a single labelling call, then asserts its counts against the
+committed counting function, which is the one line missing before.
 
 \item \textbf{A provenance stamp blind to uncommitted code.} Every result must
 carry a commit hash and a fixed seed. The dirtiness check guarding the hash
-ignored untracked files, so a table produced by a script never committed recorded
-a clean hash pointing at a commit lacking the script. In one case the script
-entered the repository 83 seconds \emph{after} the table it wrote got stamped
-clean against the previous commit. The check now counts untracked files and the
-sidecar names them, tested against a repository holding an uncommitted producing
-script --- the input that made the old check return clean.
+ignored untracked files, so a table produced by a script never committed
+recorded a clean hash pointing at a commit lacking the script. In one case the
+script entered the repository 83 seconds \emph{after} the table it wrote got
+stamped clean against the previous commit. The check now counts untracked files
+and the sidecar names them, tested against a repository holding an uncommitted
+producing script --- the input that made the old check return clean.
 \end{enumerate}
 
-Items 3 and 4 are one failure twice over, a statistic computed over a population
-nobody chose, and someone trying to prevent exactly that failure wrote both. The
-de-duplication cites the violated invariant by name in its own comment. Neither
-felt wrong, and both survived ordinary review.
+Items 3 and 4 are one failure twice over, a statistic computed over a
+population nobody chose, and someone trying to prevent exactly that failure
+wrote both. The de-duplication cites the violated invariant by name in its own
+comment. Neither felt wrong, and both survived ordinary review.
 
 \section{The bound, derived}
 \label{app:bound}
 
-\S\ref{sec:ceiling} rests on one inequality, so here it is in full rather than by
-citation. \citet{chengliu2016} give the maximal point-biserial correlation under
-several non-normal distributions including the uniform; the uniform case is the
-one a rank statistic puts you in, and it is four lines.
+\S\ref{sec:ceiling} rests on one inequality, so here it is in full rather than
+by citation. \citet{chengliu2016} give the maximal point-biserial correlation
+under several non-normal distributions including the uniform; the uniform case
+is the one a rank statistic puts you in, and it is four lines.
 
 Let $Y$ be binary with $\Pr(Y = 1) = p$, and let $X$ be the \emph{ranks} of the
 continuous variable, so $X \sim \mathrm{Uniform}(0,1)$ in the limit. Then
 $\mathrm{Var}(X) = 1/12$ and $\mathrm{Var}(Y) = p(1-p)$. The covariance is
-maximised by perfect separation, with the $p$-fraction carrying $Y = 1$ occupying
-the top $p$ of the ranks, giving $\mathbb{E}[XY] = p\,(1 - p/2)$ and
+maximised by perfect separation, with the $p$-fraction carrying $Y = 1$
+occupying the top $p$ of the ranks, giving $\mathbb{E}[XY] = p\,(1 - p/2)$ and
 \[
 \mathrm{Cov}(X, Y) \;=\; p\left(1 - \tfrac{p}{2}\right) - \tfrac{1}{2}p
 \;=\; \tfrac{1}{2}p(1-p),
@@ -72,17 +72,142 @@ the top $p$ of the ranks, giving $\mathbb{E}[XY] = p\,(1 - p/2)$ and
 \rho_{\max} \;=\; \frac{\tfrac{1}{2}p(1-p)}
 {\sqrt{\tfrac{1}{12}\,p(1-p)}} \;=\; \sqrt{3p(1-p)}.
 \]
-Two consequences the paper uses. Solving $\sqrt{3p(1-p)} = 0.20$ gives
-$p = 1.3516\%$: below that prevalence a tolerance of $0.20$ is unreachable and
-the check cannot fire on any data. And $\rho_{\max} \to 0$ as $p \to 1$ just as
-it does as $p \to 0$, so the check is blind at \emph{both} ends of its range.
+Two consequences the paper uses. Solving $\sqrt{3p(1-p)} = 0.20$ gives $p =
+1.3516\%$: below that prevalence a tolerance of $0.20$ is unreachable and the
+check cannot fire on any data. And $\rho_{\max} \to 0$ as $p \to 1$ just as it
+does as $p \to 0$, so the check is blind at \emph{both} ends of its range.
 
-We verified the identity numerically against perfect separation at
-$p = 0.005$, $0.013516$, $0.05$, $0.10$, $0.30$ and $0.50$ with two million
-points each, agreeing to better than $10^{-13}$ at every prevalence. The
-regression test in the repository asserts it at four prevalences, including the
-$0.866$ ceiling at $p = 0.5$ that surprises people.
+We verified the identity numerically against perfect separation at $p = 0.005$,
+$0.013516$, $0.05$, $0.10$, $0.30$ and $0.50$ with two million points each,
+agreeing to better than $10^{-13}$ at every prevalence. The regression test in
+the repository asserts it at four prevalences, including the $0.866$ ceiling at
+$p = 0.5$ that surprises people.
 
+
+\section{Three alternatives that look like escapes}
+\label{app:alternatives}
+
+\S\ref{sec:depth} states the short form for two of these. All three deserve
+the full argument, because each is the first thing some reader reaches for.
+
+\paragraph{Count splitting and data thinning.} \citet{neufeld2023} and the
+data-thinning family split a cell's UMI counts into independent folds, so the
+same genes can label a cell in one fold and be tested in the other. That
+dissolves the leakage constraint as a \emph{statistical} matter and is the
+right tool for the double-dipping problem it was built for. It does not rescue
+us: splitting halves an already depth-limited count, and the label's dependence
+on depth is a property of \emph{detection}, which survives the split and
+worsens with it. A cell too shallow to show a marker in the full count is more
+so in half of it. Our constraint is not that the label is statistically
+dependent on the test data. It is that the label is a reading of how much data
+there was.
+
+\paragraph{Positive markers that are not targets.} The third escape, and the
+first one a reader of \S\ref{sec:depth} reaches for, is to label the mature state
+by positive markers held \emph{outside} the measured set --- AQP8, CEACAM7,
+SLC26A3, KRT20 and the rest of our panel's exploratory tier. Our panel
+forecloses it by construction: those genes are in the panel, and the leakage
+invariant withholds the whole panel rather than the outcome gene alone. That is
+a design choice, and a defensible one --- a label built from genes the same
+disease process regulates re-imports the confound through a second door, and
+tier A's own behaviour in \S\ref{sec:controls} is what that looks like --- but
+it is \emph{ours}, not a property of the assay. A panel scoped to a single
+outcome gene would not face it, and the honest statement of \S\ref{sec:depth}'s
+premise is the conditional one: the move into absence is forced for any panel
+where a state's positive markers double as the quantity of interest.
+
+\paragraph{Reference-based annotators.} SingleR \citep{aran2019}
+and CellTypist \citep{dominguezconde2022} score a cell against whole expression
+profiles rather than a handful of binary marker calls, which does reduce the
+fragility of absence-defined labels. The leakage invariant still applies ---
+the target genes must be withheld from the reference --- and what remains of
+the profile is measured through the same detection process. A softer label is
+not a depth-independent one. We regard this as the most promising direction and
+not as a solved problem, and we did not use it here.
+
+\section{The tier collapse, and the grid the counts are over}
+\label{app:collapse}
+
+\paragraph{The algebra.} With $\mathrm{comp} = \Delta f\, m_N$ and
+$\mathrm{intr} = f_N (m_T - m_N)$, the ratio between the arms equals
+$(f_N/\Delta f)(m_T/m_N - 1)$. The gene enters only through $m_T/m_N$. For a
+genuinely retained gene $m_T/m_N \approx 1$, the bracket goes to zero and tier D
+separates cleanly, so the collapse is not algebraically forced in general. It is
+forced once $m_T/m_N \approx 0$ for every tier. Measured per patient, the ratios
+then agree to within 3\% across tiers, which is what the bracket ranging over
+$[-1, -0.95]$ predicts --- the observed spread is the prediction landing, not a
+precision the theory forbids.
+
+\paragraph{Every row of \S\ref{sec:ceiling}, by arm.} The replication cohort's
+per-arm table is 10 patients $\times$ 2 labelling axes $\times$ 4 resolutions
+$\times$ 2 arms $=$ 160 rows. Of these, 102 carry a finite correlation and 58 do
+not: 18 are the diseased arm at the rarest resolution, every one at prevalence
+exactly $0$, and 40 are the coarsest resolution in both arms, every one at
+prevalence exactly $1$. \textbf{No row lies in $0 < p < 1.3516\%$ or in
+$98.65\% < p < 1$.} The ratio $|\rho|$-to-bound is defined on 22 of the 40 rows
+at the rarest resolution (20 reference-arm, 2 diseased) and on all 40 at each of
+the two middle resolutions; it is undefined at the coarsest, where the bound is
+zero.
+
+\paragraph{The grid the counts of \S\ref{sec:ceiling} are over.} One grid
+throughout: patients $\times$ annotation resolutions $\times$ arms. Denominators
+differ because it is filtered differently for different questions. 64 is one
+resolution across both annotation axes on the primary cohort (GSE178341,
+$n = 32$). The per-arm counts out of 160 and 40 are the replication cohort
+(GSE132465, $n = 10$), which is what Figure~\ref{fig:ceiling} plots; the
+per-subtype counts of Appendix~\ref{app:rare} are that cohort and GSE144735.
+
+\section{The abundance-matched null, and what the simulation showed}
+\label{app:floor}
+
+We simulated both genes of \S\ref{sec:floor} \emph{purely compositional} --- no
+intrinsic component anywhere, the same \emph{relative} patient-to-patient
+variation on each --- so the pre-registered comparison starts as a coin flip.
+With no assay noise the low-abundance gene scores below the high-abundance one in
+51\% of 200 draws, as it should. Adding a shared additive noise floor and
+changing nothing else takes the primary arm to \emph{every} draw at a floor of
+0.5 units, and both arms to every draw at 2. The severity therefore depends on a
+noise parameter nobody knows before the run, which is why no threshold on that
+statistic could have been given a meaning in advance.
+
+The scale-free fallback proposed at the time, a log-log slope, was tested and
+carries the same confound; it is recorded in the configuration's
+\texttt{withdrawn\_arms} so nobody re-proposes it.
+
+The repair is to score each gene against an abundance-matched null: draw
+off-panel genes at the outcome gene's own expression level by a rule fixed in
+advance, and read the gene's percentile within that null rather than its raw
+value or its rank against another gene.
+
+\section{What the repairs recover, and from where}
+\label{app:priorart}
+
+Each repair this paper proposes has a literature, and none of it is ours.
+
+\paragraph{Testing whether a label tracks a technical covariate.} The field's
+tools are kBET \citep{buttner2019}, LISI \citep{korsunsky2019} and the scIB
+suite \citep{luecken2022}, which score the covariate's local structure rather
+than thresholding a correlation. Had we reached for one, \S\ref{sec:ceiling}
+would not exist. What the bound adds is the reason a correlation threshold is the
+wrong instrument, which is worth stating because a correlation threshold is what
+gets written when nobody reaches for the standard tool. The rank-biserial
+correlation $2\,\mathrm{AUC} - 1$ is the minimal fix inside the same idiom: it is
+a monotone transform of the Mann--Whitney statistic, and under perfect separation
+it equals 1 at every prevalence, which we verified numerically at
+$p = 0.002$ through $0.5$ against the Spearman values that trace
+$\sqrt{3p(1-p)}$ exactly.
+
+\paragraph{Scoring a gene against an abundance-matched null.} Expression-matched
+background sets are standard in gene-set analysis, and the competitive versus
+self-contained distinction \citep{wu2012} is exactly the one \S\ref{sec:floor}
+needed and did not make: our arm compared one gene against another gene rather
+than against a background drawn at its own abundance.
+
+\paragraph{Control genes as an estimator of unwanted variation.} Negative-control
+methodology \citep{gagnonbartsch2012} treats control genes as an object to be
+estimated from rather than a binary pass. Our tier system asks a small hand-picked
+panel to answer yes or no, which is what makes a mis-specified tier
+(\S\ref{sec:controls}) indistinguishable from a broken estimator.
 
 \section{Extended notes}
 \label{app:extended}
@@ -91,8 +216,8 @@ $0.866$ ceiling at $p = 0.5$ that surprises people.
 patients, never cells --- the pseudoreplication point of \citet{squair2021}. An
 earlier internal result violated this and reported a cell-pooled difference of
 $+25.1\%$ where a single patient supplied 1{,}824 of 5{,}564 cells. Recomputed
-per patient the difference is $+0.170$ with a 95\% interval of
-$[-0.011, +0.342]$, containing zero. The direction survives independent 1:1
+per patient the difference is $+0.170$ with a 95\% interval of $[-0.011,
++0.342]$, containing zero. The direction survives independent 1:1
 within-patient depth matching at $+0.182$, making it a direction with support
 rather than an established effect.
 
@@ -106,13 +231,14 @@ depth-matched read. Every other cell fails for a reason matching leaves
 untouched. One coarser resolution is a two-bin split on about 90\% of patients,
 the coarsest is degenerate by construction, the finest carries a median of one
 usable cell, and the replication cohort's middle resolution stays confounded at
-$\rho = 0.31$. At $k = 1$ an engine combining one study returns a number looking
-meta-analytic without being one. The cohort holds one place to stand, which is
-the non-identifiability finding one level up.
+a median $|\rho| = 0.26$ in its reference arm. At $k = 1$ an engine combining
+one study returns a number looking meta-analytic without being one. The cohort
+holds one place to stand, which is the non-identifiability finding one level
+up.
 
 \paragraph{The two draw pools of \S\ref{sec:abstention} differ in more than one
-way.} Neither matches the population the estimator meets in real data. There the
-reference arm holds reference-tissue cells and the comparison arm does not,
+way.} Neither matches the population the estimator meets in real data. There
+the reference arm holds reference-tissue cells and the comparison arm does not,
 whereas the second reading puts reference-tissue cells into \emph{both}. A
 generator drawing each arm from its own tissue is a third option we did not
 implement, because the imposed shift would then sit on top of a real
@@ -126,20 +252,74 @@ predicts discrimination rising with $\sqrt{n}$, and neither curve does.
 patients with two held out per replicate admit 45 distinct holdout pairs, so
 every replicate count above that reuses pairs and every interval quoted on the
 calibration runs optimistic. Raising the replicate count stabilises Monte Carlo
-noise and converges the estimate to the value over those 45 pairs rather than to
-a population value. The patient-level uncertainty is unchanged by the replicate
-count and is not quantified anywhere in this paper: read the returned cutpoint as
-what this procedure gives on this cohort, not as a number with an interval on it.
+noise and converges the estimate to the value over those 45 pairs rather than
+to a population value. The patient-level uncertainty is unchanged by the
+replicate count and is not quantified anywhere in this paper: read the returned
+cutpoint as what this procedure gives on this cohort, not as a number with an
+interval on it.
 
 \paragraph{One resolution is degenerate by construction.} At the coarsest
 resolution every scored cell belongs to the type in question, so the
 compositional term sits at exactly zero and only the intrinsic term carries
 information. Two intermediate resolutions are the same partition on most
 patients, making one measurement reported twice rather than two agreeing
-measurements. Measuring the score distribution established both facts rather than
-assuming them. Both annotation axes score \emph{immaturity} and the score gets
-negated, so ``no marker detected'' becomes the maximum attainable maturity and
-the zero-atom sits at the score maximum. Any score that is a function of the
-marker counts alone gives those cells the same value, verified across six
+measurements. Measuring the score distribution established both facts rather
+than assuming them. Both annotation axes score \emph{immaturity} and the score
+gets negated, so ``no marker detected'' becomes the maximum attainable maturity
+and the zero-atom sits at the score maximum. Any score that is a function of
+the marker counts alone gives those cells the same value, verified across six
 formulations. The formulations breaking the tie use information beyond the
 markers and order the atom by sequencing depth, which is arm-confounded.
+
+\section{The bound, on labels rare enough for it to bite}
+\label{app:rare}
+
+\S\ref{sec:ceiling} reports that no row of our own maturity labels falls in
+$0 < p < 1.3516\%$, so the blind spot the bound predicts is unpopulated there.
+That is a fact about our four annotation resolutions, not about the data. Both
+Lee cohorts ship a published per-cell subtype annotation --- 36 subtypes on SMC,
+40 on KUL3 --- and a dozen of those sit under $1.35\%$.
+
+Scoring each subtype as a binary label against sequencing depth, through the
+same function, the same QC-filtered cells and the same whole-transcriptome
+library size that produced Figure~\ref{fig:ceiling}, gives the table below. Only
+the label changes, so the two are directly comparable.
+
+\begin{center}
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+& \textbf{rows} & \textbf{median $|\rho|$/bound} & \textbf{flagged at 0.20} &
+\textbf{above $\tfrac{1}{2}$ bound} \\
+\midrule
+\multicolumn{5}{@{}l}{\emph{GSE132465 (SMC), 10 paired patients}} \\
+\quad $0 < p < 1.3516\%$ & 309 & 0.424 & 0 & 118 \\
+\quad $p \geq 1.3516\%$ & 240 & 0.386 & 72 (30\%) & --- \\[2pt]
+\multicolumn{5}{@{}l}{\emph{GSE144735 (KUL3), 6 paired patients}} \\
+\quad $0 < p < 1.3516\%$ & 261 & 0.502 & 0 & 132 \\
+\quad $p \geq 1.3516\%$ & 226 & 0.316 & 49 (22\%) & --- \\[2pt]
+\midrule
+\multicolumn{5}{@{}l}{\emph{both}} \\
+\quad $0 < p < 1.3516\%$ & \textbf{570} & 0.447 & \textbf{0} & \textbf{250} \\
+\quad $p \geq 1.3516\%$ & 466 & 0.358 & 121 (26\%) & --- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Three things to read off it. The blind rows are \emph{rare}, not degenerate ---
+none sits at $p$ exactly $0$ or $1$, which is what separates them from the 58
+rows of \S\ref{sec:ceiling}. As a share of what each row could attain they are
+no less confounded than the rows the check can see, and on KUL3 they are more so
+($0.502$ against $0.316$); the maximum is $0.994$, a label at $99.4\%$ of the
+strongest depth association its prevalence permits, reported clean. And the
+populations inside the band include the mature enterocyte, goblet and stem-like
+compartments this decomposition is about.
+
+Two caveats we do not want read past. These are the authors' annotations, not
+our maturity call; that is deliberate, since the claim under test is about the
+\emph{statistic} rather than about our labelling, and labels we did not build
+are the stronger demonstration --- but it means this shows the check going blind
+on cell-type labels generally, not on ours specifically. And published
+annotations are themselves derived from expression, so some depth association is
+expected. Expected is not the same as reportable: the diagnostic's job was to
+report it, and at these prevalences it cannot.
