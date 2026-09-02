@@ -120,17 +120,34 @@ def coverage_and_discrimination(
     # realised truth is not a weaker version of this test; it is a different
     # and vacuous one.
     truth = rows["intrinsic_true_parametric"]
+
+    # An ABSTENTION IS NOT A FAILURE, and this is where that used to go wrong.
+    # A replicate holding no interval did not miss the truth and did not fail to
+    # exclude zero — it declined to answer. Every comparison against NaN returns
+    # False, so folding those rows into a mean scored each one as a coverage
+    # failure AND a discrimination failure, halving both rates in exactly the
+    # bin where the estimator was most often right to refuse. That is the
+    # coercion this project's abstention rule exists to prevent, occurring
+    # inside the routine that calibrates it.
+    #
+    # Rates now run over the replicates that HELD an interval. The rest are
+    # counted in `n_abstained`, which is the only place a reader can see them:
+    # a number in a column, not a boolean silently absorbed into a rate.
+    has_ci = rows["ci_low"].notna() & rows["ci_high"].notna()
     covered = (rows["ci_low"] <= truth) & (truth <= rows["ci_high"])
     excludes_zero = (rows["ci_low"] > 0) | (rows["ci_high"] < 0)
     rows = rows.assign(
-        _covered=covered, _excludes_zero=excludes_zero,
-        _width=rows["ci_high"] - rows["ci_low"],
+        _has_ci=has_ci,
+        _covered=covered.where(has_ci),
+        _excludes_zero=excludes_zero.where(has_ci),
+        _width=(rows["ci_high"] - rows["ci_low"]).where(has_ci),
     )
 
     out = (
         rows.groupby("bin", observed=True)
         .agg(
             n_replicates=("replicate", "count"),
+            n_estimated=("_has_ci", "sum"),
             n_cells_mature=("n_cells_mature", "median"),
             coverage=("_covered", "mean"),
             discrimination=("_excludes_zero", "mean"),
@@ -139,6 +156,12 @@ def coverage_and_discrimination(
         .reset_index(drop=True)
         .sort_values("n_cells_mature")
     )
+    out["n_estimated"] = out["n_estimated"].astype(int)
+    out["n_abstained"] = out["n_replicates"] - out["n_estimated"]
+    # `.where()` on a boolean column yields object dtype, and an object-dtype
+    # rate compares in ways a float one does not. Rates are floats.
+    out["coverage"] = out["coverage"].astype(float)
+    out["discrimination"] = out["discrimination"].astype(float)
     out["shift"] = criteria.detectable_shift
     out["verdict"] = [
         _verdict(c, d, criteria)
@@ -148,6 +171,12 @@ def coverage_and_discrimination(
 
 
 def _verdict(coverage: float, discrimination: float, criteria: CalibrationCriteria) -> str:
+    # No replicate in this bin held an interval, so there is no rate to judge.
+    # "Nobody answered" and "the answers were bad" are different findings and
+    # the old code returned the same string for both, because NaN >= target is
+    # False. Give undefined its own verdict.
+    if not (np.isfinite(coverage) and np.isfinite(discrimination)):
+        return "all_abstained"
     if coverage >= criteria.coverage_target and discrimination >= criteria.discrimination_target:
         return "ok"
     if coverage >= criteria.coverage_target:

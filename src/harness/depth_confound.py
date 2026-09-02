@@ -30,6 +30,7 @@ comparison this module exists to make cheap.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Final
 
 import numpy as np
@@ -181,23 +182,47 @@ def depth_confound_report(
     else:
         depth_ratio = float("nan")
 
-    rhos = [
-        abs(v["rho_depth_vs_mature"])
-        for v in per_arm.values()
-        if np.isfinite(v["rho_depth_vs_mature"])
-    ]
-    worst_rho = max(rhos) if rhos else float("nan")
+    # Each arm's correlation belongs with THAT ARM's bound. Taking the two
+    # maxima independently — max(rhos) over here, max(ceilings) over there —
+    # lets the statistic come from one arm and its ceiling from the other, so a
+    # rare arm's unreachable reading gets normalised by a common arm's headroom
+    # and disappears. That mispairing is the one this diagnostic exists to
+    # catch, and it was live in this function until it got caught.
+    for v in per_arm.values():
+        rho_a, ceil_a = abs(v["rho_depth_vs_mature"]), v["max_attainable_rho"]
+        v["rho_vs_ceiling"] = (
+            float(rho_a / ceil_a)
+            if np.isfinite(rho_a) and np.isfinite(ceil_a) and ceil_a > 0
+            else float("nan")
+        )
+        v["tolerance_is_reachable"] = bool(
+            np.isfinite(ceil_a) and ceil_a >= rho_tolerance
+        )
 
-    # A rare label cannot reach the tolerance however completely depth drives it,
-    # so report whether the test was even capable of firing. Without this the
-    # diagnostic reads "clean" on a rung where it could only ever read clean.
-    ceilings = [
-        v["max_attainable_rho"]
-        for v in per_arm.values()
-        if np.isfinite(v["max_attainable_rho"])
-    ]
-    ceiling = max(ceilings) if ceilings else float("nan")
+    # An arm at prevalence exactly 0 or 1 has no correlation to report. That is
+    # UNDEFINED, not clean, and it does not get to vote by being dropped: it is
+    # counted and named so the caller can abstain rather than read the survivors
+    # as the whole picture.
+    defined = {
+        a: v for a, v in per_arm.items() if np.isfinite(v["rho_depth_vs_mature"])
+    }
+    undefined_arms = sorted(set(per_arm) - set(defined))
+
+    if defined:
+        worst_arm = max(defined, key=lambda a: abs(defined[a]["rho_depth_vs_mature"]))
+        worst = defined[worst_arm]
+        worst_rho = abs(worst["rho_depth_vs_mature"])
+        ceiling = worst["max_attainable_rho"]
+        rho_vs_ceiling = worst["rho_vs_ceiling"]
+    else:
+        worst_arm = None
+        worst_rho = ceiling = rho_vs_ceiling = float("nan")
+
+    # A rare label cannot reach the tolerance however completely depth drives
+    # it, so report whether the test was capable of firing — for the arm the
+    # verdict actually rests on, and separately for every arm.
     reachable = bool(np.isfinite(ceiling) and ceiling >= rho_tolerance)
+    reachable_arms = sum(v["tolerance_is_reachable"] for v in per_arm.values())
 
     tracks = bool(np.isfinite(worst_rho) and worst_rho >= rho_tolerance)
     matched = bool(np.isfinite(depth_ratio) and depth_ratio <= depth_ratio_tolerance)
@@ -205,54 +230,77 @@ def depth_confound_report(
         "per_arm": per_arm,
         "depth_ratio_between_arms": depth_ratio,
         "worst_within_arm_rho": worst_rho,
+        "worst_arm": worst_arm,
         "max_attainable_rho": ceiling,
-        "rho_vs_ceiling": (
-            float(worst_rho / ceiling)
-            if np.isfinite(worst_rho) and np.isfinite(ceiling) and ceiling > 0
-            else float("nan")
-        ),
+        "rho_vs_ceiling": rho_vs_ceiling,
         "tolerance_is_reachable": reachable,
+        "n_arms_tolerance_reachable": int(reachable_arms),
+        "n_arms": len(per_arm),
+        "arms_with_undefined_rho": undefined_arms,
         "maturity_tracks_depth": tracks,
         "arms_are_depth_matched": matched,
         "confounded": bool(tracks and not matched),
-        "reading": _reading(tracks, matched, depth_ratio, worst_rho, reachable),
+        "reading": _reading(
+            tracks, matched, depth_ratio, worst_rho, reachable, undefined_arms
+        ),
     }
 
 
 def _reading(
-    tracks: bool, matched: bool, ratio: float, rho: float, reachable: bool = True
+    tracks: bool,
+    matched: bool,
+    ratio: float,
+    rho: float,
+    reachable: bool = True,
+    undefined_arms: Sequence[str] | None = None,
 ) -> str:
+    if undefined_arms is None:
+        undefined_arms = []
+    if not np.isfinite(rho):
+        return (
+            f"UNDEFINED: no arm carries a correlation — every arm sits at "
+            f"prevalence exactly 0 or 1 ({', '.join(map(str, undefined_arms))}). "
+            f"A label with no variance has no correlation to bound. This is an "
+            f"abstention, not a clean reading."
+        )
+    caveat = (
+        f" {len(undefined_arms)} arm(s) had no correlation to report "
+        f"({', '.join(map(str, undefined_arms))}) and are excluded rather than "
+        f"scored clean."
+        if undefined_arms
+        else ""
+    )
     if not reachable and not tracks:
         return (
             f"NOT TESTABLE: the mature label is too rare here for |rho| to reach "
             f"the tolerance at all (ceiling sqrt(3p(1-p))). |rho|={rho:.2f} is "
             f"not evidence of cleanliness — the test could only ever have "
-            f"returned clean. Read rho_vs_ceiling instead."
+            f"returned clean. Read rho_vs_ceiling instead." + caveat
         )
     if tracks and not matched:
         return (
             f"CONFOUNDED: the maturity call tracks depth within an arm "
             f"(|rho|={rho:.2f}) and the arms differ {ratio:.1f}x in median depth. "
             f"The compositional term and the depth imbalance are not separable "
-            f"in this data."
+            f"in this data." + caveat
         )
     if tracks:
         return (
             f"The maturity call tracks depth (|rho|={rho:.2f}), but the arms are "
             f"depth-matched ({ratio:.1f}x), so it does not convert into a "
             f"between-arm difference. Report it; it is not driving the "
-            f"compositional term."
+            f"compositional term." + caveat
         )
     if not matched:
         return (
             f"The arms differ {ratio:.1f}x in median depth, but the maturity call "
             f"does not track depth within an arm (|rho|={rho:.2f}). The imbalance "
             f"is real and this particular route from it to the compositional term "
-            f"is closed."
+            f"is closed." + caveat
         )
     return (
         f"Clean on both counts: arms within {ratio:.1f}x on median depth and the "
-        f"maturity call does not track depth (|rho|={rho:.2f})."
+        f"maturity call does not track depth (|rho|={rho:.2f})." + caveat
     )
 
 
