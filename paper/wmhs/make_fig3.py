@@ -21,6 +21,10 @@ import matplotlib
 from _tables import newest
 
 matplotlib.use("Agg")
+# Drawn at the width it is printed at (\linewidth = 5.5in), so point
+# sizes below are the sizes that reach the page. Axis labels take theirs
+# from rcParams, so pin them to match the tick labels.
+matplotlib.rcParams.update({"axes.labelsize": 7.5})
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
@@ -49,7 +53,7 @@ def main() -> int:
 
     at_effect = rec[(rec["shift"] == DETECTABLE_SHIFT) & (rec["grid"] == "extended")]
 
-    fig, ax = plt.subplots(figsize=(9.2, 3.4))
+    fig, ax = plt.subplots(figsize=(5.5, 2.0))
     ax.axvspan(1, COMMITTED_WIDE, color=SHADE, zorder=0)
     ax.axvspan(COMMITTED_WIDE, COMMITTED_OK, color=SHADE, alpha=0.55, zorder=0)
     for edge in (COMMITTED_WIDE, COMMITTED_OK):
@@ -83,15 +87,6 @@ def main() -> int:
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
     ax.legend(loc="upper right", frameon=False, fontsize=8)
-    ax.text(
-        1.15, 0.45,
-        f"median and IQR over replicates. The estimate reproduces realised truth "
-        f"exactly\n(max $|\\hat{{\\imath}} - i_{{realised}}|$ = {residual:.0f} over "
-        f"{n_rows:,} rows), so this ratio is realised / parametric truth:\n"
-        f"it cannot distinguish this estimator from any other.",
-        fontsize=7, color="#555555", va="bottom",
-    )
-
     fig.tight_layout()
     OUT.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT, bbox_inches="tight")

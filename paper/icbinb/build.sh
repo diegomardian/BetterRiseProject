@@ -33,7 +33,11 @@ import sys
 try:
     from pypdf import PdfReader
 except ImportError:
-    print("  --    pypdf not installed; page limit NOT checked"); sys.exit(0)
+    print("  FAIL  pypdf not installed, so the page limit was NOT checked.")
+    print("        A check that cannot run is not a check that passed:")
+    print("        pip install pypdf, or run with SKIP_PAGE_CHECK=1 to state")
+    print("        deliberately that you are not checking it.")
+    sys.exit(0 if __import__("os").environ.get("SKIP_PAGE_CHECK") else 1)
 limit = int(sys.argv[1])
 pages = [(p.extract_text() or "") for p in PdfReader("main.pdf").pages]
 ref = next((i for i, t in enumerate(pages) if "References" in t), len(pages))

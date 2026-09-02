@@ -33,9 +33,19 @@ if [ -f main.pdf ]; then
     else
       echo "  ok    no Author/Keywords metadata"
     fi
+  elif grep -aoE '/(Author|Keywords) ?\(([^)]+)\)' main.pdf >/dev/null 2>&1; then
+    # No poppler: read the /Info dictionary out of the raw PDF instead. An
+    # empty "/Author ()" is what pdflatex writes when no author is set.
+    note "main.pdf carries Author/Keywords metadata:"
+    grep -aoE '/(Author|Keywords) ?\(([^)]+)\)' main.pdf | sort -u | sed 's/^/        /'
+  else
+    echo "  ok    no Author/Keywords metadata (read from the raw PDF;"
+    echo "        install poppler for pdfinfo if you want a second opinion)"
   fi
 else
-  echo "  --    main.pdf not built; run the build and re-run this"
+  note "main.pdf not built, so neither the PDF text nor its metadata was"
+  echo "        checked — and metadata is where an author name leaks without"
+  echo "        appearing on any page. Run ./build.sh first."
 fi
 
 echo

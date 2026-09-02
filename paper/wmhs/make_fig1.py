@@ -17,6 +17,10 @@ import matplotlib
 from _tables import newest
 
 matplotlib.use("Agg")
+# Drawn at the width it is printed at (\linewidth = 5.5in), so point
+# sizes below are the sizes that reach the page. Axis labels take theirs
+# from rcParams, so pin them to match the tick labels.
+matplotlib.rcParams.update({"axes.labelsize": 7.5})
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
@@ -63,10 +67,9 @@ def panel(ax, rows: pd.DataFrame, *, title: str, subtitle: str) -> None:
     ax.set_ylim(0, 1.05)
     ax.set_xticks([1, 10, 20, 50, 90, 200, 500])
     ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-    ax.set_yticks([0, 0.5, DISCRIMINATION_TARGET, COVERAGE_TARGET, 1])
-    ax.set_yticklabels(["0", ".5", ".8", ".9", "1"])
-    ax.set_xlabel("cells available to the intrinsic comparison, $n$")
-    ax.set_title(f"{title}\n{subtitle}", fontsize=8.5, linespacing=1.5)
+    ax.set_yticks([0, 0.5, DISCRIMINATION_TARGET, 1])
+    ax.set_yticklabels(["0", ".5", ".8", "1"])
+    ax.set_title(f"{title}\n{subtitle}", fontsize=7, linespacing=1.4)
     ax.tick_params(labelsize=7.5)
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
@@ -76,13 +79,13 @@ def main() -> int:
     bins = pd.read_parquet(newest(TABLE_NAME))
     ext = bins[bins["grid"] == "extended"]
 
-    fig, axes = plt.subplots(1, 2, figsize=(9.2, 3.3), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(5.5, 2.0), sharey=True)
 
     panel(
         axes[0],
         ext[ext["pool"] == "pooled"],
-        title="draw pool as implemented (both tissues pooled)",
-        subtitle="no $n$ meets both targets: the routine returns no cutpoint",
+        title="as implemented: both tissues pooled",
+        subtitle="no $n$ meets both targets",
     )
     axes[0].set_ylabel("probability")
 
@@ -90,8 +93,8 @@ def main() -> int:
     panel(
         axes[1],
         ref,
-        title="a second reading of the same choice (reference tissue only)",
-        subtitle="calibrated $ok = 90$ (7 of 8 seeds); committed value is 50",
+        title="a second reading: reference tissue only",
+        subtitle="$ok = 90$ (7 of 8 seeds), not the committed 50",
     )
     axes[1].axvline(90, color="#111111", ls=":", lw=1.2, zorder=3)
     axes[1].annotate(
@@ -102,11 +105,11 @@ def main() -> int:
 
     handles, labels = axes[1].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", ncol=2, frameon=False,
-               fontsize=8, bbox_to_anchor=(0.5, -0.06))
-    axes[0].text(1.15, COVERAGE_TARGET + 0.015, "targets fixed before the sweep",
-                 fontsize=7, color="#555555", va="bottom")
+               fontsize=7, bbox_to_anchor=(0.5, -0.06))
 
-    fig.tight_layout(rect=(0, 0.02, 1, 1))
+    fig.supxlabel("cells available to the intrinsic comparison, $n$",
+                  fontsize=7.5, y=0.06)
+    fig.tight_layout(rect=(0, 0.06, 1, 1))
     OUT.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT, bbox_inches="tight")
     print(f"wrote {OUT}")
