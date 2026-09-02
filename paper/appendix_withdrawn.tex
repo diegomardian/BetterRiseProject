@@ -1,0 +1,50 @@
+% ---------------------------------------------------------------------------
+% ADD THIS SECTION TO sections/appendix.tex
+%
+% It is the paragraph "A number we withdrew" moved out of Section 2, expanded
+% slightly. Section 2 now carries a two-line pointer to it instead, so the
+% credibility question is answered in full but is not sitting in the critical
+% path of the paper's first result.
+%
+% Requires \label{app:withdrawn}, which main.tex references twice.
+% ---------------------------------------------------------------------------
+
+\section{A number we withdrew}
+\label{app:withdrawn}
+
+An earlier internal report put the depth artefact of \S\ref{sec:depth} at
+\textbf{46 percentage points} of apparent compositional loss, in the hypothesised
+direction, with a depth--maturity correlation of $\rho = -0.92$ and the two arms
+$4.3\times$ apart in median depth. Those figures were quoted throughout the
+project for weeks and shaped decisions about which analyses to prioritise.
+
+\textbf{We reproduced none of them.} Re-derived from the committed loader, every
+sign reverses and the arms come out $0.96\times$ apart rather than $4.3\times$.
+The producing script is absent from the repository and the labeller it measured
+has since been retired, so the discrepancy resists attribution without guessing
+at code nobody kept. We cannot say whether the original was a bug, a different
+cell-selection rule, or a transcription error.
+
+\paragraph{What we withdraw and what we keep.} We withdraw the three figures. We
+keep the argument, which does not depend on them: it rests on the panel's
+construction (\S\ref{sec:intro}, the leakage invariant forcing an
+absence-defined label) and on the bound analysis of \S\ref{sec:ceiling}, both of
+which are derivable without data. The surviving quantitative claim in
+\S\ref{sec:depth} --- $\rho = +0.33$ against a bound of $0.52$, both computed on
+the depleted arm --- is re-derived from the committed result table under the
+pairing discipline of \S\ref{sec:ceiling}.
+
+\paragraph{Why this is in the paper at all.} Two reasons. First, a reader
+comparing this paper against the project's earlier internal circulation would
+otherwise find numbers that no longer appear, with no explanation. Second, it is
+the cleanest instance in the project of the failure mode the paper is about ---
+a quantity that everyone trusted, that no guard was ever pointed at, and that
+turned out to be the one number nobody could re-derive. Every other number in
+this paper is now read by the figure code directly from a versioned table
+carrying a commit hash and a fixed seed, which is a change this episode caused.
+
+\paragraph{Consequence for the reader.} \S\ref{sec:depth}'s empirical claim is
+weaker than the withdrawn version and we state it as such: a residual
+correlation at 63\% of its attainable bound, on one cohort, after correction. The
+structural claims of \S\ref{sec:ceiling}, \S\ref{sec:controls} and
+\S\ref{sec:oracle} are unaffected, since none of them is an effect size.
