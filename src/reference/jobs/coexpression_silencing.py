@@ -99,8 +99,17 @@ GENE_ROLES: dict[str, str] = {
 CONTROL_TOLERANCE = 0.10
 
 AXIS, RUNG, MATURE_BIN = "stem_pole", "lineage", "differentiated"
+
+#: GSE178341 QC settings, identical to build_decomposition_summary's so the
+#: population scored here is the one the decomposition is computed on.
+UNSORTED = "unsorted"
+DEPTH_QUANTILE = 0.25
 CONDITION_ON = "CDX2"
 COHORTS = ("smc", "kul3")
+
+#: The primary cohort. Cluster only -- 371k cells, and the loader streams one
+#: patient at a time because the whole deposit does not belong in memory.
+PRIMARY = "gse178341"
 
 
 def premise_holds(deltas: pd.DataFrame, tolerance: float = CONTROL_TOLERANCE) -> tuple[bool, str]:
@@ -135,15 +144,53 @@ def _detection(counts: np.ndarray) -> float:
     return float((counts >= DETECTION_MIN_UMI).mean())
 
 
-def per_patient_deltas(cohort, *, seed: int = DEFAULT_SEED) -> pd.DataFrame:
-    """One row per (patient, gene): detection in each arm, depth-matched.
+def rows_for_patient(
+    *, study_id: str, patient: str, counts: dict[str, np.ndarray],
+    depth: np.ndarray, tissue: np.ndarray, seed: int,
+) -> list[dict]:
+    """One row per gene for one patient, arms depth-matched.
 
-    Matching happens *within* the patient and *within* the mature label, so the
-    two arms being compared differ in tissue and in nothing else this project
-    knows how to control. Matching across all cells and selecting mature
-    afterwards leaves a residual depth gap, which is the mechanism the whole
-    exercise is trying to remove.
+    ``counts`` holds raw integer counts per gene, already restricted to the
+    mature cells of this patient in both arms. Matching happens on exactly that
+    set: matching a wider population and intersecting afterwards leaves the
+    analysed subset unmatched, which `build_decomposition_summary` learned the
+    hard way and records in its own comments.
     """
+    if len(depth) < MIN_CELLS_BOTH_ARMS or len(set(tissue.tolist())) < 2:
+        return []
+    keep = match_arm_depth(depth, tissue, seed=seed)
+    arm, depth = tissue[keep], depth[keep]
+    if min((arm == "normal").sum(), (arm == "tumour").sum()) < MIN_CELLS_PER_ARM:
+        return []
+
+    conditioner = counts[CONDITION_ON][keep] >= DETECTION_MIN_UMI
+    out = []
+    for gene, values in counts.items():
+        v = values[keep]
+        row = {"study_id": study_id, "patient_id": str(patient),
+               "gene": gene, "role": GENE_ROLES[gene]}
+        for name in ("normal", "tumour"):
+            m = arm == name
+            row[f"n_{name}"] = int(m.sum())
+            row[f"depth_{name}"] = float(np.median(depth[m]))
+            row[f"detect_{name}"] = _detection(v[m])
+            both = m & conditioner
+            row[f"n_conditioned_{name}"] = int(both.sum())
+            row[f"detect_given_{CONDITION_ON.lower()}_{name}"] = (
+                _detection(v[both]) if both.sum() >= MIN_CONDITIONING_CELLS else np.nan
+            )
+        row["depth_ratio"] = row["depth_tumour"] / row["depth_normal"]
+        row["delta_detect"] = row["detect_tumour"] - row["detect_normal"]
+        row["delta_given_conditioner"] = (
+            row[f"detect_given_{CONDITION_ON.lower()}_tumour"]
+            - row[f"detect_given_{CONDITION_ON.lower()}_normal"]
+        )
+        out.append(row)
+    return out
+
+
+def per_patient_deltas(cohort, *, seed: int = DEFAULT_SEED) -> pd.DataFrame:
+    """The Lee cohorts, which carry cells, labels and raw counts in one object."""
     cells = cohort.cells
     labels = cohort.labels[label_column(AXIS, RUNG)].reindex(cells.index).astype(str)
     raw = cohort.raw_counts.reindex(cells.index)
@@ -152,50 +199,111 @@ def per_patient_deltas(cohort, *, seed: int = DEFAULT_SEED) -> pd.DataFrame:
 
     rows: list[dict] = []
     for patient in sorted(cells["patient_id"].unique()):
-        eligible = (
+        sel = (
             (labels == MATURE_BIN)
             & (cells["patient_id"] == patient)
             & cells["tissue"].isin(["normal", "tumour"])
         ).to_numpy()
-        if eligible.sum() < MIN_CELLS_BOTH_ARMS:
-            continue
-        arms = cells["tissue"].to_numpy()[eligible]
-        if len(set(arms)) < 2:
+        rows.extend(rows_for_patient(
+            study_id=cohort.study_id, patient=patient,
+            counts={g: raw[g].to_numpy(dtype=float)[sel] for g in genes},
+            depth=depth.to_numpy(dtype=float)[sel],
+            tissue=cells["tissue"].to_numpy()[sel], seed=seed,
+        ))
+    return pd.DataFrame(rows)
+
+
+def gse178341_deltas(*, seed: int = DEFAULT_SEED, patients=None, data_dir=None) -> pd.DataFrame:
+    """The primary cohort, streamed one patient at a time.
+
+    Thirty-two patients against ten and six, so this is the read that decides
+    whether the two Lee cohorts disagree because they are small or because they
+    disagree. It is also the only one of the three that needs the cluster: the
+    deposit is 371k cells and the loader materialises one patient at a time for
+    exactly that reason.
+
+    The QC and labelling path is `build_decomposition_summary`'s, unchanged, so
+    the population scored here is the one the decomposition is computed on.
+    """
+    import os
+
+    from scipy import sparse
+
+    from src.common.panel import tier_genes
+    from src.reference.ingest import (
+        assign_compartments,
+        read_gse178341,
+        read_gse178341_clusters,
+        read_gse178341_index,
+        read_gse178341_metadata,
+    )
+    from src.reference.labels import assign_labels
+    from src.reference.qc import apply_qc, cell_qc_metrics, qc_thresholds
+
+    base = Path(data_dir or os.environ.get("BRP_DATA_DIR", "data")) / "raw" / "GSE178341"
+    h5 = base / "GSE178341_crc10x_full_c295v4_submit.h5"
+    clusters = read_gse178341_clusters(
+        base / "GSE178341_crc10x_full_c295v4_submit_cluster.csv.gz"
+    )
+    metadata = read_gse178341_metadata(
+        base / "GSE178341_crc10x_full_c295v4_submit_metatables.csv.gz"
+    )
+    obs, _ = read_gse178341_index(h5)
+    todo = patients or sorted(obs["patient_id"].unique())
+
+    rows: list[dict] = []
+    for i, patient in enumerate(todo, 1):
+        adata = read_gse178341(h5, patients=[patient])
+        compartment = assign_compartments(clusters).reindex(adata.obs.index)
+        metrics = cell_qc_metrics(adata.X, adata.var["gene_symbol"],
+                                  batch=adata.obs["sample_id"])
+        keep = apply_qc(metrics, qc_thresholds(metrics)).to_numpy()
+        keep &= (adata.obs.join(metadata, how="left")["PROCESSING_TYPE"] == UNSORTED).to_numpy()
+        tissue = adata.obs["tissue"].to_numpy()[keep]
+        comp = compartment.to_numpy()[keep]
+        if keep.sum() < 50 or not ((comp == "epithelial") & (tissue == "normal")).any():
+            log.info("[%d/%d] %s — skipped (no reference arm or too few cells)",
+                     i, len(todo), patient)
             continue
 
-        keep = match_arm_depth(depth.to_numpy()[eligible], arms, seed=seed)
-        idx = np.where(eligible)[0][keep]
-        arm = cells["tissue"].to_numpy()[idx]
-        thin = min((arm == "normal").sum(), (arm == "tumour").sum())
-        if thin < MIN_CELLS_PER_ARM:
+        names = adata.var["gene_symbol"]
+        block = adata.X[keep]
+        labels = assign_labels(
+            block, names, compartment=comp,
+            sample_id=adata.obs["sample_id"].to_numpy()[keep],
+            target_genes=sorted(tier_genes("A")), tissue=tissue,
+            patient_id=adata.obs["patient_id"].to_numpy()[keep],
+            depth_quantile=DEPTH_QUANTILE, seed=seed, index=adata.obs.index[keep],
+        )
+        call = labels[label_column(AXIS, RUNG)].astype(str).to_numpy()
+        mature = (call == MATURE_BIN) & np.isin(tissue, ["normal", "tumour"])
+        if mature.sum() < MIN_CELLS_BOTH_ARMS:
+            log.info("[%d/%d] %s — %d mature cells, below the floor",
+                     i, len(todo), patient, int(mature.sum()))
             continue
 
-        conditioner = raw[CONDITION_ON].to_numpy(dtype=float)[idx] >= DETECTION_MIN_UMI
-        for gene in genes:
-            values = raw[gene].to_numpy(dtype=float)[idx]
-            row = {
-                "study_id": cohort.study_id,
-                "patient_id": str(patient),
-                "gene": gene,
-                "role": GENE_ROLES[gene],
-            }
-            for name in ("normal", "tumour"):
-                m = arm == name
-                row[f"n_{name}"] = int(m.sum())
-                row[f"depth_{name}"] = float(np.median(depth.to_numpy()[idx][m]))
-                row[f"detect_{name}"] = _detection(values[m])
-                both = m & conditioner
-                row[f"n_conditioned_{name}"] = int(both.sum())
-                row[f"detect_given_{CONDITION_ON.lower()}_{name}"] = (
-                    _detection(values[both]) if both.sum() >= MIN_CONDITIONING_CELLS else np.nan
-                )
-            row["depth_ratio"] = row["depth_tumour"] / row["depth_normal"]
-            row["delta_detect"] = row["detect_tumour"] - row["detect_normal"]
-            row["delta_given_conditioner"] = (
-                row[f"detect_given_{CONDITION_ON.lower()}_tumour"]
-                - row[f"detect_given_{CONDITION_ON.lower()}_normal"]
-            )
-            rows.append(row)
+        depth = np.asarray(block.sum(axis=1), dtype=float).ravel()
+        counts = {}
+        for gene in GENE_ROLES:
+            hit = np.where(names.to_numpy() == gene)[0]
+            if len(hit) == 0:
+                continue
+            column = block[:, hit[0]]
+            column = (column.toarray().ravel() if sparse.issparse(column)
+                      else np.asarray(column).ravel())
+            counts[gene] = column[mature]
+        if CONDITION_ON not in counts:
+            log.info("[%d/%d] %s — %s absent, cannot condition",
+                     i, len(todo), patient, CONDITION_ON)
+            continue
+
+        found = rows_for_patient(
+            study_id="GSE178341", patient=patient, counts=counts,
+            depth=depth[mature], tissue=tissue[mature], seed=seed,
+        )
+        log.info("[%d/%d] %s — %d mature cells, %d gene rows", i, len(todo), patient,
+                 int(mature.sum()), len(found))
+        rows.extend(found)
     return pd.DataFrame(rows)
 
 
@@ -234,7 +342,9 @@ def summarise(deltas: pd.DataFrame, *, seed: int = DEFAULT_SEED) -> pd.DataFrame
 def main(argv: Sequence[str] | None = None) -> int:
     global ALLOW_DIRTY
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cohorts", nargs="+", default=list(COHORTS), choices=list(COHORTS))
+    parser.add_argument("--cohorts", nargs="+", default=list(COHORTS),
+                        choices=[*COHORTS, "gse178341"])
+    parser.add_argument("--patients", nargs="*", default=None)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--raw-dir", type=Path, default=None)
     parser.add_argument("--results-dir", type=Path, default=None)
@@ -250,6 +360,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     frames = []
     for which in args.cohorts:
+        if which == "gse178341":
+            log.info("streaming GSE178341, one patient at a time …")
+            frames.append(gse178341_deltas(seed=args.seed, patients=args.patients,
+                                           data_dir=args.raw_dir))
+            continue
         log.info("loading Lee/%s …", which.upper())
         cohort = load_lee_cohort(
             which,
