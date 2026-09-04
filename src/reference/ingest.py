@@ -38,7 +38,7 @@ from typing import Any
 
 import numpy as np
 
-from src.common.paths import MANIFEST_PATH
+from src.common.paths import DATA_DIR, MANIFEST_PATH, REPO_ROOT
 
 # ---------------------------------------------------------------------------
 # GSE178341 file facts, established by inspecting the deposited .h5 on
@@ -323,6 +323,36 @@ def sha256_file(path: str | Path, *, chunk_bytes: int = 1 << 20) -> str:
     return digest.hexdigest()
 
 
+def manifest_key(path: str | Path) -> str:
+    """The portable form of a data path: ``data/...`` wherever that is knowable.
+
+    The manifest is the only record of the raw data that travels between
+    machines, and a path naming somebody's scratch disk does not travel.
+    ``BRP_DATA_DIR`` routinely points outside the repository -- on the cluster it
+    is an absolute path on the project filesystem -- and this function used to
+    record whatever it was handed, so five rows naming one machine reached a
+    commit.
+
+    A path outside every known root is returned unchanged rather than refused:
+    callers legitimately write to scratch directories in tests, and refusing
+    there buys nothing. The guarantee is enforced on the artefact instead, by
+    ``tests/test_manifest.py::test_every_path_is_under_data``, which is what
+    caught the five rows. Guard the file that ships, not the function that
+    writes it.
+    """
+    target = Path(path)
+    if not target.is_absolute():
+        return str(target)
+    try:
+        return str(Path("data") / target.resolve().relative_to(Path(DATA_DIR).resolve()))
+    except ValueError:
+        pass
+    try:
+        return str(target.resolve().relative_to(Path(REPO_ROOT).resolve()))
+    except ValueError:
+        return str(target)
+
+
 def append_manifest_row(
     path: str | Path,
     *,
@@ -340,7 +370,7 @@ def append_manifest_row(
     manifest = Path(manifest_path or MANIFEST_PATH)
     target = Path(path)
     row = {
-        "path": str(target),
+        "path": manifest_key(target),
         "sha256": sha256_file(target),
         "bytes": str(target.stat().st_size),
         "source_url": source_url,

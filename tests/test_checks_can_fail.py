@@ -42,7 +42,12 @@ from src.harness.depth_confound import (
     max_attainable_rho,
 )
 from src.reference.signature import LeakageError, assert_no_target_leakage
-from src.schema import SchemaViolation, coerce_results, validate_results
+from src.schema import (
+    REQUIRED_COLUMNS,
+    SchemaViolation,
+    coerce_results,
+    validate_results,
+)
 
 # ---------------------------------------------------------------------------
 # The depth-confound diagnostic
@@ -359,8 +364,12 @@ def test_no_committed_result_writes_a_number_where_it_means_not_estimable():
     So the invariant is currently a property of the code path, and this makes it
     a property of the artefacts.
 
-    It reuses `validate_results` rather than restating the rule, so the check
-    and the contract cannot drift apart.
+    The invariant is asserted on every table carrying the two columns, not only
+    on frames matching the full results schema. `threshold_sweep` carries them
+    without `granularity_rung` or the CI pair, and it is exactly as capable of
+    writing a zero where it means "did not ask"; an earlier version of this test
+    ran `validate_results` and so skipped it with a schema complaint instead of
+    checking the thing that matters.
     """
     tables = _committed_tables()
     assert tables, (
@@ -370,10 +379,28 @@ def test_no_committed_result_writes_a_number_where_it_means_not_estimable():
     )
     for path in tables:
         frame = pd.read_parquet(path)
-        try:
-            validate_results(coerce_results(frame))
-        except SchemaViolation as exc:  # pragma: no cover - the failure is the point
-            pytest.fail(f"{path.relative_to(RESULTS_DIR.parent)}: {exc}")
+        where = path.relative_to(RESULTS_DIR.parent)
+
+        refused = frame["estimability"] == "not_estimable"
+        wrote_a_number = refused & frame["intrinsic"].notna()
+        assert not wrote_a_number.any(), (
+            f"{where}: {int(wrote_a_number.sum())} not_estimable row(s) carry a "
+            f"number. None is not 0.0 (invariant 1)."
+        )
+
+        answered = frame["estimability"] == "ok"
+        lost = answered & frame["intrinsic"].isna()
+        assert not lost.any(), (
+            f"{where}: {int(lost.sum())} row(s) marked 'ok' have no estimate. "
+            f"Either the estimate exists or the row is not 'ok'."
+        )
+
+        # Tables that are full results frames get the whole frozen contract too.
+        if set(REQUIRED_COLUMNS).issubset(frame.columns):
+            try:
+                validate_results(coerce_results(frame))
+            except SchemaViolation as exc:  # pragma: no cover - the failure is the point
+                pytest.fail(f"{where}: {exc}")
 
 
 def test_the_invariant_1_check_fires_on_a_zero_standing_in_for_none():
@@ -539,3 +566,35 @@ def test_no_job_hardcodes_the_dirty_tree_bypass():
         + "\nThread it from the CLI instead; a job that cannot write a clean "
           "stamp makes invariant 10 unsatisfiable for everything it produces."
     )
+
+
+def test_the_manifest_records_portable_paths_not_one_machine_s(tmp_path, monkeypatch):
+    """The violating input: an absolute path under a data directory that lives
+    outside the repository.
+
+    `data/manifest.csv` is, in its own words, the only record of the raw data
+    that travels. `BRP_DATA_DIR` routinely points elsewhere -- on the cluster it
+    is an absolute path on the project filesystem -- and `append_manifest_row`
+    recorded whatever it was handed. Five rows naming one machine's scratch disk
+    reached a commit that way.
+    """
+    from src.reference import ingest
+
+    monkeypatch.setattr(ingest, "DATA_DIR", tmp_path / "data")
+    absolute = tmp_path / "data" / "raw" / "gse39582" / "series.txt.gz"
+    absolute.parent.mkdir(parents=True)
+    absolute.write_text("x")
+
+    assert ingest.manifest_key(absolute) == "data/raw/gse39582/series.txt.gz", (
+        "an absolute path under BRP_DATA_DIR must be recorded as data/..."
+    )
+    assert ingest.manifest_key("data/raw/lee/already_relative.txt") == \
+        "data/raw/lee/already_relative.txt"
+
+    # A scratch path outside every known root passes through unchanged: tests
+    # write there legitimately. The portability guarantee is enforced on the
+    # committed artefact by test_manifest.py, which is what caught the real bug.
+    outside = tmp_path / "somewhere_else" / "stray.txt"
+    outside.parent.mkdir(parents=True)
+    outside.write_text("x")
+    assert ingest.manifest_key(outside) == str(outside)
