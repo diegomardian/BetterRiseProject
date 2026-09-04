@@ -14,13 +14,18 @@ import pytest
 from src.reference.jobs.coexpression_silencing import (
     CONTROL_TOLERANCE,
     GENE_ROLES,
+    MIN_PREMISE_PATIENTS,
     premise_holds,
     summarise,
 )
 
 
-def _deltas(**genes) -> pd.DataFrame:
-    return pd.DataFrame([{"gene": g, "delta_detect": v} for g, v in genes.items()])
+def _deltas(n_patients: int = 5, **genes) -> pd.DataFrame:
+    """Per-patient rows, which is what premise_holds takes."""
+    return pd.DataFrame([
+        {"gene": g, "patient_id": f"p{i}", "delta_detect": v}
+        for g, v in genes.items() for i in range(n_patients)
+    ])
 
 
 # ---------------------------------------------------------------------------
@@ -118,3 +123,20 @@ def test_the_bootstrap_resamples_patients_not_rows():
     assert row["ci_high"] - row["ci_low"] > 0.3, (
         "three disagreeing patients must not produce a tight interval"
     )
+
+
+def test_the_premise_is_undefined_on_too_few_patients():
+    """The violating input: one patient.
+
+    A control's mean over one patient IS that patient. Comparing a single noisy
+    number against a tolerance reports clean whatever the data did, which is the
+    exact shape of failure this repository is about. The smoke run on GSE178341
+    returned "holds" off one patient with KRT8 at -0.050, three times either Lee
+    cohort, and nothing in the guard noticed.
+    """
+    holds, reading = premise_holds(_deltas(n_patients=1, ACTB=-0.01, KRT8=-0.05))
+    assert not holds
+    assert "UNDEFINED" in reading and "below the" in reading
+
+    enough = premise_holds(_deltas(n_patients=MIN_PREMISE_PATIENTS, ACTB=-0.01, KRT8=-0.02))
+    assert enough[0], "the floor must not refuse a genuinely quiet control"

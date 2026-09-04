@@ -98,6 +98,13 @@ GENE_ROLES: dict[str, str] = {
 #: rates are proportions, so this is in percentage points.
 CONTROL_TOLERANCE = 0.10
 
+#: Patients the premise needs before "the controls did not move" means anything.
+#: On one patient a control's mean IS that patient, and a tolerance compared
+#: against a single noisy number reports clean whatever the data does -- which
+#: is the failure this project is named after. Below this the premise is
+#: UNDEFINED, not satisfied.
+MIN_PREMISE_PATIENTS = 3
+
 AXIS, RUNG, MATURE_BIN = "stem_pole", "lineage", "differentiated"
 
 #: GSE178341 QC settings, identical to build_decomposition_summary's so the
@@ -112,21 +119,41 @@ COHORTS = ("smc", "kul3")
 PRIMARY = "gse178341"
 
 
-def premise_holds(deltas: pd.DataFrame, tolerance: float = CONTROL_TOLERANCE) -> tuple[bool, str]:
+def premise_holds(
+    deltas: pd.DataFrame, tolerance: float = CONTROL_TOLERANCE
+) -> tuple[bool, str]:
     """Whether the diseased cells are still the same kind of cell.
 
     The whole reading rests on this. A marker falling inside a population that
     has itself changed is not silencing; it is a different population. So the
     control genes are scored in the same cells and must not have moved.
 
+    Takes the per-patient rows, not a pre-aggregated mean, because how many
+    patients stand behind a control is part of whether it says anything: on one
+    patient the mean is that patient, and comparing a single noisy number
+    against a tolerance reports clean whatever happened.
+
     Returns ``(holds, reading)``. When it does not hold the caller must not
-    report a mechanism, and the reading says which control moved.
+    report a mechanism, and the reading says why.
     """
     controls = [g for g, role in GENE_ROLES.items() if role == "control"]
     present = deltas.loc[deltas["gene"].isin(controls)]
     if present.empty:
         return False, "UNDEFINED: no control gene was scored, so the premise is untested"
-    worst = present.reindex(present["delta_detect"].abs().sort_values().index).iloc[-1]
+
+    if "patient_id" in present.columns:
+        n_patients = int(present["patient_id"].nunique())
+    else:
+        n_patients = int(present.groupby("gene").size().max())
+    if n_patients < MIN_PREMISE_PATIENTS:
+        return False, (
+            f"UNDEFINED: {n_patients} patient(s) behind the controls, below the "
+            f"{MIN_PREMISE_PATIENTS} needed to tell a shift from noise. The "
+            f"premise is untested here, not satisfied."
+        )
+
+    means = present.groupby("gene", as_index=False)["delta_detect"].mean()
+    worst = means.reindex(means["delta_detect"].abs().sort_values().index).iloc[-1]
     if abs(worst["delta_detect"]) > tolerance:
         return False, (
             f"REFUSED: control gene {worst['gene']} moved by "
@@ -135,8 +162,8 @@ def premise_holds(deltas: pd.DataFrame, tolerance: float = CONTROL_TOLERANCE) ->
             f"marker falling inside them says nothing about silencing."
         )
     return True, (
-        f"holds: worst control ({worst['gene']}) moved {worst['delta_detect']:+.3f}, "
-        f"within {tolerance}"
+        f"holds over {n_patients} patients: worst control ({worst['gene']}) moved "
+        f"{worst['delta_detect']:+.3f}, within {tolerance}"
     )
 
 
@@ -385,7 +412,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     readings: dict[str, str] = {}
     for study, block in deltas.groupby("study_id"):
-        holds, reading = premise_holds(block.groupby("gene", as_index=False)["delta_detect"].mean())
+        holds, reading = premise_holds(block)
         readings[str(study)] = reading
         log.info("%s premise %s", study, reading)
         detect = summary[(summary.study_id == study) & (summary.statistic == "detection")]
