@@ -279,18 +279,26 @@ def run_calibration_gap(
     )
 
 
-def load_smc_arrays(raw_dir: Path | None = None):
-    """The Lee/SMC cohort, as the arrays ``run_sweep`` wants.
+def load_cohort_arrays(which: str = "smc", raw_dir: Path | None = None):
+    """One Lee cohort, as the arrays ``run_sweep`` wants.
 
     Raw integer counts, not CP10K: the generator realises a multiplicative shift
     by binomial thinning and Poisson augmentation, both defined on counts, and
     refuses a non-integer matrix outright.
+
+    ``which`` selects the cohort. Both are local and sha256-verified against
+    ``data/manifest.csv``. Running the same sweep on ``kul3`` is what makes the
+    difference between "this rule fails its own criteria on this cohort" and
+    "this rule fails its own criteria" — and the blindness check is algebraic,
+    so a second cohort is a real test of whether the algebra is the whole story.
+    KUL3 carries a third tissue class, ``border``, which ``_pool_mask`` excludes
+    from both pools because it is neither the reference nor the diseased arm.
     """
     from src.estimator.lee_io import load_lee_cohort
     from src.reference.labels import label_column
 
     cohort = load_lee_cohort(
-        "smc",
+        which,
         target_genes=[TARGET_GENE],
         axes=(AXIS,),
         rungs=(RUNG,),
@@ -321,7 +329,14 @@ def load_smc_arrays(raw_dir: Path | None = None):
         "patient_id": cohort.cells.loc[index, "patient_id"].tolist(),
         "tissue": cohort.cells.loc[index, "tissue"].tolist(),
         "n_excluded_patients": len(cohort.excluded_patients),
+        "study_id": cohort.study_id,
+        "n_patients": int(cohort.cells.loc[index, "patient_id"].nunique()),
     }
+
+
+def load_smc_arrays(raw_dir: Path | None = None):
+    """Back-compatible alias. ``load_cohort_arrays("smc", ...)``."""
+    return load_cohort_arrays("smc", raw_dir)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -330,6 +345,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--seeds", type=int, default=len(SEEDS),
         help="how many of the committed seed list to use",
+    )
+    parser.add_argument(
+        "--cohort", choices=("smc", "kul3"), default="smc",
+        help="which Lee cohort to calibrate on. Both are local. Default smc, "
+             "which is the committed sweep.",
     )
     parser.add_argument("--raw-dir", type=Path, default=None)
     parser.add_argument("--results-dir", type=Path, default=None)
@@ -348,10 +368,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     seeds = SEEDS[: args.seeds]
     suffix = args.suffix
     if suffix is None:
-        suffix = "" if args.replicates == 50 else f"_r{args.replicates}"
+        # smc keeps the bare names the committed tables already use; any other
+        # cohort is namespaced so it cannot overwrite them.
+        suffix = "" if args.cohort == "smc" else f"_{args.cohort}"
+        if args.replicates != 50:
+            suffix += f"_r{args.replicates}"
 
-    log.info("loading Lee/SMC …")
-    arrays = load_smc_arrays(args.raw_dir)
+    log.info("loading Lee/%s …", args.cohort.upper())
+    arrays = load_cohort_arrays(args.cohort, args.raw_dir)
     log.info("%d labelled epithelial cells", len(arrays["patient_id"]))
 
     bins, cutpoints, recovery = run_calibration_gap(
@@ -367,8 +391,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "n_cells_per_arm": N_CELLS,
         "n_seeds": len(seeds),
         "seeds": list(seeds),
-        "cohort": "GSE132465 (SMC), 10 matched patients, "
-                  "sha256-verified against data/manifest.csv",
+        "cohort": (
+            f"{arrays['study_id']} ({args.cohort.upper()}), "
+            f"{arrays['n_patients']} matched patients, "
+            f"sha256-verified against data/manifest.csv"
+        ),
         "target_gene": TARGET_GENE,
         "labelling": f"label_{AXIS}_{RUNG}, mature = {MATURE_BIN!r}",
         "pools": {

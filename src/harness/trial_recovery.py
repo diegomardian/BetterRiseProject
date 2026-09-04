@@ -235,10 +235,54 @@ def unadjusted(trial: Trial) -> float:
     return float(treated.mean() - control.mean())
 
 
+def ols_stratum_dummies(trial: Trial) -> float:
+    """OLS of outcome on treatment plus additive stratum dummies.
+
+    NON-DEGENERATE, AND NOTHING WAS SPLIT TO MAKE IT SO. This is the estimator
+    most people would actually write -- regress the outcome on treatment and the
+    covariate -- and for this generator it is correctly specified: the effect is
+    additive and homogeneous, so the coefficient on ``treated`` is consistent
+    for ``theta``.
+
+    It is still not the generator's functional. Standardisation weights each
+    stratum's arm-mean difference by that stratum's prevalence; OLS weights it by
+    the within-stratum treatment variance, ``n_g * p_g * (1 - p_g)``. The
+    propensities differ across strata, so the two weightings differ, and the
+    estimate does not reproduce ``theta_realised``.
+
+    This is here because ``ipw_cross_fitted`` alone leaves an opening: it breaks
+    the degeneracy by *sample splitting*, so a reader can conclude the residual
+    check merely detects whether folds were used. It does not. This estimator
+    sees every record, splits nothing, holds nothing out -- and its residual is
+    non-zero at every cohort size. What the check detects is a shared functional,
+    not a shared sample.
+
+    The caveat belongs with it: OLS is correctly specified *here* because the
+    effect is homogeneous. Under effect heterogeneity its variance-weighted
+    estimand is not the standardised one, and its curve would sit off 1 for a
+    reason that has nothing to do with this paper.
+    """
+    records = trial.records
+    strata = np.sort(records["stratum"].unique())
+    if len(strata) < 2:
+        return float("nan")
+    columns = [np.ones(len(records)), records["treated"].to_numpy(dtype=float)]
+    columns.extend(
+        (records["stratum"].to_numpy() == stratum).astype(float)
+        for stratum in strata[1:]
+    )
+    design = np.column_stack(columns)
+    if np.linalg.matrix_rank(design) < design.shape[1]:
+        return float("nan")
+    beta, *_ = np.linalg.lstsq(design, records["outcome"].to_numpy(dtype=float), rcond=None)
+    return float(beta[1])
+
+
 ESTIMATORS: dict[str, Callable[[Trial], float]] = {
     "gcomp-from-generator": gcomp_from_generator,
     "ipw-saturated": ipw_saturated,
     "ipw-cross-fitted": ipw_cross_fitted,
+    "ols-stratum-dummies": ols_stratum_dummies,
     "unadjusted": unadjusted,
 }
 
@@ -251,6 +295,7 @@ IS_DEGENERATE: dict[str, bool] = {
     "gcomp-from-generator": True,
     "ipw-saturated": True,
     "ipw-cross-fitted": False,
+    "ols-stratum-dummies": False,
     "unadjusted": False,
 }
 

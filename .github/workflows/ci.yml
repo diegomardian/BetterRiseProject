@@ -10,6 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history, not the default depth-1. tests/test_checks_can_fail.py
+          # asserts that every result sidecar names a commit that still
+          # resolves; on a shallow clone every historical sha reads as dead, so
+          # the test skips and the guard silently stops guarding.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:

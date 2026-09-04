@@ -102,6 +102,12 @@ def per_arm_rows(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--cohort", choices=("smc", "kul3"), default="smc",
+        help="which Lee cohort. Both are local. The attainable bound is "
+             "analytic and cohort-independent, but which rungs are degenerate "
+             "at which prevalence is not, so a second cohort is a real test.",
+    )
     parser.add_argument("--raw-dir", type=Path, default=None)
     parser.add_argument("--results-dir", type=Path, default=None)
     parser.add_argument("--allow-dirty", action="store_true")
@@ -113,9 +119,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     from src.reference.labels import label_column
 
     rungs = tuple(granularity_rungs())
-    log.info("loading Lee/SMC …")
+    log.info("loading Lee/%s …", args.cohort.upper())
     cohort = load_lee_cohort(
-        "smc", target_genes=["GUCA2A"], axes=AXES, rungs=rungs,
+        args.cohort, target_genes=["GUCA2A"], axes=AXES, rungs=rungs,
         raw_dir=args.raw_dir,
     )
     depth_all = cohort.n_counts
@@ -144,6 +150,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ))
 
     table = pd.DataFrame(rows)
+    if not table.empty:
+        table.insert(0, "study_id", cohort.study_id)
     if table.empty:
         log.error("no rows — check the cohort loaded and the labels exist")
         return 1
@@ -157,12 +165,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                  g["max_attainable_rho"].median(),
                  int(g["tolerance_is_reachable"].sum()), len(g))
 
+    # smc keeps the committed name; any other cohort is namespaced so it
+    # cannot overwrite it, and so newest("depth_confound_per_arm") still
+    # resolves to the SMC table it has always resolved to.
+    name = "depth_confound_per_arm"
+    if args.cohort != "smc":
+        name += f"_{args.cohort}"
     path = write_versioned_table(
-        table, "depth_confound_per_arm", seed=DEFAULT_SEED,
+        table, name, seed=DEFAULT_SEED,
         results_dir=args.results_dir, allow_dirty=args.allow_dirty,
         extra_meta={
-            "cohort": "GSE132465 (Lee/SMC), sha256-verified against "
-                      "data/manifest.csv",
+            "cohort": (
+                f"{cohort.study_id} (Lee/{args.cohort.upper()}), "
+                f"{patient_all.nunique()} patients, sha256-verified against "
+                f"data/manifest.csv"
+            ),
             "rho_tolerance": 0.20,
             "grain": "one row per (patient, labeling_axis, granularity_rung, arm)",
             "what_this_answers": (

@@ -20,10 +20,16 @@ guard does not have a testable failure mode and that is the finding.
 
 from __future__ import annotations
 
+import json
+import subprocess
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 import pytest
 
+from src.common.paths import REPO_ROOT, RESULTS_DIR
 from src.harness.calibration import (
     PREREGISTERED,
     coverage_and_discrimination,
@@ -34,6 +40,7 @@ from src.harness.depth_confound import (
     max_attainable_rho,
 )
 from src.reference.signature import LeakageError, assert_no_target_leakage
+from src.schema import SchemaViolation, coerce_results, validate_results
 
 # ---------------------------------------------------------------------------
 # The depth-confound diagnostic
@@ -311,3 +318,152 @@ def test_the_dirtiness_check_counts_untracked_files(tmp_path, monkeypatch):
         "a tree whose only change is an untracked producing script is NOT clean "
         "— that is the failure this check exists to catch"
     )
+
+
+# ---------------------------------------------------------------------------
+# The committed results themselves
+#
+# Everything above tests a guard against a synthetic input. These two walk the
+# committed artefacts instead, because both invariants they cover are enforced
+# by whichever writer a job happened to call rather than by anything that
+# inspects the result afterwards. `schema.write_results` validates invariant 1
+# and has one production call site; `io.write_versioned_table` checks the seed
+# and the tree but never looks at the estimability column, and has twenty-six.
+# A guard reachable only by opting into it is the shape this file exists to
+# reject.
+# ---------------------------------------------------------------------------
+
+
+def _committed_tables() -> list[Path]:
+    """Every committed parquet carrying the columns invariant 1 constrains."""
+    out = []
+    for path in sorted(RESULTS_DIR.glob("*/*.parquet")):
+        try:
+            names = set(pq.read_schema(path).names)
+        except Exception:  # not a readable parquet; a different test's problem
+            continue
+        if "estimability" in names and "intrinsic" in names:
+            out.append(path)
+    return out
+
+
+def test_no_committed_result_writes_a_number_where_it_means_not_estimable():
+    """CLAUDE.md invariant 1, checked against the results rather than the writer.
+
+    `None` is not `0.0`: a downstream average cannot tell "we measured zero"
+    from "we did not ask". The assertion enforcing that lives in
+    `schema.write_results`, which one production job calls. Every other job
+    writes through `io.write_versioned_table`, which never looks at the column.
+    So the invariant is currently a property of the code path, and this makes it
+    a property of the artefacts.
+
+    It reuses `validate_results` rather than restating the rule, so the check
+    and the contract cannot drift apart.
+    """
+    tables = _committed_tables()
+    assert tables, (
+        "no committed table carries an estimability column, so this check "
+        "cannot fail and is therefore not a check. If the results moved, point "
+        "it at where they went."
+    )
+    for path in tables:
+        frame = pd.read_parquet(path)
+        try:
+            validate_results(coerce_results(frame))
+        except SchemaViolation as exc:  # pragma: no cover - the failure is the point
+            pytest.fail(f"{path.relative_to(RESULTS_DIR.parent)}: {exc}")
+
+
+def test_the_invariant_1_check_fires_on_a_zero_standing_in_for_none():
+    """The violating input: one not-estimable row carrying 0.0 instead of null.
+
+    This is the single most likely route to a wrong conclusion in this project,
+    and it is one keystroke from correct.
+    """
+    tables = _committed_tables()
+    frame = coerce_results(pd.read_parquet(tables[0]))
+    not_est = frame.index[frame["estimability"] == "not_estimable"]
+    assert len(not_est), "need a not_estimable row to corrupt"
+
+    frame.loc[not_est[0], "intrinsic"] = 0.0
+    with pytest.raises(SchemaViolation, match="None is not 0.0"):
+        validate_results(frame)
+
+
+#: Result sidecars whose commit no longer resolves, with the reason. This is a
+#: ratchet, not an amnesty: a new dead sha fails the test, and an entry that
+#: starts resolving again must be deleted (the test checks that too). The
+#: mechanism is structural rather than careless — CONTRIBUTING §3 asks for a
+#: rebase before review, provenance stamps the pre-rebase hash, and the hash
+#: dies at merge. Every result written on a branch is exposed to it.
+KNOWN_UNRESOLVABLE_SHAS: dict[str, str] = {
+    "e5ebdc330a66cd08baff49dbf6c16b47b393faa8": (
+        "depth_confound_reference, written 2026-08-27 on "
+        "w1/decision-17-g1-threshold and rebased away before review. The "
+        "parquet is committed and its numbers are unaffected; what is gone is "
+        "the ability to name the code that produced them. Re-deriving it needs "
+        "GSE178341. Disclosed in the paper rather than restamped, because a "
+        "hash applied after the fact records the wrong thing twice."
+    ),
+}
+
+
+def _git(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True
+    )
+
+
+def _sha_resolves(sha: str) -> bool:
+    return _git("cat-file", "-t", sha).returncode == 0
+
+
+def _sidecar_shas() -> list[tuple[Path, str]]:
+    out = []
+    for path in sorted(RESULTS_DIR.glob("*/*.meta.json")):
+        meta = json.loads(path.read_text())
+        sha = meta.get("git_sha") or meta.get("git_sha_short")
+        if sha:
+            out.append((path, sha))
+    return out
+
+
+def test_every_result_sidecar_names_a_commit_that_exists():
+    """CLAUDE.md invariant 10 says every result carries the git sha that
+    produced it. Nothing checked that the sha still resolves, so the invariant
+    could be satisfied by a string.
+
+    This is the sibling of Appendix A item 5. That defect was a stamp blind to
+    uncommitted code and its repair counts untracked files; this is the same
+    invariant defeated by a second route the repair does not cover, and one
+    number in the paper travels through it.
+    """
+    if _git("rev-parse", "--is-shallow-repository").stdout.strip() == "true":
+        pytest.skip(
+            "shallow clone: history is absent, so every historical sha would "
+            "read as dead. CI checks out with fetch-depth: 0 so this runs there."
+        )
+
+    dead = [(p, s) for p, s in _sidecar_shas() if not _sha_resolves(s)]
+    unexpected = [(p, s) for p, s in dead if s not in KNOWN_UNRESOLVABLE_SHAS]
+    assert not unexpected, "result sidecars naming commits that do not exist:\n" + "\n".join(
+        f"  {p.relative_to(REPO_ROOT)} -> {s}" for p, s in unexpected
+    )
+
+    # The ratchet only tightens: an entry that resolves again is stale bookkeeping.
+    resurrected = [s for s in KNOWN_UNRESOLVABLE_SHAS if _sha_resolves(s)]
+    assert not resurrected, (
+        f"{resurrected} resolve now — delete them from KNOWN_UNRESOLVABLE_SHAS "
+        f"rather than carrying an exemption nothing needs"
+    )
+
+
+def test_the_sha_check_fires_on_a_commit_that_was_never_written():
+    """The violating input: a well-formed hash naming nothing.
+
+    A sidecar recording this would satisfy invariant 10 as written — the field
+    is populated — and identify no code at all.
+    """
+    fabricated = "0" * 40
+    assert not _sha_resolves(fabricated), "a fabricated sha must not resolve"
+    assert _sha_resolves("HEAD"), "the check must still pass a commit that exists"

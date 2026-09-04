@@ -34,6 +34,7 @@ STYLE = {
     "gcomp-from-generator": ("#1f77b4", "-", "o", "G-computation, generator's strata"),
     "ipw-saturated":        ("#7fb3d5", "--", "s", "IPW, saturated propensity"),
     "ipw-cross-fitted":     ("#2ca02c", "-", "^", "IPW, cross-fitted"),
+    "ols-stratum-dummies":  ("#9467bd", "-", "D", "OLS, stratum dummies"),
     "unadjusted":           ("#d62728", "-", "v", "unadjusted difference"),
 }
 FLOOR = 1e-16  # so exact zeros are drawable on a log axis

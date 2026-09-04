@@ -18,6 +18,7 @@ from src.harness.trial_recovery import (
     gcomp_from_generator,
     ipw_cross_fitted,
     ipw_saturated,
+    ols_stratum_dummies,
     run,
     simulate_trial,
     summarise,
@@ -97,6 +98,43 @@ def test_cross_fitted_ipw_is_consistent_so_its_curve_still_sits_near_one():
     one."""
     trial = _trial(n=50000, seed=2)
     assert ipw_cross_fitted(trial) == pytest.approx(trial.theta_requested, abs=0.6)
+
+
+def test_ols_is_non_degenerate_without_splitting_the_sample():
+    """The specificity claim: the residual check detects a shared *functional*,
+    not a shared sample.
+
+    ``ipw_cross_fitted`` breaks the degeneracy by holding data out, which leaves
+    the reading that the check merely notices sample splitting. This estimator
+    sees every record and splits nothing, and is still non-degenerate — because
+    OLS weights strata by within-stratum treatment variance where
+    standardisation weights them by prevalence, and the propensities differ.
+    """
+    for seed in range(10):
+        trial = _trial(n=2000, seed=seed)
+        residual = abs(ols_stratum_dummies(trial) - trial.theta_realised)
+        assert residual > 1e-6, (
+            f"seed {seed}: OLS reproduced the realised effect to {residual:.3g}, "
+            f"which would make it degenerate and this test's premise wrong"
+        )
+
+
+def test_ols_is_consistent_so_its_curve_also_sits_near_one():
+    """Non-degenerate must not mean wrong here either. If this estimator were
+    biased it would be a second `unadjusted`, and the contrast would collapse
+    back to blind-versus-broken."""
+    trial = _trial(n=50000, seed=3)
+    assert ols_stratum_dummies(trial) == pytest.approx(trial.theta_requested, abs=0.3)
+
+
+def test_the_conventional_estimator_is_the_non_degenerate_one():
+    """The inversion worth stating: the two estimators that look like careful
+    causal inference are blind, and the one everybody actually writes is not."""
+    trial = _trial(n=5000, seed=4)
+    blind = abs(gcomp_from_generator(trial) - trial.theta_realised)
+    conventional = abs(ols_stratum_dummies(trial) - trial.theta_realised)
+    assert blind == 0.0
+    assert conventional > 1e-6
 
 
 # ---------------------------------------------------------------------------
