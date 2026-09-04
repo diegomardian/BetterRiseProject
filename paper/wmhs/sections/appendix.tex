@@ -87,22 +87,43 @@ seeded table rather than quoted from the report that first carried them --- and
 it is the one defect in this paper that is now closed, with the sweep committed
 and the check tested against the input it used to pass.
 
-\paragraph{What is and is not fixed.} Three guards carry regression tests that
-fail against the version they replace. The width gate's finiteness guard
-(\S\ref{sec:bench}) fails against the version comparing before checking; the
-attainable-bound identity (\S\ref{sec:calibration}) is tested at four
-prevalences; and the provenance check in item~3 now counts untracked files and
-names them in the sidecar, against a fixture repository holding an uncommitted
-producing script --- the input that made the old check return clean. The
-calibration sweep is committed with it, so the number and the code that produced
-it now travel together. \textbf{The two defects in
-\S\ref{sec:calibration} do not yet carry regression tests, and the code that
-produced them is unchanged.} The undefined-interval coercion still returns
-\texttt{False} on a null interval and still lets an abstention score as a
-failure; the independent-maxima pairing still takes the worst correlation and
-the largest bound over different arms. We describe both as live rather than
-repaired, because a paper reporting that checks are hard to get right should not
-claim fixes it has not landed.
+\paragraph{One number here travels through a commit that no longer exists.}
+Item~3's repair counts untracked files, and the same invariant has a second
+route around it the repair does not cover. The claim that the coarsest
+resolution's correlation is undefined on all 64 patient-by-axis rows is read off
+a table whose sidecar names a commit \texttt{git cat-file} cannot find: the
+branch it was written on was rebased before review, and the stamp records the
+pre-rebase hash. The parquet is committed and its numbers are unaffected; what
+is gone is the ability to name the code that produced them. \textbf{Every result
+written on a branch is exposed to this.} We report it rather than restamp it,
+because a hash applied after the fact records the wrong thing twice.
+
+\paragraph{What is and is not fixed.} Every defect above now carries a
+regression test that fails against the version it replaces, and they sit in one
+file under this paper's own rule: a guard with no input that forces it to fail
+is untested. The width gate's finiteness guard (\S\ref{sec:bench}) fails against
+the version comparing before checking. The attainable-bound identity is checked
+at four prevalences. The independent-maxima pairing is tested against a rare arm
+whose label is a \emph{pure function of depth}: paired within the arm the
+diagnostic reports $|\rho|/\text{bound} = 1.000$, and mispaired against the
+common arm's bound it reports $0.141$ and reads clean. An arm at prevalence
+exactly $0$ is named rather than dropped. An abstention no longer enters a
+coverage denominator, and a bin where every replicate abstained returns its own
+verdict rather than a rate of zero. The leakage guard raises across identifier
+spaces instead of intersecting two disjoint namespaces. The provenance check in
+item~3 counts untracked files, against a fixture repository whose only
+difference from \texttt{HEAD} is an uncommitted producing script --- the input
+that made the old check return clean. The calibration sweep is committed with
+it, so the number and the code that produced it now travel together.
+
+\textbf{That file is the second thing we would want reused, after the one-line
+check.} It is mutation testing's premise moved from unit tests to analysis
+diagnostics. Every other test we have asserts the pass path --- given clean
+data, the check returns clean --- which is exactly the half that cannot detect a
+check returning clean on everything. These are the other half, each written as
+the input that would have caught its defect at the time rather than months
+later. Where no such input can be constructed, that is the finding rather than a
+gap in the suite.
 
 \section{The curve itself}
 \label{app:generator}
@@ -116,6 +137,19 @@ The sweep is the calibration one, run by
 \texttt{max\_abs\_residual\_vs\_realised} column, which is the one-line check
 persisted rather than re-derived: it is identically zero exactly when the curve
 cannot see the estimator. It is zero on every row.
+
+\paragraph{The curve moves; the residual does not.} The two draw pools hand the
+same estimator a different set of cells to be drawn from, and change nothing
+else --- not the code, not the grid, not the seed. At the sparsest
+non-degenerate point of the committed grid ($f_T = 0.01$, about 20 mature cells,
+$s = 0.5$, 500 replicates) the recovery curve's median runs $1.331$ to $1.423$ across eight
+seeds on the pooled draw against $1.075$ to $1.108$ on the reference draw, and
+its interquartile width nearly doubles, from about $0.62$ to about $1.19$. The
+residual against realised truth is $0$ on every row of both. A reader watching
+only the curve would conclude the reference draw validates the estimator more
+tightly than the pooled one; the residual reports what is actually true, which
+is that neither carries any information about the estimator at all. This is
+\S\ref{sec:blind}'s claim as a measurement rather than an algebraic identity.
 
 The second detail is where the statistic is not merely uninformative but
 undefined. At $s = 1$ --- the design's own null control, the arm that exists to
@@ -135,12 +169,13 @@ behaves well wherever the rule says ``estimate'', and on this arm carries no
 information about the estimator. The single-cell estimate applies
 \texttt{decompose()} to the sweep's own realised summary statistics and
 reproduces them exactly, with
-$\max|\hat{\imath} - i_{\text{realised}}| = 0$ over all 119{,}600 oracle rows,
-leaving the ratio equal to
-$i_{\text{realised}}/i_{\text{parametric}}$. A further 29{,}900 rows carry no
-ratio at all: at $s = 1$ the parametric intrinsic term is exactly zero, so the
-design's own null control is the one point where this validation statistic
-cannot be evaluated. The statistic still
+$\max|\hat{\imath} - i_{\text{realised}}| = 0$ over all 119{,}600 replicates of
+the sweep plotted here, and over all 736{,}000 of a second sweep at 500
+replicates, leaving the ratio equal to
+$i_{\text{realised}}/i_{\text{parametric}}$. A further 29{,}900 replicates
+carry no ratio at all: at $s = 1$ the parametric intrinsic term is exactly zero,
+so the design's own null control is the one point where this validation
+statistic cannot be evaluated. The statistic still
 discriminates an estimator failing to reproduce its input, and the design
 document ships a broken-estimator control returning $0.0$ for which the ratio
 comes out zero. The oracle arm by construction is not such an estimator, so

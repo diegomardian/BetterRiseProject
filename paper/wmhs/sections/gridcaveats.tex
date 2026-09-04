@@ -4,7 +4,9 @@ a stability that came from having nowhere else to land. At 50 replicates the
 filled grid does not resolve either --- the returned value wanders between 45 and
 90 with the seed --- so the number in this paragraph rests on the replicate count
 as much as on the grid, with the caveat Appendix~\ref{app:limitations} attaches
-to it.
+to it. At one of those thirteen seeds it returns $ok = 45$ against $wide = 45$:
+\textbf{the two cutpoints coincide and the middle verdict disappears}, so the
+procedure calibrating a three-state rule can return a two-state one.
 
 This is the same failure as \S\ref{sec:blind} in a second statistic. A recovery
 curve that cannot see the estimator still draws a smooth line; a grid that

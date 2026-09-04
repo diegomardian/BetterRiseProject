@@ -60,9 +60,9 @@ cell in an arm the standard error is undefined, and \texttt{nan > threshold} is
 \texttt{False} in numpy and in pandas. A width gate written the obvious way
 therefore \emph{declines to abstain} in exactly the world the estimand does not
 exist. We check finiteness before comparing, which makes this competitor
-stronger than the version most people would write. It is also the same coercion
-sitting inside our own calibration routine (\S\ref{sec:calibration}), arriving
-there as a boolean in a rate instead of a number in a column.
+stronger than the version most people would write. It is also the coercion that
+was sitting inside our own calibration routine (\S\ref{sec:calibration}), where
+it arrived as a boolean in a rate instead of a number in a column.
 \fi
 
 \paragraph{Why a count cutpoint at all, rather than conformal prediction?}
@@ -80,6 +80,7 @@ thing about the count cutpoint, and neither says what we expected. The benchmark
 says its extra refusals buy nothing a finiteness check does not already buy;
 the calibration says the value its own criteria return is 90, not the committed
 50. The
-three-verdict output survives both. What does not survive is the committed
-number, and the belief that either a recovery curve or a coarse grid had
-confirmed it.
+three-verdict output survives both --- as a design, though not at every seed,
+since one of thirteen returns coincident cutpoints and no middle verdict at all.
+What does not survive is the committed number, and the belief that either a
+recovery curve or a coarse grid had confirmed it.
