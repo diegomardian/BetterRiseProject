@@ -12,8 +12,7 @@ working estimator looks like.
 It is also what this one looks like with the estimator divided out. The
 estimator in that arm applies Equation~\ref{eq:kitagawa} to the sample's
 \emph{own} realised summary statistics, so it reproduces them exactly. Across
-all 119{,}600 replicates of the committed sweep --- and all 736{,}000 of a
-second sweep at 500 replicates ---
+all 1{,}711{,}200 replicates of four sweeps on two cohorts,
 $\max|\hat{\imath} - i_{\text{realised}}| = 0$. The ratio is therefore
 $i_{\text{realised}} / i_{\text{parametric}}$: what the generator drew over what
 it was asked for. The estimator does not appear in it.
@@ -30,8 +29,8 @@ information about the estimator. The single-cell estimate applies
 \texttt{decompose()} to the sweep's own realised summary statistics and
 reproduces them exactly, with
 $\max|\hat{\imath} - i_{\text{realised}}| = 0$ over all 119{,}600 replicates of
-the sweep plotted here, and over all 736{,}000 of a second sweep at 500
-replicates, leaving the ratio equal to
+the sweep plotted here, and over all 1{,}711{,}200 of four sweeps on two
+cohorts, leaving the ratio equal to
 $i_{\text{realised}}/i_{\text{parametric}}$. A further 29{,}900 replicates
 carry no ratio at all: at $s = 1$ the parametric intrinsic term is exactly zero,
 so the design's own null control is the one point where this validation
@@ -105,11 +104,11 @@ validate this way.
 \paragraph{So we built one.} Describing the fix is not demonstrating it, so
 Figure~\ref{fig:trial} runs that simulator: three covariate strata, treatment
 assigned with a stratum-dependent probability so the strata confound, a
-requested effect of $\theta = 3$, and four estimators of it over cohorts from
+requested effect of $\theta = 3$, and five estimators of it over cohorts from
 100 to 5{,}000 patients.
 
-Three of the four sit near 1 and tighten with cohort size --- the picture of a
-validated estimator. Two of those three are exactly blind. G-computation over
+Four of the five sit near 1 and tighten with cohort size --- the picture of a
+validated estimator. Two of those four are exactly blind. G-computation over
 the generator's own strata returns the realised effect with
 $\max|\hat\theta - \theta_{\text{realised}}| = 0$, as the algebra says it must.
 \textbf{So does inverse-probability weighting with a saturated propensity
@@ -129,13 +128,31 @@ difference is there to show the curve is not useless --- it ignores the strata,
 so it is confounded, and the curve catches it immediately at a ratio near 2.4.
 
 \iffull
+\textbf{Nothing has to be held out for the check to stay silent, though.} Cross-fitting
+breaks the degeneracy by splitting the sample, which leaves the reading that the
+residual merely notices folds. It does not. Ordinary least squares of the
+outcome on treatment and additive stratum dummies --- the estimator most people
+would actually write --- sees every record and splits nothing, and is correctly
+specified here, since the effect is additive and homogeneous. It is still not the
+generator's functional: standardisation weights each stratum by its prevalence
+and OLS weights it by the within-stratum treatment variance
+$n_g\,p_g(1 - p_g)$, and the propensities differ across strata. Its residual is
+non-zero at every cohort size, and \emph{smaller} than cross-fitted IPW's, so
+the non-degenerate comparison here is not the weaker estimator. What the check
+detects is a shared functional, not a shared sample --- and the two estimators
+that look like careful causal inference are the blind ones.
+\fi
+
+\iffull
 \begin{table}[h]
 \small
 \centering
-\caption{Four estimators of the same treatment effect, at 5{,}000 patients per
-cohort. The first three recover it; only the last two are telling you anything
+\caption{Five estimators of the same treatment effect, at 5{,}000 patients per
+cohort. The first four recover it; only the last three are telling you anything
 about themselves. The residual column is the one-line check, and it is the only
-column here that separates them.}
+column here that separates them. OLS neither shares the generator's functional
+nor splits the sample, and recovers the effect more tightly than the cross-fitted
+comparison does.}
 \label{tab:trial}
 \begin{tabular}{@{}lccc@{}}
 \toprule
@@ -144,6 +161,7 @@ column here that separates them.}
 \midrule
 G-computation, generator's strata & $0.998$ & $0$          & no \\
 IPW, saturated propensity         & $0.998$ & $8\times10^{-15}$ & no \\
+OLS, stratum dummies              & $0.996$ & $0.059$      & yes \\
 IPW, cross-fitted                 & $0.993$ & $0.297$      & yes \\
 unadjusted difference             & $2.441$ & $4.78$       & yes \\
 \bottomrule
@@ -182,12 +200,13 @@ certify.
 \caption{\textbf{The recovery curve cannot distinguish an estimator from its
 generator; one column can.} A patient simulator with confounded assignment and a
 requested effect $\theta = 3$. \emph{Left:} recovery curves, median and IQR over
-200 replicates. Three estimators sit near 1 and tighten with cohort size.
+200 replicates. Four estimators sit near 1 and tighten with cohort size.
 \emph{Right:} the residual against the \emph{realised} effect, log scale, shaded
 band at machine zero. It is identically zero for G-computation over the
 generator's own strata \emph{and for saturated-propensity IPW}, whose curve is
 the same line --- both are the same functional of the statistics the generator
-drew. Cross-fitted IPW is consistent and non-zero, so its curve is a statement
-about the estimator. The unadjusted difference is what a working curve catches.}
+drew. Cross-fitted IPW and OLS on stratum dummies are consistent and non-zero, so
+their curves are statements about the estimator; OLS splits no sample to get
+there. The unadjusted difference is what a working curve catches.}
 \label{fig:trial}
 \end{figure}

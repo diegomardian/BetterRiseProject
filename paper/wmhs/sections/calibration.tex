@@ -119,6 +119,32 @@ this paper documents twice elsewhere, one section later.
 \fi
 
 \iffull
+\paragraph{A second cohort returns a different number, and the same verdict.}
+The two Lee cohorts are both local and both sha256-verified, and only one had
+ever been run. On the second --- six patients against ten --- the pooled draw
+again returns \emph{no} cutpoint, on every seed at both replicate counts: no
+seed meets both criteria, and discrimination alone reaches the $0.80$ target at
+50 replicates but tops out at $0.66$ at 500. The reference draw returns a
+cutpoint, and it is nowhere near the committed 50: $ok = 400$ or $800$ on both
+grids, the top two counts either can express, against $90$ on the first cohort's
+filled grid. \textbf{The pre-registered procedure returns a cutpoint roughly twice
+the committed one on one cohort and eight to sixteen times it on the other},
+which is a statement about the procedure rather than about either cohort. The
+blindness, being algebraic, replicates exactly: the residual is $0$ on all
+$1{,}711{,}200$ replicates across both.
+
+The instability is worse than the first cohort's, not better. At 50 replicates
+the second cohort returns $ok = 800$ on eleven of thirteen seeds; at 500 it
+returns $400$ on six of eight. \textbf{The majority answer moved when we added
+replicates}, which is what Appendix~\ref{app:limitations} predicts --- more
+replicates buy Monte Carlo precision, not patient-level precision, and six
+patients admit fifteen distinct holdout pairs against the first cohort's
+forty-five. The top grid point also asks for 800 mature cells per arm from a
+pool holding 844, so that end of the grid is at the edge of what the cohort can
+express in distinct cells; we report the number and the edge together.
+\fi
+
+\iffull
 \input{sections/gridcaveats.tex}
 \fi
 
