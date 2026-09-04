@@ -1,0 +1,22 @@
+{
+  "date": "2026-09-04",
+  "utc_timestamp": "2026-09-04T22:55:44+00:00",
+  "git_sha": "e78e7414fcdfc0f5d95cd8ae11958bd90d4b2e2f",
+  "git_sha_short": "e78e741",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260818,
+  "python": "3.11.16",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "notes": "W3.5 CDR vs expression cohort",
+  "name": "tcga_cdr_cohort_reconciliation",
+  "n_rows": 5,
+  "columns": [
+    "set",
+    "n"
+  ],
+  "table_kind": "harness"
+}

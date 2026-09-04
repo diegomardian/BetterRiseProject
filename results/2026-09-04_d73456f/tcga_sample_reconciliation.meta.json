@@ -1,0 +1,24 @@
+{
+  "date": "2026-09-04",
+  "utc_timestamp": "2026-09-04T20:19:31+00:00",
+  "git_sha": "d73456f4ba9ab52897cb1b5b9b1e7741ae71a158",
+  "git_sha_short": "d73456f",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260817,
+  "python": "3.11.16",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "notes": "compare against GDC portal facet counts",
+  "name": "tcga_sample_reconciliation",
+  "n_rows": 4,
+  "columns": [
+    "project",
+    "sample_type_name",
+    "n_samples",
+    "n_patients"
+  ],
+  "table_kind": "harness"
+}
