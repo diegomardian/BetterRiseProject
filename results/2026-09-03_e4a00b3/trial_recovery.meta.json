@@ -1,0 +1,69 @@
+{
+  "date": "2026-09-03",
+  "utc_timestamp": "2026-09-04T03:42:04+00:00",
+  "git_sha": "e4a00b3d979dd100e41544c6cf98471fae25bf76",
+  "git_sha_short": "e4a00b3",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260901,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "trial_recovery",
+  "n_rows": 30,
+  "columns": [
+    "estimator",
+    "shares_sufficient_statistics",
+    "n_patients",
+    "n_replicates",
+    "ratio_median",
+    "ratio_q25",
+    "ratio_q75",
+    "max_residual_vs_realised"
+  ],
+  "table_kind": "harness",
+  "n_replicates": 200,
+  "theta_requested": 3.0,
+  "cohort_sizes": [
+    100,
+    200,
+    500,
+    1000,
+    2000,
+    5000
+  ],
+  "stratum_means": [
+    10.0,
+    14.0,
+    25.0
+  ],
+  "propensity": [
+    0.25,
+    0.5,
+    0.75
+  ],
+  "stratum_weights": [
+    0.5,
+    0.3,
+    0.2
+  ],
+  "outcome_sd": 4.0,
+  "estimators": {
+    "gcomp-from-generator": "shares the generator's sufficient statistics",
+    "ipw-saturated": "shares the generator's sufficient statistics",
+    "ipw-cross-fitted": "does not",
+    "ols-stratum-dummies": "does not",
+    "unadjusted": "does not"
+  },
+  "max_residual_vs_realised": {
+    "gcomp-from-generator": 0.0,
+    "ipw-cross-fitted": 16.655837345516627,
+    "ipw-saturated": 9.769962616701378e-15,
+    "ols-stratum-dummies": 1.0535325847977153,
+    "unadjusted": 8.603670610940778
+  },
+  "SYNTHETIC": "Simulated patients with an analytically known treatment effect. Nothing here is a result about any real trial.",
+  "what_this_answers": "Whether a recovery curve can distinguish an estimator from its generator. It cannot when the two share sufficient statistics, and two of these four estimators do \u2014 including one that looks like a different method."
+}
