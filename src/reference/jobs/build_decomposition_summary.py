@@ -23,7 +23,7 @@ CP10K, NOT RAW COUNTS
 `src/harness/pseudobulk.py` takes raw-count means, which is right for synthetic
 cells sequenced to a common depth. **Real arms are not.** W1 measured tumour and
 normal 1.64x apart in median depth, 20 of 32 patients above 1.5x
-(`results/2026-08-27_e5ebdc3/`). A raw-count `mean_tumour - mean_normal` is then
+(`results/2026-09-04_3f6c07e/`). A raw-count `mean_tumour - mean_normal` is then
 partly a library-size difference, and it lands entirely in the **intrinsic**
 term — the one this project exists to measure.
 

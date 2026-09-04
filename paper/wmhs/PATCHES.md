@@ -75,7 +75,7 @@ check at either extreme}, and the two extremes are the coarsest and the finest
 resolution we ran.
 ```
 
-Verified on `results/2026-08-27_e5ebdc3/depth_confound_reference.parquet`:
+Verified on `results/2026-09-04_3f6c07e/depth_confound_reference.parquet`:
 64 epithelial rows, `worst_rho` NaN on all 64. This is a strict upgrade — it
 covers a resolution the paper currently leaves out, and it makes §4's "the blind
 spot sits exactly where the science is" into the sharper "the check is blind at

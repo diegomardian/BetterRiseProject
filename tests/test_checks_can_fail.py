@@ -399,14 +399,13 @@ def test_the_invariant_1_check_fires_on_a_zero_standing_in_for_none():
 #: rebase before review, provenance stamps the pre-rebase hash, and the hash
 #: dies at merge. Every result written on a branch is exposed to it.
 KNOWN_UNRESOLVABLE_SHAS: dict[str, str] = {
-    "e5ebdc330a66cd08baff49dbf6c16b47b393faa8": (
-        "depth_confound_reference, written 2026-08-27 on "
-        "w1/decision-17-g1-threshold and rebased away before review. The "
-        "parquet is committed and its numbers are unaffected; what is gone is "
-        "the ability to name the code that produced them. Re-deriving it needs "
-        "GSE178341. Disclosed in the paper rather than restamped, because a "
-        "hash applied after the fact records the wrong thing twice."
-    ),
+    # Empty, and that is the point. The one entry this held --
+    # e5ebdc330a66, depth_confound_reference, written on a branch that was
+    # rebased before review -- was closed by re-deriving the table on a sha
+    # that resolves. The re-run came back bit-identical, so the numbers were
+    # never in doubt; only the record of what produced them was. A new entry
+    # here needs the same reason written down, and the ratchet below deletes
+    # any entry that starts resolving again.
 }
 
 

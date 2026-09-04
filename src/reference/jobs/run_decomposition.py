@@ -16,7 +16,7 @@ check, and all four checks are correct**:
   epithelial       every scored cell is mature, so Δfraction ≈ 0 by
                    construction — the compositional term cannot move
   lineage          depth-confounded on 14–17% of patients (#45 diagnostic,
-                   `results/2026-08-27_e5ebdc3/`)
+                   `results/2026-09-04_3f6c07e/`)
   crypt_position   depth-confounded, and a two-bin split on ~90% of patients
                    (#42), so not independent of `lineage`
   best4            clean, and never reaches the estimability cutpoint — max 45

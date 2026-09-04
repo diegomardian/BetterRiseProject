@@ -87,16 +87,34 @@ seeded table rather than quoted from the report that first carried them --- and
 it is the one defect in this paper that is now closed, with the sweep committed
 and the check tested against the input it used to pass.
 
-\paragraph{One number here travels through a commit that no longer exists.}
-Item~3's repair counts untracked files, and the same invariant has a second
-route around it the repair does not cover. The claim that the coarsest
-resolution's correlation is undefined on all 64 patient-by-axis rows is read off
-a table whose sidecar names a commit \texttt{git cat-file} cannot find: the
-branch it was written on was rebased before review, and the stamp records the
-pre-rebase hash. The parquet is committed and its numbers are unaffected; what
-is gone is the ability to name the code that produced them. \textbf{Every result
-written on a branch is exposed to this.} We report it rather than restamp it,
-because a hash applied after the fact records the wrong thing twice.
+\paragraph{A second route around the provenance guard, and what closing it
+cost.} Item~3's repair counts untracked files, and the same invariant had a
+second route around it that the repair did not cover. The table behind the
+coarsest resolution's ``undefined on all 64 patient-by-axis rows'' was stamped
+with a commit \texttt{git cat-file} could not find: the branch it was written on
+was rebased before review, and the stamp records the pre-rebase hash. \textbf{Every
+result written on a branch is exposed to this}, and the repair for
+\emph{uncommitted} code does nothing about it.
+
+We re-derived the table on a sha that resolves. It came back bit-identical --
+256 rows, 64 epithelial, \texttt{worst\_rho} undefined on all 64 -- so the
+numbers were never in question; what had been lost was the ability to name the
+code that produced them, which is the whole of what invariant~10 buys. The
+superseded copy is deleted rather than kept, because a table whose only
+distinguishing feature is a dead stamp is not a record of anything.
+
+Two further defects surfaced while doing it, both in the writer rather than in
+any analysis. \texttt{extra\_meta} merged over the provenance record, so a
+caller could overwrite the fields the invariant exists to hold; three committed
+tables carry a GEO platform identifier in the slot recording the operating
+system, and the same hole accepted \texttt{git\_sha}, which would have let a
+table claim a commit it was not built from --- validated, in that case, by the
+very check that reads it. And every job in one workstream passed
+\texttt{allow\_dirty=True} as a literal, so that arm could not write a clean
+stamp \emph{from any tree}: its tables are not dirty because someone was
+careless, but because the guard was switched off at the call site. \textbf{We
+had been about to re-run them for clean stamps, which would have produced dirty
+ones again.} Both are fixed and both carry the input that forces them to fail.
 
 \paragraph{What is and is not fixed.} Every defect above now carries a
 regression test that fails against the version it replaces, and they sit in one
