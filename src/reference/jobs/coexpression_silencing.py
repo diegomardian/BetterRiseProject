@@ -105,6 +105,20 @@ CONTROL_TOLERANCE = 0.10
 #: UNDEFINED, not satisfied.
 MIN_PREMISE_PATIENTS = 3
 
+#: Detection above this in BOTH arms leaves a control no room to fall, so its
+#: stillness is saturation rather than evidence. ACTB and KRT8 sit at 0.99-1.00
+#: in both arms on both Lee cohorts: the first version of this guard reported
+#: "premise holds" off two controls that could not have reported anything else.
+#: A statistic whose attainable range excludes the falsifying value is the
+#: failure this repository is about, and it got built into the guard.
+SATURATION_CEILING = 0.95
+
+#: How far a control's mean expression may move, in log2. Expression has no
+#: ceiling, so this is the statistic a saturated control CAN be asked about:
+#: ACTB detected in every cell of both arms still has a mean, and that mean
+#: moving would mean the population changed. 0.5 is a 1.41x shift.
+CONTROL_LOG2_TOLERANCE = 0.5
+
 AXIS, RUNG, MATURE_BIN = "stem_pole", "lineage", "differentiated"
 
 #: GSE178341 QC settings, identical to build_decomposition_summary's so the
@@ -125,16 +139,18 @@ def premise_holds(
     """Whether the diseased cells are still the same kind of cell.
 
     The whole reading rests on this. A marker falling inside a population that
-    has itself changed is not silencing; it is a different population. So the
-    control genes are scored in the same cells and must not have moved.
+    has itself changed is not silencing; it is a different population.
 
-    Takes the per-patient rows, not a pre-aggregated mean, because how many
-    patients stand behind a control is part of whether it says anything: on one
-    patient the mean is that patient, and comparing a single noisy number
-    against a tolerance reports clean whatever happened.
+    Two ways this can be untested rather than satisfied, and both return False:
 
-    Returns ``(holds, reading)``. When it does not hold the caller must not
-    report a mechanism, and the reading says why.
+    Too few patients. On one patient a control's mean IS that patient, and a
+    tolerance compared against a single noisy number reports clean whatever
+    happened.
+
+    Saturation. A control detected in ~every cell of both arms has nowhere to
+    fall, so its stillness is a property of the statistic rather than of the
+    data. ACTB and KRT8 sit at 0.99-1.00 in both arms here, and an earlier
+    version of this function passed the premise on exactly that.
     """
     controls = [g for g, role in GENE_ROLES.items() if role == "control"]
     present = deltas.loc[deltas["gene"].isin(controls)]
@@ -152,18 +168,54 @@ def premise_holds(
             f"premise is untested here, not satisfied."
         )
 
-    means = present.groupby("gene", as_index=False)["delta_detect"].mean()
-    worst = means.reindex(means["delta_detect"].abs().sort_values().index).iloc[-1]
-    if abs(worst["delta_detect"]) > tolerance:
+    needed = {"detect_normal", "detect_tumour", "log2_cp10k_ratio"}
+    if not needed.issubset(present.columns):
         return False, (
-            f"REFUSED: control gene {worst['gene']} moved by "
-            f"{worst['delta_detect']:+.3f}, beyond the {tolerance} tolerance. The "
-            f"cells scored in the two arms are not the same population, so a "
+            "UNDEFINED: the arm detection rates are absent, so whether a control "
+            "had room to fall cannot be assessed. A control at ceiling reports "
+            "clean whatever happened; the premise is untested without them."
+        )
+    means = present.groupby("gene").agg(
+        delta=("delta_detect", "mean"),
+        normal=("detect_normal", "mean"),
+        tumour=("detect_tumour", "mean"),
+        log2=("log2_cp10k_ratio", "mean"),
+    )
+    # Detection where the control has room to fall; expression where it does not.
+    # Every control is assessed one way or the other, so "the premise holds" can
+    # never rest on a statistic that had no alternative.
+    verdicts, saturated_on_detection = [], []
+    for gene, row in means.iterrows():
+        headroom = 1.0 - min(float(row["normal"]), float(row["tumour"]))
+        if headroom >= 1.0 - SATURATION_CEILING:
+            verdicts.append((gene, "detection", float(row["delta"]), tolerance))
+        elif np.isfinite(row["log2"]):
+            saturated_on_detection.append(gene)
+            verdicts.append((gene, "log2 expression", float(row["log2"]),
+                             CONTROL_LOG2_TOLERANCE))
+        else:
+            saturated_on_detection.append(gene)
+    if not verdicts:
+        return False, (
+            "UNDEFINED: every control is saturated on detection and has no usable "
+            "expression ratio, so none of them could have reported a change. The "
+            "premise is untested, not satisfied."
+        )
+
+    breached = [(g, stat, v, tol) for g, stat, v, tol in verdicts if abs(v) > tol]
+    if breached:
+        gene, stat, value, tol = max(breached, key=lambda x: abs(x[2]) / x[3])
+        return False, (
+            f"REFUSED: control {gene} moved {value:+.3f} on {stat}, beyond {tol}. "
+            f"The cells scored in the two arms are not the same population, so a "
             f"marker falling inside them says nothing about silencing."
         )
+    worst = max(verdicts, key=lambda x: abs(x[2]) / x[3])
+    note = (f"; {', '.join(saturated_on_detection)} saturated on detection, "
+            f"assessed on expression") if saturated_on_detection else ""
     return True, (
-        f"holds over {n_patients} patients: worst control ({worst['gene']}) moved "
-        f"{worst['delta_detect']:+.3f}, within {tolerance}"
+        f"holds over {n_patients} patients on {len(verdicts)} control(s): worst is "
+        f"{worst[0]} at {worst[2]:+.3f} on {worst[1]} (tolerance {worst[3]}){note}"
     )
 
 
@@ -201,6 +253,7 @@ def rows_for_patient(
             row[f"n_{name}"] = int(m.sum())
             row[f"depth_{name}"] = float(np.median(depth[m]))
             row[f"detect_{name}"] = _detection(v[m])
+            row[f"cp10k_{name}"] = float(np.mean(v[m] / depth[m] * 1e4))
             both = m & conditioner
             row[f"n_conditioned_{name}"] = int(both.sum())
             row[f"detect_given_{CONDITION_ON.lower()}_{name}"] = (
@@ -208,6 +261,12 @@ def rows_for_patient(
             )
         row["depth_ratio"] = row["depth_tumour"] / row["depth_normal"]
         row["delta_detect"] = row["detect_tumour"] - row["detect_normal"]
+        # Expression has no ceiling, so a control pinned at detection 1.0 can
+        # still be asked whether it moved. Log2 ratio, guarded at zero.
+        base, tip = row["cp10k_normal"], row["cp10k_tumour"]
+        row["log2_cp10k_ratio"] = (
+            float(np.log2(tip / base)) if base > 0 and tip > 0 else np.nan
+        )
         row["delta_given_conditioner"] = (
             row[f"detect_given_{CONDITION_ON.lower()}_tumour"]
             - row[f"detect_given_{CONDITION_ON.lower()}_normal"]

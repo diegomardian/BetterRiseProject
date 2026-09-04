@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 
 from src.reference.jobs.coexpression_silencing import (
+    CONTROL_LOG2_TOLERANCE,
     CONTROL_TOLERANCE,
     GENE_ROLES,
     MIN_PREMISE_PATIENTS,
@@ -20,10 +21,17 @@ from src.reference.jobs.coexpression_silencing import (
 )
 
 
-def _deltas(n_patients: int = 5, **genes) -> pd.DataFrame:
-    """Per-patient rows, which is what premise_holds takes."""
+def _deltas(n_patients: int = 5, *, detection=0.5, log2=0.0, **genes) -> pd.DataFrame:
+    """Per-patient rows, which is what premise_holds takes.
+
+    ``detection`` sets the arm rates, so a test can put a control at ceiling
+    (0.99) or leave it room to move (0.5). ``log2`` is the expression ratio the
+    premise falls back to when detection is saturated.
+    """
     return pd.DataFrame([
-        {"gene": g, "patient_id": f"p{i}", "delta_detect": v}
+        {"gene": g, "patient_id": f"p{i}", "delta_detect": v,
+         "detect_normal": detection, "detect_tumour": detection + v,
+         "log2_cp10k_ratio": log2}
         for g, v in genes.items() for i in range(n_patients)
     ])
 
@@ -140,3 +148,43 @@ def test_the_premise_is_undefined_on_too_few_patients():
 
     enough = premise_holds(_deltas(n_patients=MIN_PREMISE_PATIENTS, ACTB=-0.01, KRT8=-0.02))
     assert enough[0], "the floor must not refuse a genuinely quiet control"
+
+
+def test_a_control_at_ceiling_is_assessed_on_expression_not_detection():
+    """The defect this caught, and the reason it was invisible.
+
+    ACTB and KRT8 are detected in 0.99-1.00 of cells in BOTH arms of both Lee
+    cohorts, so their detection rate cannot fall and reports "no change"
+    whatever happens. The first version of this guard passed the premise on
+    exactly that, and the underlying expression was moving by 1.5x
+    simultaneously. A control at ceiling must be asked a question it can answer.
+    """
+    # Saturated on detection, and its expression moved a long way: must refuse.
+    holds, reading = premise_holds(
+        _deltas(detection=0.99, log2=-1.2, ACTB=-0.005, KRT8=-0.004)
+    )
+    assert not holds
+    assert "log2 expression" in reading and "REFUSED" in reading
+
+    # Saturated on detection, expression quiet: the premise may hold, and the
+    # reading has to say the controls were judged on expression.
+    holds, reading = premise_holds(
+        _deltas(detection=0.99, log2=0.05, ACTB=-0.005, KRT8=-0.004)
+    )
+    assert holds and "saturated on detection" in reading
+
+
+def test_the_expression_tolerance_is_a_boundary_that_is_tested():
+    assert premise_holds(
+        _deltas(detection=0.99, log2=CONTROL_LOG2_TOLERANCE - 0.01, ACTB=0.0, KRT8=0.0))[0]
+    assert not premise_holds(
+        _deltas(detection=0.99, log2=CONTROL_LOG2_TOLERANCE + 0.01, ACTB=0.0, KRT8=0.0))[0]
+
+
+def test_the_premise_is_undefined_without_the_arm_rates():
+    """Whether a control had room to fall cannot be assessed from the delta
+    alone, and a premise that cannot be assessed has not been satisfied."""
+    bare = pd.DataFrame([{"gene": "ACTB", "patient_id": f"p{i}", "delta_detect": 0.0}
+                         for i in range(5)])
+    holds, reading = premise_holds(bare)
+    assert not holds and "UNDEFINED" in reading
