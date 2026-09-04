@@ -67,6 +67,12 @@ from src.common.paths import PROCESSED_DIR, RAW_DIR
 #: "0 is a fine answer, silence is not" (src/schema.py).
 SEED = 20260817
 
+#: Set from --allow-dirty. Default False. These jobs used to pass
+#: allow_dirty=True unconditionally, so the bulk arm could not write a
+#: clean provenance stamp even from a spotless tree -- which is why every
+#: committed bulk table records git_dirty: true.
+ALLOW_DIRTY = False
+
 TCGA_RAW = RAW_DIR / "tcga"
 BULK_PROCESSED = PROCESSED_DIR / "bulk"
 
@@ -157,11 +163,11 @@ def step_gene_index(version: str = PROVISIONAL_VERSION) -> pd.DataFrame:
 
     write_versioned_table(
         report.to_frame(), name="tcga_gene_index_filtering", seed=SEED,
-        notes=f"provisional index {version} from {model}", allow_dirty=True,
+        notes=f"provisional index {version} from {model}", allow_dirty=ALLOW_DIRTY,
     )
     write_versioned_table(
         panel, name="tcga_panel_resolution", seed=SEED,
-        notes="panel symbol -> Ensembl on the provisional index", allow_dirty=True,
+        notes="panel symbol -> Ensembl on the provisional index", allow_dirty=ALLOW_DIRTY,
     )
     return index
 
@@ -199,7 +205,7 @@ def step_build(version: str = PROVISIONAL_VERSION) -> None:
 
     write_versioned_table(
         reconcile_counts(manifest), name="tcga_sample_reconciliation", seed=SEED,
-        notes="compare against GDC portal facet counts", allow_dirty=True,
+        notes="compare against GDC portal facet counts", allow_dirty=ALLOW_DIRTY,
     )
 
 
@@ -269,7 +275,15 @@ def main(argv: list[str] | None = None) -> int:
     b = sub.add_parser("build", help="assemble the matrices")
     b.add_argument("--version", default=PROVISIONAL_VERSION)
 
+    parser.add_argument(
+        "--allow-dirty", action="store_true",
+        help="write from a dirty tree; the recorded sha will not reproduce it",
+    )
     args = parser.parse_args(argv)
+
+    global ALLOW_DIRTY
+
+    ALLOW_DIRTY = args.allow_dirty
     if args.command == "query":
         step_query(tuple(args.projects), tuple(args.sample_types))
     elif args.command == "download":

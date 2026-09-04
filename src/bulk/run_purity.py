@@ -34,6 +34,12 @@ from src.common.paths import PROCESSED_DIR, RAW_DIR
 from src.reference.ingest import append_manifest_row
 
 SEED = 20260818
+
+#: Set from --allow-dirty. Default False. These jobs used to pass
+#: allow_dirty=True unconditionally, so the bulk arm could not write a
+#: clean provenance stamp even from a spotless tree -- which is why every
+#: committed bulk table records git_dirty: true.
+ALLOW_DIRTY = False
 ESTIMATE_DIR = RAW_DIR / "estimate"
 ARAN_DIR = RAW_DIR / "aran2015"
 BULK = PROCESSED_DIR / "bulk"
@@ -121,7 +127,7 @@ def step_run() -> None:
         seed=SEED,
         notes="W3.3 purity. One row per (sample, method); never coalesced.",
         extra_meta={"gene_mapping": counts, "agreement": stats, "index_version": INDEX_VERSION},
-        allow_dirty=True,
+        allow_dirty=ALLOW_DIRTY,
     )
     print(f"\nwrote {BULK / f'tcga_purity_{INDEX_VERSION}.parquet'}")
 
@@ -133,7 +139,15 @@ def main(argv: list[str] | None = None) -> int:
     f.add_argument("--downloaded-by", default="jeremy749")
     sub.add_parser("run", help="score, join and report agreement")
 
+    parser.add_argument(
+        "--allow-dirty", action="store_true",
+        help="write from a dirty tree; the recorded sha will not reproduce it",
+    )
     args = parser.parse_args(argv)
+
+    global ALLOW_DIRTY
+
+    ALLOW_DIRTY = args.allow_dirty
     if args.command == "fetch":
         step_fetch(args.downloaded_by)
     else:

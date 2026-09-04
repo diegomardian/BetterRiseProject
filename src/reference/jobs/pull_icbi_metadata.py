@@ -39,13 +39,23 @@ from src.reference.icbi import (
     read_atlas_obs,
 )
 
+#: Set from --allow-dirty. Default False -- this job used to pass
+#: allow_dirty=True unconditionally, so it could not write a clean stamp.
+ALLOW_DIRTY = False
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default=ATLAS_URL)
     parser.add_argument("--cache", default="data/interim/icbi_obs.parquet")
     parser.add_argument("--refresh", action="store_true")
+    parser.add_argument(
+        "--allow-dirty", action="store_true",
+        help="write from a dirty tree; the recorded sha will not reproduce it",
+    )
     args = parser.parse_args()
+    global ALLOW_DIRTY
+    ALLOW_DIRTY = args.allow_dirty
 
     cache = Path(args.cache)
     if cache.exists() and not args.refresh:
@@ -122,7 +132,7 @@ def main() -> int:
 
     for name, table in outputs.items():
         path = write_versioned_table(
-            table, name, seed=DEFAULT_SEED, allow_dirty=True,
+            table, name, seed=DEFAULT_SEED, allow_dirty=ALLOW_DIRTY,
             notes="ICBI CRC atlas metadata, read via HTTP range requests",
         )
         print(f"\n  {path}")

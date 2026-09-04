@@ -29,6 +29,20 @@ class DirtyTreeError(RuntimeError):
     """Refused to write a result whose recorded sha would not reproduce it."""
 
 
+class ReservedMetaKeyError(ValueError):
+    """``extra_meta`` tried to overwrite a provenance field."""
+
+
+#: Sidecar keys that belong to the provenance record and to nothing else. A
+#: caller passing any of these in ``extra_meta`` is not annotating the result,
+#: it is rewriting the record of how the result was made.
+RESERVED_META_KEYS: frozenset[str] = frozenset({
+    "date", "utc_timestamp", "git_sha", "git_sha_short", "git_branch",
+    "git_dirty", "git_untracked", "seed", "python", "platform",
+    "numpy_version", "pandas_version", "name", "n_rows", "columns",
+})
+
+
 def versioned_dir(seed: int, results_dir: Path | None = None) -> Path:
     """``results/{date}_{sha7}/``, created if absent."""
     prov = provenance_record(seed=seed)
@@ -86,6 +100,19 @@ def write_versioned_table(
         "table_kind": "harness",
     }
     if extra_meta:
+        # extra_meta used to merge straight over the provenance record, so a
+        # caller could overwrite the very fields invariant 10 exists to record.
+        # It happened: three committed GSE39582 tables carry platform="GPL570"
+        # because the job passed the GEO platform under the key holding the OS.
+        # A sidecar that can be talked out of its own sha is not a provenance
+        # record, and the guard reading it would have validated the lie.
+        clashes = sorted(RESERVED_META_KEYS & set(extra_meta))
+        if clashes:
+            raise ReservedMetaKeyError(
+                f"extra_meta may not overwrite provenance fields {clashes}. "
+                f"These are what invariant 10 records; rename the key "
+                f"(platform -> geo_platform, seed -> sweep_seed, and so on)."
+            )
         prov |= dict(extra_meta)
     (out_dir / f"{name}.meta.json").write_text(json.dumps(prov, indent=2), encoding="utf-8")
     return path

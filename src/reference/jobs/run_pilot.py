@@ -24,6 +24,7 @@ Artifacts land in results/{date}_{sha}/ with a provenance sidecar.
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 from pathlib import Path
@@ -123,8 +124,20 @@ SIGNATURE_GENES = 800
 #: patients are what the project spends.
 DEPTH_QUANTILE = 0.25
 
+#: Set from --allow-dirty. Default False -- this job used to pass
+#: allow_dirty=True unconditionally, so it could not write a clean stamp.
+ALLOW_DIRTY = False
 
-def main() -> int:
+
+
+def main(argv: list[str] | None = None) -> int:
+    global ALLOW_DIRTY
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--allow-dirty", action="store_true",
+        help="write from a dirty tree; the recorded sha will not reproduce it",
+    )
+    ALLOW_DIRTY = parser.parse_args(argv).allow_dirty
     set_global_seeds(DEFAULT_SEED)
     data = Path(os.environ.get("BRP_DATA_DIR", "data")) / "raw" / "GSE178341"
     h5 = data / "GSE178341_crc10x_full_c295v4_submit.h5"
@@ -692,7 +705,7 @@ def main() -> int:
             continue
         if len(frame):
             path = write_versioned_table(
-                frame, name, seed=DEFAULT_SEED, allow_dirty=True,
+                frame, name, seed=DEFAULT_SEED, allow_dirty=ALLOW_DIRTY,
                 notes=f"five-patient pilot: {', '.join(PILOT)}",
             )
             print(f"  {path}")

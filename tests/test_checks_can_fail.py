@@ -20,6 +20,7 @@ guard does not have a testable failure mode and that is the finding.
 
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 from pathlib import Path
@@ -29,6 +30,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 
+from src.common.io import ReservedMetaKeyError, write_versioned_table
 from src.common.paths import REPO_ROOT, RESULTS_DIR
 from src.harness.calibration import (
     PREREGISTERED,
@@ -467,3 +469,74 @@ def test_the_sha_check_fires_on_a_commit_that_was_never_written():
     fabricated = "0" * 40
     assert not _sha_resolves(fabricated), "a fabricated sha must not resolve"
     assert _sha_resolves("HEAD"), "the check must still pass a commit that exists"
+
+
+# ---------------------------------------------------------------------------
+# The provenance record itself
+# ---------------------------------------------------------------------------
+
+
+def test_extra_meta_cannot_overwrite_the_provenance_record(tmp_path):
+    """The violating input is the one that actually shipped.
+
+    `write_versioned_table` merged `extra_meta` straight over the provenance
+    record, so a caller could rewrite the fields invariant 10 exists to record.
+    Three committed GSE39582 tables carry `platform: "GPL570"` for exactly this
+    reason -- the GEO platform overwrote the OS string, and those sidecars no
+    longer say what machine produced them.
+
+    The same hole accepted `git_sha`, which would have let a table claim a
+    commit it was not built from -- and the sha guard above would then have
+    validated the claim.
+    """
+    frame = pd.DataFrame({"a": [1, 2]})
+
+    with pytest.raises(ReservedMetaKeyError, match="platform"):
+        write_versioned_table(
+            frame, "reserved_key_probe", seed=1, results_dir=tmp_path,
+            allow_dirty=True, extra_meta={"platform": "GPL570"},
+        )
+
+    with pytest.raises(ReservedMetaKeyError, match="git_sha"):
+        write_versioned_table(
+            frame, "reserved_key_probe", seed=1, results_dir=tmp_path,
+            allow_dirty=True, extra_meta={"git_sha": "0" * 40},
+        )
+
+    # A caller annotating the result rather than rewriting its record is fine.
+    path = write_versioned_table(
+        frame, "reserved_key_probe", seed=1, results_dir=tmp_path,
+        allow_dirty=True, extra_meta={"geo_platform": "GPL570", "cohort": "GSE39582"},
+    )
+    meta = json.loads(path.with_suffix(".meta.json").read_text())
+    assert meta["geo_platform"] == "GPL570"
+    assert meta["platform"] != "GPL570", "the OS record must survive annotation"
+
+
+def test_no_job_hardcodes_the_dirty_tree_bypass():
+    """`allow_dirty` is a scratch-run escape hatch, not a default.
+
+    Every job in `src/bulk/` used to pass `allow_dirty=True` as a literal, so
+    the bulk arm could not write a clean provenance stamp even from a spotless
+    tree. That is why all fifteen committed bulk tables record
+    `git_dirty: true`: not carelessness at the keyboard, but a guard switched
+    off at the call site. Re-running them on a clean tree would have produced
+    dirty stamps again.
+
+    The flag must come from the caller. A literal `True` here is the defect.
+    """
+    offenders = []
+    for path in sorted(Path("src").rglob("*.py")):
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            for kw in node.keywords:
+                if kw.arg == "allow_dirty" and isinstance(kw.value, ast.Constant):
+                    if kw.value.value is True:
+                        offenders.append(f"{path}:{kw.value.lineno}")
+    assert not offenders, (
+        "allow_dirty=True is hardcoded at:\n  " + "\n  ".join(offenders)
+        + "\nThread it from the CLI instead; a job that cannot write a clean "
+          "stamp makes invariant 10 unsatisfiable for everything it produces."
+    )

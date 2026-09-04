@@ -13,6 +13,7 @@ outputs are three tables and a coverage report.
 
 from __future__ import annotations
 
+import argparse
 import sys
 
 import pandas as pd
@@ -29,6 +30,12 @@ from src.common.io import write_versioned_table
 from src.common.paths import PROCESSED_DIR, RAW_DIR
 
 SEED = 20260818
+
+#: Set from --allow-dirty. Default False. These jobs used to pass
+#: allow_dirty=True unconditionally, so the bulk arm could not write a
+#: clean provenance stamp even from a spotless tree -- which is why every
+#: committed bulk table records git_dirty: true.
+ALLOW_DIRTY = False
 BULK = PROCESSED_DIR / "bulk"
 CACHE = RAW_DIR / "gdc_clinical"
 INDEX_VERSION = "0.9.0"
@@ -40,7 +47,13 @@ CLINICAL = ("stage", "site", "msi_status", "project")
 
 
 def main(argv: list[str] | None = None) -> int:
-    del argv
+    global ALLOW_DIRTY
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--allow-dirty", action="store_true",
+        help="write from a dirty tree; the recorded sha will not reproduce it",
+    )
+    ALLOW_DIRTY = parser.parse_args(argv).allow_dirty
 
     manifest = read_manifest(BULK / "sample_manifest.tsv")
     tumours = manifest.loc[manifest["sample_type"] == "01"].copy()
@@ -93,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         write_versioned_table(
             frame, name=name, seed=SEED, notes=note,
             extra_meta=meta if name.endswith("variance_explained") else None,
-            allow_dirty=True,
+            allow_dirty=ALLOW_DIRTY,
         )
     clinical.to_csv(BULK / "clinical_annotation_w3.4.tsv", sep="\t", index=False)
     print(f"\nwrote three results tables and {BULK / 'clinical_annotation_w3.4.tsv'}")

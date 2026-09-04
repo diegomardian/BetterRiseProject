@@ -9,6 +9,7 @@ investigate rather than report.
 
 from __future__ import annotations
 
+import argparse
 import sys
 
 import pandas as pd
@@ -26,6 +27,12 @@ from src.common.io import versioned_dir, write_versioned_table
 from src.common.paths import PROCESSED_DIR
 
 SEED = 20260818
+
+#: Set from --allow-dirty. Default False. These jobs used to pass
+#: allow_dirty=True unconditionally, so the bulk arm could not write a
+#: clean provenance stamp even from a spotless tree -- which is why every
+#: committed bulk table records git_dirty: true.
+ALLOW_DIRTY = False
 BULK = PROCESSED_DIR / "bulk"
 CONTEXT = "clinical_baseline"
 ENDPOINTS = ("PFI", "DSS", "OS")
@@ -69,7 +76,13 @@ def _plot(design_by_endpoint: dict[str, pd.DataFrame], out_path):
 
 
 def main(argv: list[str] | None = None) -> int:
-    del argv
+    global ALLOW_DIRTY
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--allow-dirty", action="store_true",
+        help="write from a dirty tree; the recorded sha will not reproduce it",
+    )
+    ALLOW_DIRTY = parser.parse_args(argv).allow_dirty
     spec = load_covariate_set()
     print(
         f"covariate set {spec['version']} — status={spec['status']}, "
@@ -144,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
         (pd.concat(attritions), "tcga_baseline_attrition", "W3.7 cohort attrition per endpoint"),
         (stats, "tcga_baseline_power", "W3.7 events per degree of freedom"),
     ):
-        write_versioned_table(frame, name=name, seed=SEED, notes=note, allow_dirty=True)
+        write_versioned_table(frame, name=name, seed=SEED, notes=note, allow_dirty=ALLOW_DIRTY)
 
     print(f"\nfigure: {figure}")
     print("wrote six results tables")
