@@ -53,6 +53,40 @@ else
   echo "note: could not reach the remote, so behind-ness is unchecked" >&2
 fi
 
+# BRP_DATA_DIR is NOT optional here. src/common/paths.py falls back to
+# REPO_ROOT/data when it is unset, and that directory exists and is nearly
+# empty -- so an unset variable does not fail, it quietly reads the wrong disk.
+# A job submitted from a shell that had lost the export died forty seconds in
+# looking for Lee under the repository. Refuse instead.
+if [ -z "${BRP_DATA_DIR:-}" ]; then
+  echo "REFUSING: BRP_DATA_DIR is unset. #\$ -V exports the submitting shell's" >&2
+  echo "environment, so submit from a shell that has it, or export it here." >&2
+  echo "Unset does not mean 'use the default' -- it means read the wrong disk." >&2
+  exit 1
+fi
+echo "BRP_DATA_DIR: $BRP_DATA_DIR"
+
+# Every cohort's input, checked before any compute. The GSE178341 leg alone is
+# tens of minutes; discovering a missing file at the end of it is the waste this
+# wrapper exists to prevent.
+MISSING=""
+for f in \
+  "raw/lee/GSE132465_GEO_processed_CRC_10X_cell_annotation.txt.gz" \
+  "raw/lee/GSE132465_GEO_processed_CRC_10X_raw_UMI_count_matrix.txt.gz" \
+  "raw/lee/GSE144735_processed_KUL3_CRC_10X_annotation.txt.gz" \
+  "raw/lee/GSE144735_processed_KUL3_CRC_10X_raw_UMI_count_matrix.txt.gz" \
+  "raw/GSE178341/GSE178341_crc10x_full_c295v4_submit.h5" \
+  "raw/GSE178341/GSE178341_crc10x_full_c295v4_submit_cluster.csv.gz" \
+  "raw/GSE178341/GSE178341_crc10x_full_c295v4_submit_metatables.csv.gz" ; do
+  [ -f "$BRP_DATA_DIR/$f" ] || MISSING="$MISSING\n  $f"
+done
+if [ -n "$MISSING" ]; then
+  echo "REFUSING: inputs missing under $BRP_DATA_DIR:" >&2
+  printf "%b\n" "$MISSING" >&2
+  echo "Fetch them before resubmitting; the manifest carries urls and sha256." >&2
+  exit 1
+fi
+
 module load miniconda
 conda activate brp-w1
 
