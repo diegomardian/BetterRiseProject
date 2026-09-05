@@ -1,5 +1,21 @@
 # Stage 4 — running the variance arm
 
+> ## THIS HAS ALREADY BEEN RUN, AND IT TERMINATED.
+>
+> **2026-09-05: the instrument gate failed on every estimable rung, so no R² is
+> reported.** That is the locked pre-specification's own pre-committed
+> consequence. Tables: `results/2026-09-05_d358109/`; summary in
+> `docs/HANDOFF.md` §6a.
+>
+> lineage 0.462 · crypt_position 0.479 · threshold 0.5. `best4` and
+> `epithelial` never reached the gate — no usable predictor.
+>
+> **The reference was correct when this ran.** `expm1` inverts the committed
+> matrices *exactly*, so `--linearise-reference` gave the true linear scale and
+> the failure is not a scale artifact. A W1 linear rebuild is **not** justified.
+>
+> Everything below is retained for re-derivation.
+
 Everything below is committed and tested. What is **not** here is the TCGA bulk
 matrix, which is gitignored and lives with the data. That is the only reason
 this is a cluster run rather than a laptop one.

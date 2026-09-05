@@ -2,6 +2,15 @@
 
 Project context and invariants. Read [README.md](README.md) for what the project is and [execution_plan.md](execution_plan.md) for who does what when.
 
+**Arriving cold? Read [docs/HANDOFF.md](docs/HANDOFF.md) first.** It says what
+state the invariants are in, what has been established, and what is left. Short
+version as of 2026-09-05: the mechanism question is **not identifiable on any
+currently available data**, shown by four independent routes; both analysis
+paths have run to completion and terminated in pre-committed negative results;
+nothing is half-finished. What remains is a write-up and a data hunt.
+Per-path detail in [docs/STAGE4_RUNBOOK.md](docs/STAGE4_RUNBOOK.md) and
+[docs/ICBI_RUNBOOK.md](docs/ICBI_RUNBOOK.md).
+
 **One-line summary:** decompose differentiation-marker loss in colorectal cancer into *compositional* (mature cells gone), *cell-intrinsic* (mature cells present but silenced), and *not estimable* (too few mature cells to ask) — per patient, at several annotation resolutions.
 
 ## Invariants — do not violate without an explicit written decision
