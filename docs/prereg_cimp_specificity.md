@@ -139,4 +139,69 @@ precisely the claim that would have justified the 450k work.
 
 ## 7. Result
 
-*(appended after the run, as `prereg_g2_mlh1.md` does.)*
+Run 2026-09-05 on GSE39582, 3 genes x 585 samples, sha `9203809`, clean tree.
+Table: `results/2026-09-05_9203809/gse39582_cimp_specificity.parquet`.
+
+**Verdict: NOT SPECIFIC.** Zero of two references favour GUCA2A.
+
+| reference | contrast | 95% CI | clears zero |
+|---|---|---|---|
+| CDX2   | **+0.544** | [+0.219, +0.878] | yes |
+| MS4A12 | −0.147 | [−0.514, +0.205] | **no** |
+
+The §5 decision rule needed both references favourable with intervals excluding
+zero. One argues against locus-specificity and the other is silent.
+
+**The outcome is cleaner than the one predicted.** §5a expected the two
+references to disagree — CDX2 against, MS4A12 weakly for. MS4A12's interval
+contains zero, so the weak arm does not merely fail to reach significance, it
+carries no information at all. The reading is not "the references disagree" but
+"one reference argues against specificity and the other says nothing."
+
+**A discrepancy worth recording rather than smoothing.** §5a pre-committed CDX2
+"near +0.314". The run returns **+0.544** — same sign, about 1.7x the magnitude.
+This is not an error: +0.314 was computed from stratum *medians*, and the
+estimand is the *mean of within-sample paired differences*. Different statistics
+on a skewed distribution, and the pairing changes the variance structure as
+well. The direction and the verdict are unaffected. It is recorded because a
+pre-registration that only reports the predictions it got right is not doing
+anything.
+
+**Robustness across the adjusted reads.** The CDX2 contrast is positive in all
+four MMR and location strata and clears zero in three:
+
+| reference | stratum | contrast | 95% CI | clears zero | n (CIMP+/−) |
+|---|---|---|---|---|---|
+| CDX2 | dMMR | +0.976 | [+0.218, +1.716] | yes | 42/27 |
+| CDX2 | pMMR | +0.487 | [+0.045, +0.947] | yes | 41/339 |
+| CDX2 | proximal | +0.812 | [+0.392, +1.224] | yes | 74/130 |
+| CDX2 | distal | +0.327 | [−0.258, +0.911] | no | 17/275 |
+| MS4A12 | *(all four)* | −0.445 … +0.207 | all straddle 0 | **0 of 4** | |
+
+The single non-clearing CDX2 stratum is distal, where only 17 samples are CIMP+.
+Same direction, too few to resolve — underpowered rather than contradictory.
+MS4A12 clears zero in none of the four, so its silence is not an artefact of the
+pooled analysis.
+
+**Two caveats on the strata.** They are not independent: CIMP+ tumours are
+predominantly proximal (74 of 91) and predominantly dMMR, so these are
+overlapping views of largely the same samples rather than four tests. And the
+adjustment is stratification, not regression, so it controls the marginal
+association and not the joint one.
+
+**What this closes.** Locus-specific promoter silencing of GUCA2A is not the
+bulk-level story in this cohort. GUCA2A falls in the methylator phenotype, but
+it falls *less* than the transcription factor upstream of it and no differently
+from the other colonocyte-restricted marker. That is what upstream suppression
+of the CDX2 axis, or a shift in differentiated content, predicts.
+
+So the 450k methylation leg has no hypothesis left to test at bulk level, which
+was the only reason to consider it. Per §6, that leg would in any case have
+carried the same fraction-times-mean ambiguity one level down.
+
+**What this does not establish.** Everything in §6 stands. No outcome here
+separates silencing from colonocyte-specific compositional loss, and this is a
+null that closes a route rather than a finding about mechanism. It is consistent
+with the single-cell arm's 2026-09-04 result across three cohorts — that
+silencing versus destruction is not identifiable on this data — and adds a
+population-scale instance of the same limit rather than resolving it.
