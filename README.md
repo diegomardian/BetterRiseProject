@@ -16,6 +16,8 @@ The bar above is the deliverable. Not a p-value, not a classifier — a per-pati
 
 ---
 
+> **Picking this up cold?** Read [docs/HANDOFF.md](docs/HANDOFF.md) — current state, what is established, the traps, and what to do next.
+
 ## The problem, in one figure
 
 Bulk RNA sequencing grinds tissue up and averages everything in it. What comes back is a single number per sample, and that number is a product:

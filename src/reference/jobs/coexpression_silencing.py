@@ -344,10 +344,14 @@ def per_patient_deltas(cohort, *, seed: int = DEFAULT_SEED) -> pd.DataFrame:
 def gse178341_deltas(*, seed: int = DEFAULT_SEED, patients=None, data_dir=None) -> pd.DataFrame:
     """The primary cohort, streamed one patient at a time.
 
-    Thirty-two patients against ten and six, so this is the read that decides
-    whether the two Lee cohorts disagree because they are small or because they
-    disagree. It is also the only one of the three that needs the cluster: the
-    deposit is 371k cells and the loader materialises one patient at a time for
+    Thirty patients clear the floors here, against seven and five on the Lee
+    cohorts -- so this is the read that decides whether the two of them disagree
+    because they are small or because they disagree. (The deposit holds
+    sixty-two; roughly half are tumour-only and have no reference arm. An
+    earlier version of this docstring said thirty-two, which was the
+    decomposition's count and not this job's, and the committed table
+    contradicted it.) It is also the only one of the three that needs the
+    cluster: 371k cells, and the loader materialises one patient at a time for
     exactly that reason.
 
     The QC and labelling path is `build_decomposition_summary`'s and the mature
