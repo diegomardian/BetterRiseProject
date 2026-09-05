@@ -629,3 +629,54 @@ def test_the_lee_loader_reads_the_configured_data_directory(tmp_path, monkeypatc
     assert "BetterRiseProject/data/raw" not in named, (
         "it fell back to the repository checkout despite BRP_DATA_DIR"
     )
+
+
+def test_the_leakage_guard_refuses_a_positional_index():
+    """The violating input is the committed S matrix loaded the obvious way.
+
+    `_identifier_space` was a binary test: matches the Ensembl pattern, or else
+    it is a symbol. A DataFrame read from parquet carries a RangeIndex, so
+    `S.index` is [0, 1, 2, ...] -- not Ensembl, therefore "symbol", compared
+    against symbol targets, intersecting nothing, passing.
+
+    That is issue #35's vacuous pass surviving the fix for issue #35, in the
+    identifier space the committed `S_matrix_lineage_1.0.0.parquet` actually
+    presents: its gene ids are in a COLUMN, and nothing made the caller notice.
+    A classifier with no reject option always answers, and its answer is
+    worthless exactly where it matters.
+    """
+    from src.reference.signature import LeakageGuardError, _identifier_space
+
+    assert _identifier_space([0, 1, 2]) == "unrecognised"
+    assert _identifier_space(["0", "1"]) == "unrecognised"
+    assert _identifier_space([]) == "unrecognised"
+    # Real identifiers must keep working, hyphens and digits included.
+    assert _identifier_space(["ENSG00000000971"]) == "ensembl"
+    assert _identifier_space(["GUCA2A", "MT-CO1", "C1orf43", "HLA-A"]) == "symbol"
+
+    with pytest.raises(LeakageGuardError, match="not gene identifiers"):
+        assert_no_target_leakage(pd.RangeIndex(800), ["GUCA2A"], context="probe")
+
+
+def test_the_committed_s_matrix_cannot_be_checked_by_accident():
+    """End to end on the artefact itself: load it as anyone would, and the
+    guard must refuse rather than certify."""
+    import yaml
+
+    from src.reference.signature import LeakageGuardError
+
+    path = RESULTS_DIR / "2026-08-26_63ead2e" / "S_matrix_lineage_1.0.0.parquet"
+    if not path.exists():                      # pragma: no cover - artefact moved
+        pytest.skip(f"{path} absent")
+    signature = pd.read_parquet(path)
+    targets = sorted(yaml.safe_load(
+        (REPO_ROOT / "config" / "panel.yaml").read_text())["tiers"]["A"]["genes"])
+
+    with pytest.raises(LeakageGuardError):
+        assert_no_target_leakage(signature.index, targets, context="the bake-off signature")
+
+    # Promoted to the identifier column it actually carries, the check runs.
+    assert_no_target_leakage(
+        signature.set_index("gene").index, targets, context="probe",
+        alias_map={t: f"ENSG_ABSENT_{t}" for t in targets},
+    )

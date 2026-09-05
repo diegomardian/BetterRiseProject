@@ -51,12 +51,36 @@ class LeakageGuardError(AssertionError):
     """
 
 
+#: What a gene symbol can look like: HGNC symbols begin with a letter and carry
+#: letters, digits, hyphens, dots or underscores (MS4A12, C1orf43, HLA-A, MT-CO1).
+#: Anything that cannot be one is not "probably a symbol", it is unrecognised.
+_SYMBOL_LIKE = re.compile(r"^[A-Za-z][A-Za-z0-9._-]*$")
+
+
 def _identifier_space(values: Iterable[str]) -> str:
-    """``"ensembl"``, ``"symbol"`` or ``"mixed"``."""
-    flags = {bool(_ENSEMBL_ID.match(str(v))) for v in values}
-    if flags == {True}:
+    """``"ensembl"``, ``"symbol"``, ``"mixed"`` or ``"unrecognised"``.
+
+    THE REJECT OPTION IS THE POINT. This used to be a binary test -- matches the
+    Ensembl pattern or else it is a symbol -- and "or else" is doing work it
+    cannot do. A DataFrame read straight from parquet carries a RangeIndex, so
+    ``S.index`` is ``[0, 1, 2, ...]``; those are not Ensembl, so they were
+    called symbols, compared against symbol targets, found to intersect nothing,
+    and passed. That is issue #35's vacuous pass surviving the fix for issue
+    #35, in the identifier space the committed S matrix actually presents when
+    somebody loads it the obvious way.
+
+    A classifier with no way to say "I do not recognise these" will always
+    answer, and its answer is worthless exactly where it matters.
+    """
+    values = [str(v) for v in values]
+    if not values:
+        return "unrecognised"
+    ensembl = {bool(_ENSEMBL_ID.match(v)) for v in values}
+    if ensembl == {True}:
         return "ensembl"
-    if flags == {False}:
+    if not all(_SYMBOL_LIKE.match(v) for v in values):
+        return "unrecognised"
+    if ensembl == {False}:
         return "symbol"
     return "mixed"
 
@@ -98,6 +122,21 @@ def resolve_targets(
     if not targets or not gene_set:
         return targets
     gene_space, target_space = _identifier_space(gene_set), _identifier_space(targets)
+    # Unrecognised identifiers cannot be compared to anything, and calling them
+    # symbols is how a positional index passes this check. Refuse rather than
+    # guess: the caller has handed over the wrong column.
+    for space, label, sample in (
+        (gene_space, "genes", sorted(gene_set)[:3]),
+        (target_space, "target_genes", sorted(targets)[:3]),
+    ):
+        if space == "unrecognised":
+            raise LeakageGuardError(
+                f"cannot check invariant 2 for {context}: {label} are not gene "
+                f"identifiers at all -- {sample}. A DataFrame read from parquet "
+                f"has a positional index; the identifiers are probably in a "
+                f"column. Comparing them to gene symbols is empty whatever the "
+                f"data, so this check would pass without testing anything."
+            )
     # A MIXED target set is already the union of both forms — it is what this
     # function returns once a map has been applied — so there is nothing left to
     # translate and nothing it can fail to see.
