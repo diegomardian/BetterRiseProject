@@ -34,6 +34,19 @@ cd "$REPO_DIR"
 URL="https://crc.icbi.at/h5ad/final_crc_atlas-adata.h5ad"
 EXPECTED_BYTES=32700000000     # ~32.7 GB, per the published object
 
+# WHERE IT LANDS. Default is $BRP_DATA_DIR/raw/icbi, but /projectnb was at 15 GB
+# free of a 50 GB quota when this was written, and /project/rise-batteries had
+# ~35 GB. BRP_ICBI_DIR moves ONLY this download rather than re-pointing every
+# data path, which is what overriding BRP_DATA_DIR would do.
+#
+#   export BRP_ICBI_DIR=/project/rise-batteries/bode/icbi
+#
+# NOT /scratch. `df` reports it as /dev/sda8 -- node-local and purged. The
+# fetch ran on scc-ye1 and A1 on scc-pi4; a file written to one node's /scratch
+# is invisible to a job on another. That is the /tmp trap this project has
+# already paid for once.
+DEST_DIR="${BRP_ICBI_DIR:-}"
+
 echo "=== $(date) icbi fetch on $(hostname) ==="
 echo "HEAD: $(git rev-parse HEAD)"
 
@@ -41,19 +54,39 @@ if [ -z "${BRP_DATA_DIR:-}" ]; then
   echo "REFUSING: BRP_DATA_DIR is unset -- unset means read the wrong disk." >&2
   exit 1
 fi
-DEST_DIR="$BRP_DATA_DIR/raw/icbi"
+DEST_DIR="${DEST_DIR:-$BRP_DATA_DIR/raw/icbi}"
 DEST="$DEST_DIR/final_crc_atlas-adata.h5ad"
 mkdir -p "$DEST_DIR"
+case "$DEST_DIR" in
+  /scratch/*|/tmp/*)
+    echo "REFUSING: $DEST_DIR is node-local and purged. This job runs on one" >&2
+    echo "compute node and the analysis runs on another, which will not see it." >&2
+    exit 1 ;;
+esac
 
 # Disk before download, not after. A 32 GB fetch that dies at 90% full has
 # wasted hours and left a partial file that looks like a real one.
 AVAIL=$(df -Pk "$DEST_DIR" | awk 'NR==2 {print $4 * 1024}')
 echo "destination: $DEST_DIR"
 echo "free space:  $(numfmt --to=iec "$AVAIL" 2>/dev/null || echo "$AVAIL bytes")"
-if [ "$AVAIL" -lt 40000000000 ]; then
-  echo "REFUSING: under 40 GB free. The object is ~32.7 GB and curl needs room" >&2
-  echo "to finish; a truncated h5ad reads as a valid file until it does not." >&2
+# Object plus a 2 GB working margin, rather than a round 40. The round number
+# refused a filesystem that would in fact have held it.
+NEEDED=$((EXPECTED_BYTES + 2000000000))
+if [ "$AVAIL" -lt "$NEEDED" ]; then
+  echo "REFUSING: $(numfmt --to=iec "$AVAIL" 2>/dev/null || echo "$AVAIL") free," >&2
+  echo "against $(numfmt --to=iec "$NEEDED" 2>/dev/null || echo "$NEEDED") needed" >&2
+  echo "(the object is ~32.7 GB plus working room). A truncated h5ad reads as a" >&2
+  echo "valid file until it does not." >&2
+  echo >&2
+  echo "Check quota with \`pquota\`. If /projectnb is full and /project is not:" >&2
+  echo "  export BRP_ICBI_DIR=/project/rise-batteries/bode/icbi" >&2
+  echo "and resubmit. Do NOT use /scratch -- it is node-local and purged." >&2
   exit 1
+fi
+MARGIN=$((AVAIL - EXPECTED_BYTES))
+if [ "$MARGIN" -lt 5000000000 ]; then
+  echo "WARNING: only $(numfmt --to=iec "$MARGIN" 2>/dev/null || echo "$MARGIN") would" >&2
+  echo "remain after the download. Anything else writing here may fail." >&2
 fi
 
 if [ -f "$DEST" ]; then

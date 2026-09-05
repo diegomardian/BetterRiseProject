@@ -24,10 +24,9 @@
 #   Missing inputs. The four Lee files are the whole input; discovering one is
 #   absent at job start costs a second rather than a run.
 #
-#   A missing sklearn. The driver degrades gracefully -- NuSVR's is_available()
-#   skips it -- but both of the Stage 4 predictors that survived the predictor
-#   check were nu-SVR, so an NNLS-only A1 is the weaker experiment. Fail at
-#   start rather than produce it.
+#   A missing sklearn. `recover()` now refuses a skipped method outright, so
+#   this is belt and braces -- but it fails at job start rather than after both
+#   cohorts have loaded, and it names the env that is actually missing.
 #
 #$ -N brp_a1_recovery
 #$ -pe omp 4
@@ -84,7 +83,27 @@ if [ -n "$MISSING" ]; then
 fi
 
 module load miniconda
-conda activate brp-w2
+
+# PICK AN ENV THAT EXISTS, do not name one and hope. `env/w2_harness.yml`
+# DECLARES scikit-learn, and that is a fact about a file rather than about this
+# machine: brp-w2 has never been created here, and hardcoding it cost a job.
+# brp-w3 and brp-w4 declare the same scikit-learn=1.5.1, and brp-w3 is known
+# good -- the Stage 4 chain ran in it.
+ACTIVATED=""
+for env in brp-w2 brp-w3 brp-w4 ; do
+  if conda activate "$env" 2>/dev/null; then
+    ACTIVATED="$env"
+    break
+  fi
+done
+if [ -z "$ACTIVATED" ]; then
+  echo "REFUSING: none of brp-w2 / brp-w3 / brp-w4 exists on this machine." >&2
+  echo "Available:" >&2
+  conda info --envs >&2
+  echo "Create one with: conda env create -f env/w2_harness.yml" >&2
+  exit 1
+fi
+echo "conda env: $ACTIVATED"
 
 # Fail first rather than run an NNLS-only experiment. The driver's NuSVR
 # adapter reports unavailability and is skipped silently; this refuses instead.
