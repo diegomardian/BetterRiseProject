@@ -48,11 +48,23 @@ the fix. The fix is a linearly-built reference from W1 — see the last section.
 
 ## The short version
 
-Everything below is in one submittable job. From the repo on the cluster:
+Two jobs, in order. From the repo on the cluster:
 
 ```
 export BRP_DATA_DIR=/projectnb/rise-batteries/bode/guanylin/data
-qsub src/bulk/stage4_cluster.sh
+qsub src/bulk/ingest_cluster.sh     # only if tcga_tpm_1.0.0.parquet is absent
+qsub src/bulk/stage4_cluster.sh     # after the first one finishes
+```
+
+**Check the version before assuming you need the first job.** The matrices on
+disk as of 2026-09-05 were `*_0.9.0.parquet`, and `ingest build` defaults to
+`PROVISIONAL_VERSION`, which is still `0.9.0`. Everything downstream asks for
+1.0.0 by name — the S matrices are on it, Stage 4 reads it,
+`run_purity_conditioned` reads it. A 0.9.0 matrix does not fail to join. It
+joins on a different gene set.
+
+```
+ls $BRP_DATA_DIR/processed/bulk/tcga_tpm_*.parquet
 ```
 
 It runs fractions → the predictor check (enforced, not eyeballed) → the purity
