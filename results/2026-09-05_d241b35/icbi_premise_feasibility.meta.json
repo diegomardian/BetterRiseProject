@@ -1,0 +1,40 @@
+{
+  "date": "2026-09-05",
+  "utc_timestamp": "2026-09-05T06:02:59+00:00",
+  "git_sha": "d241b352172cb13e40d7e8a0f71b5dff5208b0dc",
+  "git_sha_short": "d241b35",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "icbi_premise_feasibility",
+  "n_rows": 5,
+  "columns": [
+    "min_cells_per_arm",
+    "n_patients",
+    "n_studies",
+    "n_patients_new",
+    "n_studies_new",
+    "n_patients_already_read",
+    "median_epithelial_genes"
+  ],
+  "table_kind": "harness",
+  "source": "ICBI CRC atlas /obs, read over HTTP range requests",
+  "epithelial_labels": [
+    "Epithelial cell",
+    "Cancer cell"
+  ],
+  "epithelial_label_note": "Cancer cell is counted as epithelium. Excluding it gives 7 usable patients against 136 -- a nineteen-fold difference from a label choice, so it is a stated decision.",
+  "already_read": [
+    "Lee_2020_Nat_Genet",
+    "Pelka_2021_Cell"
+  ],
+  "raw_counts_share": 0.9687350012157295,
+  "n_reference_genomes": 15,
+  "what_this_answers": "Whether the ICBI atlas can supply enough INDEPENDENT study-level estimates to meta-analyse the coexpression premise, which is the one blocker that is a power problem rather than a structural one. Sizing only -- no expression data is read.",
+  "what_this_does_not_answer": "Whether the premise then resolves. More studies narrow a meta-analytic interval; they do not touch the decomposition's algebraic collapse or the survivorship confound, and neither is a power problem."
+}
