@@ -198,20 +198,25 @@ cells per arm the atlas carries **14 studies / 136 paired patients, of which 12
 studies and 85 patients are new**. 96.9% raw counts, so invariant 4 is
 satisfiable; 15 reference genomes, which the shared index has to absorb.
 
-**Its table is not stamped yet** — `results/` writes refuse a dirty tree, and
-`paper/icbinb/` has uncommitted edits. Commit or stash those and re-run.
+Stamped clean at `results/2026-09-05_d241b35/` (7 tables). The five metadata
+summaries previously carried the vocabulary bugs' zeros and those copies are
+deleted rather than superseded.
 
 ## 6c. Then, in cost order:
 
 1. ~~Finish the Phase-5 plumbing check~~ — **done.** S matrix → synthetic bulk →
    NNLS + nu-SVR → stamped parquet runs end to end in
    `tests/test_bulk_deconvolution.py`.
-2. **Housekeeping** — 18 dirty tables across 7 directories, every one now
-   superseded by a clean twin; one `git rm`. And
-   `tcga_premise_purity_conditioned` / `tcga_purity_expression_association` have
-   **no committed producer** (`purity_conditioned_check()` exists and is tested,
-   nothing calls it) — writing that driver is the last instance of Appendix A
-   item 3.
+2. ~~**Housekeeping**~~ — **mostly done.** 16 of the 18 dirty tables were
+   verified frame-identical to their clean twins and deleted. The remaining
+   **two are not superseded**: `tcga_premise_purity_conditioned` and
+   `tcga_purity_expression_association` are the same two that had no producer,
+   so sweeping all 18 would have destroyed the only copies of results nothing
+   could regenerate. `src/bulk/run_purity_conditioned.py` is now that producer
+   (committed, tested); it needs the TCGA matrices, so **run it on the cluster**
+   and then the two originals can go.
+   `tests/test_bulk_purity_conditioned.py` is written to skip once a clean twin
+   exists — that skip is the signal.
 3. **Stage-4 deconvolution → survival**, cluster, W3/W2 scope. Fractions only
    (invariant 6).
 

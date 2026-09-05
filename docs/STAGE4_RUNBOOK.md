@@ -163,6 +163,20 @@ with the compositional account, never mechanism.
 
 ---
 
+## While you are on the cluster: the purity producer
+
+Unrelated to Stage 4, same data, one command. It closes the repo's last
+uncommitted-producer case and lets two dirty tables finally be deleted.
+
+```bash
+python -m src.bulk.run_purity_conditioned
+```
+
+Then `pytest tests/test_bulk_purity_conditioned.py` — the test that pins the
+2026-08-18 tables as the only copies is written to **skip** once a clean twin
+exists, and that skip is the signal it is safe to
+`git rm results/2026-08-18_7c49e99/tcga_{premise_purity_conditioned,purity_expression_association}.*`.
+
 ## GSE39582
 
 Affymetrix, not RNA-seq. The spec allows reporting that the S matrix cannot be
