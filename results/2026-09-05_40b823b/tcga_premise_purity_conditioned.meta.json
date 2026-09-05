@@ -1,0 +1,50 @@
+{
+  "date": "2026-09-05",
+  "utc_timestamp": "2026-09-05T07:03:37+00:00",
+  "git_sha": "40b823bf7ce2e39a33924e822a12d51a19bf1bba",
+  "git_sha_short": "40b823b",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260818,
+  "python": "3.11.16",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "notes": "W3.2 re-run conditioned on purity (W3.3). ABSOLUTE primary.",
+  "name": "tcga_premise_purity_conditioned",
+  "n_rows": 48,
+  "columns": [
+    "gene",
+    "stratum",
+    "n",
+    "zero_fraction",
+    "median",
+    "iqr",
+    "dip_statistic",
+    "dip_pvalue",
+    "bic_1",
+    "bic_2",
+    "bic_delta",
+    "gmm_weights",
+    "gmm_means",
+    "verdict",
+    "purity_adjusted",
+    "purity_method"
+  ],
+  "table_kind": "harness",
+  "genes": [
+    "GUCA2A",
+    "CDX2"
+  ],
+  "scale": "log2(CPM+1)",
+  "purity_adjusted": true,
+  "purity_methods": [
+    "absolute",
+    "aran_cpe",
+    "estimate_affy_extrapolated"
+  ],
+  "purity_source": "tcga_purity.parquet",
+  "supersedes": "results/2026-08-18_7c49e99/, which was written by an uncommitted script and stamped git_dirty against a branch that no longer exists. This job is that script, committed.",
+  "what_this_answers": "Whether bulk GUCA2A's bimodality survives conditioning on tumour purity, and how much of each gene's variance purity explains at all -- the number that says whether conditioning was ever going to matter."
+}
