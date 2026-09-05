@@ -71,7 +71,7 @@ from src.reference.jobs.coexpression_silencing import (
     rows_for_patient,
     summarise,
 )
-from src.reference.labels import label_column
+from src.reference.labels import LabelError, label_column
 
 log = logging.getLogger(__name__)
 
@@ -182,6 +182,7 @@ def study_deltas(
              len(patients), MIN_EPITHELIAL_PER_ARM)
 
     out: list[dict] = []
+    unlabellable: list[dict] = []
     for i, patient in enumerate(patients, 1):
         block_obs = rows[rows["patient_id"].astype(str) == patient]
         # ALL compartments: the QC population is the full patient block.
@@ -199,14 +200,32 @@ def study_deltas(
         tissue = block_obs["tissue"].to_numpy()[keep]
         comp = block_obs["compartment"].to_numpy()[keep]
         kept = block[keep]
-        labels = assign_labels(
-            kept, symbols, compartment=comp,
-            sample_id=block_obs[BATCH_KEY].to_numpy()[keep],
-            target_genes=sorted(tier_genes("A")), tissue=tissue,
-            patient_id=block_obs["patient_id"].to_numpy()[keep],
-            depth_quantile=DEPTH_QUANTILE, seed=seed,
-            index=pd.Index(block_obs.index.to_numpy()[keep]),
-        )
+        try:
+            labels = assign_labels(
+                kept, symbols, compartment=comp,
+                sample_id=block_obs[BATCH_KEY].to_numpy()[keep],
+                target_genes=sorted(tier_genes("A")), tissue=tissue,
+                patient_id=block_obs["patient_id"].to_numpy()[keep],
+                depth_quantile=DEPTH_QUANTILE, seed=seed,
+                index=pd.Index(block_obs.index.to_numpy()[keep]),
+            )
+        except LabelError as exc:
+            # A PATIENT THIS COHORT CANNOT LABEL IS NOT A FAILED STUDY.
+            # The commonest case is a tumour arm so much deeper than its own
+            # normal arm that no reference cell clears the matching threshold
+            # -- Pelka's C166 has a depth target of 27,146 against 949
+            # epithelial cells. That is a property of one patient's library
+            # preparation, and the two conditions already handled here by
+            # skipping (too few QC survivors, too few mature cells) are the
+            # same kind of thing.
+            #
+            # Counted and named, never silently dropped: a study that loses
+            # patients this way is a smaller reading, and how much smaller has
+            # to be visible in the sidecar.
+            unlabellable.append({"patient_id": patient, "reason": str(exc)})
+            log.warning("  [%d/%d] %s — cannot label: %s",
+                        i, len(patients), patient, exc)
+            continue
         call = labels[label_column(AXIS, RUNG)].astype(str).to_numpy()
         mature = (call == MATURE_BIN) & np.isin(tissue, ["normal", "tumour"])
         if mature.sum() < MIN_CELLS_BOTH_ARMS:
@@ -234,6 +253,11 @@ def study_deltas(
 
     frame = pd.DataFrame(out)
     report["n_patients_scored"] = int(frame["patient_id"].nunique()) if not frame.empty else 0
+    report["n_patients_unlabellable"] = len(unlabellable)
+    report["unlabellable"] = unlabellable
+    if unlabellable:
+        log.warning("  %d of %d eligible patient(s) could not be labelled",
+                    len(unlabellable), len(patients))
     return frame, report
 
 

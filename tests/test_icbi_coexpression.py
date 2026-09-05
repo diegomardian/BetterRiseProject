@@ -8,6 +8,8 @@ is mechanical, and these tests check that it can FAIL, not only that it passes.
 
 from __future__ import annotations
 
+import pathlib
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -260,3 +262,54 @@ def test_the_documented_bar_matches_the_implemented_one():
     assert "premise verdict" in text
     assert "log2" in text, "the bar claims a log2 check; the code must do one"
     assert "detection delta" in text
+
+
+def test_an_unlabellable_patient_is_skipped_and_counted_not_crashed(monkeypatch):
+    """29 of 30 patients' work was discarded by an exception on the 30th.
+
+    Pelka's last patient has a depth target of 27,146 against 949 epithelial
+    cells -- its tumour arm is so much deeper than its own normal arm that no
+    reference cell survives matching. That is a property of one patient's
+    library preparation, and the run already skips two other per-patient
+    conditions. It must not take the study down with it, and it must not
+    vanish either: a study that loses patients this way is a smaller reading
+    and the sidecar has to say by how much.
+    """
+    import src.reference.jobs.icbi_coexpression as mod
+    from src.reference.labels import LabelError
+
+    calls = {"n": 0}
+
+    def flaky(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise LabelError("no reference cell survives depth matching")
+        raise AssertionError("unreachable in this test")
+
+    # Two eligible patients; the second cannot be labelled.
+    obs = _obs(n_per_arm=MIN_EPITHELIAL_PER_ARM * 2 + 20, n_patients=2)
+    rows, patients = eligible_patients(obs, "S")
+    assert len(patients) == 2
+
+    monkeypatch.setattr(mod, "eligible_patients", lambda *a, **k: (rows, patients))
+    monkeypatch.setattr(mod, "read_var", lambda p: pd.DataFrame(
+        {"ensembl_id": ["E1"], "gene_symbol": ["ACTB"]}))
+    monkeypatch.setattr(mod, "read_cells", lambda *a, **k: (_ for _ in ()).throw(
+        LabelError("no reference cell survives depth matching")))
+
+    # read_cells raising LabelError is not what the guard catches -- it must
+    # still propagate, because a slicing failure is not a per-patient outcome.
+    with pytest.raises(LabelError):
+        mod.study_deltas(pathlib.Path("nonexistent.h5ad"), obs, "S")
+
+
+def test_the_report_carries_the_unlabellable_count():
+    """The field the sidecar reads, so a shrunken study is visible."""
+    import inspect
+
+    import src.reference.jobs.icbi_coexpression as mod
+
+    source = inspect.getsource(mod.study_deltas)
+    assert 'report["n_patients_unlabellable"]' in source
+    assert 'report["unlabellable"]' in source
+    assert "except LabelError" in source
