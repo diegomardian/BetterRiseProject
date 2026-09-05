@@ -1,10 +1,12 @@
-% Two guards that could not fire. Sits inside §3 (sec:calibration) with no
+% Three guards that could not fire. Sits inside §3 (sec:calibration) with no
 % \section of its own — see PATCHES.md E1/G4.
 
 The two defective validation statistics --- the recovery curve of
 \S\ref{sec:blind} and the grid above --- are not isolated. Our working rule holds that \textbf{a check unable to fail is worse
 than no check}, because such a check turns an absence of evidence into a green
-light. Two more guards shipped and got withdrawn, and both survive correct code.
+light. Three more guards shipped and got withdrawn, and all three survive
+correct code. The third we wrote ourselves, to this rule, after the other two
+were already written up.
 Five others were plain implementation errors: three sit in
 Appendix~\ref{app:withdrawn} as record rather than finding, and two are named
 there and not described.
@@ -52,3 +54,37 @@ acting on a criterion proven unable to pass would have been caused by the
 pre-registration rather than prevented by it. Pre-registration protects you
 against choosing the analysis after seeing the result. It offers no protection
 against an unsatisfiable criterion, and standard practice never asks.
+
+
+\paragraph{A premise check whose sensitivity was a property of the gene it
+controlled.} Forbidden a mechanism claim from the decomposition, we asked the
+question a second way: in patients whose mature cells survive in \emph{both}
+arms, does the marker fall within those cells? That reading is licensed only if
+the two arms' surviving mature cells are comparable, so we gated it on a premise
+check --- housekeeping controls compared between arms against a tolerance, run
+before anything else is read. On detection rate the controls pass. Across three
+cohorts and 42 patients, \textbf{83 of 84} patient-gene control rows sit inside a
+$0.10$ tolerance, and the premise reads \emph{holds}.
+
+The controls had moved. Those same genes shift by factors of $1.19$ to $1.64$ in
+per-cell output between the arms, and detection rate cannot see it, because at a
+reference detection rate of $0.967$ to $1.000$ it has nowhere to go. Detection
+under a Poisson model is $d' = 1 - (1-d)^{s}$ for a fold change $s$, so a gene
+detected in 99\% of cells whose output \emph{halves} still reads $0.90$ --- inside
+the tolerance by construction. \textbf{The tolerance again sat above the
+statistic's attainable range}: this is the confound diagnostic above, in a guard
+the same people wrote four days after writing that paragraph, to the rule stated
+at the top of this section. Reassessed on log$_2$ expression, the primary
+cohort refuses the premise it had just granted.
+
+The refusal did not hold either. The verdict was a point estimate against a
+fixed line, so it inherited exactly the defect the estimator is gated against:
+one cohort's control read $+0.486$ under one seed and $+0.540$ under another,
+against a tolerance of $0.5$ --- the same data, a different draw, opposite
+verdicts. Bootstrapped over patients, every cohort's control interval straddles
+the tolerance: $-0.712\,[-1.250, -0.289]$, $+0.540\,[+0.012, +1.112]$,
+$+0.431\,[+0.216, +0.640]$. So the premise check ended with the shape of the
+estimator it exists to gate --- satisfied, refused, and \textbf{undecided} --- and
+returns undecided on all three cohorts. The mechanism question is unresolved on
+this data. \textbf{That is the finding a two-state check would not have let us
+reach}: it said \emph{holds}, and we would have published a mechanism.

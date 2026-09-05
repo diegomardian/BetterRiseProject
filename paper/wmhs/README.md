@@ -32,7 +32,7 @@ verbatim.
 
 The short build drops: the related-work survey, Table 1 and the invented-effect
 detail, the conformal aside, the grid caveats, the modal-outcome result, and the
-two withdrawn guards. It keeps the whole of §2 — the general form, the
+three withdrawn guards. It keeps the whole of §2 — the general form, the
 trial-simulator instantiation and the one-line check — Figure 1, and the
 mandatory responsible-use statement.
 
@@ -88,8 +88,14 @@ item 3, and re-deriving the number is why the module is here.
       email address survives every scrub that only edits files, which is why
       that script drops `.git`), `.github/CODEOWNERS` names a GitHub handle
       seven times, and `CONTRIBUTING.md` carries the clone URL.
+- [ ] **Re-check the page limits.** The third withdrawn guard (added 2026-09-05)
+      grows the full build by about a page; the short build's main text is
+      unchanged. Neither was measured against the real style, because it is not
+      vendored — `./build.sh` enforces both limits once you drop it in.
 - [ ] Rebuild both figures from freshly written tables and confirm the captions
-      still match what the tables say.
+      still match what the tables say. `pytest tests/test_paper_numbers.py`
+      checks the prose against the tables it quotes; it is not a substitute for
+      looking at the figures.
 - [ ] `grep -c 'undefined' main.log` returns 0 after a full four-pass build.
 - [x] ~~Verify the `petukhov2022` (cacoa) venue.~~ Done 2026-08-31: cacoa is
       still a preprint, no journal version exists, so the bioRxiv entry is
@@ -107,7 +113,7 @@ sections/setup.tex       §1  the decomposition and the rule
 sections/blind.tex       §2  the recovery curve, the general form, the
                              trial-simulator instantiation, the one-line check
 sections/calibration.tex §3  what a correct calibration returns (Figure 1)
-sections/withdrawn.tex       two more checks that could not fire — inside §3
+sections/withdrawn.tex       three more checks that could not fire — inside §3
 sections/bench.tex       §4  what abstention buys (Table 1), and the closer
 sections/responsible.tex §5  the mandatory responsible-use statement
 sections/benchtable.tex      Table 1 — main text (full) or appendix (short)

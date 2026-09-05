@@ -41,6 +41,32 @@
 > **Still open.** G3 (the abstention figure is gone; nothing references it) · the
 > two §4 defects remain live *by choice* and the appendix says so · fill in
 > `\artifacturl` and run `check_anonymity.sh` · full paper vs 4-page abstract.
+>
+> ## 2026-09-05 — the third withdrawn guard
+>
+> **Landed.** A third guard joins §3: the premise check behind the silencing
+> reading passed on detection rate while its own controls moved 1.19–1.64-fold
+> in expression, because at a reference detection rate of 0.967–1.000 the
+> statistic has nowhere to go. **The tolerance sat above the statistic's
+> attainable range — the confound diagnostic's defect, in a guard we wrote to
+> this paper's own rule, while writing this paper.** The premise then acquired a
+> third verdict for the same reason the estimator has one, and returns
+> *undecided* on all three cohorts. §5 and the conclusion carry it.
+>
+> Two counts were wrong and are fixed: the conclusion claimed "two of this
+> paper's three statistics" while listing three, and `withdrawn.tex` said two
+> guards. Both are now checked rather than proofread — `tests/test_paper_numbers.py`
+> re-derives every figure in the new paragraph from
+> `results/*/coexpression_silencing*.parquet` and asserts it against the literal
+> string in the `.tex`. All eleven assertions were mutation-tested: each one
+> fails when its number is perturbed. Editing prose or table alone now breaks CI.
+>
+> **Page budget — NOT verified.** `neurips_2026.sty` is not vendored, so the
+> real page count could not be measured. Against a geometry-matched stub the
+> full build grows one page (10 → 11 stub pages) and the short build's main text
+> is unchanged (5 → 5). The stub runs ~1.4× longer than the real style, so the
+> estimate is roughly 7 → 7.7 of 9 real pages. **Drop the official style in and
+> run `./build.sh` before submitting.**
 
 
 `main.tex` is edited and complete. These are the changes I could not make because

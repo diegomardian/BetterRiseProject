@@ -1,15 +1,21 @@
 \iffull
-Two of this paper's three statistics could not fail. A recovery curve in which
-the estimator cancels still draws a smooth line; a grid that cannot resolve a
+Four of this paper's statistics could not fail. A recovery curve in which the
+estimator cancels still draws a smooth line; a grid that cannot resolve a
 crossing still returns a stable number; a confound diagnostic whose tolerance
-sits above its own attainable bound still reports clean. Each looked like a
+sits above its own attainable bound still reports clean; and a premise check
+reading a control detected in 99\% of cells reports comparable arms while those
+same controls shift by up to $0.71$ on log$_2$ expression. Each looked like a
 measurement, and in every case the fix was to ask what the statistic was a
-function of rather than to look harder at its output.
+function of rather than to look harder at its output. \textbf{We wrote the
+fourth ourselves, to this rule, while writing this paper}, and it took a
+bootstrap interval to notice --- which is the strongest claim we can make that
+the failure is structural rather than careless.
 \fi
 
-That question has a cheap answer for recovery curves specifically, and the
-answer generalises past our instance: compare against the realised draw rather
-than the requested parameter, and assert the difference is not identically zero.
+Asking what a statistic is a function of has a cheap answer for recovery curves
+specifically, and the answer generalises past our instance: compare against the
+realised draw rather than the requested parameter, and assert the difference is
+not identically zero.
 It costs one line, it runs on the sweep you already have, and in a patient
 simulator it separates two estimators whose curves agree to machine precision.
 We would rather it had been in our design document than in our findings.
