@@ -41,6 +41,7 @@ Four live questions at once, from ``tables/reference_meta.yaml``'s vocabulary:
 from __future__ import annotations
 
 import io
+from pathlib import Path
 from typing import Any, Final
 
 import numpy as np
@@ -242,10 +243,25 @@ def read_atlas_obs(
     `report` carries the bytes actually fetched, so the claim that this reads the
     metadata rather than the object is checkable rather than asserted.
     """
+    import contextlib
+
     import h5py
 
-    handle = HTTPRangeFile(url, block_size=block_size)
-    with h5py.File(handle, mode="r", driver="fileobj") as h5:
+    # A LOCAL PATH IS NOT A URL, and once the atlas has been fetched there is no
+    # reason to read it over the network again. Range requests exist because the
+    # object is 32.7 GB and /obs is 0.1% of it -- that argument disappears the
+    # moment the file is on disk.
+    local = Path(url)
+    if local.exists():
+        opener = contextlib.nullcontext(str(local))
+        handle = None
+    else:
+        handle = HTTPRangeFile(url, block_size=block_size)
+        opener = contextlib.nullcontext(handle)
+
+    with opener as source, h5py.File(
+        source, mode="r", **({} if handle is None else {"driver": "fileobj"})
+    ) as h5:
         if "obs" not in h5:
             raise ICBIError("no /obs group — is this an .h5ad?")
         obs_group = h5["obs"]
@@ -260,9 +276,17 @@ def read_atlas_obs(
         "columns_read": wanted,
         "columns_missing": missing,
         "columns_available": available,
-        "bytes_fetched": handle.bytes_fetched,
-        "object_size": handle.size,
-        "fraction_fetched": handle.bytes_fetched / handle.size if handle.size else 0.0,
+        # A local read fetches nothing. Reporting 0 rather than omitting the
+        # keys keeps the sidecar's shape stable across both paths.
+        "bytes_fetched": handle.bytes_fetched if handle is not None else 0,
+        "object_size": (
+            handle.size if handle is not None else local.stat().st_size
+        ),
+        "fraction_fetched": (
+            handle.bytes_fetched / handle.size
+            if handle is not None and handle.size else 0.0
+        ),
+        "source": "http_range" if handle is not None else "local_file",
     }
     return obs, report
 

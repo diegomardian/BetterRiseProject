@@ -28,6 +28,7 @@ from pathlib import Path
 import pandas as pd
 
 from src.common.io import write_versioned_table
+from src.common.paths import INTERIM_DIR
 from src.common.provenance import DEFAULT_SEED
 from src.reference.icbi import (
     ATLAS_URL,
@@ -46,8 +47,18 @@ ALLOW_DIRTY = False
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--url", default=ATLAS_URL)
-    parser.add_argument("--cache", default="data/interim/icbi_obs.parquet")
+    parser.add_argument(
+        "--url", default=ATLAS_URL,
+        help="the atlas URL, or a LOCAL PATH to an already-fetched copy. "
+             "Range requests exist because the object is 32.7 GB and /obs is "
+             "0.1%% of it; once it is on disk that argument is gone.",
+    )
+    # INTERIM_DIR, not a path relative to the repo. Those are the SAME
+    # directory when BRP_DATA_DIR is unset -- which is why this worked on a
+    # laptop for weeks -- and different the moment it points outside the repo,
+    # as it does on the cluster. The puller then wrote one place and every
+    # consumer looked in another.
+    parser.add_argument("--cache", default=str(INTERIM_DIR / "icbi_obs.parquet"))
     parser.add_argument("--refresh", action="store_true")
     parser.add_argument(
         "--allow-dirty", action="store_true",

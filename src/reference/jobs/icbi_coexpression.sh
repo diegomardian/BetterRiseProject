@@ -46,11 +46,17 @@ if [ ! -f "$ATLAS" ]; then
   echo "and export BRP_ICBI_DIR if it does not live under /project." >&2
   exit 1
 fi
-if [ ! -f "$BRP_DATA_DIR/interim/icbi_obs.parquet" ]; then
-  echo "REFUSING: the cached obs is missing. Run" >&2
-  echo "  python -m src.reference.jobs.pull_icbi_metadata" >&2
-  exit 1
+# The obs cache. Built from the LOCAL atlas rather than re-fetched over the
+# network -- range requests were for a 32.7 GB object we did not have, and we
+# have it now.
+OBS="$BRP_DATA_DIR/interim/icbi_obs.parquet"
+if [ ! -f "$OBS" ]; then
+  echo "cached obs missing; building it from the local atlas ..."
+  mkdir -p "$BRP_DATA_DIR/interim"
+  python -m src.reference.jobs.pull_icbi_metadata --url "$ATLAS" --allow-dirty
+  [ -f "$OBS" ] || { echo "REFUSING: still no $OBS" >&2; exit 1; }
 fi
+echo "obs cache: $OBS"
 echo "atlas: $ATLAS ($(du -h "$ATLAS" | cut -f1))"
 
 module load miniconda

@@ -275,3 +275,40 @@ class TestVocabulary:
         plate = platforms[platforms["plate_based"]]
         assert int(plate["n_cells"].sum()) == 24136
         assert set(plate["platform"]) == {"Smart-seq2", "scTrio-seq2", "SMARTer (C1)"}
+
+
+def test_a_local_path_is_read_directly_rather_than_over_http(atlas):
+    """Range requests exist because the object is 32.7 GB and /obs is 0.1% of
+    it. Once it is on disk that argument is gone, and the cluster has it on
+    disk -- re-fetching over the network there is pure waste.
+    """
+    from src.reference.icbi import read_atlas_obs
+
+    path, frame = atlas
+    obs, report = read_atlas_obs(str(path), ["study_id", "platform", "sample_type"])
+    assert len(obs) == len(frame)
+    assert report["source"] == "local_file"
+    assert report["bytes_fetched"] == 0
+    assert report["object_size"] == path.stat().st_size
+
+
+def test_the_puller_caches_where_every_consumer_looks(monkeypatch):
+    """The bug this closes: the puller defaulted to a path relative to the repo
+    while the driver and the wrapper read INTERIM_DIR.
+
+    Those are the SAME directory when BRP_DATA_DIR is unset, which is why it
+    worked on a laptop and failed the first time it ran on the cluster.
+    """
+    import argparse
+    import inspect
+
+    from src.common.paths import INTERIM_DIR
+    from src.reference.jobs import pull_icbi_metadata
+
+    source = inspect.getsource(pull_icbi_metadata.main)
+    assert '"data/interim/icbi_obs.parquet"' not in source, (
+        "the cache default is a repo-relative path again; it must be INTERIM_DIR"
+    )
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cache", default=str(INTERIM_DIR / "icbi_obs.parquet"))
+    assert parser.parse_args([]).cache == str(INTERIM_DIR / "icbi_obs.parquet")
