@@ -12,6 +12,8 @@ recover that on data we constructed, it cannot be read on data we did not.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -210,3 +212,69 @@ def test_the_run_refuses_a_proposed_prespecification(world, fractions, monkeypat
             "--expression", str(world["expression"]), "--purity", str(world["purity"]),
             "--rung", "lineage", "--results-dir", str(world["tmp"] / "x"), "--allow-dirty",
         ])
+
+
+def _two_rung_fractions(world, fractions) -> Path:
+    """The lineage fractions, relabelled under a second rung.
+
+    Each rung's S matrix selects its own 800 genes, so synthetic bulk built for
+    one rung cannot be deconvolved against another. This test is about the WRITE
+    path -- whether every rung that reaches the gate survives into the committed
+    table -- so the second rung is manufactured rather than deconvolved.
+    """
+    source = sorted(fractions.glob("*/stage4_fractions.parquet"))[0]
+    frame = pd.read_parquet(source)
+    second = frame.assign(granularity_rung="crypt_position")
+    path = world["tmp"] / "two_rung_fractions.parquet"
+    pd.concat([frame, second], ignore_index=True).to_parquet(path)
+    return path
+
+
+def test_every_rung_survives_into_one_gate_table(world, fractions):
+    """The defect the 2026-09-05 run committed: only the last rung was kept.
+
+    The cluster script looped in the shell, calling the driver once per rung.
+    Each call wrote `stage4_instrument_gate` under the same name into the same
+    {date}_{sha} directory, so lineage and crypt_position were overwritten by
+    best4 and their numbers survived only in a log file. The committed evidence
+    for a four-rung result covered one rung.
+
+    `--rung all` loops inside the driver and writes once.
+    """
+    from src.bulk.run_stage4_variance import main
+
+    out = world["tmp"] / "allrungs"
+    main([
+        "--fractions", str(_two_rung_fractions(world, fractions)),
+        "--expression", str(world["expression"]), "--purity", str(world["purity"]),
+        "--rung", "all", "--results-dir", str(out), "--allow-dirty",
+    ])
+    gate = pd.read_parquet(sorted(out.glob("*/stage4_instrument_gate.parquet"))[0])
+    assert gate["granularity_rung"].nunique() > 1, (
+        f"the gate table carries only {gate['granularity_rung'].unique()}. Every "
+        f"rung that reached the gate must survive into the committed table, not "
+        f"just the last one."
+    )
+    assert {"granularity_rung", "method", "pearson_r", "passed"} <= set(gate.columns)
+
+    verdicts = sorted(out.glob("*/stage4_variance_verdicts.parquet"))
+    if verdicts:
+        assert pd.read_parquet(verdicts[0])["granularity_rung"].nunique() > 1
+
+
+def test_a_shell_loop_over_rungs_would_have_lost_all_but_the_last(world, fractions):
+    """The demonstration, so the fix is justified rather than merely asserted."""
+    from src.bulk.run_stage4_variance import main
+
+    path = _two_rung_fractions(world, fractions)
+    out = world["tmp"] / "looped"
+    for rung in ("lineage", "crypt_position"):
+        main([
+            "--fractions", str(path),
+            "--expression", str(world["expression"]), "--purity", str(world["purity"]),
+            "--rung", rung, "--results-dir", str(out), "--allow-dirty",
+        ])
+    gate = pd.read_parquet(sorted(out.glob("*/stage4_instrument_gate.parquet"))[0])
+    assert set(gate["granularity_rung"]) == {"crypt_position"}, (
+        "a shell loop no longer overwrites, so this test's premise is stale"
+    )

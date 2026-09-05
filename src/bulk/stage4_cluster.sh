@@ -118,25 +118,28 @@ python -m src.bulk.run_purity_conditioned
 
 # ---------------------------------------------------------------------------
 echo; echo "### 4/4  gate, then the pre-registered arm, every rung"
-# Each rung is allowed to stop on its own terms without killing the others:
-# exit 3 (no usable predictor) and exit 4 (instrument gate failed) are RESULTS.
-# `set -e` would treat them as failures, so they are caught per rung.
+# ONE call with --rung all, not a shell loop. Each call writes the same table
+# names into the same {date}_{sha} directory, so a loop keeps only the last
+# rung: the 2026-09-05 run committed a gate table containing best4 alone while
+# lineage's and crypt_position's numbers survived only in this log. The driver
+# loops internally and writes once.
+#
+# Exit 3 (no usable predictor) and 4 (gate failed) are RESULTS, not errors, so
+# set -e must not treat them as failures.
+set +e
+python -m src.bulk.run_stage4_variance --rung all
+code=$?
+set -e
+case "$code" in
+  0) echo "  a verdict was reached on at least one rung" ;;
+  3) echo "  no usable predictor -- that is the result" ;;
+  4) echo "  INSTRUMENT GATE FAILED -- that is the result, and no R-squared" \
+          "is reported" ;;
+  5) echo "  no verdict could be formed" ;;
+  *) echo "  unexpected exit $code" >&2 ;;
+esac
 FAILED_HARD=0
-for rung in epithelial lineage crypt_position best4 ; do
-  echo; echo "--- $rung ---"
-  set +e
-  python -m src.bulk.run_stage4_variance --rung "$rung"
-  code=$?
-  set -e
-  case "$code" in
-    0) echo "  $rung: a verdict was reached" ;;
-    3) echo "  $rung: no usable predictor -- that is this rung's result" ;;
-    4) echo "  $rung: INSTRUMENT GATE FAILED -- that is this rung's result, and" \
-            "no R-squared is reported for it" ;;
-    5) echo "  $rung: no verdict could be formed" ;;
-    *) echo "  $rung: unexpected exit $code" >&2 ; FAILED_HARD=1 ;;
-  esac
-done
+[ "$code" -le 5 ] || FAILED_HARD=1
 
 echo; echo "=== $(date) done ==="
 echo "Tables are under results/. They are NOT committed by this job -- read"

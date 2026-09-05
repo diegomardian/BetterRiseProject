@@ -57,6 +57,9 @@ log = logging.getLogger(__name__)
 
 BULK = PROCESSED_DIR / "bulk"
 HOUSEKEEPING = ("ACTB", "GAPDH")
+RUNGS: tuple[str, ...] = (
+    "epithelial", "lineage", "crypt_position", "best4",
+)
 
 
 def _newest(name: str) -> Path | None:
@@ -208,7 +211,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                         default=BULK / "tcga_log2cpm_1.0.0.parquet")
     parser.add_argument("--purity", type=Path, default=None)
     parser.add_argument("--covariates", type=Path, default=None)
-    parser.add_argument("--rung", default="lineage")
+    parser.add_argument(
+        "--rung", default="lineage",
+        help="a rung name, or 'all'. Prefer 'all': a shell loop calling this "
+             "once per rung writes the SAME table name into the same "
+             "{date}_{sha} directory each time, so every rung but the last is "
+             "overwritten. That is how the 2026-09-05 run committed a gate "
+             "table containing only best4 while the other rungs' numbers "
+             "survived in a log file.",
+    )
     parser.add_argument("--results-dir", type=Path, default=None)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--allow-dirty", action="store_true")
@@ -220,6 +231,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     log.info("pre-specification %s, locked %s by %s",
              spec["version"], spec["locked_on"], spec["locked_by"])
 
+    rungs = RUNGS if args.rung == "all" else (args.rung,)
+    gate_rows, verdict_frames, null_frames = [], [], []
+    worst = 0
+    for rung in rungs:
+        if len(rungs) > 1:
+            log.info("\n" + "=" * 62 + "\n%s rung\n" + "=" * 62, rung)
+        code = run_one_rung(
+            args, spec, rung, gate_rows, verdict_frames, null_frames,
+        )
+        worst = max(worst, code)
+    return finish(args, spec, gate_rows, verdict_frames, null_frames, worst)
+
+
+def run_one_rung(args, spec, rung, gate_rows, verdict_frames, null_frames) -> int:
+    """One rung, appending to the shared accumulators. Returns its exit code."""
+
     fractions_path = args.fractions or _newest("stage4_fractions")
     if fractions_path is None:
         raise SystemExit(
@@ -227,19 +254,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             "--rung lineage --linearise-reference` first."
         )
     fractions = pd.read_parquet(fractions_path)
-    fractions = fractions[fractions["granularity_rung"] == args.rung]
+    fractions = fractions[fractions["granularity_rung"] == rung]
     if fractions.empty:
-        raise SystemExit(f"{fractions_path} carries no {args.rung} rows")
-    log.info("fractions: %s (%d rows, %s rung)", fractions_path.name, len(fractions), args.rung)
+        log.error("%s carries no %s rows", fractions_path.name, rung)
+        return 5
+    log.info("fractions: %s (%d rows, %s rung)", fractions_path.name, len(fractions), rung)
 
     # --- Gate 2 first, because it is the cheap one and it blocks. -----------
     checks_path = args.predictor_checks or _newest("stage4_predictor_checks")
     if checks_path is not None:
         checks = pd.read_parquet(checks_path)
-        checks = checks[checks["granularity_rung"] == args.rung]
+        checks = checks[checks["granularity_rung"] == rung]
         unusable = checks[checks["verdict"] != "usable"]
         if not checks.empty and len(unusable) == len(checks):
-            log.error("STOP. No method produced a usable predictor at the %s rung:", args.rung)
+            log.error("STOP. No method produced a usable predictor at the %s rung:", rung)
             for _, row in unusable.iterrows():
                 log.error("  %s: %s -- %s", row["method"], row["verdict"], row["detail"])
             return 3
@@ -253,27 +281,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit("no tcga_purity.parquet; the instrument gate cannot run.")
     purity = pd.read_parquet(purity_path)
     log.info("instrument gate against %s", purity_path.name)
-    proceed, gate_results, message = run_gate(fractions, purity, args.rung)
+    proceed, gate_results, message = run_gate(fractions, purity, rung)
     log.info("%s", message)
 
-    gate_frame = pd.DataFrame([r.as_row() for r in gate_results])
-    if not gate_frame.empty:
-        gate_frame.insert(0, "cohort", "TCGA-COAD/READ")
-        path = write_versioned_table(
-            gate_frame, "stage4_instrument_gate", seed=args.seed,
-            results_dir=args.results_dir, allow_dirty=args.allow_dirty,
-            extra_meta={
-                "prespec_version": spec["version"], "prespec_locked_on": spec["locked_on"],
-                "purity_source": purity_path.name,
-                "what_this_answers": (
-                    "The locked prespec's positive control: does the deconvolved "
-                    "non-epithelial fraction track (1 - ABSOLUTE purity) at "
-                    "r >= 0.5? It does NOT certify the epithelial-internal split "
-                    "Stage 4 regresses on -- see stage4_predictor_checks."
-                ),
-            },
-        )
-        log.info("wrote %s", path)
+    # Accumulated, not written here. One table per rung under one name in one
+    # directory is one table.
+    gate_rows.extend(dict(r.as_row(), cohort="TCGA-COAD/READ") for r in gate_results)
 
     if not proceed:
         log.error("\nSTOP per the locked pre-specification. No R-squared is reported.")
@@ -306,23 +319,53 @@ def main(argv: Sequence[str] | None = None) -> int:
         log.warning("no --covariates: reporting the MARGINAL R-squared only. The "
                     "locked spec asks for the adjusted one too.")
 
-    verdict_frames, null_frames = [], []
+    produced = 0
     for method in sorted(fractions["method"].unique()):
-        log.info("%s / %s rung", method, args.rung)
+        log.info("%s / %s rung", method, rung)
         try:
             verdicts, nulls = run_variance(
                 expression, fractions, covariates, index_map, spec,
-                rung=args.rung, method=method, covariate_names=covariate_names,
+                rung=rung, method=method, covariate_names=covariate_names,
             )
         except VarianceArmError as exc:
             log.error("  REFUSED: %s", exc)
             continue
+        if verdicts.empty:
+            continue
         verdict_frames.append(verdicts)
         null_frames.append(nulls)
+        produced += 1
 
-    if not verdict_frames or all(f.empty for f in verdict_frames):
-        log.error("no verdict could be formed on any method.")
+    if not produced:
+        log.error("no verdict could be formed on any method at the %s rung.", rung)
         return 5
+    return 0
+
+
+def finish(args, spec, gate_rows, verdict_frames, null_frames, worst: int) -> int:
+    """Write one table per kind, across every rung, then report."""
+    if gate_rows:
+        path = write_versioned_table(
+            pd.DataFrame(gate_rows), "stage4_instrument_gate", seed=args.seed,
+            results_dir=args.results_dir, allow_dirty=args.allow_dirty,
+            extra_meta={
+                "prespec_version": spec["version"],
+                "prespec_locked_on": spec["locked_on"],
+                "grain": "one row per (granularity_rung, method)",
+                "what_this_answers": (
+                    "The locked prespec's positive control: does the deconvolved "
+                    "non-epithelial fraction track (1 - ABSOLUTE purity) at "
+                    "r >= 0.5? It does NOT certify the epithelial-internal split "
+                    "Stage 4 regresses on -- see stage4_predictor_checks."
+                ),
+            },
+        )
+        log.info("\nwrote %s", path)
+
+    if not verdict_frames:
+        log.error("\nNo rung produced a verdict. The gate and predictor tables "
+                  "above are the Stage 4 result.")
+        return worst
 
     for frame, name in ((pd.concat(verdict_frames, ignore_index=True), "stage4_variance_verdicts"),
                         (pd.concat(null_frames, ignore_index=True), "stage4_matched_nulls")):
@@ -352,12 +395,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         log.info("wrote %s", path)
 
     verdicts = pd.concat(verdict_frames, ignore_index=True)
-    disagreement = verdicts.groupby(["method", "r_squared_kind"])["primary_verdict"].first()
-    if disagreement.groupby(level=0).nunique().gt(1).any():
+    disagreement = verdicts.groupby(
+        ["granularity_rung", "method", "r_squared_kind"]
+    )["primary_verdict"].first()
+    if disagreement.groupby(level=[0, 1]).nunique().gt(1).any():
         log.warning("\nThe partial and marginal R-squared give DIFFERENT primary "
                     "verdicts. The locked spec does not say which its arms are "
                     "stated on, so both are reported and neither is chosen.")
-    return 0
+    return worst
 
 
 if __name__ == "__main__":
