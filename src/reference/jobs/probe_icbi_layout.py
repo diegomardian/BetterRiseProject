@@ -38,8 +38,21 @@ from src.reference.icbi import ATLAS_URL, HTTPRangeFile, ICBIError, _decode
 
 log = logging.getLogger(__name__)
 
-#: The genes the coexpression reading scores. Six of roughly thirty thousand.
-WANTED: tuple[str, ...] = ("ACTB", "KRT8", "EPCAM", "CDX2", "MS4A12", "GUCA2A")
+#: Everything a per-study coexpression run needs present in the atlas.
+#:
+#: The six GENE_ROLES the reading scores, plus both labelling axes' markers --
+#: `assign_labels` needs those to call maturity at all, and a missing axis
+#: marker silently narrows the axis ("scored on the remaining markers only")
+#: rather than failing. Checking six and discovering the other five are absent
+#: after a 33 GB download is the avoidable version of that.
+WANTED: tuple[str, ...] = (
+    # GENE_ROLES, src/reference/jobs/coexpression_silencing.py
+    "ACTB", "KRT8", "EPCAM", "CDX2", "MS4A12", "GUCA2A",
+    # stem_pole axis, config/labeling_axes.yaml
+    "LGR5", "ASCL2", "MKI67", "OLFM4", "SMOC2",
+    # opposite_lineage axis
+    "MUC2", "TFF3", "SPDEF", "ITLN1",
+)
 
 
 def describe(node) -> str:

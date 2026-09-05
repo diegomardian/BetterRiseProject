@@ -54,8 +54,9 @@ log = logging.getLogger(__name__)
 
 DEFAULT_S_MATRIX = RESULTS_DIR / "2026-08-26_63ead2e" / "S_matrix_lineage_1.0.0.parquet"
 
-#: The Stage 4 gate missed by this much: 0.479 against a 0.5 threshold. A recipe
-#: gap at or above it makes the linear rebuild the explanation.
+#: The Stage 4 gate missed by this much: 0.479 against a 0.5 threshold. Reported
+#: for scale ONLY -- see the verdict text for why it is no longer a decision
+#: rule.
 GATE_SHORTFALL = 0.021
 
 
@@ -186,21 +187,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     cross = gaps[gaps["leg"] == "cross"]
     if not cross.empty and "r_non_epithelial_gap" in cross.columns:
         best = float(cross["r_non_epithelial_gap"].max())
-        verdict = (
-            "AT OR ABOVE the shortfall: the recipe is a live explanation for the "
-            "gate failure, and the W1 linear rebuild is justified."
-            if best >= GATE_SHORTFALL else
-            "BELOW the shortfall: the recipe is not what is costing the margin. "
-            "The gate failure is a bulk-deconvolution limit and the rebuild will "
-            "not reach it."
-        )
         log.info(
             "\nLargest cross-cohort gap on the gate's own quantity: %+.4f\n"
-            "The Stage 4 gate missed by %.3f (0.479 against 0.5).\n  -> %s\n\n"
-            "This is a statement about the INSTRUMENT. It is not a result about "
-            "the biology,\nand the absolute correlations here do not transfer to "
-            "real bulk.",
-            best, GATE_SHORTFALL, verdict,
+            "(the Stage 4 gate missed by %.3f, 0.479 against 0.5, for scale)\n"
+            "\nWHAT THIS DOES AND DOES NOT LICENSE -- corrected 2026-09-05.\n"
+            "\nThis compares two ways of building a reference BY AVERAGING OVER\n"
+            "CELLS: the mean of log1p(CP10K) against the mean of CP10K. The gap\n"
+            "between them is real and it is what this number measures.\n"
+            "\nIt is NOT the committed-versus-rebuilt difference, and it does not\n"
+            "justify a W1 rebuild. run_full_reference does no cell-averaging: it\n"
+            "accumulates one pseudo-cell per cell type carrying that type's\n"
+            "SUMMED counts, so the committed profile is log1p(CP10K(summed)),\n"
+            "there is no Jensen gap, and expm1 inverts it exactly (4.7e-06). The\n"
+            "Stage 4 run passed --linearise-reference and was therefore already\n"
+            "on the correct linear scale.\n"
+            "\nSo a large gap here says: a reference built by averaging cells\n"
+            "must be built linearly. It says nothing about the committed one.\n"
+            "\nInstrument-level either way. Not a result about the biology, and\n"
+            "the absolute correlations do not transfer to real bulk.",
+            best, GATE_SHORTFALL,
         )
 
     for frame, name in ((table, "pseudobulk_recovery"),
@@ -228,9 +233,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "smc_holdout_patients": list(held),
                 "gate_shortfall": GATE_SHORTFALL,
                 "what_this_answers": (
-                    "Whether the reference RECIPE costs the instrument the 0.021 "
-                    "the Stage 4 gate missed by. A decision about the "
-                    "deconvolution leg's future."
+                    "The recovery cost of building a reference by averaging over "
+                    "CELLS on the log1p scale rather than the linear one."
+                ),
+                "what_this_does_not_answer_corrected_2026_09_05": (
+                    "It does NOT justify rebuilding the committed S matrices, "
+                    "and an earlier version of this field said it did. "
+                    "run_full_reference does no cell-averaging -- it sums counts "
+                    "into one pseudo-cell per type -- so the committed profile "
+                    "has no Jensen gap and expm1 inverts it exactly. The Stage 4 "
+                    "run was already on the correct linear scale. Any table "
+                    "written before this correction carries the wrong framing in "
+                    "its sidecar; the NUMBERS are unaffected."
                 ),
                 "what_this_does_not_answer": (
                     "Anything about colorectal cancer. And the absolute "
