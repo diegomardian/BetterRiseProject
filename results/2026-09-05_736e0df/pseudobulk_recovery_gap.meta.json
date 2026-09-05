@@ -1,0 +1,59 @@
+{
+  "date": "2026-09-05",
+  "utc_timestamp": "2026-09-05T16:23:26+00:00",
+  "git_sha": "736e0df86a22fe02f10e701882f658339322a3c9",
+  "git_sha_short": "736e0df",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.11.16",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "name": "pseudobulk_recovery_gap",
+  "n_rows": 4,
+  "columns": [
+    "leg",
+    "method",
+    "r_non_epithelial_linear",
+    "r_non_epithelial_log1p",
+    "r_non_epithelial_gap",
+    "r_epithelial_linear",
+    "r_epithelial_log1p",
+    "r_epithelial_gap",
+    "epithelial_exact_zero_linear",
+    "epithelial_exact_zero_log1p",
+    "epithelial_exact_zero_gap"
+  ],
+  "table_kind": "harness",
+  "legs": {
+    "cross": "SMC reference -> KUL3 pseudobulk (cross-cohort, like TCGA)",
+    "within": "SMC reference -> held-out SMC pseudobulk (batch confound check)"
+  },
+  "recipes": {
+    "linear": "mean(CP10K), what a linear mixture actually sums",
+    "log1p": "expm1(mean(log1p(CP10K))), build_signature's recipe"
+  },
+  "ground_truth": "realised compartment fractions of the sampled cells, not the requested Dirichlet draw",
+  "n_genes": 770,
+  "n_pseudobulk": 200,
+  "n_cells_per_sample": 1000,
+  "smc_reference_patients": [
+    "SMC01",
+    "SMC03",
+    "SMC07",
+    "SMC09",
+    "SMC10"
+  ],
+  "smc_holdout_patients": [
+    "SMC02",
+    "SMC04",
+    "SMC05",
+    "SMC06",
+    "SMC08"
+  ],
+  "gate_shortfall": 0.021,
+  "what_this_answers": "Whether the reference RECIPE costs the instrument the 0.021 the Stage 4 gate missed by. A decision about the deconvolution leg's future.",
+  "what_this_does_not_answer": "Anything about colorectal cancer. And the absolute correlations do not transfer to real bulk -- pseudobulk has no ambient contamination and no library preparation. The GAP transfers; the absolutes do not."
+}
