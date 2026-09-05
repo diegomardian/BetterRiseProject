@@ -621,3 +621,39 @@ def test_a_healthy_predictor_still_passes():
     })
     check = check_predictor(summary, rung="lineage", method="nusvr")
     assert check.verdict == "usable" and check.nonzero_share == 1.0
+
+
+def test_expm1_is_an_exact_inverse_for_the_committed_construction():
+    """The correction of 2026-09-05, pinned so the wrong claim cannot return.
+
+    `run_full_reference` accumulates ONE pseudo-cell per cell type carrying
+    that type's summed counts, then CP10K-normalises and log1p's it. With one
+    row per type there is no within-type averaging, so there is no Jensen gap
+    and `expm1` inverts exactly. The docstring, the runbook and three commit
+    messages all said otherwise for a day.
+
+    This reproduces that construction exactly rather than asserting it.
+    """
+    import scipy.sparse as sp
+
+    from src.reference.signature import _group_aggregates, normalise_sparse
+
+    rng = np.random.default_rng(0)
+    types = ["differentiated", "stem_like", "immune", "stromal", "endothelial"]
+    genes = [f"G{i}" for i in range(400)]
+    summed = sp.csr_matrix(
+        np.vstack([rng.gamma(3, 50, len(genes)) for _ in types]).astype(np.float32)
+    )
+
+    log_profile, _ = _group_aggregates(normalise_sparse(summed), genes, types)
+    linear_profile, _ = _group_aggregates(
+        normalise_sparse(summed, log=False), genes, types
+    )
+    assert np.allclose(
+        np.expm1(log_profile.to_numpy()), linear_profile.to_numpy(), atol=1e-4
+    ), (
+        "expm1 no longer inverts the committed construction. If the reference "
+        "build ever starts averaging over individual cells, a Jensen gap "
+        "appears and `linearise()` becomes an approximation again -- update its "
+        "docstring before relying on it."
+    )

@@ -40,9 +40,15 @@ a constant. Epithelium-vs-everything survives the mismatch; the
 epithelial-internal split does not, and that is the only part Stage 4 uses.
 
 So the driver refuses the mismatch up front, and `--linearise-reference` is
-required rather than default. `expm1` of a mean-of-log is a **geometric** mean,
-biased low by Jensen, worst for the most dispersed genes. It is a repair, not
-the fix. The fix is a linearly-built reference from W1 — see the last section.
+required rather than default.
+
+**Correction, 2026-09-05.** This section previously called `expm1` an
+approximation biased low by Jensen. For these matrices it is **exact**.
+`run_full_reference` accumulates one pseudo-cell per cell type carrying that
+type's *summed* counts, so the profile is `log1p(CP10K(summed))` with no
+within-type averaging and no Jensen gap — `expm1` inverts it to within 4.7e-06.
+A W1 rebuild would emit this same matrix. The Stage 4 run was already using the
+correct linear scale, so **its gate failure is not a scale artifact.**
 
 ---
 

@@ -74,6 +74,29 @@ from src.reference.signature import (  # noqa: E402
 )
 
 S_MATRIX_VERSION = "1.0.0"
+
+#: The linear-profile rebuild (A2). Emitted ALONGSIDE 1.0.0, never instead of
+#: it: every committed table built on 1.0.0 stays reproducible, and running both
+#: in one pass lets the old one be checked for byte-identity rather than assumed.
+#:
+#: Why it exists, measured rather than argued: the 1.0.0 profile is the mean of
+#: log1p(CP10K), and a deconvolver solves `bulk ~ S @ f`, an identity that holds
+#: only in linear space. A1 put the cost at +0.166 in cross-cohort recovery on
+#: the Stage 4 gate's own quantity, against a gate that missed by 0.021 -- and
+#: the log recipe also produced 24-86 exactly-zero fractions per 200 samples
+#: where linear produced 0-9, which is the same signature as the Stage 4
+#: predictor checks (88-99% zeros). See results/*/pseudobulk_recovery_gap.parquet.
+#:
+#: MAJOR version, not minor: the values change for every gene and every type, so
+#: a consumer that silently picked up 2.0.0 expecting 1.0.0 would be wrong
+#: everywhere rather than slightly.
+S_MATRIX_LINEAR_VERSION = "2.0.0"
+
+#: (version, profile_scale) pairs emitted per rung.
+S_MATRIX_EMISSIONS: tuple[tuple[str, str], ...] = (
+    (S_MATRIX_VERSION, "log1p"),
+    (S_MATRIX_LINEAR_VERSION, "linear"),
+)
 GENE_INDEX_VERSION = "1.0.0"
 DEPTH_QUANTILE = 0.25
 SIGNATURE_GENES = 800

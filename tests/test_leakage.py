@@ -182,3 +182,141 @@ class TestIdentifierSpaceHoles:
         assert_no_target_leakage(
             ["ENSG00000999999"], TARGETS, context="test", alias_map=self.ALIAS
         )
+
+
+# ---------------------------------------------------------------------------
+# A2: the linear-scale profile. Selection must not move with it.
+
+
+def _tiny_cohort(n_cells: int = 400, n_genes: int = 1200, seed: int = 5):
+    """Raw counts with compartment structure and real within-type dispersion.
+
+    Dispersion matters: the two profile scales differ by Jensen's gap, which is
+    zero when every cell of a type is identical. A fixture without it would let
+    a broken linear path pass.
+    """
+    import numpy as np
+    import scipy.sparse as sp
+
+    rng = np.random.default_rng(seed)
+    types = ["differentiated", "stem_like", "immune", "stromal", "endothelial"]
+    rows, labels = [], []
+    for j, t in enumerate(types):
+        base = rng.gamma(2.0, 3.0, n_genes)
+        base[j * 200:(j + 1) * 200] *= 20.0
+        for _ in range(n_cells // len(types)):
+            rows.append(rng.poisson(base * rng.lognormal(0.0, 0.8)))
+            labels.append(t)
+    counts = sp.csr_matrix(np.vstack(rows).astype(np.float32))
+    genes = [f"ENSG{i:08d}" for i in range(n_genes)]
+    return counts, genes, labels
+
+
+def test_the_linear_profile_selects_exactly_the_same_markers():
+    """The one property that makes a rebuilt matrix attributable.
+
+    If emitting linearly also changed WHICH genes are chosen, a 2.0.0 matrix
+    would differ from 1.0.0 in two ways at once and no downstream difference
+    could be assigned to either.
+    """
+    from src.reference.signature import build_signature_sparse
+
+    counts, genes, labels = _tiny_cohort()
+    common = dict(
+        gene_names=genes, cell_type=labels, target_genes=["ENSG99999999"],
+        gene_index=genes, n_genes=500,
+    )
+    log_profile = build_signature_sparse(counts, **common, profile_scale="log1p")
+    linear_profile = build_signature_sparse(counts, **common, profile_scale="linear")
+
+    assert list(log_profile.index) == list(linear_profile.index), (
+        "the two scales chose different markers; selection must not move"
+    )
+    assert list(log_profile.columns) == list(linear_profile.columns)
+
+
+def test_the_linear_profile_is_not_merely_expm1_of_the_log_one():
+    """expm1(mean(log1p(x))) is a GEOMETRIC mean, biased low by Jensen.
+
+    That is the repair `--linearise-reference` applies to the committed
+    matrices, and it is an approximation. A properly rebuilt linear profile is
+    the arithmetic mean and must exceed it.
+    """
+    import numpy as np
+
+    from src.reference.signature import build_signature_sparse
+
+    counts, genes, labels = _tiny_cohort()
+    common = dict(
+        gene_names=genes, cell_type=labels, target_genes=["ENSG99999999"],
+        gene_index=genes, n_genes=500,
+    )
+    log_profile = build_signature_sparse(counts, **common, profile_scale="log1p")
+    linear_profile = build_signature_sparse(counts, **common, profile_scale="linear")
+
+    approximation = np.expm1(log_profile)
+    exceeds = (linear_profile.to_numpy() >= approximation.to_numpy() - 1e-6)
+    assert exceeds.mean() > 0.95, (
+        f"the arithmetic mean falls below the geometric one on "
+        f"{100 * (1 - exceeds.mean()):.1f}% of entries; Jensen says it cannot"
+    )
+    relative = (
+        (linear_profile - approximation).abs() / linear_profile.replace(0, np.nan)
+    ).stack().median()
+    assert relative > 0.05, (
+        f"expm1 of the log profile is within {relative:.2%} of the real linear "
+        f"one, so the rebuild would not be worth doing -- re-derive A1's +0.166 "
+        f"before relying on it"
+    )
+
+
+def test_the_log_profile_is_unchanged_by_the_new_parameter():
+    """1.0.0 must stay byte-identical, or every table built on it moves."""
+    from src.reference.signature import build_signature_sparse
+
+    counts, genes, labels = _tiny_cohort()
+    common = dict(
+        gene_names=genes, cell_type=labels, target_genes=["ENSG99999999"],
+        gene_index=genes, n_genes=500,
+    )
+    default = build_signature_sparse(counts, **common)
+    explicit = build_signature_sparse(counts, **common, profile_scale="log1p")
+    pd.testing.assert_frame_equal(default, explicit)
+
+
+def test_an_unknown_profile_scale_is_refused():
+    from src.reference.signature import build_signature_sparse
+
+    counts, genes, labels = _tiny_cohort()
+    with pytest.raises(ValueError, match="profile_scale must be"):
+        build_signature_sparse(
+            counts, gene_names=genes, cell_type=labels,
+            target_genes=["ENSG99999999"], gene_index=genes, n_genes=500,
+            profile_scale="sqrt",
+        )
+
+
+def test_linear_is_refused_when_the_caller_already_normalised():
+    """Renormalising an already-normalised matrix would rescale twice."""
+    from src.reference.signature import build_signature_sparse
+
+    counts, genes, labels = _tiny_cohort()
+    with pytest.raises(ValueError, match="needs raw counts"):
+        build_signature_sparse(
+            counts, gene_names=genes, cell_type=labels,
+            target_genes=["ENSG99999999"], gene_index=genes, n_genes=500,
+            already_normalised=True, profile_scale="linear",
+        )
+
+
+def test_the_linear_profile_still_excludes_targets():
+    """Invariant 2 does not weaken because the scale changed."""
+    from src.reference.signature import build_signature_sparse
+
+    counts, genes, labels = _tiny_cohort()
+    target = genes[10]
+    profile = build_signature_sparse(
+        counts, gene_names=genes, cell_type=labels, target_genes=[target],
+        gene_index=genes, n_genes=500, profile_scale="linear",
+    )
+    assert target not in set(profile.index)

@@ -221,17 +221,27 @@ def load_reference(
 def linearise(reference: Reference) -> Reference:
     """``expm1`` a log1p reference, so it can meet a linear bulk.
 
-    APPROXIMATE, AND THE DIRECTION OF THE ERROR IS KNOWN. The committed matrix
-    holds the mean of ``log1p(x)``, so ``expm1`` of it is a geometric rather
-    than an arithmetic mean of ``CP10K + 1``. By Jensen it is biased LOW, and
-    the bias grows with a gene's dispersion across cells of its type -- so the
-    most variable genes are understated most.
+    FOR THE COMMITTED MATRICES THIS IS EXACT, and an earlier version of this
+    docstring said the opposite. The claim was that ``expm1`` of a mean-of-log
+    is a geometric mean, biased low by Jensen. That is true of a profile
+    averaged over CELLS -- and it is not how these were built.
+    ``run_full_reference`` accumulates one pseudo-cell per cell type carrying
+    that type's SUMMED counts, so the profile is
+    ``log1p(CP10K(summed counts))`` with no within-type averaging and no
+    Jensen gap. ``expm1`` inverts it to within float32 precision (measured:
+    4.7e-06 max absolute difference).
 
-    This is a repair for a reference that already exists, not the right way to
-    build one. A reference built linearly in W1 needs the cells, which live on
-    the cluster; until that exists, the sidecar of anything using this must say
-    it was derived here. Refusing to run at all would leave the scale defect
-    undetected in the committed matrix, which is worse.
+    So a W1 rebuild emitting the linear profile directly would produce this
+    matrix, not a better one. The Stage 4 run that passed
+    ``--linearise-reference`` was already using the correct linear scale, and
+    its gate failure is therefore NOT a scale artifact.
+
+    The caveat that survives: this holds because of how the reference is
+    constructed. A reference built by averaging over individual cells would
+    have a real Jensen gap, and ``expm1`` would then be the approximation the
+    old docstring described. `profile_scale` in `build_signature_sparse` emits
+    the linear profile directly, which is the right thing for such a build and
+    is redundant for this one.
     """
     if reference.scale == LINEAR_CP10K:
         return reference

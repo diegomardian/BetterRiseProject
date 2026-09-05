@@ -461,11 +461,20 @@ def _group_aggregates(
     return means, rates
 
 
-def normalise_sparse(matrix: Any, *, target_sum: float = 1e4) -> Any:
-    """CP10K then log1p, preserving sparsity.
+def normalise_sparse(
+    matrix: Any, *, target_sum: float = 1e4, log: bool = True
+) -> Any:
+    """CP10K, then log1p unless ``log=False``. Preserves sparsity.
 
     Both steps map zero to zero — row scaling is diagonal, and log1p(0) is 0 — so
     the matrix never densifies.
+
+    ``log`` exists because the two things this normalisation feeds want opposite
+    scales. Marker SELECTION is a one-vs-rest log fold change and belongs on the
+    log scale. The emitted PROFILE is consumed by deconvolvers solving
+    ``bulk ~ S @ f``, and that identity holds only in linear space — so a
+    log-scale profile is a misspecification there, measured at a cost of +0.166
+    in cross-cohort recovery (`results/*/pseudobulk_recovery_gap.parquet`).
     """
     import scipy.sparse as sp
 
@@ -475,7 +484,8 @@ def normalise_sparse(matrix: Any, *, target_sum: float = 1e4) -> Any:
         target_sum, totals, out=np.zeros_like(totals), where=totals > 0
     )
     scaled = sp.diags(scale) @ sparse_matrix
-    scaled.data = np.log1p(scaled.data)
+    if log:
+        scaled.data = np.log1p(scaled.data)
     return scaled.tocsr()
 
 
@@ -490,6 +500,7 @@ def build_signature_sparse(
     require_non_epithelial: bool = True,
     already_normalised: bool = False,
     alias_map: Mapping[str, str] | None = None,
+    profile_scale: str = "log1p",
 ) -> pd.DataFrame:
     """:func:`build_signature` for a sparse matrix. Same guards, no densification.
 
@@ -501,6 +512,14 @@ def build_signature_sparse(
     not be empty, `n_genes` stays inside [500, 2000], the shared gene index and
     the reference pool are checked for target leakage, the non-epithelial
     compartments must be present, and the emitted matrix is checked again.
+
+    ``profile_scale`` sets the scale of the EMITTED values only; marker
+    selection is always the log-scale one-vs-rest fold change. ``"log1p"`` is
+    the committed 1.0.0 behaviour and the default, so nothing changes unless a
+    caller asks. ``"linear"`` emits the arithmetic mean of CP10K, which is what
+    a deconvolver's ``bulk ~ S @ f`` actually sums -- worth +0.166 in
+    cross-cohort recovery on the gate's own quantity, against a Stage 4
+    shortfall of 0.021.
     """
     targets = set(target_genes)
     if not targets:
@@ -564,10 +583,35 @@ def build_signature_sparse(
         subset = normalise_sparse(subset)
 
     means, rates = _group_aggregates(subset, usable, cell_type)
+    # SELECTION stays on the log scale whatever `profile_scale` says. It is a
+    # one-vs-rest log fold change; that is the right statistic for ranking
+    # markers and it is not what A1 found wanting. Emitting the profile
+    # linearly must not quietly change WHICH genes are chosen, or a rebuilt
+    # matrix would differ in two ways at once and neither could be attributed.
     markers = select_markers_from_aggregates(means, rates, n_genes=n_genes)
     assert_no_target_leakage(
         markers, targets, context="the selected marker set"
     )
+
+    if profile_scale == "linear":
+        if already_normalised:
+            raise ValueError(
+                "profile_scale='linear' needs raw counts to renormalise from. "
+                "The caller passed already_normalised=True, so the only scale "
+                "available is whatever it was normalised to."
+            )
+        # Re-aggregate the SAME cells and the SAME markers without log1p. The
+        # arithmetic mean of CP10K is the quantity a linear mixture sums;
+        # expm1 of a mean-of-log1p is a geometric mean, biased low by Jensen
+        # and worst for the most dispersed genes.
+        linear_means, _ = _group_aggregates(
+            normalise_sparse(matrix[:, keep], log=False), usable, cell_type
+        )
+        means = linear_means
+    elif profile_scale != "log1p":
+        raise ValueError(
+            f"profile_scale must be 'log1p' or 'linear', got {profile_scale!r}"
+        )
 
     profiles = means.loc[:, markers].T
     profiles.index.name = "gene"
