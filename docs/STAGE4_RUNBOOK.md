@@ -46,6 +46,24 @@ the fix. The fix is a linearly-built reference from W1 — see the last section.
 
 ---
 
+## The short version
+
+Everything below is in one submittable job. From the repo on the cluster:
+
+```
+export BRP_DATA_DIR=/projectnb/rise-batteries/bode/guanylin/data
+qsub src/bulk/stage4_cluster.sh
+```
+
+It runs fractions → the predictor check (enforced, not eyeballed) → the purity
+producer → gate-and-arm on all four rungs, refuses before any compute if the
+tree is dirty or an input is missing, and treats "the gate failed" as a result
+rather than an error. Read `logs/brp_stage4.o<jobid>` when it lands. It does
+**not** commit anything.
+
+The step-by-step below is what that script does, for when you want to run a
+piece of it by hand.
+
 ## Setup
 
 ```bash
