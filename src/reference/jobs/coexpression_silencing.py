@@ -139,7 +139,8 @@ PRIMARY = "gse178341"
 
 
 def premise_holds(
-    deltas: pd.DataFrame, tolerance: float = CONTROL_TOLERANCE
+    deltas: pd.DataFrame, tolerance: float = CONTROL_TOLERANCE,
+    *, seed: int = DEFAULT_SEED,
 ) -> tuple[bool, str]:
     """Whether the diseased cells are still the same kind of cell.
 
@@ -189,38 +190,71 @@ def premise_holds(
     # Detection where the control has room to fall; expression where it does not.
     # Every control is assessed one way or the other, so "the premise holds" can
     # never rest on a statistic that had no alternative.
-    verdicts, saturated_on_detection = [], []
+    #
+    # And each verdict carries an interval, because the point estimate alone is
+    # not one. GSE144735's ACTB read +0.486 against a 0.5 tolerance under one
+    # seed and +0.540 under another: the same data, a different draw, and the
+    # premise flipped from held to refused. A verdict that moves with the seed
+    # has not been reached. Three states, not two -- the project already draws
+    # this distinction for its cutpoints and it is the same distinction.
+    rng = np.random.default_rng(seed)
+    assessed, saturated_on_detection = [], []
     for gene, row in means.iterrows():
         headroom = 1.0 - min(float(row["normal"]), float(row["tumour"]))
+        block = present.loc[present["gene"] == gene]
         if headroom >= 1.0 - SATURATION_CEILING:
-            verdicts.append((gene, "detection", float(row["delta"]), tolerance))
-        elif np.isfinite(row["log2"]):
-            saturated_on_detection.append(gene)
-            verdicts.append((gene, "log2 expression", float(row["log2"]),
-                             CONTROL_LOG2_TOLERANCE))
+            values, stat, tol = block["delta_detect"], "detection", tolerance
         else:
             saturated_on_detection.append(gene)
-    if not verdicts:
+            values, stat, tol = (block["log2_cp10k_ratio"], "log2 expression",
+                                 CONTROL_LOG2_TOLERANCE)
+        values = values.dropna().to_numpy(dtype=float)
+        if len(values) < MIN_PREMISE_PATIENTS:
+            continue
+        draws = rng.choice(values, size=(N_BOOTSTRAP, len(values)), replace=True).mean(axis=1)
+        lo, hi = (float(x) for x in np.percentile(draws, [2.5, 97.5]))
+        if lo > tol or hi < -tol:
+            state = "breached"
+        elif -tol <= lo and hi <= tol:
+            state = "within"
+        else:
+            state = "unresolved"
+        assessed.append((gene, stat, float(values.mean()), tol, lo, hi, state))
+
+    if not assessed:
         return False, (
-            "UNDEFINED: every control is saturated on detection and has no usable "
-            "expression ratio, so none of them could have reported a change. The "
-            "premise is untested, not satisfied."
+            "UNDEFINED: no control could be assessed -- every one is saturated on "
+            "detection with no usable expression ratio, or has too few patients. "
+            "The premise is untested, not satisfied."
         )
 
-    breached = [(g, stat, v, tol) for g, stat, v, tol in verdicts if abs(v) > tol]
+    def describe(entry):
+        gene, stat, value, tol, lo, hi, _ = entry
+        return f"{gene} {value:+.3f} [{lo:+.3f}, {hi:+.3f}] on {stat} (tolerance {tol})"
+
+    breached = [e for e in assessed if e[-1] == "breached"]
     if breached:
-        gene, stat, value, tol = max(breached, key=lambda x: abs(x[2]) / x[3])
+        worst = describe(max(breached, key=lambda e: abs(e[2]) / e[3]))
         return False, (
-            f"REFUSED: control {gene} moved {value:+.3f} on {stat}, beyond {tol}. "
-            f"The cells scored in the two arms are not the same population, so a "
-            f"marker falling inside them says nothing about silencing."
+            f"REFUSED: control {worst}. The cells scored in the two arms are not "
+            f"the same population, so a marker falling inside them says nothing "
+            f"about silencing."
         )
-    worst = max(verdicts, key=lambda x: abs(x[2]) / x[3])
+
+    unresolved = [e for e in assessed if e[-1] == "unresolved"]
+    if unresolved:
+        worst = describe(max(unresolved, key=lambda e: abs(e[2]) / e[3]))
+        return False, (
+            f"UNRESOLVED: control {worst}. The interval straddles the tolerance, "
+            f"so whether this control moved is not settled at this many patients. "
+            f"Not refused and not satisfied -- undecided, and reported as such."
+        )
+
     note = (f"; {', '.join(saturated_on_detection)} saturated on detection, "
             f"assessed on expression") if saturated_on_detection else ""
     return True, (
-        f"holds over {n_patients} patients on {len(verdicts)} control(s): worst is "
-        f"{worst[0]} at {worst[2]:+.3f} on {worst[1]} (tolerance {worst[3]}){note}"
+        f"holds over {n_patients} patients on {len(assessed)} control(s): worst is "
+        + describe(max(assessed, key=lambda e: abs(e[2]) / e[3])) + note
     )
 
 
@@ -486,14 +520,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     readings: dict[str, str] = {}
     for study, block in deltas.groupby("study_id"):
-        holds, reading = premise_holds(block)
+        holds, reading = premise_holds(block, seed=args.seed)
+        state = reading.split(":")[0] if not holds else "holds"
         readings[str(study)] = reading
         log.info("%s premise %s", study, reading)
         detect = summary[(summary.study_id == study) & (summary.statistic == "detection")]
         for _, r in detect.sort_values("mean_delta").iterrows():
             log.info("  %-8s %-11s %+0.3f  [%+0.3f, %+0.3f]%s",
                      r.gene, r.role, r.mean_delta, r.ci_low, r.ci_high,
-                     "" if holds else "   (premise refused — not a mechanism claim)")
+                     "" if holds else f"   (premise {state} — not a mechanism claim)")
 
     meta = {
         "exploratory": True,

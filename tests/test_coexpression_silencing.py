@@ -188,3 +188,42 @@ def test_the_premise_is_undefined_without_the_arm_rates():
                          for i in range(5)])
     holds, reading = premise_holds(bare)
     assert not holds and "UNDEFINED" in reading
+
+
+def test_a_control_astride_the_tolerance_is_unresolved_not_refused():
+    """The third state, and why it exists.
+
+    GSE144735's ACTB read +0.486 against a 0.5 tolerance under one seed and
+    +0.540 under another: the same data, a different draw, the premise flipping
+    from held to refused. A verdict that moves with the seed has not been
+    reached. Refused and satisfied are both claims; undecided is the honest
+    third answer and the project already draws this distinction for cutpoints.
+    """
+    astride = pd.DataFrame([
+        {"gene": "ACTB", "patient_id": f"p{i}", "delta_detect": -0.002,
+         "detect_normal": 0.99, "detect_tumour": 0.988, "log2_cp10k_ratio": v}
+        for i, v in enumerate([0.1, 0.3, 0.5, 0.7, 0.9, 1.1])
+    ])
+    holds, reading = premise_holds(astride)
+    assert not holds
+    assert "UNRESOLVED" in reading and "straddles" in reading
+
+    # Far enough past it that no resample lands inside: a real refusal.
+    clear = astride.assign(log2_cp10k_ratio=[2.0, 2.1, 2.2, 2.3, 2.4, 2.5])
+    holds, reading = premise_holds(clear)
+    assert not holds and "REFUSED" in reading
+
+    # Tightly inside it: genuinely held.
+    quiet = astride.assign(log2_cp10k_ratio=[0.01, 0.02, 0.0, -0.01, 0.02, 0.0])
+    assert premise_holds(quiet)[0]
+
+
+def test_the_premise_verdict_does_not_move_with_the_seed_when_it_is_settled():
+    """A settled verdict is one the draw cannot change. An unsettled one is
+    exactly what UNRESOLVED is for."""
+    quiet = pd.DataFrame([
+        {"gene": "ACTB", "patient_id": f"p{i}", "delta_detect": -0.002,
+         "detect_normal": 0.99, "detect_tumour": 0.988, "log2_cp10k_ratio": 0.01}
+        for i in range(6)
+    ])
+    assert {premise_holds(quiet, seed=s)[0] for s in (1, 2, 3, 20260101, 20260904)} == {True}
