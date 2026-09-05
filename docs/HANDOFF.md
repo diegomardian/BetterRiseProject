@@ -160,11 +160,52 @@ and asserted against the literal string in the `.tex`, so a re-run table and a
 stale sentence can no longer diverge silently. All eleven assertions are
 mutation-tested. **If you re-run that job, this test tells you what to edit.**
 
-Then, in cost order:
+## 6a. Stage 4 — built 2026-09-05, ready to run
 
-1. **Finish the Phase-5 plumbing check** — `run_bakeoff` end to end against
-   `S_matrix_lineage_1.0.0` with synthetic bulk and both deconvolvers. Laptop.
-   The identifier-space hazard is cleared but the path is still unrun.
+The variance arm is implemented and the whole chain runs end to end in the test
+suite. See **`docs/STAGE4_RUNBOOK.md`** for the exact cluster commands.
+
+- `config/stage4_prespecification.yaml` is **locked** (2026-09-05). Only the six
+  lock fields changed; a test parses both sides of that commit and fails if the
+  prediction moved with it.
+- `src/bulk/deconvolution.py` → fractions, `instrument.py` → the pre-committed
+  gate, `variance_arm.py` → the percentile-within-matched-null statistic,
+  `run_deconvolution.py` and `run_stage4_variance.py` → the two drivers.
+
+**Read this before running it.** The committed S matrices are mean-of-log1p and
+TCGA TPM is a linear mixture. Deconvolve one against the other and NNLS returns
+`mature_colonocyte_fraction` as **exactly 0.0 on every sample** — and the
+pre-committed instrument gate **passes anyway** at r = 0.881, because it reads
+the non-epithelial aggregate rather than the epithelial-internal split the
+analysis uses. A constant predictor gives every gene R² = 0, which is what the
+pre-registered arm expects for GUCA2A. `--linearise-reference` is required and
+is an approximation; the real fix is a linearly-built reference from W1.
+
+Blocked on the cluster only: the TCGA matrices are gitignored and live there.
+
+## 6b. ICBI — sized 2026-09-05, and two committed bugs found doing it
+
+`paired_sample_summary` reported **0 paired patients in all 49 studies** and
+`platform_summary` reported **0 plate-based cells**. Both were vocabulary
+misses — the atlas writes "primary tumor"/"adjacent normal" and "Smart-seq2";
+the code tested for "tumor"/"normal" and "smartseq2". The real numbers are
+**229 paired patients across 24 studies** and **24,136 plate-based cells**. The
+tests could not catch it: the fixture was written from the code's vocabulary,
+not the atlas's. Fixed, and a new guard caught the same defect a third time.
+
+Sizing (`src/reference/jobs/icbi_premise_feasibility.py`): at ≥100 epithelial
+cells per arm the atlas carries **14 studies / 136 paired patients, of which 12
+studies and 85 patients are new**. 96.9% raw counts, so invariant 4 is
+satisfiable; 15 reference genomes, which the shared index has to absorb.
+
+**Its table is not stamped yet** — `results/` writes refuse a dirty tree, and
+`paper/icbinb/` has uncommitted edits. Commit or stash those and re-run.
+
+## 6c. Then, in cost order:
+
+1. ~~Finish the Phase-5 plumbing check~~ — **done.** S matrix → synthetic bulk →
+   NNLS + nu-SVR → stamped parquet runs end to end in
+   `tests/test_bulk_deconvolution.py`.
 2. **Housekeeping** — 18 dirty tables across 7 directories, every one now
    superseded by a clean twin; one `git rm`. And
    `tcga_premise_purity_conditioned` / `tcga_purity_expression_association` have
