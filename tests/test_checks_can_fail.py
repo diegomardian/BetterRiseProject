@@ -598,3 +598,34 @@ def test_the_manifest_records_portable_paths_not_one_machine_s(tmp_path, monkeyp
     outside.parent.mkdir(parents=True)
     outside.write_text("x")
     assert ingest.manifest_key(outside) == str(outside)
+
+
+def test_the_lee_loader_reads_the_configured_data_directory(tmp_path, monkeypatch):
+    """The violating input: BRP_DATA_DIR pointing outside the checkout.
+
+    `load_lee_cohort` built its default path from REPO_ROOT/"data" rather than
+    RAW_DIR, so it ignored BRP_DATA_DIR entirely. On a laptop with the variable
+    unset the two are the same directory and nothing shows; on the cluster it
+    went looking for Lee under the repository, found an almost-empty data/, and
+    died -- twice, forty seconds into a job whose inputs were all present on the
+    project filesystem the wrapper had just verified.
+
+    A default that is correct only where two paths coincide is not a default.
+    """
+    from src.common import paths
+    from src.estimator import lee_io
+
+    elsewhere = tmp_path / "project" / "data" / "raw"
+    monkeypatch.setattr(paths, "RAW_DIR", elsewhere)
+
+    with pytest.raises((FileNotFoundError, OSError)) as caught:
+        lee_io.load_lee_cohort("smc", target_genes=["GUCA2A"])
+
+    named = str(caught.value)
+    assert str(elsewhere) in named, (
+        f"the loader must look under the configured data directory; it looked "
+        f"at {named!r}"
+    )
+    assert "BetterRiseProject/data/raw" not in named, (
+        "it fell back to the repository checkout despite BRP_DATA_DIR"
+    )

@@ -328,11 +328,18 @@ def load_lee_cohort(
     loses the ``opposite_lineage`` axis for that run (docs/open_decisions.md
     #1); it is not this function's job to work around that.
 
-    ``raw_dir`` defaults to ``data/raw/lee/`` relative to the repo root.
+    ``raw_dir`` defaults to ``<BRP_DATA_DIR>/raw/lee/``, falling back to
+    ``data/raw/lee/`` under the repo only when that variable is unset.
     """
-    from src.common.paths import REPO_ROOT
+    from src.common import paths
 
-    raw_dir = raw_dir or (REPO_ROOT / "data" / "raw" / "lee")
+    # RAW_DIR, not REPO_ROOT/"data": BRP_DATA_DIR routinely points at a disk
+    # outside the checkout, and building the path from the repo root ignores it.
+    # On a laptop with the variable unset the two are the same directory, which
+    # is why this survived every local run and only failed on the cluster --
+    # where it went looking for Lee under the repository and found an almost
+    # empty data/ instead of the project filesystem.
+    raw_dir = raw_dir or (paths.RAW_DIR / "lee")
     study_id = STUDY_IDS[which]
     files = _FILES[which]
 
