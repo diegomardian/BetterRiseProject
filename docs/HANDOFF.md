@@ -136,13 +136,29 @@ that travels — verify downloads against it. GSE178341 needs the cluster: 32–
 
 ## 6. What to do next
 
-**The WMHS paper is the outstanding deliverable and it is behind the work.**
-Four findings from this week bear on its thesis and none are in it: the
-saturated control (a guard the authors wrote, that could not fail, inside the
-paper's own remedy); three cohorts UNRESOLVED as a positive result;
-`allow_dirty=True` hardcoded across a whole workstream so 15 tables *could not*
-be written clean; and `extra_meta` overwriting the provenance record. The
-cross-platform reproduction is also unclaimed.
+**The WMHS paper is the outstanding deliverable. Deadline 15 September 2026,
+AoE.** As of 2026-09-05 it carries the week's findings: `allow_dirty` and
+`extra_meta` were already in Appendix A, and the saturated control plus the
+three-cohort UNRESOLVED result went into §3 as the *third* withdrawn guard,
+with §5 and the conclusion carrying the non-resolution (commit `e9f0ef9`).
+
+Two things about the paper are still open, and one is blocking:
+
+- **BLOCKING — the page limits are unverified.** `neurips_2026.sty` is
+  deliberately not vendored, so `./build.sh` cannot run. Against a
+  geometry-matched stub the full build grew one page and the short build's main
+  text did not move; the stub runs ~1.4× long, so the estimate is 7 → 7.7 of 9
+  real pages. **Download the official style, run `./build.sh`, then
+  `./check_anonymity.sh`.** Both must pass before submission.
+- The cross-platform reproduction (11/15 bulk tables bit-identical
+  Windows→Linux, 4 differing at ≤9.3e-13 relative) is still unclaimed anywhere
+  in the paper. It is a real result and it has no home yet.
+
+`tests/test_paper_numbers.py` now ties the prose to its tables: every figure in
+the new paragraph is re-derived from `results/*/coexpression_silencing*.parquet`
+and asserted against the literal string in the `.tex`, so a re-run table and a
+stale sentence can no longer diverge silently. All eleven assertions are
+mutation-tested. **If you re-run that job, this test tells you what to edit.**
 
 Then, in cost order:
 
