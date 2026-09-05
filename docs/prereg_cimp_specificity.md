@@ -89,6 +89,35 @@ a full re-read before anything is claimed. Purity does **not** enter otherwise;
 paying for it up front to test a hypothesis the medians already argue against
 is not a good use of it.
 
+## 5a. Correction to §5, 2026-09-04, before any run
+
+**§5's two expected values are sign-flipped.** It says *"CDX2 interaction near
+−0.31, MS4A12 near +0.12"*. Under §4's own estimand they are the other way
+round:
+
+| reference | D given CIMP+ | D given CIMP− | interaction |
+|---|---|---|---|
+| CDX2   | 5.869 − 6.549 = −0.680 | 6.523 − 7.517 = −0.994 | **+0.314** |
+| MS4A12 | 5.869 − 4.001 = +1.868 | 6.523 − 4.532 = +1.991 | **−0.123** |
+
+§3 and §4 are correct, and so is the implementation — `run_cimp_specificity`
+computes exactly §4, and its tests use +0.31 and −0.12. The error is confined to
+§5's prose, and §5 contradicts itself on it: *"the second of those may well
+contain zero — even the weak arm evaporates"* only parses if MS4A12 is the
+weakly **favourable** arm, which requires it to be negative.
+
+**Corrected expectation, unchanged in substance:** CDX2 near **+0.314** (GUCA2A
+falls *less* than CDX2 — against specificity), MS4A12 near **−0.123** (GUCA2A
+falls *more* — weakly for it), and the MS4A12 interval may well contain zero, in
+which case even that arm evaporates. One reference favourable out of two, so the
+§5 decision rule returns **NOT SPECIFIC** either way. The verdict is untouched.
+
+Recorded as a correction rather than an edit to §5. The value of writing this
+before the run is entirely in not being able to revise it afterwards, and a
+silent fix — even to a typo — spends that. Flagged now because the run will
+return +0.31/−0.12 and would otherwise look like the pre-committed expectation
+had flipped, which is the confusion this document exists to prevent.
+
 ## 6. What this cannot establish, in any outcome
 
 Bulk expression is fraction × per-cell mean. "Lower in CIMP+" is equally
