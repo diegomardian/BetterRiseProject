@@ -1,0 +1,51 @@
+{
+  "date": "2026-09-04",
+  "utc_timestamp": "2026-09-05T03:00:07+00:00",
+  "git_sha": "975cf5cdf8d052f868debd643c48c10aa6c7469c",
+  "git_sha_short": "975cf5c",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.11.15",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "scanpy_version": "1.10.2",
+  "anndata_version": "0.10.8",
+  "name": "coexpression_silencing_summary",
+  "n_rows": 36,
+  "columns": [
+    "study_id",
+    "gene",
+    "role",
+    "statistic",
+    "n_patients",
+    "mean_delta",
+    "ci_low",
+    "ci_high",
+    "excludes_zero"
+  ],
+  "table_kind": "harness",
+  "exploratory": true,
+  "pre_registered": false,
+  "what_this_is_not": "Post-hoc. Built after the week-0 falsification rule had already fired and forbidden a biological claim from the decomposition. Reaching a mechanism claim by a second route afterwards is what pre-registration exists to catch, so nothing here is confirmatory.",
+  "population": "label_stem_pole_lineage == 'differentiated', depth-matched within patient",
+  "detection_min_umi": 1,
+  "conditioned_on": "CDX2",
+  "control_tolerance": 0.1,
+  "gene_roles": {
+    "ACTB": "control",
+    "KRT8": "control",
+    "EPCAM": "epithelial",
+    "CDX2": "identity",
+    "MS4A12": "identity",
+    "GUCA2A": "target"
+  },
+  "premise_reading": {
+    "GSE132465": "UNRESOLVED: control KRT8 -0.712 [-1.250, -0.289] on log2 expression (tolerance 0.5). The interval straddles the tolerance, so whether this control moved is not settled at this many patients. Not refused and not satisfied -- undecided, and reported as such.",
+    "GSE144735": "UNRESOLVED: control ACTB +0.540 [+0.012, +1.112] on log2 expression (tolerance 0.5). The interval straddles the tolerance, so whether this control moved is not settled at this many patients. Not refused and not satisfied -- undecided, and reported as such.",
+    "GSE178341": "UNRESOLVED: control ACTB +0.431 [+0.216, +0.640] on log2 expression (tolerance 0.5). The interval straddles the tolerance, so whether this control moved is not settled at this many patients. Not refused and not satisfied -- undecided, and reported as such."
+  },
+  "n_bootstrap": 10000
+}
