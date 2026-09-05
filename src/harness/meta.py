@@ -87,6 +87,17 @@ class MetaResult:
     #: Fixed-effect pooled estimate, for comparison. When tau^2 is 0 the two
     #: agree exactly, which is a cheap check that the arithmetic is right.
     pooled_fixed: float
+    #: 95% PREDICTION interval: where a NEW study's effect would fall, rather
+    #: than where the mean of these ones lies. Reported, not gating.
+    #:
+    #: It answers the question the premise actually asks -- "would another
+    #: cohort's control be inside tolerance?" -- and in the wide-tau^2 regime it
+    #: is more conservative than the I^2 threshold, because it carries tau^2
+    #: directly instead of through a ratio. The I^2 gate stays primary because
+    #: it was committed first; this is the cross-check, and a disagreement
+    #: between them is worth reporting rather than resolving.
+    pi_low: float = float("nan")
+    pi_high: float = float("nan")
 
     @property
     def homogeneous(self) -> bool:
@@ -99,6 +110,7 @@ class MetaResult:
             "tau_squared": self.tau_squared, "i_squared": self.i_squared,
             "cochran_q": self.q, "df": self.df,
             "pooled_fixed_effect": self.pooled_fixed,
+            "prediction_low": self.pi_low, "prediction_high": self.pi_high,
             "homogeneous": self.homogeneous,
         }
 
@@ -152,11 +164,21 @@ def meta_analyse(
     pooled = float((w_star * y).sum() / sum_w_star)
     se = float(np.sqrt(1.0 / sum_w_star))
 
+    # Higgins-Thompson prediction interval, on k-2 degrees of freedom. Needs
+    # k >= 3 to have any, which MIN_STUDIES already guarantees.
+    pi_low = pi_high = float("nan")
+    if k >= 3:
+        from scipy.stats import t as student_t
+
+        spread = float(np.sqrt(se ** 2 + tau_squared))
+        crit = float(student_t.ppf(0.975, df=k - 2))
+        pi_low, pi_high = pooled - crit * spread, pooled + crit * spread
+
     return MetaResult(
         k=k, pooled=pooled, se=se,
         ci_low=pooled - Z_95 * se, ci_high=pooled + Z_95 * se,
         tau_squared=tau_squared, i_squared=i_squared, q=q, df=df,
-        pooled_fixed=pooled_fixed,
+        pooled_fixed=pooled_fixed, pi_low=pi_low, pi_high=pi_high,
     )
 
 

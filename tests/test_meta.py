@@ -190,3 +190,34 @@ def test_the_three_verdicts_are_the_same_three_the_per_study_check_uses():
             f"the per-study check no longer emits {state!r}; the two levels "
             f"have drifted apart"
         )
+
+
+def test_the_prediction_interval_is_wider_than_the_confidence_interval():
+    """They answer different questions: where the MEAN is, versus where a NEW
+    study would fall. The second is never narrower."""
+    result = meta_analyse([-0.3, 0.1, 0.4, -0.2, 0.35, 0.0], [0.08] * 6)
+    assert result.tau_squared > 0
+    assert result.pi_low < result.ci_low
+    assert result.pi_high > result.ci_high
+
+
+def test_the_prediction_interval_catches_what_the_i2_gate_catches():
+    """The cross-check agreeing on the k=14 example, by a different route.
+
+    I^2 fires on the RATIO of between- to total variation; the prediction
+    interval carries tau^2 directly. On the heterogeneous fourteen both say the
+    same thing, which is the point of having it on the shelf.
+    """
+    values = [-0.7, 0.6, -0.5, 0.55, -0.62, 0.58, -0.48,
+              0.52, -0.55, 0.61, -0.6, 0.5, -0.45, 0.57]
+    result = meta_analyse(values, [0.05] * len(values))
+    assert max(abs(result.ci_low), abs(result.ci_high)) < 0.5      # CI says fine
+    assert max(abs(result.pi_low), abs(result.pi_high)) > 0.5      # PI does not
+    assert not result.homogeneous
+
+
+def test_a_homogeneous_result_has_a_prediction_interval_close_to_its_ci():
+    result = meta_analyse([0.10, 0.11, 0.09, 0.10, 0.10, 0.11], [0.03] * 6)
+    assert result.tau_squared == 0.0
+    # With tau^2 = 0 the PI is the CI widened only by the t vs z quantile.
+    assert result.pi_high - result.pi_low < 3 * (result.ci_high - result.ci_low)
