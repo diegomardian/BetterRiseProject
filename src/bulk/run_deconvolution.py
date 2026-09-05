@@ -166,7 +166,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     checks_frame = pd.DataFrame([
         {
             "granularity_rung": c.rung, "method": c.method, "n_samples": c.n_samples,
-            "n_exact_zero": c.n_exact_zero, "fraction_sd": c.sd,
+            "n_exact_zero": c.n_exact_zero, "nonzero_share": c.nonzero_share,
+            "fraction_sd": c.sd,
             "is_constant": c.is_constant, "verdict": c.verdict, "detail": c.detail,
         }
         for c in all_checks

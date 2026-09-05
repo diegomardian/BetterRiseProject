@@ -21,7 +21,8 @@ from src.bulk.run_purity_conditioned import (
 )
 from src.common.paths import RESULTS_DIR
 
-SUPERSEDED = RESULTS_DIR / "2026-08-18_7c49e99"
+#: The cluster run that replaced the 2026-08-18 originals.
+PRODUCED = RESULTS_DIR / "2026-09-05_40b823b"
 
 
 def test_the_two_genes_resolve_unambiguously():
@@ -57,44 +58,49 @@ def test_it_finds_a_committed_purity_table_to_condition_on():
 # Against the tables this supersedes
 
 
-def test_the_superseded_tables_are_still_the_only_copies():
-    """The reason they were not swept up with the other dirty tables.
+def test_the_orphan_tables_are_gone_and_their_replacements_are_clean():
+    """The housekeeping this driver existed to make safe, now done.
 
-    Sixteen of eighteen dirty tables have a clean twin. These two do not, and
-    they are the same two that had no producer -- so the obvious housekeeping
-    move would have deleted the only copies of results nothing could regenerate.
-    When this driver has run on the cluster and written clean twins, this test
-    is what says the delete is finally safe: it will start failing, and that is
-    the signal.
+    Sixteen of the eighteen dirty tables had a clean twin and were deleted on
+    2026-09-05. These two did not, and they were the same two with no producer,
+    so sweeping all eighteen would have destroyed the only copies of results
+    nothing could regenerate. The driver ran on the cluster, its output
+    reproduced the originals (all four association rows within 0.0003 of their
+    r-squared, all thirty-two conditioned rows at 100% verdict agreement), and
+    the originals are now deleted.
+
+    This asserts the end state: no dirty copy survives, and every remaining copy
+    is clean-stamped.
     """
     import json
 
     for name in ("tcga_premise_purity_conditioned", "tcga_purity_expression_association"):
         copies = sorted(RESULTS_DIR.glob(f"*/{name}.parquet"))
-        if not copies:
-            pytest.skip(f"{name} is no longer committed")
-        clean = [
-            p for p in copies
-            if not json.loads(p.with_suffix("").with_suffix(".meta.json").read_text())["git_dirty"]
-        ]
-        if clean:
-            pytest.skip(
-                f"{name} now has a clean copy at {clean[-1].parent.name}; the "
-                f"dirty original can be deleted and this test removed"
+        assert copies, f"{name} has no copy at all"
+        for path in copies:
+            meta = json.loads(
+                path.with_suffix("").with_suffix(".meta.json").read_text()
             )
-        assert len(copies) == 1, f"{name} has {len(copies)} copies, all dirty"
+            assert not meta["git_dirty"], (
+                f"{path.parent.name}/{name} is dirty. Every copy of these two "
+                f"should now be clean-stamped -- see 6ad0bbb."
+            )
 
 
 def test_the_driver_emits_the_columns_the_committed_tables_carry():
     """Shape parity, so a re-run is comparable to what it replaces."""
-    path = SUPERSEDED / "tcga_premise_purity_conditioned.parquet"
+    path = PRODUCED / "tcga_premise_purity_conditioned.parquet"
     if not path.exists():
-        pytest.skip("superseded table not present")
+        pytest.skip("produced table not present")
     committed = pd.read_parquet(path)
     assert {"gene", "stratum", "purity_method", "purity_adjusted"} <= set(committed.columns)
     assert set(committed["gene"]) == set(GENES)
     assert committed["purity_adjusted"].all()
-    assert set(committed["purity_method"]) == {"absolute", "estimate_affy_extrapolated"}
+    # The driver runs every method with >= 30 calls, so the 2026-09-05 table
+    # also carries aran_cpe, which the August run skipped. Require the two the
+    # comparison depends on rather than pinning the set -- a third method is
+    # more coverage, not a regression.
+    assert {"absolute", "estimate_affy_extrapolated"} <= set(committed["purity_method"])
 
 
 def test_expression_derived_purity_explains_more_variance_than_absolute():
@@ -106,9 +112,9 @@ def test_expression_derived_purity_explains_more_variance_than_absolute():
     not confounding, which is why `src/bulk/instrument.py` filters on
     `expression_derived` rather than on a method name.
     """
-    path = SUPERSEDED / "tcga_purity_expression_association.parquet"
+    path = PRODUCED / "tcga_purity_expression_association.parquet"
     if not path.exists():
-        pytest.skip("superseded table not present")
+        pytest.skip("produced table not present")
     table = path and pd.read_parquet(path)
     cdx2 = table[table["gene"] == "CDX2"].set_index("purity_method")["r_squared"]
     assert cdx2["estimate_affy_extrapolated"] > 2 * cdx2["absolute"], (

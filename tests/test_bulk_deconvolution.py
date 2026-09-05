@@ -19,6 +19,7 @@ from src.bulk.deconvolution import (
     LINEAR_CP10K,
     LOG1P_CP10K,
     MIN_FRACTION_SD,
+    MIN_NONZERO_SHARE,
     NON_EPITHELIAL,
     DeconvolutionError,
     Reference,
@@ -544,3 +545,79 @@ def test_the_driver_records_a_refusal_rather_than_only_raising(truth, tmp_path):
     assert (table["mature_colonocyte_fraction"] == 0.0).sum() == 0  # invariant 1
     checks = pd.read_parquet(sorted(results.glob("*/stage4_predictor_checks.parquet"))[0])
     assert (checks["verdict"] == "not_estimable").all()
+
+
+# ---------------------------------------------------------------------------
+# The mostly-zeros predictor, found by the 2026-09-05 TCGA run
+
+
+def test_a_mostly_zero_predictor_is_degenerate_however_large_its_sd():
+    """671 zeros and four extreme survivors passed as `usable` on sd alone.
+
+    This is the input from the real run: best4/nnls returned an exactly-zero
+    mature fraction on 671 of 675 samples, and its sd was 0.0578 -- LARGER than
+    best4/nusvr's 0.0190 at 643 zeros -- because the four survivors were
+    extreme. Standard deviation ranked the more degenerate column above the less
+    degenerate one, and the guard read sd.
+    """
+    values = np.zeros(675)
+    values[:4] = [0.61, 0.75, 0.76, 1.00]
+    summary = pd.DataFrame({
+        "sample_id": [f"S{i}" for i in range(675)],
+        "method": "nnls",
+        "mature_colonocyte_fraction": values,
+    })
+    check = check_predictor(summary, rung="best4", method="nnls")
+    assert check.verdict == "degenerate"
+    assert not check.usable
+    assert check.sd > MIN_FRACTION_SD, (
+        "the sd floor alone would have passed this column, which is the point"
+    )
+    assert check.nonzero_share < MIN_NONZERO_SHARE
+    assert "671 of 675" in check.detail
+
+
+def test_sd_ranks_the_two_degenerate_columns_backwards():
+    """The demonstration, not the assertion. Kept because it is the reason the
+    check reads a share rather than a spread."""
+    def column(n_zero: int, survivors: list[float]) -> pd.DataFrame:
+        values = np.zeros(675)
+        values[:len(survivors)] = survivors
+        assert (values == 0).sum() == n_zero
+        return pd.DataFrame({
+            "sample_id": [f"S{i}" for i in range(675)], "method": "m",
+            "mature_colonocyte_fraction": values,
+        })
+
+    worse = check_predictor(column(671, [0.61, 0.75, 0.76, 1.00]), rung="best4", method="m")
+    better = check_predictor(column(643, [0.037] * 32), rung="best4", method="m")
+    assert worse.nonzero_share < better.nonzero_share      # worse really is worse
+    assert worse.sd > better.sd                            # sd says the opposite
+    assert worse.verdict == better.verdict == "degenerate"  # the share catches both
+
+
+def test_the_committed_run_rescores_to_two_usable_predictors():
+    """Against the real table, so the fix cannot regress silently."""
+    path = RESULTS_DIR / "2026-09-05_40b823b" / "stage4_fractions.parquet"
+    if not path.exists():
+        pytest.skip("the 2026-09-05 run is not committed")
+    fractions = pd.read_parquet(path)
+    verdicts = {
+        (rung, method): check_predictor(group, rung=rung, method=method).verdict
+        for (rung, method), group in fractions.groupby(["granularity_rung", "method"])
+    }
+    usable = {k for k, v in verdicts.items() if v == "usable"}
+    assert usable == {("lineage", "nusvr"), ("crypt_position", "nusvr")}, verdicts
+    assert verdicts[("epithelial", "nnls")] == "not_estimable"
+    assert verdicts[("best4", "nnls")] == "degenerate"
+
+
+def test_a_healthy_predictor_still_passes():
+    rng = np.random.default_rng(4)
+    summary = pd.DataFrame({
+        "sample_id": [f"S{i}" for i in range(400)],
+        "method": "nusvr",
+        "mature_colonocyte_fraction": rng.uniform(0.05, 0.8, 400),
+    })
+    check = check_predictor(summary, rung="lineage", method="nusvr")
+    assert check.verdict == "usable" and check.nonzero_share == 1.0

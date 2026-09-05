@@ -90,6 +90,21 @@ UNSCORED = ("epithelial_unscored",)
 #: softer neighbouring case, reported rather than raised.
 MIN_FRACTION_SD = 0.01
 
+#: A predictor needs this share of samples to carry a NON-ZERO fraction.
+#:
+#: Standard deviation is the wrong statistic for this and ranks it backwards.
+#: On the 2026-09-05 TCGA run, best4/nnls returned an exactly-zero mature
+#: fraction on 671 of 675 samples -- four informative points -- and its sd was
+#: 0.0578, LARGER than best4/nusvr's 0.0190 at 643 zeros, because its four
+#: survivors were extreme (median 0.752, one at 1.000). The more degenerate
+#: predictor scored as the more variable one, and both passed as `usable`.
+#:
+#: A non-negative solver returning exactly 0.0 is at the boundary, not
+#: measuring: it is saying "no mature cells in this tumour", which is not a
+#: credible reading of 99% of colorectal tumours. Counting how many samples
+#: actually carry a value is the question sd was standing in for.
+MIN_NONZERO_SHARE = 0.5
+
 
 def default_methods() -> list[Deconvolver]:
     """The two adapters that run in the pinned env. Never averaged.
@@ -398,6 +413,7 @@ class PredictorCheck:
     rung: str
     n_samples: int
     n_exact_zero: int
+    nonzero_share: float
     sd: float
     is_constant: bool
     verdict: str
@@ -431,6 +447,7 @@ def check_predictor(summary: pd.DataFrame, *, rung: str, method: str) -> Predict
     n_zero = int((finite == 0.0).sum())
     sd = float(finite.std()) if finite.size else float("nan")
     constant = bool(finite.size and np.ptp(finite) == 0.0)
+    nonzero_share = (finite.size - n_zero) / finite.size if finite.size else 0.0
 
     if not finite.size:
         verdict = "not_estimable"
@@ -453,6 +470,17 @@ def check_predictor(summary: pd.DataFrame, *, rung: str, method: str) -> Predict
             f"R-squared of 0, which is indistinguishable from the pre-registered "
             f"expectation for GUCA2A."
         )
+    elif nonzero_share < MIN_NONZERO_SHARE:
+        verdict = "degenerate"
+        detail = (
+            f"{method} returned an exactly-zero mature_colonocyte_fraction on "
+            f"{n_zero} of {finite.size} samples ({1 - nonzero_share:.1%}), "
+            f"leaving {finite.size - n_zero} that carry a value. An R-squared "
+            f"from this is a statement about those {finite.size - n_zero}, not "
+            f"about the cohort. Note sd={sd:.4f} does NOT catch this and can "
+            f"rank it above a less degenerate column whose survivors are less "
+            f"extreme -- see MIN_NONZERO_SHARE."
+        )
     elif sd < MIN_FRACTION_SD:
         verdict = "degenerate"
         detail = (
@@ -463,11 +491,15 @@ def check_predictor(summary: pd.DataFrame, *, rung: str, method: str) -> Predict
         )
     else:
         verdict = "usable"
-        detail = f"sd={sd:.4f} over {finite.size} samples, {n_zero} exact zeros"
+        detail = (
+            f"sd={sd:.4f} over {finite.size} samples, {n_zero} exact zeros "
+            f"({nonzero_share:.1%} carry a value)"
+        )
 
     return PredictorCheck(
         method=method, rung=rung, n_samples=int(finite.size), n_exact_zero=n_zero,
-        sd=sd, is_constant=constant, verdict=verdict, detail=detail,
+        nonzero_share=nonzero_share, sd=sd, is_constant=constant,
+        verdict=verdict, detail=detail,
     )
 
 
