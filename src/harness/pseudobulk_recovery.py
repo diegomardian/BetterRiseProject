@@ -219,10 +219,29 @@ def recover(
         matrix=reference, rung="compartment", scale=LINEAR_CP10K,
         source=__import__("pathlib").Path(f"{leg}:{recipe}"),
     )
-    long, _ = deconvolve_cohort(
+    long, skipped = deconvolve_cohort(
         bulk, wrapped, bulk_scale=LINEAR_CP10K,
         methods=list(methods or [NNLSDeconvolver(), NuSVRDeconvolver()]),
     )
+    # A SKIPPED METHOD IS NOT A SMALLER EXPERIMENT, IT IS A DIFFERENT ONE.
+    # `available_methods` reports an unavailable adapter rather than crashing --
+    # correct for a bake-off, wrong here. Drop nu-SVR (no scikit-learn in the
+    # activated env) and this returns an NNLS-only gap, reported in the same
+    # columns, indistinguishable from a complete run. NNLS is the method that
+    # was degenerate at every rung of the Stage 4 run, so an NNLS-only A1 is
+    # the weakest possible version of the experiment wearing the same name.
+    #
+    # The qsub wrapper checks the imports too. That check is outside the
+    # function, so it does not protect a laptop run, a notebook, or a future
+    # caller -- and a guard that only exists in a shell script is not a guard.
+    if skipped:
+        raise RecoveryError(
+            f"deconvolution methods were skipped: {skipped}. A1 compares two "
+            f"reference recipes across the SAME methods; dropping one silently "
+            f"changes what is being compared. Install the missing dependency "
+            f"(scikit-learn lives in brp-w2/w3/w4, not brp-w1) or pass "
+            f"`methods=` explicitly to say the reduced set is intended."
+        )
     wide = long.pivot_table(
         index=["sample_id", "method"], columns="cell_type", values="fraction"
     ).reset_index()

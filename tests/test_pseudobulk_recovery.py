@@ -211,3 +211,45 @@ def test_a_signature_that_resolves_to_nothing_raises(tmp_path):
     frame.to_parquet(path)
     with pytest.raises(RecoveryError, match="empty gene set"):
         signature_symbols(path)
+
+
+def test_a_skipped_method_is_refused_rather_than_silently_dropped(cells):
+    """Without scikit-learn the run would return an NNLS-only gap, in the same
+    columns, indistinguishable from a complete one.
+
+    NNLS was degenerate at every rung of the Stage 4 run, so that is the
+    weakest version of this experiment wearing the same name. The qsub wrapper
+    checks imports, but that check is outside the function and protects neither
+    a laptop run nor a future caller.
+    """
+    from src.harness.deconvolve.base import Deconvolver
+
+    class Unavailable(Deconvolver):
+        name = "nusvr"
+
+        def is_available(self):
+            return False, "scikit-learn not installed"
+
+        def fit_predict(self, bulk, signature):  # pragma: no cover - never called
+            raise AssertionError("must not run")
+
+    from src.harness.deconvolve.nnls import NNLSDeconvolver
+
+    expression, labels = cells
+    bulk, truth = make_pseudobulk(expression, labels, n_samples=20, n_cells=200, seed=2)
+    reference = build_reference(expression, labels, recipe="linear")
+    with pytest.raises(RecoveryError, match="were skipped"):
+        recover(bulk, truth, reference, leg="self", recipe="linear",
+                methods=[NNLSDeconvolver(), Unavailable()])
+
+
+def test_an_explicitly_reduced_method_set_is_allowed(cells):
+    """Asking for one method is a choice; losing one is an accident."""
+    from src.harness.deconvolve.nnls import NNLSDeconvolver
+
+    expression, labels = cells
+    bulk, truth = make_pseudobulk(expression, labels, n_samples=20, n_cells=200, seed=2)
+    reference = build_reference(expression, labels, recipe="linear")
+    results = recover(bulk, truth, reference, leg="self", recipe="linear",
+                      methods=[NNLSDeconvolver()])
+    assert [r.method for r in results] == ["nnls"]
