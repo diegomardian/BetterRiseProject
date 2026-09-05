@@ -19,7 +19,9 @@ from src.reference.jobs.icbi_coexpression import (
     MIN_EPITHELIAL_PER_ARM,
     NAIVE,
     VALIDATION,
+    control_log2_interval,
     eligible_patients,
+    verdict_word,
 )
 
 
@@ -155,3 +157,106 @@ def test_the_bar_names_pelka_and_the_table_it_checks_against():
     assert VALIDATION["committed_study_id"] == "GSE178341"
     assert "2026-09-04_975cf5c" in VALIDATION["against"]
     assert len(VALIDATION["requirements"]) == 3
+
+
+# ---------------------------------------------------------------------------
+# The premise, which is the gate the bar exists to protect
+
+
+def _saturated(study: str, *, log2: float, n: int = 8, seed: int = 0):
+    """Controls at 0.99 detection in both arms -- the real regime.
+
+    `premise_holds` switches a saturated control to log2 expression, so a
+    detection-only check has nothing to see. This is the fixture that makes the
+    difference visible.
+    """
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n):
+        for gene, role in (("ACTB", "control"), ("KRT8", "control"),
+                           ("GUCA2A", "target"), ("CDX2", "identity")):
+            control = role == "control"
+            rows.append({
+                "study_id": study, "patient_id": f"p{i}", "gene": gene,
+                "role": role,
+                "delta_detect": (0.0 if control else -0.40) + rng.normal(0, 0.01),
+                "delta_given_conditioner": (0.0 if control else -0.40),
+                "log2_cp10k_ratio": (log2 if control else 0.0) + rng.normal(0, 0.12),
+                "detect_normal": 0.99 if control else 0.52,
+                "detect_tumour": 0.99 if control else 0.12,
+            })
+    return pd.DataFrame(rows)
+
+
+def test_a_flipped_premise_verdict_fails_the_bar(tmp_path, monkeypatch):
+    """THE GAP THIS FIX CLOSES.
+
+    Committed ACTB log2 sits near +0.43 (UNRESOLVED). Move it to +1.4 and the
+    premise becomes REFUSED -- the gate deciding whether the whole reading is
+    interpretable has flipped. Detection is 0.99 in both arms either way, so a
+    detection-only check sees nothing and the GUCA2A delta is untouched.
+    """
+    import src.reference.jobs.icbi_coexpression as mod
+
+    root = tmp_path / "results" / "2026-09-04_975cf5c"
+    root.mkdir(parents=True)
+    _saturated("GSE178341", log2=0.43, seed=1).to_parquet(
+        root / "coexpression_silencing.parquet"
+    )
+    monkeypatch.setattr(mod, "RESULTS_DIR", tmp_path / "results")
+
+    flipped = _saturated("Pelka_2021_Cell", log2=1.4, seed=2)
+    result = mod.check_against_committed(flipped)
+    assert result["verdict"] == "FAIL"
+    assert "premise verdict CHANGED" in result["detail"]
+    assert result["premise_verdict_committed"] != result["premise_verdict_icbi"]
+
+    # And the detection statistic really is blind to it, which is the point.
+    assert abs(result.get("guca2a_drift", 0.0)) < GUCA2A_DELTA_TOLERANCE
+
+
+def test_a_matching_premise_and_close_numbers_pass(tmp_path, monkeypatch):
+    import src.reference.jobs.icbi_coexpression as mod
+
+    root = tmp_path / "results" / "2026-09-04_975cf5c"
+    root.mkdir(parents=True)
+    _saturated("GSE178341", log2=0.43, seed=1).to_parquet(
+        root / "coexpression_silencing.parquet"
+    )
+    monkeypatch.setattr(mod, "RESULTS_DIR", tmp_path / "results")
+
+    close = _saturated("Pelka_2021_Cell", log2=0.45, seed=2)
+    result = mod.check_against_committed(close)
+    assert result["verdict"] == "PASS", result["detail"]
+    assert result["premise_verdict_icbi"] == result["premise_verdict_committed"]
+
+
+def test_the_log2_interval_matches_premise_holds(tmp_path):
+    """Two code paths that agree by review is how a bar measures the wrong thing.
+
+    `control_log2_interval` mirrors `premise_holds`' bootstrap deliberately, so
+    this pins them to the same numbers rather than trusting that they match.
+    """
+    from src.reference.jobs.coexpression_silencing import premise_holds
+
+    deltas = _saturated("S", log2=0.43, seed=5)
+    mean, lo, hi = control_log2_interval(deltas, "ACTB", seed=11)
+    _, reading = premise_holds(deltas, seed=11)
+    assert "ACTB" in reading and "log2 expression" in reading
+    assert f"{mean:+.3f}" in reading, f"{mean:+.3f} not in {reading}"
+    assert f"[{lo:+.3f}, {hi:+.3f}]" in reading
+
+
+def test_verdict_word_takes_the_state_not_the_numbers():
+    assert verdict_word("UNRESOLVED: control ACTB +0.431 [...]") == "UNRESOLVED"
+    assert verdict_word("REFUSED: control KRT8 -0.712") == "REFUSED"
+    assert verdict_word("UNDEFINED: no control gene was scored") == "UNDEFINED"
+
+
+def test_the_documented_bar_matches_the_implemented_one():
+    """The requirement text and the code must not drift apart -- that gap is
+    what this fix was for."""
+    text = " ".join(VALIDATION["requirements"]).lower()
+    assert "premise verdict" in text
+    assert "log2" in text, "the bar claims a log2 check; the code must do one"
+    assert "detection delta" in text

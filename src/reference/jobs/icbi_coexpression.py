@@ -60,11 +60,14 @@ from src.reference.icbi_slice import (
 )
 from src.reference.jobs.coexpression_silencing import (
     AXIS,
+    CONTROL_LOG2_TOLERANCE,
     DEPTH_QUANTILE,
     GENE_ROLES,
     MATURE_BIN,
     MIN_CELLS_BOTH_ARMS,
+    N_BOOTSTRAP,
     RUNG,
+    premise_holds,
     rows_for_patient,
     summarise,
 )
@@ -250,12 +253,49 @@ VALIDATION = {
     "against": "results/2026-09-04_975cf5c/coexpression_silencing.parquet",
     "committed_study_id": "GSE178341",
     "requirements": [
+        "the premise verdict word is the same (UNRESOLVED)",
         "the ACTB log2 control interval overlaps the committed one",
         "the GUCA2A detection delta is within 0.15 of the committed one",
-        "the premise verdict is the same string",
     ],
 }
 GUCA2A_DELTA_TOLERANCE = 0.15
+
+
+def control_log2_interval(
+    deltas: pd.DataFrame, gene: str, *, seed: int = DEFAULT_SEED
+) -> tuple[float, float, float]:
+    """Bootstrap interval on a control's log2 ratio. Returns (mean, lo, hi).
+
+    THE STATISTIC THE PREMISE ACTUALLY USES for a saturated control. ACTB and
+    KRT8 sit at 0.99-1.00 detection in both arms, so `premise_holds` switches
+    them to log2 expression against a 0.5 tolerance -- and their DETECTION
+    interval is about +/-0.01 whatever happened, which makes an overlap test on
+    it very nearly vacuous.
+
+    Deliberately mirrors `premise_holds`' own bootstrap rather than parsing its
+    reading string, and `test_the_log2_interval_matches_premise_holds` pins the
+    two to agree. Two code paths that agree by review is how a validation bar
+    ends up measuring something other than what it claims.
+    """
+    values = deltas.loc[deltas["gene"] == gene, "log2_cp10k_ratio"]
+    values = values.dropna().to_numpy(dtype=float)
+    if values.size < 3:
+        return float("nan"), float("nan"), float("nan")
+    rng = np.random.default_rng(seed)
+    draws = rng.choice(
+        values, size=(N_BOOTSTRAP, values.size), replace=True
+    ).mean(axis=1)
+    lo, hi = (float(x) for x in np.percentile(draws, [2.5, 97.5]))
+    return float(values.mean()), lo, hi
+
+
+def verdict_word(reading: str) -> str:
+    """The state at the front of a premise reading: UNRESOLVED / REFUSED / ...
+
+    The rest of the string carries numbers that will not survive the atlas's
+    reprocessing. The word is what has to match.
+    """
+    return str(reading).split(":", 1)[0].strip().upper()
 
 
 def check_against_committed(deltas: pd.DataFrame, seed: int = DEFAULT_SEED) -> dict:
@@ -286,18 +326,42 @@ def check_against_committed(deltas: pd.DataFrame, seed: int = DEFAULT_SEED) -> d
         hit = frame[(frame["gene"] == gene) & (frame["statistic"] == statistic)]
         return hit.iloc[0] if len(hit) else None
 
-    a_new, a_old = row(got, "ACTB", "detection"), row(old, "ACTB", "detection")
-    if a_new is None or a_old is None:
-        failures.append("ACTB detection row missing from one side")
+    # (1) The premise verdict. THE ONE THAT MATTERS: it decides whether the
+    # whole reading is interpretable, and it is the thing a detection-only
+    # check cannot see moving.
+    holds_new, reading_new = premise_holds(deltas, seed=seed)
+    holds_old, reading_old = premise_holds(committed, seed=seed)
+    checks["premise_icbi"] = reading_new
+    checks["premise_committed"] = reading_old
+    checks["premise_verdict_icbi"] = verdict_word(reading_new)
+    checks["premise_verdict_committed"] = verdict_word(reading_old)
+    if verdict_word(reading_new) != verdict_word(reading_old):
+        failures.append(
+            f"the premise verdict CHANGED: committed "
+            f"{verdict_word(reading_old)}, icbi {verdict_word(reading_new)}. "
+            f"That gate decides whether the reading is interpretable at all."
+        )
+    if holds_new != holds_old:
+        failures.append(f"premise_holds returned {holds_new} against {holds_old}")
+
+    # (2) ACTB on LOG2, which is the statistic the premise uses for it. Its
+    # detection interval is ~+/-0.01 either way, so an overlap test there
+    # cannot detect the shift that flips the verdict.
+    mean_new, lo_new, hi_new = control_log2_interval(deltas, "ACTB", seed=seed)
+    mean_old, lo_old, hi_old = control_log2_interval(committed, "ACTB", seed=seed)
+    if not np.isfinite(lo_new) or not np.isfinite(lo_old):
+        failures.append("ACTB log2 interval undefined on one side")
     else:
-        overlap = (a_new["ci_low"] <= a_old["ci_high"]) and (a_old["ci_low"] <= a_new["ci_high"])
-        checks["actb_interval_overlaps"] = bool(overlap)
-        checks["actb_icbi"] = [float(a_new["ci_low"]), float(a_new["ci_high"])]
-        checks["actb_committed"] = [float(a_old["ci_low"]), float(a_old["ci_high"])]
+        overlap = (lo_new <= hi_old) and (lo_old <= hi_new)
+        checks["actb_log2_overlaps"] = bool(overlap)
+        checks["actb_log2_icbi"] = [round(mean_new, 3), round(lo_new, 3), round(hi_new, 3)]
+        checks["actb_log2_committed"] = [round(mean_old, 3), round(lo_old, 3), round(hi_old, 3)]
+        checks["control_log2_tolerance"] = CONTROL_LOG2_TOLERANCE
         if not overlap:
             failures.append(
-                f"ACTB intervals disjoint: icbi {checks['actb_icbi']} vs "
-                f"committed {checks['actb_committed']}"
+                f"ACTB log2 intervals disjoint: icbi "
+                f"{checks['actb_log2_icbi']} vs committed "
+                f"{checks['actb_log2_committed']}"
             )
 
     g_new, g_old = row(got, "GUCA2A", "detection"), row(old, "GUCA2A", "detection")
@@ -369,9 +433,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             log.error("  REFUSED: %s", exc)
             reports.append({"study_id": study, "error": str(exc)})
             continue
-        reports.append(report)
         if not deltas.empty:
+            holds, reading = premise_holds(deltas, seed=args.seed)
+            report["premise_holds"] = bool(holds)
+            report["premise_reading"] = reading
+            log.info("  premise: %s", reading)
             frames.append(deltas)
+        reports.append(report)
 
     if not frames:
         log.error("\nno study produced any scored patient.")
@@ -417,6 +485,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "min_epithelial_per_arm": MIN_EPITHELIAL_PER_ARM,
                 "validation": validation or VALIDATION,
+                "premise_reading": {
+                    r["study_id"]: r.get("premise_reading", "not scored")
+                    for r in reports if "study_id" in r
+                },
                 "exploratory": True,
                 "pre_registered": False,
                 "what_this_is_not": (
