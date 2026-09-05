@@ -1,0 +1,47 @@
+{
+  "date": "2026-09-05",
+  "utc_timestamp": "2026-09-05T07:28:01+00:00",
+  "git_sha": "d358109f123e22ece22288c6c41dfa44bd853db0",
+  "git_sha_short": "d358109",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.11.16",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "name": "stage4_predictor_checks",
+  "n_rows": 8,
+  "columns": [
+    "granularity_rung",
+    "method",
+    "n_samples",
+    "n_exact_zero",
+    "nonzero_share",
+    "fraction_sd",
+    "is_constant",
+    "verdict",
+    "detail"
+  ],
+  "table_kind": "harness",
+  "cohort": "TCGA-COAD/READ",
+  "rungs": [
+    "epithelial",
+    "lineage",
+    "crypt_position",
+    "best4"
+  ],
+  "reference_scale": "linear_cp10k",
+  "reference_note": {
+    "epithelial": "reference linearised with expm1 from the committed mean-of-log1p matrix. APPROXIMATE: a geometric rather than arithmetic mean of CP10K+1, biased low by Jensen, worst for the most dispersed genes. The correct fix is a linearly-built reference from W1.",
+    "lineage": "reference linearised with expm1 from the committed mean-of-log1p matrix. APPROXIMATE: a geometric rather than arithmetic mean of CP10K+1, biased low by Jensen, worst for the most dispersed genes. The correct fix is a linearly-built reference from W1.",
+    "crypt_position": "reference linearised with expm1 from the committed mean-of-log1p matrix. APPROXIMATE: a geometric rather than arithmetic mean of CP10K+1, biased low by Jensen, worst for the most dispersed genes. The correct fix is a linearly-built reference from W1.",
+    "best4": "reference linearised with expm1 from the committed mean-of-log1p matrix. APPROXIMATE: a geometric rather than arithmetic mean of CP10K+1, biased low by Jensen, worst for the most dispersed genes. The correct fix is a linearly-built reference from W1."
+  },
+  "bulk_source": "tcga_tpm_1.0.0.parquet",
+  "bulk_scale": "linear_cp10k",
+  "methods_skipped": {},
+  "what_this_answers": "Per (sample, method, rung): the mature-colonocyte fraction Stage 4 regresses on, and the non-epithelial fraction its instrument gate checks against ABSOLUTE purity. Emitted side by side because the second can be right while the first is a constant -- see src/bulk/deconvolution.py.",
+  "invariant_1": "A rung with no maturity call carries mature_colonocyte_fraction = None with estimability='not_estimable', never 0.0."
+}

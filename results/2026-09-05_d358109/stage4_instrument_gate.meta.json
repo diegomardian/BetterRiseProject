@@ -1,0 +1,32 @@
+{
+  "date": "2026-09-05",
+  "utc_timestamp": "2026-09-05T07:28:14+00:00",
+  "git_sha": "d358109f123e22ece22288c6c41dfa44bd853db0",
+  "git_sha_short": "d358109",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.11.16",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "name": "stage4_instrument_gate",
+  "n_rows": 2,
+  "columns": [
+    "method",
+    "granularity_rung",
+    "purity_method",
+    "n_samples",
+    "pearson_r",
+    "threshold",
+    "passed",
+    "detail",
+    "cohort"
+  ],
+  "table_kind": "harness",
+  "prespec_version": "1.0.0",
+  "prespec_locked_on": "2026-09-05",
+  "grain": "one row per (granularity_rung, method)",
+  "what_this_answers": "The locked prespec's positive control: does the deconvolved non-epithelial fraction track (1 - ABSOLUTE purity) at r >= 0.5? It does NOT certify the epithelial-internal split Stage 4 regresses on -- see stage4_predictor_checks."
+}
