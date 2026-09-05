@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Pull the ICBI atlas metadata — not the atlas. W1, week 1.
 
-    python src/reference/jobs/pull_icbi_metadata.py
+    python -m src.reference.jobs.pull_icbi_metadata
 
 execution_plan.md §8.2 says to take the metadata table before committing any
 compute. No such table is published, so this reads /obs out of the 32.7 GB h5ad

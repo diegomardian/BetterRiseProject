@@ -68,15 +68,71 @@ DEFAULT_COLUMNS: Final[tuple[str, ...]] = (
 )
 
 #: Platforms with essentially no ambient soup and much deeper per-cell coverage.
-PLATE_PLATFORMS: Final[tuple[str, ...]] = ("smartseq2",)
+#:
+#: MATCHED CASE- AND PUNCTUATION-INSENSITIVELY, via `is_plate_based`. The atlas
+#: writes "Smart-seq2"; this tuple used to hold the bare string "smartseq2" and
+#: was compared with `.isin`, so it matched nothing and every plate-based cell
+#: in the atlas was labelled droplet. The job then printed "plate-based cells
+#: available: 0" -- a conclusion about the atlas produced entirely by a hyphen.
+PLATE_PLATFORMS: Final[tuple[str, ...]] = ("smartseq2", "smarterc1", "sctrioseq2")
 
 #: 4 MB blocks. HDF5 issues many small reads; without block caching this would be
 #: thousands of HTTP requests instead of a few hundred.
 BLOCK_SIZE: Final[int] = 4 * 1024 * 1024
 
 
+#: `sample_type` values that count as the diseased arm and the reference arm.
+#:
+#: The atlas vocabulary is "primary tumor" / "adjacent normal". This code used
+#: to test for the bare strings "tumor" and "normal", which appear nowhere, so
+#: both columns were created empty and EVERY patient in EVERY study came back
+#: unpaired -- 0 of 229, reported as a fact about the data.
+#:
+#: `healthy normal` is deliberately excluded: it is a different donor, not the
+#: same patient's adjacent tissue, and pairing across donors is not pairing.
+#: Metastasis, polyp, blood and lymph node are likewise not this contrast.
+TUMOUR_SAMPLE_TYPES: Final[tuple[str, ...]] = ("primary tumor",)
+NORMAL_SAMPLE_TYPES: Final[tuple[str, ...]] = ("adjacent normal",)
+
+
 class ICBIError(RuntimeError):
     """The atlas metadata could not be read."""
+
+
+def _normalise_label(value: object) -> str:
+    """Lowercase, strip anything that is not a letter or digit.
+
+    "Smart-seq2", "smart seq2" and "SmartSeq2" are one platform written three
+    ways, and an exact-match tuple is a promise to have guessed the spelling.
+    """
+    return "".join(ch for ch in str(value).lower() if ch.isalnum())
+
+
+def is_plate_based(platform: pd.Series) -> pd.Series:
+    """Which rows come from a plate protocol, spelling-insensitively."""
+    return platform.map(_normalise_label).isin(PLATE_PLATFORMS)
+
+
+def assert_vocabulary_matches(
+    observed: pd.Series, expected: tuple[str, ...], *, field: str
+) -> None:
+    """Raise if none of `expected` appears in `observed`.
+
+    The failure this exists for is silent and one-directional: a vocabulary that
+    matches nothing yields an empty selection, an empty selection aggregates to
+    zero, and zero reads as a finding. "No patient in this atlas has a matched
+    normal" and "we spelled the label wrong" produce the identical table, and
+    only one of them is true.
+    """
+    present = set(observed.dropna().unique())
+    if not present & set(expected):
+        raise ICBIError(
+            f"none of the expected {field} values {list(expected)} appears in "
+            f"this build. Present: {sorted(present)[:12]}.\n"
+            f"Refusing rather than returning zeros -- a vocabulary miss and a "
+            f"real absence produce the same table, and this one would be read "
+            f"as a fact about the atlas."
+        )
 
 
 class HTTPRangeFile(io.RawIOBase):
@@ -225,7 +281,7 @@ def platform_summary(obs: pd.DataFrame) -> pd.DataFrame:
     tied (decision #14).
     """
     return _group_summary(obs, "platform").assign(
-        plate_based=lambda d: d["platform"].isin(PLATE_PLATFORMS)
+        plate_based=lambda d: is_plate_based(d["platform"])
     )
 
 
@@ -237,23 +293,21 @@ def paired_sample_summary(obs: pd.DataFrame) -> pd.DataFrame:
     if not {"patient_id", "sample_type"} <= set(obs.columns):
         raise ICBIError("obs needs patient_id and sample_type")
     frame = obs.loc[:, [c for c in ("study_id", "patient_id", "sample_type") if c in obs]]
-    has = (
-        frame.assign(one=1)
-        .pivot_table(
-            index=[c for c in ("study_id", "patient_id") if c in frame],
-            columns="sample_type", values="one", aggfunc="size", fill_value=0,
-        )
-        .reset_index()
+    assert_vocabulary_matches(
+        frame["sample_type"], TUMOUR_SAMPLE_TYPES + NORMAL_SAMPLE_TYPES,
+        field="sample_type",
     )
-    for column in ("tumor", "normal"):
-        if column not in has.columns:
-            has[column] = 0
-    has["paired"] = (has["tumor"] > 0) & (has["normal"] > 0)
-    keys = [c for c in ("study_id",) if c in has]
-    if not keys:
-        return has
+    pairs = frame.drop_duplicates().assign(
+        is_tumour=lambda d: d["sample_type"].isin(TUMOUR_SAMPLE_TYPES),
+        is_normal=lambda d: d["sample_type"].isin(NORMAL_SAMPLE_TYPES),
+    )
+    keys = [c for c in ("study_id", "patient_id") if c in pairs]
+    has = pairs.groupby(keys, observed=True)[["is_tumour", "is_normal"]].any()
+    has["paired"] = has["is_tumour"] & has["is_normal"]
+    if "study_id" not in has.index.names:
+        return has.reset_index()
     return (
-        has.groupby(keys, observed=True)
+        has.groupby("study_id", observed=True)
         .agg(n_patients=("paired", "size"), n_paired=("paired", "sum"))
         .reset_index()
         .sort_values("n_paired", ascending=False, ignore_index=True)
@@ -349,5 +403,5 @@ def depth_by_platform(obs: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
         .sort_values("median_genes", ascending=False, ignore_index=True)
     )
-    out["plate_based"] = out["platform"].isin(PLATE_PLATFORMS)
+    out["plate_based"] = is_plate_based(out["platform"])
     return out
