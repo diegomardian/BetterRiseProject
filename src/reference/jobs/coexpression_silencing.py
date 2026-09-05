@@ -56,15 +56,14 @@ import numpy as np
 import pandas as pd
 
 from src.common.io import write_versioned_table
+from src.common.provenance import DEFAULT_SEED
 from src.harness.depth_confound import match_arm_depth
-from src.reference.labels import label_column
+from src.reference.labels import RUNG_SPECS, label_column
 
 log = logging.getLogger(__name__)
 
 #: Set from --allow-dirty. Default False.
 ALLOW_DIRTY = False
-
-DEFAULT_SEED = 20260904
 
 #: A cell counts as expressing a gene at one UMI or more. Detection rather than
 #: mean expression, because detection is what survives a depth difference once
@@ -119,10 +118,16 @@ SATURATION_CEILING = 0.95
 #: moving would mean the population changed. 0.5 is a 1.41x shift.
 CONTROL_LOG2_TOLERANCE = 0.5
 
-AXIS, RUNG, MATURE_BIN = "stem_pole", "lineage", "differentiated"
+AXIS, RUNG = "stem_pole", "lineage"
 
-#: GSE178341 QC settings, identical to build_decomposition_summary's so the
-#: population scored here is the one the decomposition is computed on.
+#: Read from the frozen rung specification rather than repeated here. The bin
+#: name is part of the labelling contract; a copy of it in this file is a second
+#: place for it to be true.
+MATURE_BIN = RUNG_SPECS[RUNG].mature
+
+#: GSE178341 QC settings, taken from build_decomposition_summary so the QC and
+#: labelling path is shared. The cells finally scored are NOT identical to the
+#: decomposition's: see gse178341_deltas for what differs and why.
 UNSORTED = "unsorted"
 DEPTH_QUANTILE = 0.25
 CONDITION_ON = "CDX2"
@@ -235,6 +240,9 @@ def rows_for_patient(
     analysed subset unmatched, which `build_decomposition_summary` learned the
     hard way and records in its own comments.
     """
+    if CONDITION_ON not in counts:
+        log.info("  %s: %s absent, so the conditional cannot be formed", patient, CONDITION_ON)
+        return []
     if len(depth) < MIN_CELLS_BOTH_ARMS or len(set(tissue.tolist())) < 2:
         return []
     keep = match_arm_depth(depth, tissue, seed=seed)
@@ -308,8 +316,15 @@ def gse178341_deltas(*, seed: int = DEFAULT_SEED, patients=None, data_dir=None) 
     deposit is 371k cells and the loader materialises one patient at a time for
     exactly that reason.
 
-    The QC and labelling path is `build_decomposition_summary`'s, unchanged, so
-    the population scored here is the one the decomposition is computed on.
+    The QC and labelling path is `build_decomposition_summary`'s and the mature
+    bin is the same `lineage` bin, so the labels are identical. **The cells
+    scored are not.** That job depth-matches the resolved epithelium and
+    intersects the result with the mature set; this one matches within the
+    mature set itself, because matching has to be applied to the population the
+    statistic is computed over -- which is the lesson that job records in its
+    own comments, pointing the other way for its own estimand. Aligning the seed
+    makes the labels the same. It does not make the retained cells the same, and
+    nothing here should be read as though it did.
     """
     import os
 
