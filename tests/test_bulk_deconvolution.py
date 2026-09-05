@@ -286,17 +286,34 @@ def test_one_surviving_method_is_enough_but_none_is_not():
 # The scale guard itself
 
 
-def test_assert_scales_agree_catches_both_directions(linear_reference):
-    assert_scales_agree(linear_reference, LINEAR_CP10K)  # does not raise
-    with pytest.raises(DeconvolutionError, match="linear mixture model"):
-        assert_scales_agree(linear_reference, LOG1P_CP10K)
+def test_only_linear_on_both_sides_is_accepted(linear_reference):
+    """Matching is NOT the criterion. Linearity is.
+
+    The tempting reading of "the scales must agree" makes a log reference
+    against log bulk acceptable, and it is not: log(S @ f) is not log(S) @ f,
+    so a log/log pair is scale-matched and still not a mixture model. Two
+    misspecifications that agree with each other are not a specification, and
+    this is the case a guard written as an equality check would wave through.
+    """
     log_reference = Reference(
         matrix=np.log1p(linear_reference.matrix), rung="lineage",
         scale=LOG1P_CP10K, source=Path("s.parquet"),
     )
-    with pytest.raises(DeconvolutionError, match="linear mixture model"):
+    assert_scales_agree(linear_reference, LINEAR_CP10K)  # the only valid pair
+
+    with pytest.raises(DeconvolutionError, match="bulk is not"):
+        assert_scales_agree(linear_reference, LOG1P_CP10K)
+    with pytest.raises(DeconvolutionError, match="reference is not"):
         assert_scales_agree(log_reference, LINEAR_CP10K)
-    assert_scales_agree(log_reference, LOG1P_CP10K)
+    with pytest.raises(DeconvolutionError, match="reference and bulk are not"):
+        assert_scales_agree(log_reference, LOG1P_CP10K)
+
+
+def test_the_error_names_which_side_is_wrong(linear_reference):
+    """A guard that says "scales disagree" leaves you guessing which to fix."""
+    with pytest.raises(DeconvolutionError) as exc:
+        assert_scales_agree(linear_reference, LOG1P_CP10K)
+    assert "log2-CPM" in str(exc.value), "should point at the outcome/input mixup"
 
 
 def test_linearise_is_the_exact_inverse_and_says_where_it_came_from(linear_reference):

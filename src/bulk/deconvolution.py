@@ -232,9 +232,19 @@ def linearise(reference: Reference) -> Reference:
 
 
 def assert_scales_agree(reference: Reference, bulk_scale: str) -> None:
-    """Refuse a log reference against linear bulk, and the reverse.
+    """Require BOTH sides linear. Matching is not the criterion -- linearity is.
 
-    THIS IS THE CHECK THE INSTRUMENT GATE CANNOT DO. The pre-committed gate
+    Every deconvolver here solves ``bulk ~ S @ f``, and that identity holds only
+    in linear space. It is tempting to read the requirement as "put the two on
+    the same scale", which would make a log reference against log bulk
+    acceptable. IT IS NOT: ``log(S @ f)`` is not ``log(S) @ f``, so a log/log
+    pair is scale-matched and still not a mixture model. Two misspecifications
+    that agree with each other are not a specification.
+
+    So this refuses anything that is not linear on both sides, and the error
+    says which side is wrong.
+
+    THIS IS ALSO THE CHECK THE INSTRUMENT GATE CANNOT DO. The pre-committed gate
     correlates the non-epithelial aggregate against ABSOLUTE purity, and that
     aggregate survives the mismatch: in the run where NNLS returns a
     `differentiated` fraction of exactly 0.0 for every sample, the gate reads
@@ -242,22 +252,31 @@ def assert_scales_agree(reference: Reference, bulk_scale: str) -> None:
     the epithelial-INTERNAL split, which is the only part Stage 4 uses, is not.
 
     A gate that passes for a quantity the analysis does not use is not a gate
-    for the analysis, so the mismatch is refused here instead -- before any
-    number is produced, rather than after one is certified.
+    for the analysis, so this is refused here instead -- before any number is
+    produced, rather than after one is certified.
     """
     if bulk_scale not in SCALES:
         raise DeconvolutionError(f"bulk_scale must be one of {SCALES}, got {bulk_scale!r}")
-    if reference.scale != bulk_scale:
+    wrong = [
+        name for name, scale in (("reference", reference.scale), ("bulk", bulk_scale))
+        if scale != LINEAR_CP10K
+    ]
+    if wrong:
         raise DeconvolutionError(
-            f"reference is {reference.scale!r} and bulk is {bulk_scale!r}. A "
-            f"linear mixture model needs both on the linear scale. Call "
-            f"`linearise(reference)` -- and read its docstring, because it is an "
-            f"approximation with a known direction -- or rebuild the reference "
-            f"linearly in W1.\n"
-            f"Deconvolving across scales does not merely add noise. On the "
-            f"committed lineage matrix NNLS returns the mature fraction as "
-            f"exactly 0.0 on every sample -- and the pre-committed instrument "
-            f"gate passes anyway, because the aggregate it reads survives."
+            f"the {' and '.join(wrong)} {'are' if len(wrong) > 1 else 'is'} not "
+            f"on the linear scale (reference={reference.scale!r}, "
+            f"bulk={bulk_scale!r}). A linear mixture model needs BOTH linear, "
+            f"and matching them on the log scale does not help: log(S @ f) is "
+            f"not log(S) @ f, so a log/log pair is still not a mixture model.\n"
+            f"For the reference, call `linearise()` -- and read its docstring, "
+            f"because it is an approximation with a known direction -- or "
+            f"rebuild it linearly in W1. For the bulk, use TPM or CPM rather "
+            f"than log2-CPM; the log matrix is the Stage 4 OUTCOME, not its "
+            f"deconvolution input.\n"
+            f"This does not merely add noise. On the committed lineage matrix "
+            f"NNLS returns the mature fraction as exactly 0.0 on every sample "
+            f"-- and the pre-committed instrument gate passes anyway, because "
+            f"the aggregate it reads survives."
         )
 
 
