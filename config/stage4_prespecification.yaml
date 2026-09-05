@@ -2,7 +2,8 @@
 # Stage 4 — how much of bulk GUCA2A and CDX2 does mature-colonocyte FRACTION
 # explain? Pre-specified before the analysis is run.
 #
-# STATUS: proposed — NOT YET LOCKED.
+# STATUS: LOCKED 2026-09-05, on the project owner's instruction, before the
+# variance arm ran. See `lock_authorisation`.
 #
 # execution_plan.md §6.2 asks this as the bulk arm's contribution to the paper,
 # and PR #49's decomposition now makes it a DIRECTIONAL prediction rather than
@@ -20,12 +21,25 @@
 # =============================================================================
 
 version: "1.0.0"
-status: proposed          # proposed | locked
+status: locked            # proposed | locked
 proposed_on: "2026-08-28"
 proposed_by: W3
-locked_on: null
-locked_by: null
-lock_authorisation: null
+locked_on: "2026-09-05"
+locked_by: bodemeowsers
+lock_authorisation: >
+  Locked on 2026-09-05 by the project owner, who reviewed this file as it stood
+  and gave the instruction to run the variance arm. NOTHING IN THE FILE WAS
+  EDITED IN THE SAME BREATH: the prediction, the matched-null rule, the
+  instrument checks and the withdrawn arms are byte-identical to the version
+  that has been committed since the 2026-08-30 amendment for issue #54 — only
+  the six lock fields and the STATUS header above changed. That separation is
+  the only thing that makes the lock mean anything, and `git show` on this
+  commit is how a reader checks it rather than taking this sentence's word.
+
+  What this lock is NOT: a claim of team sign-off. The W3.6 precedent records a
+  named reviewer of a written memo; this one records one person's instruction,
+  and it is written down that way so nobody later reads more consensus into it
+  than there was.
 
 # -----------------------------------------------------------------------------
 # The question, from execution_plan.md §6.2, unedited.

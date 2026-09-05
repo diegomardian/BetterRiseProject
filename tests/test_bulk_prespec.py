@@ -34,15 +34,76 @@ def spec():
 # ---------------------------------------------------------------------------
 
 
-def test_it_ships_proposed_so_nothing_can_run_against_it_yet(spec):
-    """It is committed BEFORE the team confirms, which is the whole point. The
-    flip to `locked` is its own commit with a stated reason."""
-    assert spec["status"] == "proposed"
+def test_the_lock_carries_who_locked_it_and_when(spec):
+    """Locked 2026-09-05, in its own commit, so the variance arm can run.
+
+    It shipped `proposed` from 2026-08-28 and the flip is a separate commit
+    touching only the lock fields -- that separation is the whole mechanism, so
+    a `locked` status with an empty authorisation is not a lock and fails here.
+    """
+    assert spec["status"] == "locked"
+    for field in ("locked_on", "locked_by", "lock_authorisation"):
+        assert spec[field], f"{field} is empty on a locked spec"
+    assert spec["locked_on"] != spec["proposed_on"], (
+        "locked on the day it was proposed, which defeats the mechanism"
+    )
+
+
+def test_the_lock_did_not_edit_the_prediction_in_the_same_commit():
+    """A lock that also changed what was predicted is not a lock.
+
+    Checked against git rather than asserted in prose: parse the file on both
+    sides of the commit that flipped `status`, drop the six lock fields, and
+    require everything else to be byte-for-byte the same object. A prediction
+    quietly rewritten at the moment it stopped being editable is the one defect
+    the lock mechanism exists to prevent and the one it cannot see itself.
+    """
+    import subprocess
+
+    from src.common.paths import REPO_ROOT
+
+    rel = str(PRESPEC_PATH.relative_to(REPO_ROOT))
+
+    def git(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True
+        )
+
+    log = git("log", "--format=%H", "-S", "status: locked", "--", rel)
+    if log.returncode != 0 or not log.stdout.strip():
+        pytest.skip("no locking commit in history (shallow clone or archive)")
+    sha = log.stdout.split()[0]
+
+    before = git("show", f"{sha}^:{rel}")
+    after = git("show", f"{sha}:{rel}")
+    if before.returncode != 0 or after.returncode != 0:
+        pytest.skip(f"cannot read both sides of {sha[:7]}")
+
+    lock_fields = {"status", "locked_on", "locked_by", "lock_authorisation"}
+    strip = lambda text: {  # noqa: E731
+        k: v for k, v in yaml.safe_load(text).items() if k not in lock_fields
+    }
+    was, now = strip(before.stdout), strip(after.stdout)
+
+    changed = sorted(
+        k for k in set(was) | set(now) if was.get(k, object()) != now.get(k, object())
+    )
+    assert not changed, (
+        f"the locking commit {sha[:7]} also changed {changed}. A lock that edits "
+        f"the specification it is locking is not a lock -- split it into two "
+        f"commits so the edit is reviewable on its own."
+    )
 
 
 def test_running_against_a_proposed_spec_is_refused(spec):
+    """Constructed rather than read from the file, which is now locked.
+
+    Pinning this to the committed status would have made the test pass for a
+    reason unrelated to what it checks, and then silently stop checking it the
+    moment the file flipped.
+    """
     with pytest.raises(PrespecError, match="not 'locked'"):
-        require_locked_prespec(spec)
+        require_locked_prespec(dict(spec, status="proposed"))
 
 
 def test_a_locked_spec_is_allowed(spec):
