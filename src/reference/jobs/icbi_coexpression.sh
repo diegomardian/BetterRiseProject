@@ -5,6 +5,10 @@
 #   qsub -v BRP_ICBI_STUDY=Pelka_2021_Cell src/reference/jobs/icbi_coexpression.sh
 #   qsub -v BRP_ICBI_STUDY=all             src/reference/jobs/icbi_coexpression.sh
 #
+#   # path C, the adenoma reading -- Chen_2021_Cell IS the VUMC/HTAN polyp atlas
+#   qsub -v BRP_ICBI_STUDY=Chen_2021_Cell,BRP_ICBI_ARMS=adenoma \
+#        src/reference/jobs/icbi_coexpression.sh
+#
 # RUN PELKA FIRST AND READ THE VERDICT. Pelka_2021_Cell is GSE178341, which this
 # project has already analysed three ways, so it is the only one of the fourteen
 # with ground truth to be checked against. The job compares its own result to
@@ -81,11 +85,25 @@ for name in ("numpy", "pandas", "scipy", "h5py"):
 print("imports ok: numpy pandas scipy h5py")
 PY
 
+# BRP_ICBI_ARMS=adenoma scores polyp against the patient's own normal, at both
+# lineage and best4. best4 is the resolution the question is actually posed at
+# and the one carcinoma structurally could not support -- a median of 3 mature
+# cells there. Adenomas retain differentiated epithelium.
+ARMS="${BRP_ICBI_ARMS:-carcinoma}"
+if [ "$ARMS" = "adenoma" ]; then
+  RUNGS="lineage best4"
+else
+  RUNGS="lineage"
+fi
+echo "arms: $ARMS | rungs: $RUNGS"
+
 set +e
 if [ "$STUDY" = "all" ]; then
-  python -m src.reference.jobs.icbi_coexpression --atlas "$ATLAS" --all
+  python -m src.reference.jobs.icbi_coexpression --atlas "$ATLAS" --all \
+      --arms "$ARMS" --rungs $RUNGS
 else
-  python -m src.reference.jobs.icbi_coexpression --atlas "$ATLAS" --study "$STUDY"
+  python -m src.reference.jobs.icbi_coexpression --atlas "$ATLAS" --study "$STUDY" \
+      --arms "$ARMS" --rungs $RUNGS
 fi
 code=$?
 set -e

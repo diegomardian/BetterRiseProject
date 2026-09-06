@@ -50,7 +50,9 @@ from src.common.io import write_versioned_table
 from src.common.paths import INTERIM_DIR, RESULTS_DIR
 from src.common.provenance import DEFAULT_SEED
 from src.reference.icbi_slice import (
+    ADENOMA_TISSUE_MAP,
     COUNTS_LAYER,
+    TISSUE_MAP,
     SliceError,
     arms,
     assert_raw_counts,
@@ -63,7 +65,6 @@ from src.reference.jobs.coexpression_silencing import (
     CONTROL_LOG2_TOLERANCE,
     DEPTH_QUANTILE,
     GENE_ROLES,
-    MATURE_BIN,
     MIN_CELLS_BOTH_ARMS,
     N_BOOTSTRAP,
     RUNG,
@@ -86,6 +87,26 @@ BATCH_KEY = "sample_id"
 MIN_EPITHELIAL_PER_ARM = 100
 
 DEFAULT_ATLAS = Path("/project/rise-batteries/bode/icbi/final_crc_atlas-adata.h5ad")
+
+#: The two readings. `carcinoma` is what produced the committed 13-study result
+#: and its mapping is unchanged; `adenoma` compares a polyp against the same
+#: patient's own normal.
+ARM_MAPS: dict[str, dict[str, str]] = {
+    "carcinoma": TISSUE_MAP,
+    "adenoma": ADENOMA_TISSUE_MAP,
+}
+
+
+def mature_bin(rung: str) -> str:
+    """The bin this rung calls mature, read off RUNG_SPECS rather than fixed.
+
+    `lineage` -> differentiated, `best4` -> best4. Hard-coding one rung's bin is
+    how a run at another rung silently scores zero mature cells, which reads
+    exactly like the finding this project keeps reporting.
+    """
+    from src.reference.labels import RUNG_SPECS
+
+    return RUNG_SPECS[rung].mature
 
 
 def load_obs(cache: Path, atlas: Path) -> pd.DataFrame:
@@ -116,8 +137,15 @@ def load_obs(cache: Path, atlas: Path) -> pd.DataFrame:
     return obs.reset_index(drop=True)
 
 
-def eligible_patients(obs: pd.DataFrame, study_id: str) -> tuple[pd.DataFrame, list[str]]:
-    """The naive, two-armed cells of one study, and the patients worth loading."""
+def eligible_patients(
+    obs: pd.DataFrame, study_id: str, *, reading: str = "carcinoma"
+) -> tuple[pd.DataFrame, list[str]]:
+    """The naive, two-armed cells of one study, and the patients worth loading.
+
+    ``reading`` picks the arm map. Under `adenoma` the diseased arm is the
+    polyp and either normal label serves as the reference -- what makes it the
+    patient's own is this function grouping by `patient_id`, not the label.
+    """
     rows = obs[obs["study_id"] == study_id].copy()
     if rows.empty:
         raise SliceError(f"no cells for study {study_id!r}")
@@ -128,7 +156,7 @@ def eligible_patients(obs: pd.DataFrame, study_id: str) -> tuple[pd.DataFrame, l
     if rows.empty:
         return rows, []
 
-    rows["tissue"] = arms(rows["sample_type"])
+    rows["tissue"] = arms(rows["sample_type"], ARM_MAPS[reading])
     rows["compartment"] = compartments(rows["atlas_cell_type_coarse"])
     rows = rows[rows["tissue"].notna()]
 
@@ -151,6 +179,8 @@ def study_deltas(
     *,
     seed: int = DEFAULT_SEED,
     max_patients: int | None = None,
+    rung: str = RUNG,
+    reading: str = "carcinoma",
 ) -> tuple[pd.DataFrame, dict]:
     """Per-patient, per-gene deltas for one study. Returns (deltas, report)."""
     from src.common.panel import tier_genes
@@ -165,11 +195,13 @@ def study_deltas(
         # reading, not a failed run.
         log.warning("  genes absent from /var: %s", missing)
 
-    rows, patients = eligible_patients(obs, study_id)
+    rows, patients = eligible_patients(obs, study_id, reading=reading)
     if max_patients:
         patients = patients[:max_patients]
     report = {
-        "study_id": study_id, "n_patients_eligible": len(patients),
+        "study_id": study_id, "reading": reading, "granularity_rung": rung,
+        "mature_bin": mature_bin(rung),
+        "n_patients_eligible": len(patients),
         "genes_absent_from_var": missing, "batch_key": BATCH_KEY,
         "sorted_fraction_filter": f"enrichment_cell_types == {NAIVE!r}",
     }
@@ -226,8 +258,8 @@ def study_deltas(
             log.warning("  [%d/%d] %s — cannot label: %s",
                         i, len(patients), patient, exc)
             continue
-        call = labels[label_column(AXIS, RUNG)].astype(str).to_numpy()
-        mature = (call == MATURE_BIN) & np.isin(tissue, ["normal", "tumour"])
+        call = labels[label_column(AXIS, rung)].astype(str).to_numpy()
+        mature = (call == mature_bin(rung)) & np.isin(tissue, ["normal", "tumour"])
         if mature.sum() < MIN_CELLS_BOTH_ARMS:
             log.info("  [%d/%d] %s — %d mature cells, below the floor",
                      i, len(patients), patient, int(mature.sum()))
@@ -283,6 +315,59 @@ VALIDATION = {
     ],
 }
 GUCA2A_DELTA_TOLERANCE = 0.15
+
+#: THE ADENOMA READ BAR, written before the numbers exist.
+#:
+#: There is no committed Chen_2021 result, so the Pelka-style validation --
+#: reproduce a known answer -- does not apply. What replaces it is a statement
+#: of how the output will be read, recorded in the run's own sidecar so it
+#: cannot be composed after the fact. That is the same discipline the Pelka bar
+#: followed, minus the baseline.
+ADENOMA_READ_BAR = {
+    "primary_study": "Chen_2021_Cell",
+    "not_a_meta_analysis": (
+        "Two studies carry a polyp arm and MIN_STUDIES is 3, so this is NOT "
+        "meta-analysed. Chen_2021_Cell (44 paired patients) is the primary "
+        "per-study reading -- a single 44-patient study IS the power argument. "
+        "Zheng_2022 (3 patients) is a gradient companion, reported beside it "
+        "and never pooled with it."
+    ),
+    "rungs": ["lineage", "best4"],
+    "why_two_rungs": (
+        "lineage for comparability with the 13 carcinoma studies; best4 because "
+        "it is the resolution the question is actually posed at and the one "
+        "carcinoma structurally could not support -- a median of 3 mature cells "
+        "there. Adenomas retain differentiated epithelium, so best4 may be "
+        "estimable for the first time. That measurement is the whole reason "
+        "path C exists."
+    ),
+    "how_this_will_be_read": [
+        "1. The premise verdict comes FIRST and gates everything. HOLDS licenses "
+        "the detection reading; REFUSED or UNRESOLVED does not, at either rung.",
+        "2. Only if the premise holds: the GUCA2A detection delta within the "
+        "mature population. A fall there, in cells still called mature, is "
+        "consistent with silencing.",
+        "3. The best4 mature-cell counts are reported whatever the verdict, "
+        "because 'best4 is estimable in adenoma' is itself a result and is the "
+        "measurement carcinoma could not take.",
+    ],
+    "what_a_positive_reading_would_and_would_not_mean": (
+        "It would be consistency with silencing, not proof of it. Survivorship "
+        "-- GUCA2A-high cells preferentially destroyed -- is not "
+        "transcript-detectable, and no amount of scale or resolution changes "
+        "that. A premise that does not hold is an honest negative at a "
+        "resolution nobody has measured, which is a result either way."
+    ),
+    "known_limits_before_the_run": [
+        "TruDrop: median 1,881 epithelial genes/cell against Pelka's 2,630. "
+        "Shallower cuts both ways -- less control saturation, less GUCA2A "
+        "sensitivity.",
+        "No within-patient polyp->carcinoma gradient exists in Chen_2021 "
+        "(0 patients hold both), so timing evidence is polyp-versus-normal only.",
+        "The reference arm is labelled `healthy normal` and is the patient's "
+        "own mucosa; pairing is established by patient_id, not by the label.",
+    ],
+}
 
 
 def control_log2_interval(
@@ -418,6 +503,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     group.add_argument("--study")
     group.add_argument("--all", action="store_true")
     parser.add_argument("--max-patients", type=int, default=None)
+    parser.add_argument("--arms", choices=tuple(ARM_MAPS), default="carcinoma",
+                        help="`adenoma` scores polyp against the patient's own "
+                             "normal. Default is the committed carcinoma contrast.")
+    parser.add_argument("--rungs", nargs="+", default=[RUNG],
+                        help="granularity rungs to score. `--rungs lineage best4` "
+                             "for the adenoma reading.")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--results-dir", type=Path, default=None)
     parser.add_argument("--allow-dirty", action="store_true")
@@ -445,25 +536,36 @@ def main(argv: Sequence[str] | None = None) -> int:
         studies = [args.study]
     log.info("studies: %s", ", ".join(studies))
 
+    if args.arms == "adenoma":
+        log.info("\n%s\nADENOMA READ BAR, recorded before the numbers exist\n%s",
+                 "=" * 72, "=" * 72)
+        for line in ADENOMA_READ_BAR["how_this_will_be_read"]:
+            log.info("  %s", line)
+        log.info("  %s", ADENOMA_READ_BAR["not_a_meta_analysis"])
+
     frames, reports = [], []
     for study in studies:
-        log.info("\n=== %s ===", study)
-        try:
-            deltas, report = study_deltas(
-                args.atlas, obs, study, seed=args.seed,
-                max_patients=args.max_patients,
-            )
-        except SliceError as exc:
-            log.error("  REFUSED: %s", exc)
-            reports.append({"study_id": study, "error": str(exc)})
-            continue
-        if not deltas.empty:
-            holds, reading = premise_holds(deltas, seed=args.seed)
-            report["premise_holds"] = bool(holds)
-            report["premise_reading"] = reading
-            log.info("  premise: %s", reading)
-            frames.append(deltas)
-        reports.append(report)
+        for rung in args.rungs:
+            label = f"{study} / {rung}" if len(args.rungs) > 1 else study
+            log.info("\n=== %s ===", label)
+            try:
+                deltas, report = study_deltas(
+                    args.atlas, obs, study, seed=args.seed,
+                    max_patients=args.max_patients, rung=rung, reading=args.arms,
+                )
+            except SliceError as exc:
+                log.error("  REFUSED: %s", exc)
+                reports.append({"study_id": study, "granularity_rung": rung,
+                                "error": str(exc)})
+                continue
+            if not deltas.empty:
+                deltas = deltas.assign(granularity_rung=rung, reading=args.arms)
+                holds, premise = premise_holds(deltas, seed=args.seed)
+                report["premise_holds"] = bool(holds)
+                report["premise_reading"] = premise
+                log.info("  premise: %s", premise)
+                frames.append(deltas)
+            reports.append(report)
 
     if not frames:
         log.error("\nno study produced any scored patient.")
@@ -486,8 +588,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 log.info("  %-18s %s", key, validation[key])
         log.info("%s", "=" * 68)
 
-    for frame, name in ((deltas, "icbi_coexpression"),
-                        (summary, "icbi_coexpression_summary")):
+    stem = "icbi_coexpression" if args.arms == "carcinoma" else f"icbi_{args.arms}"
+    for frame, name in ((deltas, stem), (summary, f"{stem}_summary")):
         path = write_versioned_table(
             frame, name, seed=args.seed,
             results_dir=args.results_dir, allow_dirty=args.allow_dirty,
@@ -509,6 +611,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "min_epithelial_per_arm": MIN_EPITHELIAL_PER_ARM,
                 "validation": validation or VALIDATION,
+                "reading": args.arms,
+                "rungs": list(args.rungs),
+                "arm_map": ARM_MAPS[args.arms],
+                **({"adenoma_read_bar": ADENOMA_READ_BAR} if args.arms == "adenoma" else {}),
                 "premise_reading": {
                     r["study_id"]: r.get("premise_reading", "not scored")
                     for r in reports if "study_id" in r

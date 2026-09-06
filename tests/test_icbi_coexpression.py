@@ -313,3 +313,78 @@ def test_the_report_carries_the_unlabellable_count():
     assert 'report["n_patients_unlabellable"]' in source
     assert 'report["unlabellable"]' in source
     assert "except LabelError" in source
+
+
+# ---------------------------------------------------------------------------
+# The adenoma reading (path C)
+
+
+def _polyp_obs(n_per_arm: int = 400, n_patients: int = 5, reference="healthy normal"):
+    rows = []
+    for p in range(n_patients):
+        for tissue, sample_type in (("normal", reference), ("tumour", "polyp")):
+            for k in range(n_per_arm):
+                rows.append({
+                    "study_id": "VUMC", "patient_id": f"P{p}",
+                    "sample_id": f"P{p}-{tissue}", "sample_type": sample_type,
+                    "atlas_cell_type_coarse": "Epithelial cell" if k % 2 else "T cell",
+                    "enrichment_cell_types": NAIVE,
+                })
+    return pd.DataFrame(rows)
+
+
+def test_the_adenoma_reading_pairs_polyp_against_the_patients_own_normal():
+    """`healthy normal` is the reference here, and patient_id is what pairs it."""
+    import src.reference.jobs.icbi_coexpression as mod
+
+    rows, patients = mod.eligible_patients(_polyp_obs(), "VUMC", reading="adenoma")
+    assert len(patients) == 5
+    assert set(rows["tissue"].dropna()) == {"normal", "tumour"}
+
+
+def test_the_carcinoma_reading_finds_nothing_in_a_polyp_cohort():
+    """The committed 13-study contrast must not silently absorb polyps."""
+    import src.reference.jobs.icbi_coexpression as mod
+
+    _, patients = mod.eligible_patients(_polyp_obs(), "VUMC", reading="carcinoma")
+    assert patients == [], "polyp or healthy normal entered the carcinoma arms"
+
+
+def test_the_mature_bin_is_read_per_rung_not_hardcoded():
+    """`lineage` -> differentiated, `best4` -> best4. Hard-coding one rung's bin
+    makes a run at another score zero mature cells, which reads exactly like
+    this project's own finding."""
+    import src.reference.jobs.icbi_coexpression as mod
+
+    assert mod.mature_bin("lineage") == "differentiated"
+    assert mod.mature_bin("best4") == "best4"
+    assert mod.mature_bin("crypt_position") == "crypt_top"
+
+
+def test_the_read_bar_is_stated_before_the_numbers_exist():
+    """No committed Chen_2021 baseline exists, so 'reproduce a known answer'
+    does not apply. What replaces it is a written statement of how the output
+    will be read, in the sidecar, composed before the run rather than after."""
+    from src.reference.jobs.icbi_coexpression import ADENOMA_READ_BAR
+
+    assert ADENOMA_READ_BAR["primary_study"] == "Chen_2021_Cell"
+    assert ADENOMA_READ_BAR["rungs"] == ["lineage", "best4"]
+    # The premise gates the reading, and that ordering is the bar's substance.
+    assert "premise verdict comes FIRST" in ADENOMA_READ_BAR["how_this_will_be_read"][0]
+    assert "Only if the premise holds" in ADENOMA_READ_BAR["how_this_will_be_read"][1]
+    # Two studies is below MIN_STUDIES; this must not be framed as a meta.
+    assert "NOT meta-analysed" in ADENOMA_READ_BAR["not_a_meta_analysis"]
+    # And the caveat scale cannot touch.
+    assert "not transcript-detectable" in (
+        ADENOMA_READ_BAR["what_a_positive_reading_would_and_would_not_mean"]
+    )
+
+
+def test_the_adenoma_run_writes_to_its_own_table_name():
+    """It must not overwrite the committed carcinoma tables."""
+    import inspect
+
+    from src.reference.jobs import icbi_coexpression as mod
+
+    source = inspect.getsource(mod.main)
+    assert 'stem = "icbi_coexpression" if args.arms == "carcinoma"' in source
