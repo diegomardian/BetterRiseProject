@@ -49,6 +49,11 @@ import pandas as pd
 from src.common.io import write_versioned_table
 from src.common.paths import INTERIM_DIR, RESULTS_DIR
 from src.common.provenance import DEFAULT_SEED
+from src.reference.detection_scale import (
+    UNIFORM_THINNING_R2_CEILING,
+    delta_cloglog,
+    uniform_thinning_null,
+)
 from src.reference.icbi_slice import (
     ADENOMA_TISSUE_MAP,
     COUNTS_LAYER,
@@ -398,49 +403,168 @@ def control_log2_interval(
     return float(values.mean()), lo, hi
 
 
+#: WHICH STATISTIC THE READING RESTS ON, fixed before the re-run.
+#:
+#: The three below do not agree, so leaving the choice open until the numbers
+#: are in front of you is choosing on the answer. Recorded here and copied into
+#: every sidecar this job writes.
+#:
+#: `cloglog` is LOAD-BEARING. It is a monotone transform of the detection rate
+#: the project already chose, so it changes the scale without changing the
+#: measurement, and on that scale a difference between two genes is a ratio of
+#: fold changes rather than a comparison of two proportions with different room
+#: to move.
+#:
+#: `log2_cp10k` CORROBORATES. It reaches the same quantity by a different route
+#: -- a mean, not a rate -- so agreement between the two is evidence the
+#: conclusion does not rest on the Poisson model being right. Where they
+#: disagree, say so; do not pick.
+#:
+#: `detection` is DIAGNOSTIC ONLY. Kept because it is what every previously
+#: committed table reports and dropping it would make this run incomparable to
+#: them, and because the gap between it and the other two IS the finding here.
+#: It is not read across genes.
+#:
+#: HONESTY ABOUT WHAT "PRE-COMMITTED" MEANS HERE. This rule is pre-committed
+#: relative to any future re-run and to the MLH1 reading. It is NOT pre-committed
+#: relative to the adenoma numbers: all three statistics were computed
+#: exploratorily on 2026-09-05, before this constant was written, and they were
+#: seen to agree on the load-bearing contrast (GUCA2A - MS4A12 contains zero on
+#: every one of them, at both rungs). Claiming a blind pre-commitment that did
+#: not happen would be the same defect this repository is about, so the sequence
+#: is recorded instead of dressed up.
+SPECIFICITY_STATISTICS: dict[str, dict[str, str]] = {
+    "cloglog": {
+        "column": "delta_cloglog",
+        "standing": "load-bearing",
+        "scale": "log fold change (natural log), from detection under a Poisson model",
+        "why": (
+            "comparable across genes of any baseline abundance, which the raw "
+            "detection delta is not"
+        ),
+    },
+    "log2_cp10k": {
+        "column": "log2_cp10k_ratio",
+        "standing": "corroborating",
+        "scale": "log2 fold change of the per-cell CP10K mean",
+        "why": (
+            "independent of the Poisson model, so agreement with cloglog is "
+            "evidence the reading does not rest on that model"
+        ),
+    },
+    "detection": {
+        "column": "delta_detect",
+        "standing": "diagnostic only -- NOT read across genes",
+        "scale": "difference of two proportions",
+        "why": (
+            "the statistic every earlier table reports, kept for comparability. "
+            "Its sensitivity varies with baseline abundance, so ranking genes "
+            "by it ranks them substantially by how detectable they were."
+        ),
+    },
+}
+
+LOAD_BEARING_STATISTIC = "cloglog"
+
+#: Every gene against every other, not just the target against each. The tier
+#: claim -- terminal differentiation down, intestinal identity retained --
+#: is a statement about where CDX2 sits relative to the CONTROLS, and a table
+#: of `GUCA2A - X` rows cannot express it. Reading it off the fact that CDX2's
+#: delta looked small next to GUCA2A's is the cross-gene magnitude comparison
+#: this module now exists to stop.
+SPECIFICITY_PANEL: tuple[str, ...] = ("KRT8", "ACTB", "EPCAM", "CDX2",
+                                      "MS4A12", "GUCA2A")
+
+
 def specificity(deltas: pd.DataFrame, *, seed: int = DEFAULT_SEED) -> pd.DataFrame:
-    """Is the target's fall SPECIFIC to it, or the whole mature programme?
+    """Every pairwise contrast in the panel, on all three statistics.
 
     The premise check compares housekeeping between arms, which asks whether
     these are still cells. It cannot ask whether they are still equally MATURE
     cells, because ACTB and KRT8 do not vary with maturity -- a control that
     cannot move with the thing in question cannot certify it.
 
-    So this pairs the target against an identity marker WITHIN each patient.
-    `MS4A12` is a mature-colonocyte marker with no silencing story attached to
-    it. If GUCA2A were specifically silenced it should fall further than
-    MS4A12; if the mature LABEL is admitting less-mature cells in the diseased
-    arm, both fall together and the difference is zero.
+    So this pairs genes WITHIN each patient. `MS4A12` is a mature-colonocyte
+    marker with no silencing story attached to it: if GUCA2A were specifically
+    silenced it should fall further than MS4A12; if the mature LABEL is
+    admitting less-mature cells in the diseased arm, both fall together and the
+    difference is zero. That is the week-0 falsification rule in a second place.
 
-    This is the week-0 falsification rule in a second place: when the target and
-    the identity markers return the same answer, no gene-specific claim follows.
+    TWO THINGS CHANGED AFTER THE FIRST ADENOMA RUN.
+
+    *Every pair, not just the target's.* `CDX2 - KRT8` is what decides whether
+    intestinal identity is retained, and it was never computed; the claim rested
+    on CDX2's delta looking small beside GUCA2A's. On the committed detection
+    statistic that contrast excludes zero -- it says the opposite -- and on both
+    abundance-free statistics it contains zero. A conclusion that flips with the
+    statistic needs the statistic named, which is what `SPECIFICITY_STATISTICS`
+    does.
+
+    *Three statistics per pair.* See `SPECIFICITY_STATISTICS`. `cloglog` is what
+    the reading rests on; the others are reported beside it so a disagreement is
+    visible in the table rather than available to whoever quotes it.
     """
-    rows = []
     rng = np.random.default_rng(seed)
+    rows = []
     for rung, block in deltas.groupby("granularity_rung", observed=True):
-        wide = block.pivot_table(
-            index="patient_id", columns="gene", values="delta_detect"
-        )
-        if "GUCA2A" not in wide.columns:
-            continue
-        for other in ("MS4A12", "CDX2", "ACTB", "KRT8", "EPCAM"):
-            if other not in wide.columns:
+        present = [g for g in SPECIFICITY_PANEL if g in set(block["gene"])]
+        for name, spec in SPECIFICITY_STATISTICS.items():
+            column = spec["column"]
+            if column not in block.columns:
                 continue
-            paired = (wide["GUCA2A"] - wide[other]).dropna().to_numpy(dtype=float)
-            if paired.size < 3:
-                continue
-            draws = rng.choice(
-                paired, size=(N_BOOTSTRAP, paired.size), replace=True
-            ).mean(axis=1)
-            lo, hi = (float(x) for x in np.percentile(draws, [2.5, 97.5]))
-            rows.append({
-                "granularity_rung": rung, "contrast": f"GUCA2A - {other}",
-                "role_of_other": GENE_ROLES.get(other, "?"),
-                "n_patients": int(paired.size), "mean_difference": float(paired.mean()),
-                "ci_low": lo, "ci_high": hi,
-                "excludes_zero": bool(lo > 0 or hi < 0),
-            })
+            wide = block.pivot_table(
+                index="patient_id", columns="gene", values=column
+            )
+            for i, gene in enumerate(present):
+                for other in present[:i] + present[i + 1:]:
+                    if gene not in wide.columns or other not in wide.columns:
+                        continue
+                    paired = (wide[gene] - wide[other]).dropna().to_numpy(dtype=float)
+                    if paired.size < 3:
+                        continue
+                    draws = rng.choice(
+                        paired, size=(N_BOOTSTRAP, paired.size), replace=True
+                    ).mean(axis=1)
+                    lo, hi = (float(x) for x in np.percentile(draws, [2.5, 97.5]))
+                    rows.append({
+                        "granularity_rung": rung,
+                        "statistic": name,
+                        "standing": spec["standing"],
+                        "contrast": f"{gene} - {other}",
+                        "gene": gene,
+                        "other": other,
+                        "role_of_gene": GENE_ROLES.get(gene, "?"),
+                        "role_of_other": GENE_ROLES.get(other, "?"),
+                        "n_patients": int(paired.size),
+                        "mean_difference": float(paired.mean()),
+                        "ci_low": lo, "ci_high": hi,
+                        "excludes_zero": bool(lo > 0 or hi < 0),
+                        "load_bearing": name == LOAD_BEARING_STATISTIC,
+                    })
     return pd.DataFrame(rows)
+
+
+def contrast_matrix(
+    contrasts: pd.DataFrame, rung: str, statistic: str = LOAD_BEARING_STATISTIC
+) -> pd.DataFrame:
+    """The pairwise table as a matrix: rows minus columns, ``*`` excludes zero.
+
+    A block of genes that are mutually indistinguishable and jointly separated
+    from another block is a TIER, and that shape is legible in a matrix and
+    close to invisible in a list of thirty rows. The adenoma reading's whole
+    conclusion is which genes fall into which block.
+    """
+    block = contrasts[
+        (contrasts["granularity_rung"] == rung)
+        & (contrasts["statistic"] == statistic)
+    ]
+    genes = [g for g in SPECIFICITY_PANEL if g in set(block["gene"])]
+    out = pd.DataFrame(".", index=genes, columns=genes, dtype=object)
+    for row in block.itertuples():
+        if row.gene in out.index and row.other in out.columns:
+            mark = "*" if row.excludes_zero else " "
+            out.loc[row.gene, row.other] = f"{row.mean_difference:+.3f}{mark}"
+    return out
 
 
 def verdict_word(reading: str) -> str:
@@ -617,6 +741,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 3
 
     deltas = pd.concat(frames, ignore_index=True)
+    # The log fold-change scale, alongside the detection rate rather than
+    # instead of it. Detection deltas are not comparable BETWEEN genes -- see
+    # src/reference/detection_scale.py -- and every cross-gene contrast this
+    # job reports is computed on this column as well.
+    deltas["delta_cloglog"] = delta_cloglog(deltas)
+
     # SUMMARISE PER RUNG. `summarise` groups by (study, gene, statistic) and
     # knows nothing about rungs, so concatenating two rungs and calling it once
     # averages two different populations into one row -- the first adenoma run
@@ -646,15 +776,43 @@ def main(argv: Sequence[str] | None = None) -> int:
     contrasts = specificity(deltas, seed=args.seed)
     if not contrasts.empty:
         log.info("\n%s\nIS THE TARGET'S FALL SPECIFIC TO IT?\n%s", "=" * 72, "=" * 72)
-        log.info("%s", contrasts.to_string(index=False))
         log.info(
-            "\nGUCA2A minus a CONTROL excluding zero says it falls more than "
-            "housekeeping.\nGUCA2A minus an IDENTITY marker containing zero says "
-            "it is indistinguishable\nfrom the mature programme as a whole -- and "
-            "no gene-specific claim follows."
+            "Reported on %d statistics; %r is load-bearing and the others are "
+            "beside it\nso a disagreement is visible in the table. Matrices "
+            "below are the load-bearing one.",
+            len(SPECIFICITY_STATISTICS), LOAD_BEARING_STATISTIC,
         )
+        for rung in sorted(contrasts["granularity_rung"].unique()):
+            log.info("\n-- %s, %s --", rung, LOAD_BEARING_STATISTIC)
+            log.info("%s", contrast_matrix(contrasts, rung).to_string())
+        log.info(
+            "\nRows minus columns; a trailing * excludes zero. A gene against a "
+            "CONTROL\nexcluding zero says it falls more than housekeeping; "
+            "against an IDENTITY marker\ncontaining zero says it is "
+            "indistinguishable from the mature programme, and no\n"
+            "gene-specific claim follows. Read the ROLE columns, not the gene "
+            "names."
+        )
+
+    # THE NULL THE GRADIENT HAS TO BEAT. Fitted per rung, on the detection
+    # deltas, because it is the detection deltas whose ordering gets quoted.
+    null_frames, null_verdicts = [], {}
+    for rung, block in deltas.groupby("granularity_rung", observed=True):
+        table, verdict = uniform_thinning_null(block)
+        null_verdicts[str(rung)] = verdict
+        if not table.empty:
+            null_frames.append(table.assign(granularity_rung=rung))
+        log.info("\n%s\nCOULD ONE UNIFORM THINNING PRODUCE THIS GRADIENT? "
+                 "[%s]\n%s", "=" * 72, rung, "=" * 72)
+        log.info("  %s: %s", verdict["verdict"], verdict["detail"])
+        if not table.empty:
+            log.info("%s", table.to_string(index=False))
+    thinning = (pd.concat(null_frames, ignore_index=True)
+                if null_frames else pd.DataFrame())
+
     for frame, name in ((deltas, stem), (summary, f"{stem}_summary"),
-                        (contrasts, f"{stem}_specificity")):
+                        (contrasts, f"{stem}_specificity"),
+                        (thinning, f"{stem}_thinning_null")):
         if frame.empty:
             continue
         path = write_versioned_table(
@@ -686,6 +844,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                     r["study_id"]: r.get("premise_reading", "not scored")
                     for r in reports if "study_id" in r
                 },
+                "specificity_statistics": SPECIFICITY_STATISTICS,
+                "load_bearing_statistic": LOAD_BEARING_STATISTIC,
+                "specificity_panel": list(SPECIFICITY_PANEL),
+                "cross_gene_rule": (
+                    "Detection deltas are NOT comparable between genes: the "
+                    "sensitivity of a proportion depends on its baseline, and "
+                    "this panel spans 0.36 to 0.98. Every cross-gene statement "
+                    "is made on the load-bearing log fold-change scale, with "
+                    "log2 CP10K corroborating. delta_detect is reported for "
+                    "comparability with earlier tables and is not read across "
+                    "genes."
+                ),
+                "cloglog_boundary_rule": (
+                    "a rate is turned back into cell counts and given the "
+                    "Jeffreys correction (k + 1/2)/(n + 1) before the "
+                    "transform, so the correction scales with how many cells "
+                    "the estimate rests on rather than being a fixed epsilon"
+                ),
+                "uniform_thinning_null": null_verdicts,
+                "uniform_thinning_r2_ceiling": UNIFORM_THINNING_R2_CEILING,
                 "exploratory": True,
                 "pre_registered": False,
                 "what_this_is_not": (

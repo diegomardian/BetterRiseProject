@@ -14,7 +14,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from src.reference.detection_scale import delta_cloglog
 from src.reference.icbi_slice import SliceError
+from src.reference.jobs.coexpression_silencing import GENE_ROLES
 from src.reference.jobs.icbi_coexpression import (
     BATCH_KEY,
     GUCA2A_DELTA_TOLERANCE,
@@ -407,52 +409,132 @@ def test_summarise_runs_per_rung_not_across_them():
     )
 
 
+def two_arm_panel(
+    spec: dict[str, tuple[float, float]],
+    *,
+    n_patients: int = 30,
+    n_cells: int = 400,
+    noise: float = 0.02,
+    rung: str = "lineage",
+    seed: int = 4,
+) -> pd.DataFrame:
+    """Per-patient rows built from BASELINE DETECTION RATES and fold changes.
+
+    THE FIXTURE THIS REPLACES SYNTHESISED ``delta_detect`` DIRECTLY. It named a
+    delta per gene and added noise, so no baseline rate existed anywhere in it
+    and a gene at 0.98 and a gene at 0.44 were the same object to every test
+    written against it. The confound that fixture could not express -- that the
+    sensitivity of a proportion depends on where it sits -- is the one that put
+    a wrong claim in the adenoma reading.
+
+    So ``spec`` is ``{gene: (baseline_detection, fold_change)}`` and every
+    reported column is DERIVED, exactly as the real job derives it: detection
+    under Poisson thinning ``p_T = 1 - (1 - p_N)**c``, and the two abundance-free
+    statistics from the same ``c``. A test can now hold the fold change fixed and
+    vary the baseline, which is what "the gradient might be abundance" means.
+    """
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n_patients):
+        for gene, (baseline, fold) in spec.items():
+            p_n = float(np.clip(baseline + rng.normal(0, noise), 0.01, 0.99))
+            p_t = float(np.clip(1.0 - (1.0 - p_n) ** fold
+                                + rng.normal(0, noise), 0.001, 0.999))
+            rows.append({
+                "granularity_rung": rung,
+                "patient_id": f"p{i}",
+                "gene": gene,
+                "role": GENE_ROLES.get(gene, "?"),
+                "n_normal": n_cells,
+                "n_tumour": n_cells,
+                "detect_normal": p_n,
+                "detect_tumour": p_t,
+                "delta_detect": p_t - p_n,
+                "log2_cp10k_ratio": float(np.log2(fold) + rng.normal(0, noise)),
+            })
+    frame = pd.DataFrame(rows)
+    frame["delta_cloglog"] = delta_cloglog(frame)
+    return frame
+
+
+def _verdicts(contrasts: pd.DataFrame, statistic: str) -> pd.DataFrame:
+    return contrasts[contrasts["statistic"] == statistic].set_index("contrast")
+
+
 def test_specificity_separates_a_targeted_fall_from_a_programme_wide_one():
     """The discriminating statistic, on data where the answer is constructed.
 
-    Case A: GUCA2A falls further than the identity marker -> specific.
-    Case B: both fall together -> the mature LABEL is admitting less-mature
-    cells and no gene-specific claim follows.
+    Both genes are given the SAME baseline detection here, so the contrast is
+    about fold change alone and the abundance confound is held out of it.
+
+    Case A: GUCA2A is thinned harder than the identity marker -> specific.
+    Case B: both thinned identically -> the mature LABEL is admitting
+    less-mature cells and no gene-specific claim follows.
     """
-    from src.reference.jobs.icbi_coexpression import specificity
+    from src.reference.jobs.icbi_coexpression import (
+        LOAD_BEARING_STATISTIC,
+        specificity,
+    )
 
-    rng = np.random.default_rng(4)
+    def panel(guca2a_fold: float, ms4a12_fold: float) -> pd.DataFrame:
+        return two_arm_panel({
+            "GUCA2A": (0.45, guca2a_fold),
+            "MS4A12": (0.45, ms4a12_fold),
+            "ACTB": (0.45, 0.97),
+        })
 
-    def frame(guca2a: float, ms4a12: float, n: int = 30) -> pd.DataFrame:
-        rows = []
-        for i in range(n):
-            for gene, delta in (("GUCA2A", guca2a), ("MS4A12", ms4a12),
-                                ("ACTB", -0.02)):
-                rows.append({
-                    "granularity_rung": "lineage", "patient_id": f"p{i}",
-                    "gene": gene, "delta_detect": delta + rng.normal(0, 0.03),
-                })
-        return pd.DataFrame(rows)
-
-    specific = specificity(frame(-0.40, -0.10)).set_index("contrast")
+    specific = _verdicts(specificity(panel(0.35, 0.85)), LOAD_BEARING_STATISTIC)
     assert specific.loc["GUCA2A - MS4A12", "excludes_zero"]
     assert specific.loc["GUCA2A - MS4A12", "mean_difference"] < 0
 
-    programme = specificity(frame(-0.17, -0.165)).set_index("contrast")
+    programme = _verdicts(specificity(panel(0.70, 0.70)), LOAD_BEARING_STATISTIC)
     assert not programme.loc["GUCA2A - MS4A12", "excludes_zero"], (
         "a programme-wide fall is being reported as gene-specific"
     )
-    # Both cases must still show the target beating housekeeping.
     for got in (specific, programme):
         assert got.loc["GUCA2A - ACTB", "excludes_zero"]
 
 
+def test_specificity_reports_every_pair_not_just_the_target_s():
+    """`CDX2 - KRT8` is what decides whether identity is retained.
+
+    The published adenoma claim -- terminal differentiation down, intestinal
+    identity retained -- is a statement about where CDX2 sits relative to the
+    CONTROLS, and the table it was drawn from only ever computed `GUCA2A - X`.
+    It was read off CDX2's delta looking small beside GUCA2A's, which is the
+    cross-gene magnitude comparison the detection scale does not support.
+    """
+    from src.reference.jobs.icbi_coexpression import (
+        SPECIFICITY_PANEL,
+        specificity,
+    )
+
+    contrasts = specificity(two_arm_panel({
+        g: (0.5, 0.8) for g in SPECIFICITY_PANEL
+    }))
+    pairs = set(contrasts["contrast"])
+    expected = {
+        f"{a} - {b}" for a in SPECIFICITY_PANEL for b in SPECIFICITY_PANEL if a != b
+    }
+    assert pairs == expected, "the pairwise matrix is not complete"
+    assert "CDX2 - KRT8" in pairs
+    assert set(contrasts["statistic"]) == {"cloglog", "log2_cp10k", "detection"}
+
+
 def test_specificity_labels_the_role_of_the_comparator():
     """A control and an identity marker mean opposite things here, so the row
-    has to say which it is."""
+    has to say which it is -- for BOTH sides of the contrast, now that the
+    table is not anchored on one gene."""
     from src.reference.jobs.icbi_coexpression import specificity
 
-    rng = np.random.default_rng(5)
-    rows = []
-    for i in range(20):
-        for gene in ("GUCA2A", "MS4A12", "ACTB", "KRT8", "CDX2"):
-            rows.append({"granularity_rung": "lineage", "patient_id": f"p{i}",
-                         "gene": gene, "delta_detect": rng.normal(-0.1, 0.05)})
-    got = specificity(pd.DataFrame(rows)).set_index("contrast")
+    got = _verdicts(
+        specificity(two_arm_panel({
+            "GUCA2A": (0.45, 0.7), "MS4A12": (0.40, 0.7), "ACTB": (0.95, 0.7),
+            "KRT8": (0.93, 0.7), "CDX2": (0.80, 0.7),
+        })),
+        "cloglog",
+    )
     assert got.loc["GUCA2A - ACTB", "role_of_other"] == "control"
     assert got.loc["GUCA2A - MS4A12", "role_of_other"] == "identity"
+    assert got.loc["CDX2 - KRT8", "role_of_gene"] == "identity"
+    assert got.loc["CDX2 - KRT8", "role_of_other"] == "control"

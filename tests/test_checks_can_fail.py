@@ -680,3 +680,178 @@ def test_the_committed_s_matrix_cannot_be_checked_by_accident():
         signature.set_index("gene").index, targets, context="probe",
         alias_map={t: f"ENSG_ABSENT_{t}" for t in targets},
     )
+
+
+# ---------------------------------------------------------------------------
+# Cross-gene comparison of detection deltas
+#
+# The defect: `specificity()` compared six genes' detection deltas to each
+# other. A proportion's sensitivity depends on its baseline -- the panel spans
+# 0.36 to 0.98 -- so the ranking was substantially a ranking by abundance, and
+# the guard could not have noticed because its fixture named `delta_detect`
+# directly and had no baseline rate anywhere in it.
+#
+# These are the inputs that force it. The ground truth in each is a UNIFORM
+# thinning: one fold change applied to every gene, no gene-specificity at all.
+# ---------------------------------------------------------------------------
+
+
+def _thinned_panel(spec, *, n_patients=30, n_cells=400, noise=0.02, seed=11):
+    """`{gene: (baseline_detection, fold_change)}` -> per-patient rows.
+
+    Detection is DERIVED from a baseline and a thinning, never named. That is
+    the whole point: a test can hold the fold change fixed across genes and vary
+    only the baseline, which is what "the gradient might be abundance" means and
+    what the previous fixture could not express.
+    """
+    from src.reference.detection_scale import delta_cloglog
+
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n_patients):
+        for gene, (baseline, fold) in spec.items():
+            p_n = float(np.clip(baseline + rng.normal(0, noise), 0.01, 0.99))
+            p_t = float(np.clip(1.0 - (1.0 - p_n) ** fold + rng.normal(0, noise),
+                                0.001, 0.999))
+            rows.append({
+                "granularity_rung": "lineage", "patient_id": f"p{i}", "gene": gene,
+                "n_normal": n_cells, "n_tumour": n_cells,
+                "detect_normal": p_n, "detect_tumour": p_t,
+                "delta_detect": p_t - p_n,
+                "log2_cp10k_ratio": float(np.log2(fold) + rng.normal(0, noise)),
+            })
+    frame = pd.DataFrame(rows)
+    frame["delta_cloglog"] = delta_cloglog(frame)
+    return frame
+
+
+def test_a_uniform_thinning_is_not_reported_as_gene_specific():
+    """One fold change, six baselines, no biology -- and detection sees a tier.
+
+    This is the adenoma reading's defect with the answer known in advance. Every
+    gene here is thinned by exactly 0.75, so every true pairwise difference is
+    zero. The detection deltas nonetheless spread from -0.03 to -0.10 purely
+    because the genes sit at different baselines, and read across genes that is
+    a gradient with a story attached to it.
+    """
+    from src.reference.detection_scale import (
+        UNIFORM_THINNING_R2_CEILING,
+        uniform_thinning_null,
+    )
+    from src.reference.jobs.icbi_coexpression import specificity
+
+    panel = _thinned_panel({
+        "ACTB": (0.985, 0.75), "KRT8": (0.955, 0.75), "EPCAM": (0.90, 0.75),
+        "CDX2": (0.82, 0.75), "GUCA2A": (0.44, 0.75), "MS4A12": (0.36, 0.75),
+    })
+    contrasts = specificity(panel, seed=1)
+
+    detection = contrasts[contrasts["statistic"] == "detection"]
+    assert detection["excludes_zero"].sum() >= 20, (
+        "the input no longer forces the defect: detection is supposed to report "
+        "most of these 30 contrasts as real when none of them are"
+    )
+
+    load_bearing = contrasts[contrasts["load_bearing"]]
+    assert load_bearing["excludes_zero"].sum() <= 6, (
+        "the load-bearing scale is inheriting the abundance confound"
+    )
+    # The contrast the reading actually turns on, between two genes far apart in
+    # abundance, must not survive on the load-bearing scale.
+    target = load_bearing.set_index("contrast").loc["GUCA2A - CDX2"]
+    assert not target["excludes_zero"]
+
+    _, verdict = uniform_thinning_null(panel)
+    assert verdict["verdict"] == "GRADIENT IS ABUNDANCE"
+    assert verdict["variance_explained"] >= UNIFORM_THINNING_R2_CEILING
+
+
+def test_a_saturated_control_is_not_compared_naively_on_detection():
+    """ACTB at 0.99 cannot fall, so everything falls further than it.
+
+    `SATURATION_CEILING` already exists because of this, and `premise_holds`
+    switches a saturated control to log2 expression. The specificity table never
+    switched, so `GUCA2A - ACTB` excluding zero was guaranteed by ACTB's
+    abundance rather than earned by GUCA2A's behaviour.
+    """
+    from src.reference.jobs.icbi_coexpression import specificity
+
+    panel = _thinned_panel(
+        {"ACTB": (0.99, 0.70), "GUCA2A": (0.45, 0.70), "CDX2": (0.82, 0.70)},
+        noise=0.015, seed=7,
+    )
+    got = specificity(panel, seed=2)
+    row = got[(got["statistic"] == "detection")
+              & (got["contrast"] == "GUCA2A - ACTB")].iloc[0]
+    assert row["excludes_zero"], (
+        "the input no longer forces the defect -- detection is supposed to call "
+        "this real when both genes were thinned identically"
+    )
+    for statistic in ("cloglog", "log2_cp10k"):
+        clean = got[(got["statistic"] == statistic)
+                    & (got["contrast"] == "GUCA2A - ACTB")].iloc[0]
+        assert not clean["excludes_zero"], (
+            f"{statistic} inherited the saturation artefact"
+        )
+
+
+def test_a_table_without_the_abundance_free_columns_claims_nothing_load_bearing():
+    """The failure mode of a fix like this is quietly reverting to the old scale.
+
+    A caller handing in a frame that carries only `delta_detect` -- every table
+    committed before this change -- must get diagnostic rows and no load-bearing
+    verdict, rather than detection silently being promoted because it is the
+    only column present.
+    """
+    from src.reference.jobs.icbi_coexpression import specificity
+
+    panel = _thinned_panel({"ACTB": (0.98, 0.7), "GUCA2A": (0.45, 0.7),
+                            "CDX2": (0.8, 0.7)})
+    old_shape = panel.drop(columns=["delta_cloglog", "log2_cp10k_ratio"])
+    got = specificity(old_shape, seed=3)
+    assert not got.empty
+    assert set(got["statistic"]) == {"detection"}
+    assert not got["load_bearing"].any()
+    assert set(got["standing"]) == {"diagnostic only -- NOT read across genes"}
+
+
+def test_the_boundary_rule_is_a_function_of_cell_count():
+    """A 15-cell zero and a 500-cell zero must not claim the same evidence.
+
+    cloglog is undefined at 0 and 1, and the obvious repair is a fixed epsilon.
+    That would let an arm with 15 cells and an arm with 500 report the same
+    number from the same observed rate, which is the "a check that cannot tell
+    them apart" shape in a transform rather than a guard.
+    """
+    from src.reference.detection_scale import cloglog_rate
+
+    sparse = float(cloglog_rate(0.0, 15))
+    dense = float(cloglog_rate(0.0, 500))
+    assert np.isfinite(sparse) and np.isfinite(dense)
+    assert dense < sparse, (
+        "a zero over 500 cells must sit lower than a zero over 15 -- it is the "
+        "stronger evidence of absence"
+    )
+    assert float(cloglog_rate(1.0, 500)) > float(cloglog_rate(1.0, 15))
+
+
+def test_the_thinning_null_abstains_when_baselines_do_not_spread():
+    """One free parameter over six near-identical points explains everything.
+
+    If every gene sits at the same abundance the null has nothing to
+    discriminate on, and an R² from that fit would be an artefact reported as a
+    verdict. The diagnostic has to say UNDEFINED rather than return clean.
+    """
+    from src.reference.detection_scale import (
+        MIN_BASELINE_SPREAD,
+        uniform_thinning_null,
+    )
+
+    flat = _thinned_panel({
+        "ACTB": (0.50, 0.75), "KRT8": (0.51, 0.75), "EPCAM": (0.49, 0.75),
+        "CDX2": (0.50, 0.75), "GUCA2A": (0.51, 0.60), "MS4A12": (0.49, 0.60),
+    }, noise=0.005)
+    table, verdict = uniform_thinning_null(flat)
+    assert verdict["verdict"] == "UNDEFINED"
+    assert table.empty
+    assert verdict["baseline_spread"] < MIN_BASELINE_SPREAD
