@@ -1,0 +1,83 @@
+{
+  "date": "2026-09-06",
+  "utc_timestamp": "2026-09-06T23:31:25+00:00",
+  "git_sha": "5791c0123d117a891e2725db11fde5136aa184c8",
+  "git_sha_short": "5791c01",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "adenoma_decomposition_compositional_estimability",
+  "n_rows": 912,
+  "columns": [
+    "patient_id",
+    "gene",
+    "granularity_rung",
+    "n_cells_resolved",
+    "compositional_estimability"
+  ],
+  "table_kind": "harness",
+  "prereg": "docs/prereg_adenoma_decomposition.md",
+  "source": "2026-09-06_765eb29/icbi_adenoma.parquet",
+  "denominators": {
+    "resolved": "n_cells_epithelial - n_cells_unresolved (open decision #14, PRIMARY)",
+    "all_epithelial": "n_cells_epithelial (the denominator #14 rejected; sensitivity arm)"
+  },
+  "why_two_denominators": "the unresolved_depth exclusion is ENDOGENOUS -- an arm that has lost expression carries fewer counts, so more of its cells fall below the depth target. Measured on a synthetic cohort with identical arms: 0.229 normal / 0.270 tumour with the effect, ~0.25/0.25 without. It did not propagate to the fraction there (0.500/0.502 against a true 0.500), and this run is where that is checked on real data instead of assumed from one fixture.",
+  "intrinsic_cutpoints": {
+    "ok": 50,
+    "wide": 20,
+    "source": "provisional (execution_plan.md \u00a74)"
+  },
+  "compositional_cutpoints": {
+    "ok": 50,
+    "wide": 20,
+    "source": "decision #22, pre-committed 2026-08-27 (issue #36)"
+  },
+  "estimability_rule": "two rules, reported separately, never folded: intrinsic gates on n_cells_mature (PROVISIONAL), compositional on n_cells_resolved (decision #22, not provisional)",
+  "schema_interval": "percentile band, open_decisions #10",
+  "companion_interval": "Student-t, in adenoma_decomposition_t_intervals.parquet keyed by KEY_COLUMNS. The schema band's real false-positive rate is on every companion row -- 5.9% at n=44, 7.1% at n=20 (HANDOFF \u00a73a). Every cross-rung or cross-gene claim is made on the companion.",
+  "denominator_dependent": [
+    {
+      "gene": "ACTB",
+      "granularity_rung": "epithelial",
+      "term": "intrinsic"
+    },
+    {
+      "gene": "ACTB",
+      "granularity_rung": "lineage",
+      "term": "intrinsic"
+    },
+    {
+      "gene": "CDX2",
+      "granularity_rung": "lineage",
+      "term": "interaction"
+    },
+    {
+      "gene": "CDX2",
+      "granularity_rung": "lineage",
+      "term": "interaction"
+    },
+    {
+      "gene": "CDX2",
+      "granularity_rung": "lineage",
+      "term": "interaction"
+    },
+    {
+      "gene": "EPCAM",
+      "granularity_rung": "best4",
+      "term": "intrinsic"
+    },
+    {
+      "gene": "GUCA2A",
+      "granularity_rung": "best4",
+      "term": "intrinsic"
+    }
+  ],
+  "exploratory": false,
+  "pre_registered": true
+}
