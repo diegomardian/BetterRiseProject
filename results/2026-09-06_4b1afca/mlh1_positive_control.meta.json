@@ -1,0 +1,97 @@
+{
+  "date": "2026-09-06",
+  "utc_timestamp": "2026-09-06T18:47:27+00:00",
+  "git_sha": "4b1afcac7371ae39bed6562e1392359e7dd41b83",
+  "git_sha_short": "4b1afca",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.11.15",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "scanpy_version": "1.10.2",
+  "anndata_version": "0.10.8",
+  "name": "mlh1_positive_control",
+  "n_rows": 21,
+  "columns": [
+    "gene",
+    "arm",
+    "n_patients",
+    "median_cells_per_arm",
+    "detect_normal",
+    "detect_tumour",
+    "patients_with_signal",
+    "interval_method",
+    "percentile_false_positive_rate",
+    "mean_delta_cloglog",
+    "ci_low",
+    "ci_high",
+    "excludes_zero",
+    "estimability",
+    "detail",
+    "granularity_rung",
+    "study_id",
+    "standing"
+  ],
+  "table_kind": "harness",
+  "prereg": "docs/prereg_g2_mlh1_within_stratum.md",
+  "supersedes_design": "docs/prereg_g2_mlh1.md's difference-in-differences, which needed mlh1_intact_mmrd as a mechanistic negative control. That arm is n=4 here and n=4 on the original GSE178341 path after depth matching -- two independent pipelines, so it is a property of the cohort. The DiD is not available on this data.",
+  "target": "MLH1",
+  "study": "Pelka_2021_Cell",
+  "granularity_rung": "lineage",
+  "interval_method": "student_t",
+  "why_not_the_usual_interval": "the percentile bootstrap over patients, used everywhere else in this repository, has a false-positive rate of 9.6% at n=10 against a nominal 5% -- z*sqrt((n-1)/n)/t(n-1), a function of n alone. Measured and committed BEFORE this ran: results/*/interval_calibration.parquet.",
+  "arms": {
+    "mlh1_methylated": "primary, powered",
+    "mlh1_unmethylated": "secondary, CONFOUNDED: mostly MMR-proficient patients, so it mixes methylation status with MSI status. Not the mechanistic control the original prereg wanted.",
+    "mlh1_intact_mmrd": "pre-registered control, UNDERPOWERED. At n=4 the percentile interval fires 19% of the time under a true null. No verdict is taken from it."
+  },
+  "min_patients_with_signal": 5,
+  "premise_in_primary_arm": {
+    "holds": false,
+    "detail": "UNRESOLVED: control ACTB +0.443 [+0.116, +0.737] on log2 expression (tolerance 0.5). The interval straddles the tolerance, so whether this control moved is not settled at this many patients. Not refused and not satisfied -- undecided, and reported as such."
+  },
+  "premise_caveat": "premise_holds is an EQUIVALENCE test on the percentile bootstrap. A narrower interval fits inside the tolerance more easily, so at n=10 that check errs toward HOLDS. Anti-conservative here.",
+  "instrument_verdict": {
+    "verdict": "UNINTERPRETABLE",
+    "detail": "the premise does not hold in the methylated arm (UNRESOLVED: control ACTB +0.443 [+0.116, +0.737] on log2 expression (tolerance 0.5). The interval straddles the tolerance, so whether this control moved is not settled at this many patients. Not refused and not satisfied -- undecided, and reported as such.). The cells compared are not established to be the same population, so MLH1 moving or not moving inside them says nothing about silencing. This is not a negative result."
+  },
+  "strata_sources_agree": true,
+  "strata_crossings": [],
+  "patients_without_stratum": [],
+  "study_deltas_report": {
+    "study_id": "Pelka_2021_Cell",
+    "reading": "carcinoma",
+    "granularity_rung": "lineage",
+    "mature_bin": "differentiated",
+    "n_patients_eligible": 30,
+    "genes_absent_from_var": [],
+    "batch_key": "sample_id",
+    "sorted_fraction_filter": "enrichment_cell_types == 'naive'",
+    "extra_genes": [
+      "MLH1"
+    ],
+    "gene_roles": {
+      "ACTB": "control",
+      "KRT8": "control",
+      "EPCAM": "epithelial",
+      "CDX2": "identity",
+      "MS4A12": "identity",
+      "GUCA2A": "target",
+      "MLH1": "positive_control"
+    },
+    "n_patients_scored": 29,
+    "n_patients_unlabellable": 1,
+    "unlabellable": [
+      {
+        "patient_id": "Pelka_2021_Cell.C165",
+        "reason": "no reference cell survives depth matching; the cut points would come from nothing. Lower depth_quantile."
+      }
+    ]
+  },
+  "what_this_cannot_say": "that the response is SPECIFIC to promoter methylation. That needs the mechanistic negative control, which this cohort does not have at usable size.",
+  "exploratory": false,
+  "pre_registered": true
+}
