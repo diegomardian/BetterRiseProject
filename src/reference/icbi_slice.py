@@ -55,12 +55,36 @@ COMPARTMENT_MAP: dict[str, str] = {
     "Schwann cell": "stromal",
 }
 
-#: `sample_type` -> the two arms. Everything else is not this contrast:
-#: `healthy normal` is a different donor, and metastasis / polyp / blood /
-#: lymph node are different questions.
+#: `sample_type` -> the two arms of the CARCINOMA reading.
 TISSUE_MAP: dict[str, str] = {
     "primary tumor": "tumour",
     "adjacent normal": "normal",
+}
+
+#: The ADENOMA reading. The diseased arm is the polyp; it maps to "tumour" so
+#: every downstream statistic works unchanged, and the name is the only thing
+#: that is a little wrong.
+#:
+#: `healthy normal` IS a valid reference here, and excluding it was a mistake
+#: that cost an entire cohort. The worry was pairing across donors -- but the
+#: reading only ever compares two arms OF ONE PATIENT, and every caller groups
+#: by `patient_id` before forming arms. So a `healthy normal` sample reachable
+#: from a patient who also has a polyp is, necessarily, that patient's own
+#: unaffected mucosa. The per-patient grouping is what makes it safe, not the
+#: label.
+#:
+#: Measured: 51 of Chen_2021_Cell's 106 patients (the VUMC/HTAN polyp atlas)
+#: carry both a polyp and a `healthy normal` under the same patient_id. Reading
+#: the label alone put that cohort's usable pairs at ZERO; reading it per
+#: patient puts them at 44 above 100 epithelial cells per arm, which is more
+#: than the carcinoma cohort we published on.
+#:
+#: This does NOT change the carcinoma result: no study in the 14 candidates
+#: gains a patient from it, asserted in tests.
+ADENOMA_TISSUE_MAP: dict[str, str] = {
+    "polyp": "tumour",
+    "adjacent normal": "normal",
+    "healthy normal": "normal",
 }
 
 
@@ -204,6 +228,10 @@ def compartments(cell_type: pd.Series) -> pd.Series:
     return mapped
 
 
-def arms(sample_type: pd.Series) -> pd.Series:
-    """`sample_type` -> normal / tumour, with everything else left NA."""
-    return sample_type.astype(str).map(TISSUE_MAP)
+def arms(sample_type: pd.Series, mapping: dict[str, str] | None = None) -> pd.Series:
+    """`sample_type` -> normal / tumour, with everything else left NA.
+
+    Pass ``ADENOMA_TISSUE_MAP`` for the polyp reading. The default is the
+    carcinoma contrast and is unchanged.
+    """
+    return sample_type.astype(str).map(mapping or TISSUE_MAP)

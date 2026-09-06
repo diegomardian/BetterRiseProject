@@ -14,21 +14,32 @@ is unestimable in carcinoma at a median of 3 mature cells, and adenomas retain
 far more differentiated epithelium. And a matched normal->polyp->carcinoma
 series constrains WHEN the loss happens, which no two-arm comparison can.
 
-THE ANSWER IS NO, AND THE REASON IS SPECIFIC. Run 2026-09-05:
+THE ANSWER IS YES, AND THE FIRST RUN GOT IT WRONG. Run 2026-09-05:
 
-    Chen_2021_Cell    93,913 polyp cells, 94 patients, 100% raw counts,
-                      and ZERO patients with a matched normal
+    Chen_2021_Cell    93,913 polyp cells, 106 patients, 100% raw counts,
+                      44 with a matched normal at >= 100 epithelial cells/arm
     Zheng_2022        13,045 polyp cells, 3 patients with the full gradient
 
-Chen_2021's normals are `healthy normal` -- a DIFFERENT DONOR. Pairing across
-donors is not pairing, and the whole coexpression reading rests on comparing two
-arms of one patient. So the largest polyp cohort in the atlas, three times
-Pelka's size and entirely raw counts, contributes nothing.
+`Chen_2021_Cell` is the VUMC/HTAN polyp atlas -- `dataset` reads
+VUMC_HTAN_discovery / _validation / _cohort3 / _CRC and the sample ids are
+HTA11_*. It is the cohort a data hunt would have gone looking for, and it was
+already on disk.
 
-WHAT THIS HANDS THE NEXT COHORT. The requirement to check FIRST is not n, and
-it is not the assay. It is **patient-matched normal**. That is what disqualified
-94 patients here, it is invisible in a cell count, and it would be invisible in
-a summary that said "polyp and normal samples present".
+An earlier version of this job reported ZERO usable pairs for it, because its
+reference samples are labelled `healthy normal` and that label was read as
+"a different donor". Fifty-one of its patients carry BOTH a polyp and a
+`healthy normal` under the same patient_id: it is the patient's own unaffected
+mucosa. The reading only ever compares two arms of one patient and every caller
+groups by patient_id first, so the per-patient grouping -- not the label -- is
+what rules out cross-donor pairing. Excluding the label cost the entire cohort.
+
+That was the fifth vocabulary error in this repository and the first one made
+inside a feasibility verdict, where it would have redirected weeks of work
+toward fetching data already present.
+
+WHAT THIS STILL HANDS THE NEXT COHORT. Check `patient_id` overlap between arms,
+not the arm LABELS. A summary saying "polyp and normal samples present" does not
+distinguish 44 usable pairs from 0, and neither does a cell count.
 
 This reads only the cached obs. No expression, no cluster.
 """
@@ -50,9 +61,10 @@ from src.reference.icbi_slice import COMPARTMENT_MAP
 
 log = logging.getLogger(__name__)
 
-#: The three arms an adenoma reading could use. `healthy normal` is deliberately
-#: NOT here -- see the module docstring; it is a different donor.
-POLYP, NORMAL, TUMOUR = "polyp", "adjacent normal", "primary tumor"
+#: The arms an adenoma reading uses. The reference is EITHER normal label: what
+#: makes it the patient's own is the patient_id grouping, not the string.
+POLYP, TUMOUR = "polyp", "primary tumor"
+REFERENCE = ("adjacent normal", "healthy normal")
 
 #: Same floors as the carcinoma feasibility, so the two are comparable.
 CELL_THRESHOLDS: tuple[int, ...] = (50, 100, 200, 500)
@@ -73,9 +85,11 @@ def polyp_studies(obs: pd.DataFrame) -> pd.DataFrame:
             epithelial.groupby(["patient_id", "sample_type"], observed=True)
             .size().unstack(fill_value=0)
         )
-        for arm in (POLYP, NORMAL, TUMOUR):
+        for arm in (POLYP, TUMOUR, *REFERENCE):
             if arm not in counts.columns:
                 counts[arm] = 0
+        # Either normal label serves, because both are this patient's own.
+        counts["reference"] = counts[list(REFERENCE)].max(axis=1)
 
         row = {
             "study_id": str(study),
@@ -84,17 +98,17 @@ def polyp_studies(obs: pd.DataFrame) -> pd.DataFrame:
             "raw_counts_share": float(
                 (block["matrix_type"].astype(str) == "raw counts").mean()
             ),
-            "has_adjacent_normal": bool((whole["sample_type"] == NORMAL).any()),
-            "has_healthy_normal_only": bool(
-                (whole["sample_type"] == "healthy normal").any()
-                and not (whole["sample_type"] == NORMAL).any()
+            "has_adjacent_normal": bool((whole["sample_type"] == REFERENCE[0]).any()),
+            "has_healthy_normal": bool((whole["sample_type"] == REFERENCE[1]).any()),
+            "patients_with_both_arms": int(
+                ((counts[POLYP] > 0) & (counts["reference"] > 0)).sum()
             ),
             "median_epithelial_genes": float(epithelial["n_genes"].median())
             if len(epithelial) else float("nan"),
         }
         for threshold in CELL_THRESHOLDS:
             paired = counts[
-                (counts[POLYP] >= threshold) & (counts[NORMAL] >= threshold)
+                (counts[POLYP] >= threshold) & (counts["reference"] >= threshold)
             ]
             gradient = paired[paired[TUMOUR] >= threshold]
             row[f"paired_at_{threshold}"] = int(len(paired))
@@ -124,16 +138,11 @@ def verdict(table: pd.DataFrame, threshold: int = 100) -> tuple[str, str]:
             f"computed but not resolved. Worth running only as one study in a "
             f"meta-analysis."
         )
-    lost = table.loc[table["has_healthy_normal_only"], "polyp_patients"].sum()
     return "NOT VIABLE", (
         f"{total} matched patient(s) at >= {threshold} epithelial cells per arm, "
-        f"below the {MIN_PREMISE_PATIENTS} floor."
-        + (
-            f" {int(lost)} polyp patients are lost to studies whose only "
-            f"reference arm is `healthy normal` -- a different donor. Pairing "
-            f"across donors is not pairing."
-            if lost else ""
-        )
+        f"below the {MIN_PREMISE_PATIENTS} floor. Check patient_id overlap "
+        f"between arms before concluding this -- reading the arm LABELS instead "
+        f"is what once put this cohort's usable pairs at zero."
     )
 
 
@@ -165,10 +174,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     log.info("\n%s\nPATH C, OPTION 1 (ICBI polyp arm): %s\n%s\n%s",
              "=" * 72, state, detail, "=" * 72)
     log.info(
-        "\nThe requirement this hands the next cohort is PATIENT-MATCHED NORMAL,\n"
-        "not n and not the assay. It is what disqualified the largest polyp\n"
-        "cohort here, it is invisible in a cell count, and a summary saying\n"
-        "'polyp and normal samples present' would not have shown it."
+        "\nCheck patient_id OVERLAP between arms, not the arm labels. A summary\n"
+        "saying 'polyp and normal samples present' does not distinguish 44\n"
+        "usable pairs from 0, and neither does a cell count."
     )
 
     path = write_versioned_table(
@@ -177,11 +185,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         extra_meta={
             "verdict": state, "verdict_detail": detail,
             "threshold_epithelial_per_arm": args.threshold,
-            "arms": {"polyp": POLYP, "reference": NORMAL, "carcinoma": TUMOUR},
-            "healthy_normal_excluded": (
-                "`healthy normal` is a different donor, not the same patient's "
-                "adjacent tissue. Pairing across donors is not pairing, and the "
-                "coexpression reading compares two arms of ONE patient."
+            "arms": {"polyp": POLYP, "reference": list(REFERENCE), "carcinoma": TUMOUR},
+            "healthy_normal_included": (
+                "`healthy normal` counts as the reference arm. What makes it "
+                "the patient's own is the patient_id grouping, not the label -- "
+                "51 of Chen_2021_Cell's patients carry both a polyp and a "
+                "`healthy normal` under one patient_id. Reading the label "
+                "instead put this cohort's usable pairs at 0 against 44."
             ),
             "what_this_answers": (
                 "Whether the adenoma question can be asked on data already on "
