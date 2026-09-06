@@ -673,15 +673,25 @@ positive control would have bought, and it is what the data supports.
 1. **Commit the cluster tables.** `results/2026-09-06_4b1afca/` is the only
    uncommitted result in the project. Until it lands, the RESULT section quotes
    numbers with no artifact behind them.
-2. **Avenue A/1a is next** — the decomposition at `best4` on `Chen_2021`, the
+2. **Avenue A/1a is next, and is now PRE-REGISTERED** —
+   `docs/prereg_adenoma_decomposition.md`. The decomposition on `Chen_2021`, the
    project's original estimand, on the one cohort where the premise holds. It
    needs no MLH1, no premise resolution and no instrument sensitivity, which
    after §6g is the point. `docs/NEXT_AVENUES.md` §1a and the 2026-09-06
-   review. **Three gaps to close in its prereg, all in the compositional term:**
-   the `unresolved_depth` quarter is `DEPTH_QUANTILE` by construction and its
-   per-arm split is unmeasured; `mean_*` is post-depth-matching while any
-   `frac_mature_*` is pre-matching; and open_decisions #10 pins the percentile
-   band in the schema slot, so a Student-t interval goes BESIDE it, not in it.
+   review. The three compositional gaps are closed in it: the
+   `unresolved_depth` quarter is `DEPTH_QUANTILE` by construction, so the
+   per-arm share is emitted and gated at 0.05; `mean_*` is declared
+   post-matching against a pre-matching `frac_mature_*`; and the Student-t
+   interval sits BESIDE the schema band rather than in it, leaving
+   open_decisions #10 untouched. **A fourth gap the review found: §1a's own
+   title said `best4`, and a single-rung reading is the point estimate the
+   frozen axes file forbids.** It runs the rung curve.
+
+   **What it needs:** the adenoma scoring path to emit `frac_mature_*` and
+   `unresolved_share_*` and to run `epithelial` and `crypt_position` as well as
+   `lineage` and `best4`, then a cluster run. Read §3.3 first — at `best4` only
+   4 of 20 patients are `ok` and 14 are `wide_interval`, on **provisional,
+   never-calibrated** cutpoints.
 
 3. **B1 — Becker 2022 — is the frozen axes file's own week-13 substrate and has
    never been fetched.** `config/labeling_axes.yaml` names "Becker/Chang

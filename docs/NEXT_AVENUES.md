@@ -11,7 +11,15 @@ Read `docs/HANDOFF.md` §2 first for what is already established.
 
 ## Tier 1 — in hand, and one of them is bigger than path C
 
-### 1a. The decomposition at `best4` on Chen_2021. **VERIFIED, do this.**
+### 1a. The decomposition on Chen_2021. **PRE-REGISTERED 2026-09-06 — `docs/prereg_adenoma_decomposition.md`.**
+
+> **This heading used to read "at `best4`", and that was wrong.**
+> `config/labeling_axes.yaml` is frozen and requires the split reported as a
+> CURVE across rungs: *"A single point estimate would present a modelling
+> choice as a measurement."* A `best4`-only reading is exactly that point
+> estimate. The pre-registration runs every rung the cohort supports,
+> `epithelial` included — it is degenerate by design and a curve whose lower
+> bound is missing cannot show it is a curve.
 
 The decomposition was abandoned because its ratio collapses:
 
