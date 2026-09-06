@@ -5,7 +5,12 @@
 #   qsub -v BRP_ICBI_STUDY=Pelka_2021_Cell src/reference/jobs/icbi_coexpression.sh
 #   qsub -v BRP_ICBI_STUDY=all             src/reference/jobs/icbi_coexpression.sh
 #
-#   # path C, the adenoma reading -- Chen_2021_Cell IS the VUMC/HTAN polyp atlas
+#   # path C, the adenoma reading -- Chen_2021_Cell IS the VUMC/HTAN polyp atlas.
+#   # Under --arms adenoma this now scores ALL FOUR rungs and emits the mature
+#   # fraction per arm, which is what the decomposition (avenue A,
+#   # docs/prereg_adenoma_decomposition.md) needs and the coexpression reading
+#   # does not. Then, locally:
+#   #     python -m src.reference.jobs.adenoma_decomposition
 #   qsub -v BRP_ICBI_STUDY=Chen_2021_Cell,BRP_ICBI_ARMS=adenoma \
 #        src/reference/jobs/icbi_coexpression.sh
 #
@@ -91,19 +96,30 @@ PY
 # cells there. Adenomas retain differentiated epithelium.
 ARMS="${BRP_ICBI_ARMS:-carcinoma}"
 if [ "$ARMS" = "adenoma" ]; then
-  RUNGS="lineage best4"
+  # All four rungs, not two. config/labeling_axes.yaml is frozen and requires
+  # the split reported as a CURVE -- "a single point estimate would present a
+  # modelling choice as a measurement" -- and `epithelial` is included BECAUSE
+  # it is degenerate: it is the curve's lower bound and it must be shown.
+  RUNGS="${BRP_ICBI_RUNGS:-epithelial lineage crypt_position best4}"
 else
-  RUNGS="lineage"
+  RUNGS="${BRP_ICBI_RUNGS:-lineage}"
 fi
-echo "arms: $ARMS | rungs: $RUNGS"
+# The mature FRACTION per arm. The coexpression reading does not need it and the
+# decomposition is nothing without it; off by default so committed coexpression
+# tables keep their exact shape.
+FRACTIONS=""
+if [ "${BRP_ICBI_FRACTIONS:-0}" = "1" ] || [ "$ARMS" = "adenoma" ]; then
+  FRACTIONS="--collect-fractions"
+fi
+echo "arms: $ARMS | rungs: $RUNGS | ${FRACTIONS:-no fractions}"
 
 set +e
 if [ "$STUDY" = "all" ]; then
   python -m src.reference.jobs.icbi_coexpression --atlas "$ATLAS" --all \
-      --arms "$ARMS" --rungs $RUNGS
+      --arms "$ARMS" --rungs $RUNGS $FRACTIONS
 else
   python -m src.reference.jobs.icbi_coexpression --atlas "$ATLAS" --study "$STUDY" \
-      --arms "$ARMS" --rungs $RUNGS
+      --arms "$ARMS" --rungs $RUNGS $FRACTIONS
 fi
 code=$?
 set -e

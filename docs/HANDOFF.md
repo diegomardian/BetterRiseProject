@@ -689,7 +689,19 @@ positive control would have bought, and it is what the data supports.
    title said `best4`, and a single-rung reading is the point estimate the
    frozen axes file forbids.** It runs the rung curve.
 
-   **What it needs is smaller than it looks:** `labels.mature_cell_counts`
+   **BUILT 2026-09-06 and waiting on one cluster run.**
+   `src/reference/jobs/adenoma_decomposition.py` is the reading;
+   `icbi_coexpression --arms adenoma` now scores **all four rungs** and emits
+   the mature fraction per arm. Verified end to end on a synthetic cohort, and
+   the curve's lower bound proves itself: `epithelial` returns a compositional
+   term of **exactly zero** for every gene, so the whole change lands in the
+   intrinsic term — which is what that rung is for.
+
+       qsub -v BRP_ICBI_STUDY=Chen_2021_Cell,BRP_ICBI_ARMS=adenoma \
+            src/reference/jobs/icbi_coexpression.sh
+       python -m src.reference.jobs.adenoma_decomposition   # local, then commit
+
+   **What it needed was smaller than it looked:** `labels.mature_cell_counts`
    already returns `mature_fraction`, `unresolved_fraction` and
    `n_cells_resolved` per (patient, tissue, axis, rung) — tissue *is* the arm,
    so both fractions are a pivot of an existing function. The adenoma path has
@@ -724,7 +736,7 @@ the n=10 arm.
 
 ## 7. Running things
 
-    pytest -q                      # expect 1485 passed, 22 env-only failures
+    pytest -q                      # expect 1494 passed, 22 env-only failures
     ruff check src tests submission
 
 The 22 are `anndata`, `diptest`, `lifelines` absent locally. That count is the

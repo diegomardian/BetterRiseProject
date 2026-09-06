@@ -822,6 +822,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--arms", choices=tuple(ARM_MAPS), default="carcinoma",
                         help="`adenoma` scores polyp against the patient's own "
                              "normal. Default is the committed carcinoma contrast.")
+    parser.add_argument(
+        "--collect-fractions", action="store_true",
+        help="also emit the mature FRACTION per arm, which the decomposition "
+             "needs and the coexpression reading does not. Off by default so "
+             "the committed coexpression tables keep their exact shape.",
+    )
     parser.add_argument("--rungs", nargs="+", default=[RUNG],
                         help="granularity rungs to score. `--rungs lineage best4` "
                              "for the adenoma reading.")
@@ -868,6 +874,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 deltas, report = study_deltas(
                     args.atlas, obs, study, seed=args.seed,
                     max_patients=args.max_patients, rung=rung, reading=args.arms,
+                collect_fractions=args.collect_fractions,
                 )
             except SliceError as exc:
                 log.error("  REFUSED: %s", exc)
