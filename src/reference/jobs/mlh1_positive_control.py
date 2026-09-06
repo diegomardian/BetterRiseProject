@@ -82,6 +82,7 @@ from src.reference.interval_calibration import (
     INTERVAL_METHODS,
     excludes_zero,
     expected_false_positive_rate,
+    width_ratio,
 )
 from src.reference.jobs.coexpression_silencing import RUNG, premise_holds
 from src.reference.jobs.icbi_coexpression import (
@@ -391,14 +392,20 @@ def main(argv: Sequence[str] | None = None) -> int:
              "claim about these 10.")
     premise = premise_holds(primary_block, seed=args.seed)
     log.info("  %s", premise[1])
+    n_primary = int(primary_block["patient_id"].nunique())
     log.info(
         "  NOTE: premise_holds uses the percentile bootstrap, and at n=%d that "
         "interval\n  is %.0f%% narrower than the calibrated one. For an "
         "EQUIVALENCE test a narrower\n  interval is more likely to fit inside "
         "the tolerance, so this check is\n  anti-conservative here: it errs "
         "toward HOLDS. Read a HOLDS at this n as\n  weaker than the same word "
-        "at n=44.", primary_block["patient_id"].nunique(),
-        100 * (1 - 0.822))
+        "at n=44.", n_primary,
+        # width_ratio(n), NOT the n=10 constant. A message that quotes a number
+        # independent of the input it describes is right by coincidence at one
+        # n and wrong everywhere else -- which is this repository's own defect
+        # in miniature. It read "at n=6 ... 18% narrower" on a dry run; the
+        # true figure at n=6 is 30%.
+        100 * (1 - width_ratio(n_primary)) if n_primary >= 2 else float("nan"))
 
     rows = []
     for arm in (PRIMARY_STRATUM, SECONDARY_STRATUM, UNDERPOWERED_STRATUM):

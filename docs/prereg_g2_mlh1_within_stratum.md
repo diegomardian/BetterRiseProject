@@ -1,8 +1,18 @@
 # Pre-registration — MLH1 as a positive control for the instrument
 
-**Written:** 2026-09-06 · **Author:** W1 (Bode) · **Status:** proposed, awaiting
-team ratification · **Supersedes the design of** [prereg_g2_mlh1.md](prereg_g2_mlh1.md),
+**Written:** 2026-09-06 · **Author:** W1 (Bode) · **Status: RATIFIED
+2026-09-06** · **Supersedes the design of** [prereg_g2_mlh1.md](prereg_g2_mlh1.md),
 whose difference-in-differences is not available on this data (§2).
+
+> **How it was ratified, stated exactly.** Bode approved it on behalf of the
+> team as a blanket delegation — *"the team approves whatever you recommend"* —
+> not as a line-by-line review by four people. §8 asked for the team because
+> this can reframe the project, and that condition is met in form. It is
+> recorded this way rather than as "team approved" because the difference is
+> real and a reader of this file should be able to see it. **Nothing below was
+> written or altered after any MLH1 expression was read**, which is the claim
+> the timestamp actually has to support, and it holds independently of who
+> signed.
 
 > **This document is only worth what its timestamp is worth.** It states a
 > directional prediction, the analysis that tests it, the interval that analysis
@@ -275,8 +285,19 @@ Its value is asymmetric and both directions are useful:
 
 ## RESULT
 
-*Not run. Requires the 30 GB ICBI atlas, which is cluster-only:*
+*Not run.* Requires the 30 GB ICBI atlas, which is cluster-only and behind
+interactive authentication:
 
     qsub src/reference/jobs/mlh1_positive_control.sh
 
-*Nothing above may be edited when it is.*
+**The pipeline itself has been run end to end, on a synthetic atlas built in
+the real one's shape** — `tests/test_mlh1_end_to_end.py`. Two runs whose only
+difference is the truth in them: MLH1 thinned to 0.15× in the tumour arm of
+methylated patients, and MLH1 untouched. The first is recovered
+(≈ −1.7 against a true ln(0.15) = −1.90, attenuated by the boundary rule, and
+absent from the comparison arm); the second returns
+`INSTRUMENT DOES NOT SEE IT` with the arm still estimable. Stable across five
+generator seeds. So the cluster run will not be the first execution of the
+scoring path, and a pipeline that fired on anything would have been caught here.
+
+*Nothing above may be edited when the real run happens.*

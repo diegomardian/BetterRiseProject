@@ -83,6 +83,11 @@ include = ["src*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = ["error::FutureWarning"]
+# `slow` is registered rather than left implicit so an unknown-marker warning
+# cannot hide it. It marks the end-to-end runs that build a synthetic atlas and
+# push it through the real scoring path -- seconds, not milliseconds, and worth
+# it because nothing else executes that path off-cluster.
+markers = ["slow: builds a synthetic atlas and runs a full scoring path"]
 
 [tool.ruff]
 line-length = 100

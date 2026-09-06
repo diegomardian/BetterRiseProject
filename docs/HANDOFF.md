@@ -634,7 +634,19 @@ paragraph. In short:
 | **if it fires** | the project's nulls become evidence of absence — without a mechanistic control behind them |
 | **if it does not** | the nulls stay uninformative, and that reframes the write-up |
 
-**It can reframe the project, so it needs the team, not just W1.**
+**RATIFIED 2026-09-06**, as a blanket delegation from Bode rather than a
+four-person review — recorded that way in the prereg's header because the
+difference is real. What the timestamp has to support is that nothing in the
+design was written or changed after MLH1 expression was read, and that holds
+regardless of who signed.
+
+**The scoring path has already been run end to end**, on a synthetic atlas built
+in the real one's shape (`tests/test_mlh1_end_to_end.py`): an injected 0.15×
+thinning in the methylated tumour arm is recovered at ≈ −1.7 against a true
+ln(0.15) = −1.90 and is absent from the comparison arm, while an atlas with no
+effect returns `INSTRUMENT DOES NOT SEE IT` with the arm still estimable. Stable
+over five seeds. **The cluster run will not be the first execution of that
+path** — which is what the two dead cluster jobs in §4 were each about.
 
 *Two numbers from the feasibility work that are worth carrying even if the run
 never happens.* The atlas's per-cell methylation annotation and the week-0
@@ -647,7 +659,7 @@ number that killed the DiD.
 
 ## 7. Running things
 
-    pytest -q                      # expect 1480 passed, 22 env-only failures
+    pytest -q                      # expect 1482 passed, 22 env-only failures
     ruff check src tests submission
 
 The 22 are `anndata`, `diptest`, `lifelines` absent locally. That count is the
