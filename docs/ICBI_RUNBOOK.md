@@ -76,23 +76,44 @@ the first time anywhere in this project — and `best4` is estimable, 32 of 44
 patients, median ~85 mature cells against carcinoma's median of 3. GUCA2A falls
 −0.174 [−0.243, −0.109] inside the mature population.
 
-**A tier is down, not the gene.** Housekeeping −0.018/−0.035, EPCAM −0.052,
-CDX2 −0.075, MS4A12 −0.165, GUCA2A −0.174 — a gradient. The paired contrasts
-(`icbi_adenoma_specificity.parquet`) put GUCA2A BELOW CDX2 (−0.099, excludes
-zero) and LEVEL with MS4A12 (−0.009, contains zero). CDX2 is intestinal identity
-across stem and mature epithelium; MS4A12 is terminal differentiation only. So
-the cells keep their intestinal identity and lose terminal differentiation
-output, and GUCA2A is not separable within that tier. See `docs/HANDOFF.md` §6d.
+**A tier is down, not the gene — and the gradient that first said so was an
+artefact.** Detection deltas are not comparable BETWEEN genes: the sensitivity
+of a proportion depends on its baseline, and this panel spans 0.36 to 0.98. The
+corrected read is `results/2026-09-05_9c43f4f/adenoma_specificity.parquet`, on
+the log fold-change scale, and it is **two blocks rather than a gradient**:
+{KRT8, ACTB, EPCAM, CDX2} against {MS4A12, GUCA2A}, all eight cross-block
+contrasts excluding zero, `MS4A12 − GUCA2A` containing zero, and — the row that
+was missing entirely — `CDX2 − KRT8` containing zero, which is what "intestinal
+identity is retained" actually requires. See `docs/HANDOFF.md` §6d.
 
-Read the specificity table with the ROLE column, not the gene names: a control
-and an identity marker containing zero mean opposite things.
+Two rules that follow, both of which cost something here:
+
+**Read the specificity table with the ROLE columns, not the gene names.** A
+control and an identity marker containing zero mean opposite things.
+
+**Never compare two genes' detection deltas.** Within a gene, between arms, the
+detection statistic is the right one and nothing below changes. Across genes it
+ranks by abundance: the committed violating input in
+`tests/test_checks_can_fail.py` applies ONE uniform thinning to six baselines —
+no gene-specificity whatever — and detection calls 26 of 30 pairwise contrasts
+real. `src/reference/detection_scale.py` carries the scale that does not, and
+`uniform_thinning_null` is the diagnostic that catches it; at `best4` that null
+fires (R² 68.7%) and at `lineage` it does not (27.0%).
 
 **Two things the adenoma run also establishes**, both in
 `docs/NEXT_AVENUES.md`: the decomposition's algebraic collapse does NOT fire
-here (m_T/m_N runs 0.37–0.95), so the original method may be identifiable; and
-`summarise` must be called PER RUNG — calling it once across both produced rows
-reading `n_patients = 64`, which is 44 plus 20 and neither the same patients nor
-the same cells.
+here (m_T/m_N runs 0.37–0.95 — and being a ratio, that IS comparable across
+genes), so the original method may be identifiable; and `summarise` must be
+called PER RUNG — calling it once across both produced rows reading
+`n_patients = 64`, which is 44 plus 20 and neither the same patients nor the
+same cells. That superseded summary is still committed under
+`results/2026-09-05_3a1af9f/`; the per-patient deltas there are byte-identical
+to `d869bdd`, the summary is not. Cite `d869bdd`.
+
+Re-reading the contrasts needs no cluster — the committed per-patient table
+carries both arms' rates, cell counts and CP10K means:
+
+    python -m src.reference.jobs.adenoma_specificity
 
 ---
 

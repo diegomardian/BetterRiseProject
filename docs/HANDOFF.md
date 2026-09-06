@@ -22,9 +22,14 @@ half-finished.
 
 Path C is the one positive: the premise HOLDS, `best4` is estimable for the
 first time, and inside the surviving mature cells of adenomas the
-**terminal-differentiation tier is down while intestinal identity is retained**
-(housekeeping −0.02, CDX2 −0.075, GUCA2A/MS4A12 −0.17). GUCA2A is not separable
-within that tier, so no gene-specific claim follows. **`docs/NEXT_AVENUES.md` reviews what is left**, and two items there
+**terminal-differentiation tier is down while intestinal identity is retained**.
+On the log fold-change scale the panel separates into **two blocks** —
+{KRT8, ACTB, EPCAM, CDX2} and {MS4A12, GUCA2A} — with all eight cross-block
+contrasts excluding zero and CDX2 indistinguishable from housekeeping. GUCA2A is
+not separable within its block, so no gene-specific claim follows. **The first
+version of that reading compared raw detection deltas across genes, which is not
+a comparison the statistic supports** (§3, §6d); the conclusion survived the
+correction, its stated evidence did not. **`docs/NEXT_AVENUES.md` reviews what is left**, and two items there
 outrank a data hunt: the decomposition may be identifiable on adenoma, and the
 instrument has never had a positive control though one is sitting in the atlas.
 
@@ -96,11 +101,21 @@ a freshly downloaded 3.1 GB cohort against the Windows originals: 11 bit-identic
 
 ## 3. The recurring defect, which is also the paper's thesis
 
-**A check that cannot fail reports success.** It has now been found **thirteen**
-times, including five times inside guards written to prevent it, and twice
+**A check that cannot fail reports success.** It has now been found **fourteen**
+times, including six times inside guards written to prevent it, and twice
 inside guards written *during* this work. Assume the next one exists.
 
-The four found on 2026-09-05, all in code written that day:
+The fourteenth is the most consequential yet, because it sat under the project's
+**only positive result**. `specificity()` compared six genes' detection deltas to
+each other; those genes span baseline detection 0.36 to 0.98, and the
+sensitivity of a proportion depends on where it sits. Its guard could not have
+caught it — the test fixture named `delta_detect` directly, so no baseline rate
+existed anywhere in it and a gene at 0.98 and a gene at 0.44 were the same
+object. The violating input is now committed: one uniform thinning of 0.75
+across six baselines, no gene-specificity at all, and **detection reports 26 of
+30 pairwise contrasts as real**. See §6d.
+
+The five found on 2026-09-05, all in code written that day:
 
 - The Stage 4 predictor check read `sd` as a proxy for "does this column carry
   information". On real data it **ranked backwards**: `best4`/nnls had 4
@@ -127,13 +142,14 @@ The four found on 2026-09-05, all in code written that day:
 | **premise verdict** | point estimate vs tolerance | **no interval; flipped with the seed** |
 | **invariant 1** | `None` is not `0.0` | validating writer used by 1 of 26 call sites |
 | **invariant 2** | targets absent from signature | classifier with no reject option: a positional index read as "symbol" |
+| **gene specificity** | one gene's detection delta vs another's | **a proportion's sensitivity scales with its baseline; the fixture had no baselines in it** |
 
 The last four were found this week. The invariant-2 guard has now been fixed
 **three times**; each fix covered the case just found, and the next was always
 the input nobody had loaded yet.
 
 **The rule the repo works to:** a guard needs a committed input that forces it to
-fail. `tests/test_checks_can_fail.py` holds those — 21 of them, 23 with
+fail. `tests/test_checks_can_fail.py` holds those — 26 of them, 28 with
 parametrisation. If you add a
 guard, add its failing input. If you cannot construct one, that is the finding.
 
@@ -345,7 +361,9 @@ the atlas's. Sizing tables: `results/2026-09-05_d241b35/`.
 fetched for path B. No data hunt was needed. 44 patients with a matched polyp
 and their own normal.
 
-**Three firsts, all on `results/2026-09-05_3a1af9f/`:**
+**Three firsts.** Per-patient deltas `results/2026-09-05_d869bdd/`
+(`3a1af9f` holds the same deltas byte-for-byte but its *summary* is the
+superseded pooled-rungs one reading `n_patients = 64`; do not cite it):
 
 - **The premise HOLDS** — 44 patients at `lineage`, 20 at `best4`. It had never
   held anywhere in this project.
@@ -354,47 +372,63 @@ and their own normal.
   exactly-zero mature fraction on 95–99% of tumours there.
 - **GUCA2A falls inside the surviving mature population**: −0.174
   [−0.243, −0.109] at `lineage`, over 44 patients, with the premise holding.
+  That is a within-gene, between-arm comparison and the detection scale is
+  fine for it. It is comparing that number to ANOTHER GENE's that needs the
+  log fold-change scale — see below.
 
-**What is down is a TIER, not the gene.** The deltas form a gradient, and the
-gradient is the result — a flat fall across the panel would have meant something
-else entirely:
+**What is down is a TIER, not the gene — and the first reading of that was
+right for the wrong reason.** The gradient table this section used to carry
+ranked the panel by raw detection delta. Detection deltas are **not comparable
+between genes**: the sensitivity of a proportion depends on its baseline, and
+this panel spans 0.36 to 0.98. The re-read is
+`results/2026-09-05_9c43f4f/`, on the log fold-change scale
+(`src/reference/detection_scale.py`), and it is a **two-block separation rather
+than a gradient**:
 
-| | lineage delta |
-|---|---|
-| KRT8 / ACTB — housekeeping | −0.018 / −0.035 |
-| EPCAM — epithelial | −0.052 |
-| CDX2 — intestinal identity | −0.075 |
-| **MS4A12 / GUCA2A — terminal differentiation** | **−0.165 / −0.174** |
+| lineage, n=44, cloglog | KRT8 | ACTB | EPCAM | CDX2 |
+|---|---|---|---|---|
+| **MS4A12** | +0.761 \* | +0.581 \* | +0.688 \* | +0.659 \* |
+| **GUCA2A** | +0.691 \* | +0.510 \* | +0.617 \* | +0.589 \* |
 
-The within-patient paired contrasts
-(`results/2026-09-05_d869bdd/icbi_adenoma_specificity.parquet`) make it exact:
-
-| contrast (lineage, n=44) | difference | |
-|---|---|---|
-| GUCA2A − KRT8 (control) | −0.156 [−0.218, −0.097] | excludes zero |
-| GUCA2A − ACTB (control) | −0.139 [−0.199, −0.082] | excludes zero |
-| GUCA2A − EPCAM (epithelial) | −0.122 [−0.186, −0.059] | excludes zero |
-| **GUCA2A − CDX2 (identity)** | **−0.099 [−0.179, −0.022]** | **excludes zero** |
-| **GUCA2A − MS4A12 (identity)** | **−0.009 [−0.062, +0.046]** | **contains zero** |
-
-The two identity markers behave differently and the difference is
-interpretable. CDX2 is the master TF of intestinal identity, expressed across
-stem and mature epithelium; MS4A12 is restricted to terminally differentiated
-absorptive colonocytes. GUCA2A falls MORE than CDX2 and the SAME as MS4A12.
+`*` excludes zero. **All eight cross-block contrasts exclude zero**;
+`MS4A12 − GUCA2A` is −0.071 and contains zero. And the contrast the conclusion
+actually turns on, which no committed row previously reported: **`CDX2 − KRT8`
+is −0.102 and contains zero**, as are `CDX2 − ACTB` (+0.079) and `CDX2 − EPCAM`
+(−0.028). CDX2 is not distinguishable from housekeeping.
 
 So: **the cells retain intestinal identity and have lost terminal
-differentiation output.** That is a real, graded finding, coherent with adenoma
-biology — WNT-driven expansion of a less-differentiated state.
+differentiation output.** Same conclusion as before, now resting on a
+comparison that supports it — and a sharper shape, because a *gradient* is
+what a uniform thinning also produces and two blocks is not.
 
-What it does not do is isolate GUCA2A. Within the terminal-differentiation tier
-GUCA2A and MS4A12 are indistinguishable, so no gene-specific claim follows —
-the week-0 falsification rule firing a second time, in a second place.
+*Three things to carry, all of which change how this is quoted.*
 
-*Two caveats before this is quoted.* At `best4` the CDX2 contrast also contains
-zero (−0.047 [−0.125, +0.026]), but n=20 against 44 and the intervals overlap
-the `lineage` ones, so that reads as power rather than a conflicting result. And
-`best4`'s premise holds at ACTB −0.283 reaching −0.461 against a 0.5 tolerance —
-92% of it. `lineage` holds comfortably; `best4` holds narrowly.
+**On the committed detection statistic the identity claim reverses.**
+`CDX2 − KRT8` = −0.057 [−0.092, −0.021], excluding zero: read that way, CDX2 is
+down relative to housekeeping and "identity retained" is false. Six contrasts
+change verdict with the statistic and
+`adenoma_specificity_disagreements.parquet` names them. `GUCA2A − MS4A12`
+contains zero on **all three** statistics at **both** rungs, so the
+"no gene-specific claim" conclusion does not depend on the choice.
+
+**The thinning null fires at one rung and not the other**, which is why it is in
+the run rather than done once by hand. Fitting ONE common fold change across all
+six genes — the most gene-unspecific model there is:
+
+| rung | verdict | c | variance explained |
+|---|---|---|---|
+| lineage | STRUCTURE SURVIVES | 0.677 | 27.0% |
+| **best4** | **GRADIENT IS ABUNDANCE** | 0.701 | **68.7%** |
+
+At `best4` the raw detection ordering is **not readable as biology** and the
+block structure there rests on the load-bearing scale alone.
+
+**Neither block is perfectly flat, and the exceptions are informative.** At
+`lineage` ACTB separates from KRT8 (−0.181) and from EPCAM (−0.107) — a control
+moving relative to another control, inside the premise tolerance but not
+nothing. At `best4` the four-gene block IS flat (0 of 12 contrasts exclude
+zero), but CDX2 no longer separates from MS4A12 (+0.332) or GUCA2A (+0.253)
+either: at n=20 it is unresolved between the blocks rather than assigned to one.
 
 **The limit this exposes, which is the paper's thesis again.** The premise check
 compares ACTB and KRT8 between arms — it asks whether these are still *cells*.
@@ -473,7 +507,7 @@ that job, this test tells you exactly what to edit.**
 
 ## 7. Running things
 
-    pytest -q                      # expect 1420 passed, 22 env-only failures
+    pytest -q                      # expect 1437 passed, 22 env-only failures
     ruff check src tests submission
 
 The 22 are `anndata`, `diptest`, `lifelines` absent locally. That count is the
@@ -498,6 +532,7 @@ because anything is pending.
 
 Local-only, no cluster needed — it reads committed tables:
 
+    python -m src.reference.jobs.adenoma_specificity      # the corrected path C read
     python -m src.reference.jobs.coexpression_meta        # newest ICBI run
     python -m src.reference.jobs.coexpression_meta \
         --deltas results/2026-09-04_975cf5c/coexpression_silencing.parquet

@@ -23,7 +23,7 @@ same labels. In carcinoma that constant is −5.85 and five panel genes were
 indistinguishable by it.
 
 **In adenoma it does not collapse.** Measured on
-`results/2026-09-05_3a1af9f/icbi_adenoma.parquet`:
+`results/2026-09-05_d869bdd/icbi_adenoma.parquet`:
 
 | gene | m_T/m_N (lineage) | bracket |
 |---|---|---|
@@ -39,15 +39,25 @@ was built around may be identifiable here**, which is a larger claim than the
 coexpression reading can make. It is the same run: the cells are already loaded.
 
 *Temper it with this:* GUCA2A (0.374) and MS4A12 (0.383) are again
-indistinguishable, while CDX2 (0.791) sits well above both. The same tiered
-pattern the detection reading found — terminal differentiation down, intestinal
+indistinguishable, while CDX2 (0.791) sits well above both. Same two blocks the
+corrected specificity reading found — terminal differentiation down, intestinal
 identity retained — and the same limit: the decomposition would separate GUCA2A
-from housekeeping and from CDX2, and not from MS4A12.
+from housekeeping and from CDX2, and not from MS4A12. `m_T/m_N` is a ratio, so
+unlike a detection delta it IS comparable across genes; that is why this table
+survived the scale correction unchanged.
 
 **Which makes the comparator choice the whole design.** Run against housekeeping
 alone it will look like a clean gene-specific result. The identity markers are
 what stop that, and they must be scored in the same run rather than added
 afterwards. Identifiable is not the same as gene-specific.
+
+**And score every pair, not the target against each.** The first specificity
+table reported only `GUCA2A − X`, so the claim that intestinal identity is
+retained — a statement about where CDX2 sits relative to the CONTROLS — had no
+row behind it and was read off CDX2's delta looking small beside GUCA2A's. On
+the raw detection scale that comparison reverses the answer. Full account in
+`docs/HANDOFF.md` §6d; the corrected table is
+`results/2026-09-05_9c43f4f/adenoma_specificity.parquet`.
 
 ### 1b. The atlas's own annotations. **PARTLY WRONG — two of three are unusable.**
 
@@ -113,10 +123,35 @@ Either branch is worth more than another cohort. The cost is adding one gene to
 `GENE_ROLES` and a stratum split, on data already on the cluster.
 
 *Known risk, stated first:* the pre-registered MLH1 contrast
-(`docs/prereg_g2_mlh1.md`) died on the detection floor at CP10K means of 0.04.
+(`docs/prereg_g2_mlh1.md`) died on the detection floor at CP10K means of 0.039.
 Detection at ≥1 UMI is more sensitive than a mean, which is the reason to
 retry — but a feasibility check on mature-cell counts per stratum comes before
 the reading, not after.
+
+**Do the scale correction first, and the reason is about MLH1 rather than
+tidiness.** At 0.039 CP10K and Pelka's median depth of 11,286 UMI, MLH1 sits at
+a **4.3% detection rate** — the far end of the abundance range from GUCA2A's
+44%. Its result will be read against this panel, and a cross-gene comparison on
+the raw detection scale is not one the statistic supports (`docs/HANDOFF.md`
+§6d). A positive control read on a non-comparable scale is uninterpretable in
+exactly the way it exists to resolve. That correction is done:
+`src/reference/detection_scale.py`.
+
+**Two design corrections to the reading itself.** As phrased above it is a
+BETWEEN-patient comparison — methylated patients against non-methylated ones —
+and everything else in this project is patient-paired. Make it a
+difference-in-differences instead: the within-patient tumour-versus-own-normal
+contrast, compared across strata. And size the **mature** subset at `lineage`
+and `best4` before anything else; the all-epithelial counts are comfortable
+(23,256 meth / 54,623 no_meth cells over 21 and 39 patients, against ~2,200 per
+arm needed for a 50% effect) but carcinoma's median at `best4` was **3 mature
+cells**, and that is the binding constraint, not the epithelial total.
+
+*Provenance of those figures:* computed from the cached obs
+(`data/interim/icbi_obs.parquet`) and the 0.039 CP10K in
+`docs/prereg_g2_mlh1.md`, **not from a committed table**. They are a sizing
+argument, and the feasibility check that commits them is step one of the
+reading.
 
 ---
 
@@ -157,8 +192,13 @@ Cheap: the per-study estimates are already committed.
 
 ## What I would do, in order
 
+0. ~~**Fix the cross-gene scale.**~~ **DONE**, 2026-09-05
+   (`results/2026-09-05_9c43f4f/`). It had to come first because MLH1 lands at
+   the far end of the abundance range and would have been read against this
+   panel.
 1. **The MLH1 positive control.** It is the cheapest item here and the only one
-   that can change how every previous result is read.
+   that can change how every previous result is read. Take the two design
+   corrections above with it.
 2. **The decomposition at `best4` on Chen_2021** (1a). Same run, and the algebra
    has already been checked to not collapse.
 3. **Zheng's gradient** (1c), descriptive, alongside.
