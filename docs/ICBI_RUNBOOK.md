@@ -76,9 +76,16 @@ the first time anywhere in this project — and `best4` is estimable, 32 of 44
 patients, median ~85 mature cells against carcinoma's median of 3. GUCA2A falls
 −0.174 [−0.243, −0.109] inside the mature population.
 
-**But it is not gene-specific.** GUCA2A − ACTB is −0.139 [−0.197, −0.081] and
-excludes zero; GUCA2A − MS4A12 is −0.009 [−0.064, +0.045] and contains zero. The
-mature programme is down, not GUCA2A. See `docs/HANDOFF.md` §6d.
+**A tier is down, not the gene.** Housekeeping −0.018/−0.035, EPCAM −0.052,
+CDX2 −0.075, MS4A12 −0.165, GUCA2A −0.174 — a gradient. The paired contrasts
+(`icbi_adenoma_specificity.parquet`) put GUCA2A BELOW CDX2 (−0.099, excludes
+zero) and LEVEL with MS4A12 (−0.009, contains zero). CDX2 is intestinal identity
+across stem and mature epithelium; MS4A12 is terminal differentiation only. So
+the cells keep their intestinal identity and lose terminal differentiation
+output, and GUCA2A is not separable within that tier. See `docs/HANDOFF.md` §6d.
+
+Read the specificity table with the ROLE column, not the gene names: a control
+and an identity marker containing zero mean opposite things.
 
 **Two things the adenoma run also establishes**, both in
 `docs/NEXT_AVENUES.md`: the decomposition's algebraic collapse does NOT fire

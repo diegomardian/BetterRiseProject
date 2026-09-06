@@ -21,9 +21,10 @@ result, not a stalled analysis.
 half-finished.
 
 Path C is the one positive: the premise HOLDS, `best4` is estimable for the
-first time, and GUCA2A falls inside the surviving mature population — but
-indistinguishably from a generic maturity marker, so no gene-specific claim
-follows. **`docs/NEXT_AVENUES.md` reviews what is left**, and two items there
+first time, and inside the surviving mature cells of adenomas the
+**terminal-differentiation tier is down while intestinal identity is retained**
+(housekeeping −0.02, CDX2 −0.075, GUCA2A/MS4A12 −0.17). GUCA2A is not separable
+within that tier, so no gene-specific claim follows. **`docs/NEXT_AVENUES.md` reviews what is left**, and two items there
 outrank a data hunt: the decomposition may be identifiable on adenoma, and the
 instrument has never had a positive control though one is sitting in the atlas.
 
@@ -352,21 +353,48 @@ and their own normal.
   median ~85 cells. Carcinoma had a median of 3, and the Stage 4 run returned an
   exactly-zero mature fraction on 95–99% of tumours there.
 - **GUCA2A falls inside the surviving mature population**: −0.174
-  [−0.243, −0.109] at `lineage`, and the within-patient paired difference
-  against ACTB is −0.139 [−0.197, −0.081], excluding zero.
+  [−0.243, −0.109] at `lineage`, over 44 patients, with the premise holding.
 
-**And then the discriminating test says it is not gene-specific.**
+**What is down is a TIER, not the gene.** The deltas form a gradient, and the
+gradient is the result — a flat fall across the panel would have meant something
+else entirely:
 
-| contrast | lineage |
+| | lineage delta |
 |---|---|
-| GUCA2A − ACTB (control) | −0.139 [−0.197, −0.081] excludes zero |
-| **GUCA2A − MS4A12 (identity)** | **−0.009 [−0.064, +0.045] contains zero** |
+| KRT8 / ACTB — housekeeping | −0.018 / −0.035 |
+| EPCAM — epithelial | −0.052 |
+| CDX2 — intestinal identity | −0.075 |
+| **MS4A12 / GUCA2A — terminal differentiation** | **−0.165 / −0.174** |
 
-MS4A12 is a mature-colonocyte marker with no silencing story attached, and it
-falls −0.165 against GUCA2A's −0.174. What is down is the **mature programme**,
-not GUCA2A. That is the week-0 falsification rule firing a second time in a
-second place: when the target and the identity markers return the same answer,
-no gene-specific claim follows.
+The within-patient paired contrasts
+(`results/2026-09-05_d869bdd/icbi_adenoma_specificity.parquet`) make it exact:
+
+| contrast (lineage, n=44) | difference | |
+|---|---|---|
+| GUCA2A − KRT8 (control) | −0.156 [−0.218, −0.097] | excludes zero |
+| GUCA2A − ACTB (control) | −0.139 [−0.199, −0.082] | excludes zero |
+| GUCA2A − EPCAM (epithelial) | −0.122 [−0.186, −0.059] | excludes zero |
+| **GUCA2A − CDX2 (identity)** | **−0.099 [−0.179, −0.022]** | **excludes zero** |
+| **GUCA2A − MS4A12 (identity)** | **−0.009 [−0.062, +0.046]** | **contains zero** |
+
+The two identity markers behave differently and the difference is
+interpretable. CDX2 is the master TF of intestinal identity, expressed across
+stem and mature epithelium; MS4A12 is restricted to terminally differentiated
+absorptive colonocytes. GUCA2A falls MORE than CDX2 and the SAME as MS4A12.
+
+So: **the cells retain intestinal identity and have lost terminal
+differentiation output.** That is a real, graded finding, coherent with adenoma
+biology — WNT-driven expansion of a less-differentiated state.
+
+What it does not do is isolate GUCA2A. Within the terminal-differentiation tier
+GUCA2A and MS4A12 are indistinguishable, so no gene-specific claim follows —
+the week-0 falsification rule firing a second time, in a second place.
+
+*Two caveats before this is quoted.* At `best4` the CDX2 contrast also contains
+zero (−0.047 [−0.125, +0.026]), but n=20 against 44 and the intervals overlap
+the `lineage` ones, so that reads as power rather than a conflicting result. And
+`best4`'s premise holds at ACTB −0.283 reaching −0.461 against a 0.5 tolerance —
+92% of it. `lineage` holds comfortably; `best4` holds narrowly.
 
 **The limit this exposes, which is the paper's thesis again.** The premise check
 compares ACTB and KRT8 between arms — it asks whether these are still *cells*.

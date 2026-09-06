@@ -39,9 +39,15 @@ was built around may be identifiable here**, which is a larger claim than the
 coexpression reading can make. It is the same run: the cells are already loaded.
 
 *Temper it with this:* GUCA2A (0.374) and MS4A12 (0.383) are again
-indistinguishable. The decomposition would separate GUCA2A from housekeeping and
-not from a generic maturity marker — the same limit the detection reading hit.
-Identifiable is not the same as gene-specific.
+indistinguishable, while CDX2 (0.791) sits well above both. The same tiered
+pattern the detection reading found — terminal differentiation down, intestinal
+identity retained — and the same limit: the decomposition would separate GUCA2A
+from housekeeping and from CDX2, and not from MS4A12.
+
+**Which makes the comparator choice the whole design.** Run against housekeeping
+alone it will look like a clean gene-specific result. The identity markers are
+what stop that, and they must be scored in the same run rather than added
+afterwards. Identifiable is not the same as gene-specific.
 
 ### 1b. The atlas's own annotations. **PARTLY WRONG — two of three are unusable.**
 
