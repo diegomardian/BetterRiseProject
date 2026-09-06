@@ -1,0 +1,131 @@
+{
+  "date": "2026-09-05",
+  "utc_timestamp": "2026-09-06T00:51:51+00:00",
+  "git_sha": "3a1af9f02a432b4e6b6ac415059101b0f941e942",
+  "git_sha_short": "3a1af9f",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.11.15",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "scanpy_version": "1.10.2",
+  "anndata_version": "0.10.8",
+  "name": "icbi_adenoma",
+  "n_rows": 384,
+  "columns": [
+    "study_id",
+    "patient_id",
+    "gene",
+    "role",
+    "n_normal",
+    "depth_normal",
+    "detect_normal",
+    "cp10k_normal",
+    "n_conditioned_normal",
+    "detect_given_cdx2_normal",
+    "n_tumour",
+    "depth_tumour",
+    "detect_tumour",
+    "cp10k_tumour",
+    "n_conditioned_tumour",
+    "detect_given_cdx2_tumour",
+    "depth_ratio",
+    "delta_detect",
+    "log2_cp10k_ratio",
+    "delta_given_conditioner",
+    "granularity_rung",
+    "reading"
+  ],
+  "table_kind": "harness",
+  "atlas": "final_crc_atlas-adata.h5ad",
+  "counts_layer": "layers/counts",
+  "counts_layer_note": "/X is log1p-normalised on this atlas; reading it would give log values to a detection statistic that reports them without complaint.",
+  "studies": [
+    "Chen_2021_Cell"
+  ],
+  "per_study_report": [
+    {
+      "study_id": "Chen_2021_Cell",
+      "reading": "adenoma",
+      "granularity_rung": "lineage",
+      "mature_bin": "differentiated",
+      "n_patients_eligible": 44,
+      "genes_absent_from_var": [],
+      "batch_key": "sample_id",
+      "sorted_fraction_filter": "enrichment_cell_types == 'naive'",
+      "n_patients_scored": 44,
+      "n_patients_unlabellable": 0,
+      "unlabellable": [],
+      "premise_holds": true,
+      "premise_reading": "holds over 44 patients on 2 control(s): worst is ACTB -0.035 [-0.054, -0.018] on detection (tolerance 0.1)"
+    },
+    {
+      "study_id": "Chen_2021_Cell",
+      "reading": "adenoma",
+      "granularity_rung": "best4",
+      "mature_bin": "best4",
+      "n_patients_eligible": 44,
+      "genes_absent_from_var": [],
+      "batch_key": "sample_id",
+      "sorted_fraction_filter": "enrichment_cell_types == 'naive'",
+      "n_patients_scored": 20,
+      "n_patients_unlabellable": 0,
+      "unlabellable": [],
+      "premise_holds": true,
+      "premise_reading": "holds over 20 patients on 2 control(s): worst is ACTB -0.283 [-0.461, -0.106] on log2 expression (tolerance 0.5); ACTB, KRT8 saturated on detection, assessed on expression"
+    }
+  ],
+  "batch_key": "sample_id",
+  "sorted_fraction_filter": "enrichment_cell_types == 'naive'",
+  "qc_population": "the full patient block, ALL compartments -- the epithelial subset is only the scoring population",
+  "min_epithelial_per_arm": 100,
+  "validation": {
+    "study_id": "Pelka_2021_Cell",
+    "against": "results/2026-09-04_975cf5c/coexpression_silencing.parquet",
+    "committed_study_id": "GSE178341",
+    "requirements": [
+      "the premise verdict word is the same (UNRESOLVED)",
+      "the ACTB log2 control interval overlaps the committed one",
+      "the GUCA2A detection delta is within 0.15 of the committed one"
+    ]
+  },
+  "reading": "adenoma",
+  "rungs": [
+    "lineage",
+    "best4"
+  ],
+  "arm_map": {
+    "polyp": "tumour",
+    "adjacent normal": "normal",
+    "healthy normal": "normal"
+  },
+  "adenoma_read_bar": {
+    "primary_study": "Chen_2021_Cell",
+    "not_a_meta_analysis": "Two studies carry a polyp arm and MIN_STUDIES is 3, so this is NOT meta-analysed. Chen_2021_Cell (44 paired patients) is the primary per-study reading -- a single 44-patient study IS the power argument. Zheng_2022 (3 patients) is a gradient companion, reported beside it and never pooled with it.",
+    "rungs": [
+      "lineage",
+      "best4"
+    ],
+    "why_two_rungs": "lineage for comparability with the 13 carcinoma studies; best4 because it is the resolution the question is actually posed at and the one carcinoma structurally could not support -- a median of 3 mature cells there. Adenomas retain differentiated epithelium, so best4 may be estimable for the first time. That measurement is the whole reason path C exists.",
+    "how_this_will_be_read": [
+      "1. The premise verdict comes FIRST and gates everything. HOLDS licenses the detection reading; REFUSED or UNRESOLVED does not, at either rung.",
+      "2. Only if the premise holds: the GUCA2A detection delta within the mature population. A fall there, in cells still called mature, is consistent with silencing.",
+      "3. The best4 mature-cell counts are reported whatever the verdict, because 'best4 is estimable in adenoma' is itself a result and is the measurement carcinoma could not take."
+    ],
+    "what_a_positive_reading_would_and_would_not_mean": "It would be consistency with silencing, not proof of it. Survivorship -- GUCA2A-high cells preferentially destroyed -- is not transcript-detectable, and no amount of scale or resolution changes that. A premise that does not hold is an honest negative at a resolution nobody has measured, which is a result either way.",
+    "known_limits_before_the_run": [
+      "TruDrop: median 1,881 epithelial genes/cell against Pelka's 2,630. Shallower cuts both ways -- less control saturation, less GUCA2A sensitivity.",
+      "No within-patient polyp->carcinoma gradient exists in Chen_2021 (0 patients hold both), so timing evidence is polyp-versus-normal only.",
+      "The reference arm is labelled `healthy normal` and is the patient's own mucosa; pairing is established by patient_id, not by the label."
+    ]
+  },
+  "premise_reading": {
+    "Chen_2021_Cell": "holds over 20 patients on 2 control(s): worst is ACTB -0.283 [-0.461, -0.106] on log2 expression (tolerance 0.5); ACTB, KRT8 saturated on detection, assessed on expression"
+  },
+  "exploratory": true,
+  "pre_registered": false,
+  "what_this_is_not": "Confirmatory. Built after the week-0 falsification rule had already forbidden a biological claim from the decomposition."
+}
