@@ -1,0 +1,76 @@
+{
+  "date": "2026-09-06",
+  "utc_timestamp": "2026-09-06T17:55:19+00:00",
+  "git_sha": "7685baa2aaee31f1291ac1654705ee6b187ae44e",
+  "git_sha_short": "7685baa",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "mlh1_power",
+  "n_rows": 12,
+  "columns": [
+    "cohort",
+    "n_patients",
+    "median_cells_per_arm",
+    "cp10k_normal",
+    "tau",
+    "method",
+    "fold_change",
+    "silencing_pct",
+    "power",
+    "false_positive_rate",
+    "calibration_verdict",
+    "n_trials"
+  ],
+  "table_kind": "harness",
+  "purpose": "calibrate the interval the MLH1 positive control will report, BEFORE that reading is run. The interval is part of the analysis; choosing it after seeing the result would make it a free parameter.",
+  "source_deltas": "/Users/bodebosell/Documents/GitHub/BetterRiseProject/results/2026-09-05_7e0c64b/icbi_coexpression.parquet",
+  "mlh1_cp10k_normal": 0.039,
+  "mlh1_cp10k_source": "docs/prereg_g2_mlh1.md, depth-matched decomposition",
+  "nominal_alpha": 0.05,
+  "miscalibration_tolerance": 0.02,
+  "calibrated_method": "student_t",
+  "methods_measured": [
+    "bca",
+    "percentile",
+    "student_t"
+  ],
+  "taus": [
+    0.0,
+    0.2,
+    0.4
+  ],
+  "fold_changes": [
+    1.0,
+    0.5,
+    0.25,
+    0.1
+  ],
+  "n_trials": 1500,
+  "closed_form": "the percentile bootstrap of a mean is approximately mean +/- z*s*sqrt((n-1)/n)/sqrt(n) against the correct mean +/- t(n-1)*s/sqrt(n), so its false-positive rate is P(|t(n-1)| > z*sqrt((n-1)/n)) -- a function of n alone. It is a floor: skew in the per-patient values adds to it.",
+  "closed_form_rates": {
+    "4": 0.18819131188376562,
+    "10": 0.0959072786131858,
+    "19": 0.07251549766101736,
+    "20": 0.07130141804967882,
+    "44": 0.05926216504923042
+  },
+  "width_ratios_vs_t": {
+    "4": 0.5333565560229128,
+    "10": 0.8219522177529663,
+    "19": 0.9080245821041504,
+    "20": 0.9127160216008658,
+    "44": 0.9607632048262313
+  },
+  "generative_model": "Poisson thinning p = 1 - exp(-mu) with mu = cp10k/1e4 * depth, per-patient cell counts and depths taken from the real cohort, per-patient true log fold change ~ Normal(log fc, tau^2), scored through cloglog_rate including its boundary rule",
+  "what_this_is_not": "a measurement of MLH1. No target-gene expression is read anywhere in this job; the only MLH1 quantity used is its already-published normal-arm abundance, which sets the detection rate.",
+  "power_rule": "every row of mlh1_power carries the false-positive rate of its OWN method, measured on the same generator. Power quoted from one interval beside another interval's coverage overstates the design.",
+  "exploratory": false,
+  "pre_registered": true,
+  "prereg": "docs/prereg_g2_mlh1_within_stratum.md"
+}
