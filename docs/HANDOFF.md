@@ -16,9 +16,16 @@ algebraic collapse, the coexpression premise at 13 studies, the Stage 4
 deconvolution gate, and the bulk CIMP screen. That is a real, pre-committed
 result, not a stalled analysis.
 
-**Both live analysis paths terminated on 2026-09-05, each on an instrument that
-was verified correct first.** There is no half-finished computation to resume.
-What remains is a data hunt (§6d) and a write-up (§6e).
+**Three analysis paths ran to completion on 2026-09-05** — Stage 4 (§6a), the
+13-study coexpression meta (§6b), and the adenoma reading (§6d). Nothing is
+half-finished.
+
+Path C is the one positive: the premise HOLDS, `best4` is estimable for the
+first time, and GUCA2A falls inside the surviving mature population — but
+indistinguishably from a generic maturity marker, so no gene-specific claim
+follows. **`docs/NEXT_AVENUES.md` reviews what is left**, and two items there
+outrank a data hunt: the decomposition may be identifiable on adenoma, and the
+instrument has never had a positive control though one is sitting in the atlas.
 
 Two papers exist; the WMHS one is a methods paper about validation statistics
 that cannot fail, and it is the near deliverable — **deadline 15 September
@@ -330,7 +337,66 @@ the atlas's. Sizing tables: `results/2026-09-05_d241b35/`.
   excludes it by design (`not_prespecified`). It would need its own
   pre-specification.
 
-## 6d. The only live analysis path left: different data, not more of it
+## 6d. Path C — RUN, and it is the one positive result. See `docs/ICBI_RUNBOOK.md`.
+
+`Chen_2021_Cell` **is** the Vanderbilt/HTAN polyp atlas (`dataset` reads
+`VUMC_HTAN_*`, sample ids `HTA11_*`), and it was already inside the 30 GB object
+fetched for path B. No data hunt was needed. 44 patients with a matched polyp
+and their own normal.
+
+**Three firsts, all on `results/2026-09-05_3a1af9f/`:**
+
+- **The premise HOLDS** — 44 patients at `lineage`, 20 at `best4`. It had never
+  held anywhere in this project.
+- **`best4` is estimable** — 32 of 44 patients cleared the mature-cell floor,
+  median ~85 cells. Carcinoma had a median of 3, and the Stage 4 run returned an
+  exactly-zero mature fraction on 95–99% of tumours there.
+- **GUCA2A falls inside the surviving mature population**: −0.174
+  [−0.243, −0.109] at `lineage`, and the within-patient paired difference
+  against ACTB is −0.139 [−0.197, −0.081], excluding zero.
+
+**And then the discriminating test says it is not gene-specific.**
+
+| contrast | lineage |
+|---|---|
+| GUCA2A − ACTB (control) | −0.139 [−0.197, −0.081] excludes zero |
+| **GUCA2A − MS4A12 (identity)** | **−0.009 [−0.064, +0.045] contains zero** |
+
+MS4A12 is a mature-colonocyte marker with no silencing story attached, and it
+falls −0.165 against GUCA2A's −0.174. What is down is the **mature programme**,
+not GUCA2A. That is the week-0 falsification rule firing a second time in a
+second place: when the target and the identity markers return the same answer,
+no gene-specific claim follows.
+
+**The limit this exposes, which is the paper's thesis again.** The premise check
+compares ACTB and KRT8 between arms — it asks whether these are still *cells*.
+It cannot ask whether they are still equally *mature* cells, because housekeeping
+does not vary with maturity, and a control that cannot move with the thing in
+question cannot certify it. Two readings survive the premise holding —
+coordinate down-regulation of the mature programme, or a mature label admitting
+less-mature cells in the polyp arm — and this statistic cannot separate them.
+
+## 6d-bis. What is left to try: `docs/NEXT_AVENUES.md`
+
+Reviewed against the data, with the dead options marked. Two things from it
+belong here because they change priorities:
+
+**The decomposition may be identifiable on adenoma.** The collapse that killed
+it in carcinoma (`i/c → −(f_N/Δf)`) does NOT fire here: m_T/m_N runs 0.37 to 0.95
+across the panel and the bracket runs −0.05 to −0.63, nothing near −1. The
+project's original method may work on this substrate. Same run, cells already
+loaded.
+
+**The instrument has never had a positive control, and one is available.** The
+atlas carries `MLH1_promoter_methylation_status` on 240,630 of Pelka's cells,
+patient-level, from an assay rather than from expression. MLH1 silencing in
+methylated patients is a known event. Asking whether the detection statistic can
+see it tests **the instrument, not the biology** — and every null this project
+has produced (UNRESOLVED ×3, UNRESOLVED at 13 studies, not-specific on adenoma)
+rests on an instrument whose sensitivity to real silencing has never been shown.
+If it cannot see MLH1, those nulls are uninformative rather than evidence.
+
+## 6e. Different data, not more of it — still true for survivorship
 
 Every design here conditions cell identity on transcription, which is circular,
 and §2 now shows four independent routes terminating. **More of the same data
@@ -359,7 +425,7 @@ cells having been preferentially destroyed — is **not transcript-detectable**.
 A resolved premise makes the detection reading interpretable; it never rules
 that out. Longitudinal tracing would, and does not exist in public human data.
 
-## 6e. The write-up
+## 6f. The write-up
 
 Two terminal results landed on 2026-09-05 and neither is in either paper yet:
 

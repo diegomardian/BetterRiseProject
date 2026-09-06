@@ -59,6 +59,36 @@ population.** It can just mean the set is small and similar.
 
 ---
 
+## Path C: the adenoma reading on the same atlas
+
+`Chen_2021_Cell` IS the Vanderbilt/HTAN polyp atlas. 44 patients with a matched
+polyp and their own normal; the reference arm is labelled `healthy normal` and
+is patient-matched, established by `patient_id` rather than by the label.
+
+    qsub -v BRP_ICBI_STUDY=Chen_2021_Cell,BRP_ICBI_ARMS=adenoma \
+         src/reference/jobs/icbi_coexpression.sh
+
+Scores `lineage` and `best4`. The read bar (`ADENOMA_READ_BAR`) is printed at
+the top of the log and stored in the sidecar, composed before the run.
+
+**Result** (`results/2026-09-05_3a1af9f/`): the premise HOLDS at both rungs —
+the first time anywhere in this project — and `best4` is estimable, 32 of 44
+patients, median ~85 mature cells against carcinoma's median of 3. GUCA2A falls
+−0.174 [−0.243, −0.109] inside the mature population.
+
+**But it is not gene-specific.** GUCA2A − ACTB is −0.139 [−0.197, −0.081] and
+excludes zero; GUCA2A − MS4A12 is −0.009 [−0.064, +0.045] and contains zero. The
+mature programme is down, not GUCA2A. See `docs/HANDOFF.md` §6d.
+
+**Two things the adenoma run also establishes**, both in
+`docs/NEXT_AVENUES.md`: the decomposition's algebraic collapse does NOT fire
+here (m_T/m_N runs 0.37–0.95), so the original method may be identifiable; and
+`summarise` must be called PER RUNG — calling it once across both produced rows
+reading `n_patients = 64`, which is 44 plus 20 and neither the same patients nor
+the same cells.
+
+---
+
 ## The three pieces
 
 | piece | module | notes |
