@@ -9,7 +9,9 @@ currently available data**, shown by four independent routes; both analysis
 paths have run to completion and terminated in pre-committed negative results;
 nothing is half-finished. What remains is a write-up and a data hunt.
 Per-path detail in [docs/STAGE4_RUNBOOK.md](docs/STAGE4_RUNBOOK.md) and
-[docs/ICBI_RUNBOOK.md](docs/ICBI_RUNBOOK.md).
+[docs/ICBI_RUNBOOK.md](docs/ICBI_RUNBOOK.md); what is left to try, reviewed
+against the data with the dead options marked, in
+[docs/NEXT_AVENUES.md](docs/NEXT_AVENUES.md).
 
 **One-line summary:** decompose differentiation-marker loss in colorectal cancer into *compositional* (mature cells gone), *cell-intrinsic* (mature cells present but silenced), and *not estimable* (too few mature cells to ask) — per patient, at several annotation resolutions.
 
