@@ -265,6 +265,7 @@ def _detection(counts: np.ndarray) -> float:
 def rows_for_patient(
     *, study_id: str, patient: str, counts: dict[str, np.ndarray],
     depth: np.ndarray, tissue: np.ndarray, seed: int,
+    roles: dict[str, str] | None = None,
 ) -> list[dict]:
     """One row per gene for one patient, arms depth-matched.
 
@@ -273,7 +274,24 @@ def rows_for_patient(
     set: matching a wider population and intersecting afterwards leaves the
     analysed subset unmatched, which `build_decomposition_summary` learned the
     hard way and records in its own comments.
+
+    ``roles`` overrides `GENE_ROLES` for runs that score a gene outside the
+    standing panel -- the MLH1 positive control is the one that does. It is a
+    parameter rather than a mutation of the module constant because
+    `GENE_ROLES` defines the shape of every committed table, and a run that
+    quietly added a seventh gene to it would make those tables and this one
+    look like the same object. Every role must be supplied: a missing one used
+    to raise `KeyError` here, and the fix is to keep raising rather than to
+    default a gene into an unnamed role.
     """
+    roles = GENE_ROLES if roles is None else roles
+    unnamed = sorted(set(counts) - set(roles))
+    if unnamed:
+        raise KeyError(
+            f"no role for {unnamed}. A gene scored without a declared role "
+            f"lands in a results table as an unlabelled column, and the "
+            f"premise machinery reads roles to decide which genes are controls."
+        )
     if CONDITION_ON not in counts:
         log.info("  %s: %s absent, so the conditional cannot be formed", patient, CONDITION_ON)
         return []
@@ -289,7 +307,7 @@ def rows_for_patient(
     for gene, values in counts.items():
         v = values[keep]
         row = {"study_id": study_id, "patient_id": str(patient),
-               "gene": gene, "role": GENE_ROLES[gene]}
+               "gene": gene, "role": roles[gene]}
         for name in ("normal", "tumour"):
             m = arm == name
             row[f"n_{name}"] = int(m.sum())

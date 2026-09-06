@@ -855,3 +855,238 @@ def test_the_thinning_null_abstains_when_baselines_do_not_spread():
     assert verdict["verdict"] == "UNDEFINED"
     assert table.empty
     assert verdict["baseline_spread"] < MIN_BASELINE_SPREAD
+
+
+# ---------------------------------------------------------------------------
+# An interval that overstates its own confidence
+#
+# The defect: every reading in this project ends in a percentile bootstrap over
+# patients, and at the n a small stratum runs at that interval is narrower than
+# it claims -- 0.82x the correct width at n=10, 0.53x at n=4. Nothing raises. A
+# verdict reads "excludes zero" at a real false-positive rate of 9.6% or 18.8%
+# against a nominal 5%.
+#
+# It is the repository's own defect one layer up: a check that cannot fail
+# turns absence of evidence into a green light, and an interval narrower than
+# it claims turns noise into a finding. Both are silent.
+#
+# The second defect, which is subtler and which HAPPENED: quoting power from
+# one interval method while planning to report another's. The percentile
+# bootstrap's power at 50% silencing on the MLH1 cohort is 86%; the Student-t
+# interval that would actually be reported gives 74% on the same generator.
+# Taking the first number and the second interval overstates the design, and
+# there is no error message for it because both numbers are correct about
+# something.
+# ---------------------------------------------------------------------------
+
+
+def _mlh1_cohort(n_patients: int = 10):
+    return np.full(n_patients, 262), np.full(n_patients, 8000.0)
+
+
+def test_the_calibration_check_reports_miscalibrated_on_the_interval_in_use():
+    """The percentile bootstrap at n=10, under a null with no effect in it.
+
+    THE INPUT THAT FORCES THE VERDICT. A calibration function that returned
+    CALIBRATED on everything would be indistinguishable from this one on clean
+    data, and clean data is all the repository had until this was measured. The
+    generator here has a fold change of exactly 1.0 -- the two arms are the same
+    distribution -- so every exclusion of zero is a false positive by
+    construction.
+    """
+    from src.reference.interval_calibration import (
+        calibration_verdict,
+        rejection_rate,
+        simulate_deltas,
+    )
+
+    n_cells, depth = _mlh1_cohort()
+
+    def no_effect_at_all(rng):
+        return simulate_deltas(
+            n_cells=n_cells, depth=depth, cp10k=3.0,
+            fold_change=1.0, tau=0.0, rng=rng,
+        )
+
+    rate = rejection_rate(
+        no_effect_at_all, method="percentile",
+        rng=np.random.default_rng(4), n_trials=600,
+    )
+    assert rate > 0.05, (
+        "the percentile bootstrap over-rejects at n=10 and this fixture must "
+        "reproduce that, not assert it"
+    )
+    assert calibration_verdict(rate) == "MISCALIBRATED"
+
+
+def test_the_calibration_check_still_passes_a_calibrated_interval():
+    """The other half: it must not call everything miscalibrated.
+
+    A verdict function that returned MISCALIBRATED on all input would 'catch'
+    the defect above and be worth nothing.
+    """
+    from src.reference.interval_calibration import (
+        CALIBRATED_METHOD,
+        calibration_verdict,
+        rejection_rate,
+        simulate_deltas,
+    )
+
+    n_cells, depth = _mlh1_cohort()
+    rate = rejection_rate(
+        lambda rng: simulate_deltas(
+            n_cells=n_cells, depth=depth, cp10k=3.0,
+            fold_change=1.0, tau=0.0, rng=rng,
+        ),
+        method=CALIBRATED_METHOD, rng=np.random.default_rng(4), n_trials=600,
+    )
+    assert calibration_verdict(rate) == "CALIBRATED"
+
+
+def test_power_quoted_from_one_interval_beside_another_is_refused():
+    """The defect that happened, as the table that carries it.
+
+    Power 0.86 came from the percentile bootstrap; the design reports the
+    Student-t interval, whose false-positive rate is on the same row. Every
+    individual number here is real. The row is still not a claim about a
+    design, because the two halves are about different intervals.
+    """
+    from src.reference.interval_calibration import (
+        CalibrationError,
+        check_power_carries_its_own_calibration,
+    )
+
+    mixed = pd.DataFrame([
+        {"cohort": "mlh1_methylated", "tau": 0.2, "cp10k_normal": 0.039,
+         "method": "percentile", "power": 0.86, "false_positive_rate": 0.096},
+        {"cohort": "mlh1_methylated", "tau": 0.2, "cp10k_normal": 0.039,
+         "method": "student_t", "power": 0.74, "false_positive_rate": 0.050},
+    ])
+    with pytest.raises(CalibrationError, match="mixes interval methods"):
+        check_power_carries_its_own_calibration(mixed)
+
+
+def test_one_method_carrying_two_false_positive_rates_is_refused():
+    """Same method, two rates: they were measured on different generators.
+
+    This is what assembling a table from a simulation someone ran last week and
+    one run today looks like, and the power figures beside them are then not
+    comparable to each other.
+    """
+    from src.reference.interval_calibration import (
+        CalibrationError,
+        check_power_carries_its_own_calibration,
+    )
+
+    stitched = pd.DataFrame([
+        {"cohort": "c", "tau": 0.0, "cp10k_normal": 0.039, "method": "student_t",
+         "power": 0.79, "false_positive_rate": 0.045},
+        {"cohort": "c", "tau": 0.0, "cp10k_normal": 0.039, "method": "student_t",
+         "power": 0.99, "false_positive_rate": 0.061},
+    ])
+    with pytest.raises(CalibrationError, match="different false-positive rates"):
+        check_power_carries_its_own_calibration(stitched)
+
+
+def test_a_power_table_without_its_calibration_is_refused():
+    from src.reference.interval_calibration import (
+        CalibrationError,
+        check_power_carries_its_own_calibration,
+    )
+
+    bare = pd.DataFrame([{"cohort": "c", "tau": 0.0, "cp10k_normal": 0.039,
+                          "method": "student_t", "power": 0.86}])
+    with pytest.raises(CalibrationError, match="false_positive_rate"):
+        check_power_carries_its_own_calibration(bare)
+
+
+def test_heterogeneity_is_not_the_spread_of_the_deltas():
+    """The naive implementation, forced to be wrong.
+
+    ``tau`` is the between-patient variation NET of binomial sampling. The
+    obvious implementation -- the standard deviation of the per-patient deltas
+    -- reports a large number on data generated with no patient-to-patient
+    variation whatsoever, because sampling noise alone produces spread. A power
+    calculation fed that number would be pessimistic; fed zero where there IS
+    heterogeneity it would be optimistic, which is the direction that matters
+    and the direction the first MLH1 power statement went.
+
+    Here the truth is tau = 0 exactly: every patient has the same underlying
+    rate in both arms, and all spread is binomial.
+    """
+    from src.reference.interval_calibration import heterogeneity_tau
+
+    rng = np.random.default_rng(5)
+    n_patients, cells, p = 40, 250, 0.40
+    frame = pd.DataFrame({
+        "gene": "SYNTH", "n_normal": cells, "n_tumour": cells,
+        "detect_normal": rng.binomial(cells, p, n_patients) / cells,
+        "detect_tumour": rng.binomial(cells, p, n_patients) / cells,
+    })
+    out = heterogeneity_tau(frame, seed=5).iloc[0]
+    assert out["observed_sd"] > 0.08, "sampling noise alone must produce spread"
+    assert out["tau"] == pytest.approx(0.0, abs=0.05), (
+        "reporting the raw spread as tau would attribute pure binomial noise "
+        "to biology"
+    )
+
+
+def test_heterogeneity_does_not_report_zero_when_patients_really_differ():
+    """The complement: a floor at zero must not become a floor on everything."""
+    from src.reference.interval_calibration import heterogeneity_tau
+
+    rng = np.random.default_rng(6)
+    n_patients, cells, p = 40, 250, 0.40
+    mu = -np.log1p(-p)
+    log_fc = rng.normal(0.0, 0.5, n_patients)
+    frame = pd.DataFrame({
+        "gene": "SYNTH", "n_normal": cells, "n_tumour": cells,
+        "detect_normal": rng.binomial(cells, p, n_patients) / cells,
+        "detect_tumour": rng.binomial(
+            cells, 1 - np.exp(-mu * np.exp(log_fc)), n_patients) / cells,
+    })
+    assert heterogeneity_tau(frame, seed=6).iloc[0]["tau"] > 0.3
+
+
+# ---------------------------------------------------------------------------
+# Scoring a gene outside the standing panel
+#
+# The MLH1 positive control adds a seventh gene to a six-gene scoring path.
+# Two ways that goes wrong silently: a gene with no declared role lands in a
+# results table as an unlabelled row, and a gene that is already on the panel
+# gets scored twice with the second copy winning every groupby downstream.
+# ---------------------------------------------------------------------------
+
+
+def test_a_gene_scored_without_a_declared_role_is_refused():
+    from src.reference.jobs.coexpression_silencing import rows_for_patient
+
+    n = 120
+    tissue = np.array(["normal"] * (n // 2) + ["tumour"] * (n // 2))
+    rng = np.random.default_rng(9)
+    counts = {g: rng.poisson(2.0, n).astype(float)
+              for g in ("ACTB", "KRT8", "EPCAM", "CDX2", "MS4A12", "GUCA2A")}
+    counts["MLH1"] = rng.poisson(0.05, n).astype(float)
+    with pytest.raises(KeyError, match="no role for"):
+        rows_for_patient(
+            study_id="S", patient="P", counts=counts,
+            depth=np.full(n, 6000.0), tissue=tissue, seed=1,
+        )
+
+
+def test_an_extra_gene_already_on_the_panel_is_refused():
+    """Scoring GUCA2A 'extra' would put two rows for it on every patient."""
+    import inspect
+
+    from src.reference.jobs.icbi_coexpression import study_deltas
+
+    source = inspect.getsource(study_deltas)
+    assert "already on the standing panel" in source, (
+        "the overlap guard is what keeps a duplicate gene from silently "
+        "winning every groupby; if it moved, this test must move with it"
+    )
+    with pytest.raises(Exception, match="already on the standing panel"):
+        study_deltas(
+            Path("/nonexistent/atlas.h5ad"), pd.DataFrame(), "Pelka_2021_Cell",
+            extra_genes=("GUCA2A",),
+        )

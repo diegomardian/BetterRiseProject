@@ -186,15 +186,40 @@ def study_deltas(
     max_patients: int | None = None,
     rung: str = RUNG,
     reading: str = "carcinoma",
+    extra_genes: Sequence[str] = (),
 ) -> tuple[pd.DataFrame, dict]:
-    """Per-patient, per-gene deltas for one study. Returns (deltas, report)."""
+    """Per-patient, per-gene deltas for one study. Returns (deltas, report).
+
+    ``extra_genes`` scores genes outside the standing six-gene panel on the
+    SAME cells, QC, labels and depth matching. The MLH1 positive control is
+    what it exists for: a gene whose silencing is known from an assay rather
+    than from expression, scored by the instrument whose sensitivity is in
+    question. They are additional to `GENE_ROLES`, never a replacement -- the
+    controls have to be on the same rows or the premise cannot be read.
+
+    An extra gene is added to ``target_genes`` as well as to the count matrix,
+    so the leakage guard (invariant 2) is ASKED about it rather than merely not
+    tripped by it. MLH1 is in no labelling axis today; a future axis that
+    picked it up would be caught here instead of silently making a silenced
+    cell unreadable as a silenced cell.
+    """
     from src.common.panel import tier_genes
     from src.reference.labels import assign_labels
     from src.reference.qc import apply_qc, cell_qc_metrics, qc_thresholds
 
+    extra_genes = tuple(dict.fromkeys(extra_genes))
+    overlap = sorted(set(extra_genes) & set(GENE_ROLES))
+    if overlap:
+        raise SliceError(
+            f"{overlap} are already on the standing panel. Scoring one twice "
+            f"would put two rows for the same gene on one patient, and the "
+            f"second would silently win every groupby downstream."
+        )
+    roles = {**GENE_ROLES, **{g: "positive_control" for g in extra_genes}}
+
     var = read_var(atlas)
     symbols = var["gene_symbol"]
-    missing = sorted(set(GENE_ROLES) - set(symbols))
+    missing = sorted(set(roles) - set(symbols))
     if missing:
         # Skip-and-report: a study whose slice lacks a gene is a smaller
         # reading, not a failed run.
@@ -209,7 +234,23 @@ def study_deltas(
         "n_patients_eligible": len(patients),
         "genes_absent_from_var": missing, "batch_key": BATCH_KEY,
         "sorted_fraction_filter": f"enrichment_cell_types == {NAIVE!r}",
+        "extra_genes": list(extra_genes),
+        "gene_roles": roles,
     }
+    absent_extras = sorted(set(extra_genes) - set(symbols))
+    if absent_extras:
+        # A CONTROL THAT IS NOT IN THE MATRIX IS NOT A CONTROL THAT DID NOT
+        # MOVE. The standing panel tolerates a missing gene because the reading
+        # is still a reading without it; an extra gene IS the reading, so its
+        # absence has to stop the run rather than produce a table with one
+        # fewer column and the same name.
+        raise SliceError(
+            f"{absent_extras} absent from /var, and they are what this run is "
+            f"for. The atlas indexes /var/_index by Ensembl id and carries "
+            f"symbols in a separate column -- if the symbol lookup is empty, "
+            f"suspect the identifier space before concluding the gene is not "
+            f"measured."
+        )
     if not patients:
         log.warning("  no patient clears %d epithelial cells per arm",
                     MIN_EPITHELIAL_PER_ARM)
@@ -241,7 +282,8 @@ def study_deltas(
             labels = assign_labels(
                 kept, symbols, compartment=comp,
                 sample_id=block_obs[BATCH_KEY].to_numpy()[keep],
-                target_genes=sorted(tier_genes("A")), tissue=tissue,
+                target_genes=sorted(set(tier_genes("A")) | set(extra_genes)),
+                tissue=tissue,
                 patient_id=block_obs["patient_id"].to_numpy()[keep],
                 depth_quantile=DEPTH_QUANTILE, seed=seed,
                 index=pd.Index(block_obs.index.to_numpy()[keep]),
@@ -273,7 +315,7 @@ def study_deltas(
         mature_block = kept[mature]
         depth = np.asarray(mature_block.sum(axis=1), dtype=float).ravel()
         counts = {}
-        for gene in GENE_ROLES:
+        for gene in roles:
             hit = np.where(symbols.to_numpy() == gene)[0]
             if len(hit) == 0:
                 continue
@@ -283,7 +325,7 @@ def study_deltas(
 
         out.extend(rows_for_patient(
             study_id=study_id, patient=patient, counts=counts,
-            depth=depth, tissue=tissue[mature], seed=seed,
+            depth=depth, tissue=tissue[mature], seed=seed, roles=roles,
         ))
         log.info("  [%d/%d] %s — %d mature cells scored",
                  i, len(patients), patient, int(mature.sum()))
