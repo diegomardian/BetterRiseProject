@@ -25,6 +25,35 @@ team ratification · **Closes** `docs/NEXT_AVENUES.md` §1a / proposal A.
 > 2. **§1's agreement claim was too tight and its geometric mean needed a
 >    qualifier.** The unfiltered geometric mean is *degenerate* for both target
 >    genes. Restated with the filter named and the real bound.
+> ### Amendment 2 — 2026-09-06, from building it, still before any run
+>
+> **§3.1's gate was mis-specified and is replaced by a sensitivity analysis.**
+> Found by running the scoring path on a synthetic cohort whose two arms have
+> identical composition by construction, so any Δ(mature fraction) is pure
+> artefact. Two things came out, and they point opposite ways:
+>
+> * **The unresolved share IS endogenous** — driven by the effect under study,
+>   not independent of it. With the targets collapsing in the tumour arm its
+>   cells carry fewer counts, more fall below the depth target, and the arm
+>   shares split **0.229 normal / 0.270 tumour**. With the collapse removed
+>   both sit at ~0.25 (0.252 / 0.248). That is the confound §3.1 feared and it
+>   is real.
+> * **It does not propagate to the estimand.** The mature fraction came out
+>   **0.500 / 0.502** against a true 0.500 — the exclusion removes cells from
+>   numerator and denominator in a way that roughly preserves the ratio.
+>
+> So a threshold on `unresolved_arm_gap` gates on a **diagnostic rather than on
+> the harm**, and at 0.05 it would fire constantly: the median gap is 0.046
+> with the effect and **0.028 under the pure null**, so the tolerance sat inside
+> the noise band. A rule that discards a rung's compositional reading on that
+> basis would throw away good data — the opposite failure from the one it was
+> written to prevent, and one this project has no excuse for after §3a.
+>
+> **Replaced by: compute the fraction BOTH ways and compare.** `mature_cell_counts`
+> already carries `n_cells_epithelial`, so the denominator open decision #14
+> *rejected* is free. Both decompositions are run and the comparison is the
+> gate. See §3.1.
+>
 > 3. **§3.1 presented a settled decision as a new pre-commitment, and §3.3
 >    omitted the compositional arm's own cutpoint.** The denominator rule is
 >    **open decision #14**, already implemented in
@@ -168,20 +197,38 @@ mode this arm is most exposed to and no committed table can rule it out —
 `depth_ratio` runs 0.97–1.05 on all 44 patients but is measured *after*
 matching.
 
-**The gate below is what IS new here.** The per-arm shares already exist as
-`unresolved_fraction`; nothing has ever compared them between arms or acted on
-the difference.
+**AMENDMENT 2 REPLACES THE THRESHOLD GATE THIS SECTION ORIGINALLY CARRIED.**
+It was a tolerance of 0.05 on `|unresolved_share_normal − unresolved_share_tumour|`,
+excluding flagged patients and killing a rung above a third. Building the path
+showed that rule to be wrong in both halves — see the amendment note above: the
+gap runs 0.028 **under a pure null**, so 0.05 sits inside the noise band, and
+the mature fraction is not measurably biased by the asymmetry anyway
+(0.500/0.502 against a true 0.500). It gated on a diagnostic instead of on the
+harm, and it would have discarded good rungs.
 
-- `unresolved_fraction` is pivoted to `unresolved_share_normal` /
-  `unresolved_share_tumour` and **emitted on every row**, per patient per rung.
-- **Tolerance, fixed now: 0.05.** If `|unresolved_share_normal −
-  unresolved_share_tumour| > 0.05` for a patient, that patient's
-  **compositional term is reported with `depth_confounded = True`** and is
-  excluded from the cohort summary, counted in the report. Not dropped
-  silently — the arm that runs out first would otherwise bias the result in the
-  direction of the hypothesis.
-- If **more than a third of patients** at a rung are flagged, **that rung's
-  compositional reading is NOT REPORTED**, and the reason is named.
+**What replaces it: the fraction is computed BOTH ways and the decomposition is
+run on both.**
+
+- `frac_mature_*` — denominator `n_cells_resolved`, **open decision #14**, the
+  primary and the one the schema table carries.
+- `frac_mature_*_all_epithelial` — denominator `n_cells_epithelial`, i.e. the
+  unresolved cells counted as immature. **This is the denominator decision #14
+  rejected**, computed here as the sensitivity arm. It is free: no extra
+  counting, only the other denominator.
+
+**Pre-committed reading rule.** Both decompositions are reported. If the
+compositional term's sign and its interval's exclusion of zero **agree** across
+the two denominators, the reading does not depend on decision #14 and is
+reported without qualification. **Where they disagree, that contrast is
+reported as denominator-dependent and no unqualified claim is made from it** —
+the same discipline `adenoma_specificity_disagreements.parquet` already applies
+to the choice of statistic.
+
+- `unresolved_share_normal` / `unresolved_share_tumour` / `unresolved_arm_gap`
+  are still **emitted on every row**, as diagnostics. They are no longer a gate.
+  They are worth reading because the asymmetry is endogenous — it is caused by
+  the expression change under study — and a future substrate with a larger
+  panel share of the library could make it propagate where it does not here.
 
 ### 3.2 Which population each term is computed on
 
@@ -334,7 +381,7 @@ open.
 | The bracket collapses toward −1 after all — the per-patient `i/c` ratios cluster on a single constant across genes | **The estimand is not identifiable here either.** Same verdict as carcinoma, on a second substrate, and the decomposition arm of this project closes for good. |
 | Identifiable, and the intrinsic term separates GUCA2A from **housekeeping and CDX2 and MS4A12** | The strongest available result: gene-specific intrinsic loss. |
 | Identifiable, GUCA2A separates from housekeeping and CDX2 but **not from MS4A12** | **The expected outcome on current evidence.** A tier-level intrinsic result — terminal differentiation down, identity retained — and explicitly **not** a GUCA2A-specific one. |
-| The compositional term is depth-confounded in more than a third of patients at a rung (§3.1) | That rung's compositional reading is **not reported.** |
+| The compositional term's sign or zero-exclusion **flips between the two denominators** (§3.1) | That contrast is **denominator-dependent**: reported as such, no unqualified claim. |
 | The direction reverses across rungs | **A labelling artefact, not biology** — which is what the rung curve exists to detect, and is a reportable negative. |
 
 **No result from this is a mechanism claim about survivorship.** GUCA2A-high

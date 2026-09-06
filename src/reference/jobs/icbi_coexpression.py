@@ -177,6 +177,78 @@ def eligible_patients(
     return rows, sorted(keep.index.astype(str))
 
 
+def arm_fractions(
+    labels: pd.DataFrame, *, tissue, patient_id, rung: str
+) -> dict | None:
+    """The compositional arm's inputs for one patient, pivoted normal/tumour.
+
+    Returns the four numbers `decompose_cohort` and the depth gate need, or
+    ``None`` when either arm has no resolved epithelium -- in which case the
+    fraction is not a fraction and the caller must count the patient rather
+    than default it.
+
+    EVERY NUMBER HERE COMES FROM `mature_cell_counts`, WHICH ALREADY DERIVES
+    THEM. The denominator is `n_cells_resolved = n_cells_epithelial -
+    n_cells_unresolved`, settled as open decision #14 on the ground that a cell
+    which could not be labelled is not a cell measured to be immature. This
+    function pivots, it does not decide.
+
+    `unresolved_share_*` is carried because nothing has ever compared it
+    BETWEEN ARMS. The `unresolved_depth` cut is applied per patient over both
+    arms pooled and before depth matching, and it removes exactly
+    `DEPTH_QUANTILE` of the epithelium by construction -- every patient in the
+    MLH1 run reported 25.0%. If that quarter is drawn unevenly from the two
+    arms, the two denominators differ for a purely technical reason and the
+    compositional term is measuring sequencing depth. The gate lives in the
+    reading job; the measurement it needs is emitted here.
+    """
+    from src.reference.labels import mature_cell_counts
+
+    counts = mature_cell_counts(
+        labels, patient_id=patient_id, tissue=tissue, axes=[AXIS], rungs=[rung],
+    )
+    by_arm = counts.set_index("tissue")
+    if not {"normal", "tumour"}.issubset(by_arm.index):
+        return None
+    out: dict = {}
+    for arm in ("normal", "tumour"):
+        row = by_arm.loc[arm]
+        resolved = int(row["n_cells_resolved"])
+        if resolved <= 0:
+            return None
+        epithelial = int(row["n_cells_epithelial"])
+        out[f"frac_mature_{arm}"] = float(row["mature_fraction"])
+        out[f"n_cells_resolved_{arm}"] = resolved
+        out[f"n_cells_epithelial_{arm}"] = epithelial
+        out[f"unresolved_share_{arm}"] = float(row["unresolved_fraction"])
+        # THE SENSITIVITY ARM. Open decision #14 put the unresolved cells
+        # OUTSIDE the denominator -- a cell that could not be labelled is not a
+        # cell measured to be immature. This is the same fraction computed as
+        # if #14 had gone the other way, and it is free: it needs no extra
+        # counting, only the denominator the decision rejected.
+        #
+        # It exists because the unresolved share is ENDOGENOUS. Measured on a
+        # synthetic cohort whose two arms have identical composition by
+        # construction: when the targets collapse in the tumour arm its cells
+        # carry fewer counts, more of them fall below the depth target, and the
+        # tumour arm's unresolved share rises to 0.270 against the normal arm's
+        # 0.229. With the collapse removed both sit at ~0.25. So the exclusion
+        # is driven by the effect under study, not independent of it.
+        #
+        # What that fixture ALSO showed is that it does not propagate: the
+        # mature fraction came out at 0.500/0.502 against a true 0.500. One
+        # fixture is not a proof, so the two denominators are both carried and
+        # the comparison is made on the real data rather than assumed from this
+        # one.
+        out[f"frac_mature_{arm}_all_epithelial"] = (
+            float(row["n_cells_mature"]) / epithelial if epithelial > 0 else float("nan")
+        )
+    out["unresolved_arm_gap"] = abs(
+        out["unresolved_share_normal"] - out["unresolved_share_tumour"]
+    )
+    return out
+
+
 def study_deltas(
     atlas: Path,
     obs: pd.DataFrame,
@@ -187,6 +259,7 @@ def study_deltas(
     rung: str = RUNG,
     reading: str = "carcinoma",
     extra_genes: Sequence[str] = (),
+    collect_fractions: bool = False,
 ) -> tuple[pd.DataFrame, dict]:
     """Per-patient, per-gene deltas for one study. Returns (deltas, report).
 
@@ -261,6 +334,7 @@ def study_deltas(
 
     out: list[dict] = []
     unlabellable: list[dict] = []
+    unfractionable: list[dict] = []
     for i, patient in enumerate(patients, 1):
         block_obs = rows[rows["patient_id"].astype(str) == patient]
         # ALL compartments: the QC population is the full patient block.
@@ -323,10 +397,38 @@ def study_deltas(
                 mature_block[:, hit[0]].todense()
             ).ravel().astype(float)
 
-        out.extend(rows_for_patient(
+        patient_rows = rows_for_patient(
             study_id=study_id, patient=patient, counts=counts,
             depth=depth, tissue=tissue[mature], seed=seed, roles=roles,
-        ))
+        )
+        if collect_fractions and patient_rows:
+            # THE COMPOSITIONAL ARM. `decompose_cohort` needs a mature FRACTION
+            # per arm, and nothing in this path has ever emitted a denominator
+            # -- the mask is computed and the population it came from is thrown
+            # away. `mature_cell_counts` already derives all of it (open
+            # decision #14: the denominator is the RESOLVED epithelium, because
+            # a cell that could not be labelled is not a cell measured to be
+            # immature), so this CALLS it rather than re-deriving anything.
+            #
+            # Attached to every gene row of this patient because that is the
+            # shape decompose_cohort consumes: one row per (patient, gene,
+            # rung, axis) carrying both fractions.
+            fractions = arm_fractions(
+                labels, tissue=tissue,
+                patient_id=block_obs["patient_id"].to_numpy()[keep],
+                rung=rung,
+            )
+            if fractions is None:
+                # Both arms must have a resolved epithelium or the fraction is
+                # not a fraction. Skipped and counted, never defaulted to zero.
+                unfractionable.append({"patient_id": patient,
+                                       "reason": "an arm has no resolved epithelium"})
+                log.warning("  [%d/%d] %s — no resolved epithelium in one arm; "
+                            "compositional term not formed", i, len(patients), patient)
+            else:
+                for row in patient_rows:
+                    row.update(fractions)
+        out.extend(patient_rows)
         log.info("  [%d/%d] %s — %d mature cells scored",
                  i, len(patients), patient, int(mature.sum()))
 
@@ -334,6 +436,9 @@ def study_deltas(
     report["n_patients_scored"] = int(frame["patient_id"].nunique()) if not frame.empty else 0
     report["n_patients_unlabellable"] = len(unlabellable)
     report["unlabellable"] = unlabellable
+    report["collect_fractions"] = bool(collect_fractions)
+    report["n_patients_unfractionable"] = len(unfractionable)
+    report["unfractionable"] = unfractionable
     if unlabellable:
         log.warning("  %d of %d eligible patient(s) could not be labelled",
                     len(unlabellable), len(patients))
