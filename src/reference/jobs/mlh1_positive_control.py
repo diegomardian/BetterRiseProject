@@ -354,7 +354,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 3
 
     deltas["short_id"] = deltas["patient_id"].astype(str).str.split(".").str[-1]
-    deltas = deltas.merge(strata, on="short_id", how="left")
+    # DROP THE STRATA TABLE'S OWN patient_id BEFORE MERGING. It holds the short
+    # form and `deltas` holds the long one, so a plain merge suffixes BOTH into
+    # patient_id_x / patient_id_y and the bare column stops existing --
+    # `arm_reading` then raises on drop_duplicates("patient_id"), after the
+    # 30 GB atlas has been read. Pinned by
+    # test_the_strata_merge_does_not_suffix_away_the_patient_id.
+    deltas = deltas.merge(
+        strata.drop(columns=["patient_id"], errors="ignore"),
+        on="short_id", how="left",
+    )
+    if "patient_id" not in deltas.columns:
+        raise ArmError(
+            "the strata merge suffixed away patient_id. Every downstream "
+            "grouping is per patient, so this must fail here rather than "
+            "produce a table keyed on nothing."
+        )
     unassigned = sorted(deltas.loc[deltas["mlh1_stratum"].isna(), "short_id"].unique())
     if unassigned:
         # Named, not dropped. A patient with no stratum is a patient this
@@ -488,7 +503,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     log.info("\nwrote %s", written)
 
-    per_patient = deltas.drop(columns=["patient_id_cohort"], errors="ignore")
+    per_patient = deltas
     written = write_versioned_table(
         per_patient, "mlh1_positive_control_per_patient", seed=args.seed,
         results_dir=args.results_dir, allow_dirty=args.allow_dirty,
