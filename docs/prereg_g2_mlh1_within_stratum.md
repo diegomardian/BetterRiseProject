@@ -283,21 +283,113 @@ Its value is asymmetric and both directions are useful:
 
 ---
 
-## RESULT
+## RESULT — run 2026-09-06, on the cluster. Nothing above was edited.
 
-*Not run.* Requires the 30 GB ICBI atlas, which is cluster-only and behind
-interactive authentication:
+`results/2026-09-06_4b1afca/`, by `src/reference/jobs/mlh1_positive_control.sh`.
+29 of 30 eligible patients scored; C165 could not be labelled (no reference cell
+survives depth matching — the trap `study_deltas` already names). Arms as
+pre-registered: **10 methylated, 4 intact-MMRd, 15 unmethylated.**
 
-    qsub src/reference/jobs/mlh1_positive_control.sh
+### The verdict is UNINTERPRETABLE. §5's first branch.
 
-**The pipeline itself has been run end to end, on a synthetic atlas built in
-the real one's shape** — `tests/test_mlh1_end_to_end.py`. Two runs whose only
-difference is the truth in them: MLH1 thinned to 0.15× in the tumour arm of
-methylated patients, and MLH1 untouched. The first is recovered
-(≈ −1.7 against a true ln(0.15) = −1.90, attenuated by the boundary rule, and
-absent from the comparison arm); the second returns
-`INSTRUMENT DOES NOT SEE IT` with the arm still estimable. Stable across five
-generator seeds. So the cluster run will not be the first execution of the
-scoring path, and a pipeline that fired on anything would have been caught here.
+    UNRESOLVED: control ACTB +0.443 [+0.116, +0.737] on log2 expression
+    (tolerance 0.5)
 
-*Nothing above may be edited when the real run happens.*
+**The premise does not hold in the methylated arm**, so the cells compared are
+not established to be the same population, and MLH1 moving inside them says
+nothing about silencing. **This is not a negative result** — §5 fixed that
+reading before the numbers existed.
+
+ACTB is detected in 98.4% / 99.3% of cells, above `SATURATION_CEILING`, so the
+premise assesses it on log2 expression rather than detection. It moved
+**1.36×**, and the interval straddles the tolerance in both directions.
+
+### The interval correction does not rescue it, and §4 predicted that
+
+At n=10 the percentile bootstrap is 0.82× the correct width, so the honest
+interval is **wider**, not narrower: approximately **[+0.065, +0.821]**. It
+straddles 0.5 by more. The verdict is robust to the correction.
+
+**And the direction of the bias is the point.** `premise_holds` is an
+*equivalence* test — it asks whether the interval fits *inside* the tolerance —
+so a too-narrow interval makes HOLDS **easier**. §5 recorded this in advance as
+anti-conservative. The check was biased toward holding and returned UNRESOLVED
+anyway. **A check biased toward passing that fails is a stronger negative than a
+neutral one that fails.**
+
+### What MLH1 did, which does not count and must not be quoted as if it did
+
+| arm | n | detect N → T | mean Δcloglog | 95% CI | excludes 0 |
+|---|---|---|---|---|---|
+| `mlh1_methylated` | 10 | 0.041 → 0.013 | **−1.666** | [−2.453, −0.880] | yes |
+| `mlh1_unmethylated` | 15 | 0.038 → 0.049 | +0.191 | [−0.150, +0.532] | no |
+| `mlh1_intact_mmrd` | 4 | 0.024 → 0.045 | +0.517 | [−0.502, +1.535] | no |
+
+`patients_with_signal` was **10 of 10** in the primary arm, exactly as §6 sized
+it, so the estimability floor never bound.
+
+**That is the pre-registered pattern, and it is not evidence.** The premise gate
+is ordered before the reading precisely so that a result this suggestive cannot
+be promoted by the person who wanted it. §5 was written to bind this case, and
+it binds. **No claim about MLH1 silencing follows from this run.**
+
+*One observation for a FUTURE pre-registration, recorded as post-hoc and
+carrying no weight here.* A premise failure is a property of the
+tumour-versus-normal comparison and should therefore move MLH1 in **every** arm;
+it moved in one. That is not what a pure population artefact predicts, and it is
+a hypothesis someone could pre-register — not a rescue of this one.
+
+### The finding that outlives the verdict, and it is the real result
+
+**The positive control is not available on any currently available data**, and
+the reason is a closed loop:
+
+1. The instrument can only be validated where **the premise holds**.
+2. The premise has held in exactly one place in this project's history — the
+   **adenoma** cohort, `Chen_2021_Cell`, 44 patients.
+3. `Chen_2021_Cell` carries **no MLH1 methylation annotation at all** — every
+   cell is null (`docs/NEXT_AVENUES.md` §1b).
+4. **`Pelka_2021_Cell` is the only study in the entire 49-study atlas that
+   carries it** — 62 patients, 22 `meth` / 40 `no_meth`. Verified over the
+   cached obs on 2026-09-06.
+5. And Pelka is where the premise just failed.
+
+So the one cohort with the ground truth cannot support the comparison, and the
+one cohort that supports the comparison has no ground truth. **This is a fifth
+independent route to `docs/HANDOFF.md` §2's conclusion** — the mechanism
+question is not identifiable on currently available data — and it is the one
+that closes the instrument-validation question rather than a biological one.
+
+**The consequence, which §5's third branch already fixed:** an instrument whose
+sensitivity cannot be established cannot be cited for what it fails to see.
+Every null this project has produced stays *uninformative* rather than becoming
+evidence of absence. That is a materially weaker position than a passing
+positive control would have bought, and it is the position the data supports.
+
+### A defect found by running it
+
+**The secondary arm has two definitions.** The cluster printed
+`mlh1_unmethylated  15`; §3 above says **19**. `arm_of()` sends `mlh1_intact_mmrd`
+to its own arm, so the reported arm is 15; `interval_calibration` sized it as
+`mlh1_stratum != "mlh1_methylated"`, which is 19 because it counts the four
+intact-MMRd patients reported separately. Both were right about different
+questions given one name in two files, with nothing comparing them.
+
+Fixed forward: `src/reference/mlh1_arms.py` is the single definition and both
+consumers import it, with three failing inputs in
+`tests/test_checks_can_fail.py`. Re-sized at n=15
+(`results/2026-09-06_3bd168f/`): two-sample power against the confounded arm is
+**59.0%** at 50% silencing and **96.3%** at 75%, against the superseded 60.4%
+and 96.9%. **Immaterial to every conclusion**, and it does not touch the verdict,
+which rests on the methylated arm — n=10 in both files.
+
+**§3's "19" is left standing above.** It is wrong, and it is what was actually
+pre-committed; correcting it in place would erase the record a pre-registration
+exists to keep. `results/2026-09-06_a0483ae/` is retained for the same reason.
+
+### Standing
+
+**The reading ran, the gate fired, and the gate was pre-committed.** G2 is
+untouched. What this establishes is about the *instrument*: its sensitivity to a
+known silencing event remains untested, and on currently available data it
+cannot be tested.

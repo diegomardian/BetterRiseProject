@@ -59,6 +59,51 @@ the raw detection scale that comparison reverses the answer. Full account in
 `docs/HANDOFF.md` §6d; the corrected table is
 `results/2026-09-05_9c43f4f/adenoma_specificity.parquet`.
 
+#### Re-checked 2026-09-06, against the same table. Three things.
+
+**The bracket table reproduces and 1a's core claim stands.** The quoted numbers
+are a ratio of COHORT means; the median and geometric mean of the per-patient
+ratios agree with them to within ~0.08 (GUCA2A 0.374 / 0.392 / 0.316; MS4A12
+0.383 / 0.467 / 0.398; KRT8 0.946 / 0.951 / 0.943). *The arithmetic mean of
+per-patient ratios does NOT* — it reads MS4A12 at 0.841 — because a ratio with a
+small denominator explodes and MS4A12's normal-arm mean tops out at 8.0 CP10K
+against GUCA2A's 38.7. That is an estimator artefact, not a finding, and it is
+recorded here because it is the obvious first thing to compute and it is wrong.
+
+**Estimability is fine at `best4` and worse at `lineage`, which is the opposite
+of what the cell counts suggest.**
+
+| rung | patients | median mature cells/arm | GUCA2A usable | MS4A12 usable |
+|---|---|---|---|---|
+| `lineage` | 44 | 255 | **41/44** | **41/44** |
+| `best4` | 20 | 30 | **20/20** | **19/20** |
+
+A patient is unusable when `m_N` or `m_T` is exactly zero — `not_estimable`
+under invariant 1, never zero silencing. At `best4` the cells are fewer but they
+are BEST4+ absorptive cells, which is where these markers actually live, so the
+gene is more reliably present in the population being asked about. **This is
+good news for 1a**: the rung it targets is the one that loses almost nobody.
+
+**But the "temper it" note above is a `lineage` statement and does not carry to
+`best4`.** At `best4` the two targets are **GUCA2A 0.517 against MS4A12 0.385** —
+further apart than at `lineage` (0.374 / 0.383), not indistinguishable. Whether
+that separation is real needs an interval, and an interval needs the per-patient
+run. So: do not carry "GUCA2A and MS4A12 are again indistinguishable" into the
+`best4` design, and do not carry the opposite either. It is open, and 1a is what
+would settle it.
+
+**What 1a still needs, which is not on this page:** `decompose()` takes
+`frac_mature_normal` / `frac_mature_tumour`, and **no committed table carries
+them.** `icbi_adenoma.parquet` has mature cell COUNTS with no denominator. So 1a
+is not a re-read of committed tables the way the specificity correction was — it
+is emit-the-fractions, pre-register, cluster run.
+
+**And the interval it reports must not be the project's usual one.** At `best4`,
+n=20, the percentile bootstrap over patients is 0.913× the correct width and
+excludes zero **7.1%** of the time under a true null — see `docs/HANDOFF.md`
+§3a. Use the Student-t interval, as `src/reference/jobs/mlh1_positive_control.py`
+does.
+
 ### 1b. The atlas's own annotations. **PARTLY WRONG — two of three are unusable.**
 
 - `SOLO_doublet_status` is **`singlet` for all 4,264,929 cells.** It is a
@@ -79,6 +124,15 @@ Three patients carry normal → polyp → carcinoma. Descriptive only, and worth
 reporting as such: it is timing evidence carcinoma cannot give, and it does not
 need a premise to resolve across patients because the comparison is within one.
 Report beside Chen_2021, never pooled with it (`MIN_STUDIES` is 3).
+
+**"Descriptive only" was the right call and here is the number behind it**
+(added 2026-09-06). At n=3 the project's percentile bootstrap over patients is
+**0.372× the correct width** and excludes zero **25.1%** of the time under a
+true null — one interval in four, on data with nothing in it. See
+`docs/HANDOFF.md` §3a; the rate is `P(|t(n−1)| > z·sqrt((n−1)/n))`, a function
+of n alone. **No interval from three patients may be reported here at all**, on
+any statistic. Descriptive means descriptive: report the three trajectories and
+let them be three trajectories.
 
 ---
 
@@ -237,8 +291,12 @@ Cheap: the per-study estimates are already committed.
    Needs `qsub src/reference/jobs/mlh1_positive_control.sh` and nothing else.
    Still the only item here that can change how every previous result is read.
    The DiD correction recommended above did not survive sizing — see above.
-2. **The decomposition at `best4` on Chen_2021** (1a). Same run, and the algebra
-   has already been checked to not collapse.
+2. **The decomposition at `best4` on Chen_2021** (1a). **NEXT after MLH1.** The
+   algebra has been re-checked and does not collapse, and estimability at
+   `best4` is 20/20 and 19/20 — better than at `lineage`. It is NOT a re-read
+   of committed tables: `frac_mature_*` was never emitted, so it needs the
+   adenoma job extended and a cluster run. Report the Student-t interval, not
+   the percentile bootstrap (7.1% at n=20).
 3. **Zheng's gradient** (1c), descriptive, alongside.
 4. Tier 3's heterogeneity explanation — cheap, and it strengthens a result
    already in hand.

@@ -90,6 +90,13 @@ from src.reference.jobs.icbi_coexpression import (
     load_obs,
     study_deltas,
 )
+from src.reference.mlh1_arms import (
+    ARMS,
+    PRIMARY_STRATUM,
+    SECONDARY_STRATUM,
+    UNDERPOWERED_STRATUM,
+    arm_of,
+)
 
 log = logging.getLogger(__name__)
 
@@ -99,10 +106,9 @@ TARGET = "MLH1"
 
 STUDY = "Pelka_2021_Cell"
 
-#: The arm the reading is about, and the two reported beside it.
-PRIMARY_STRATUM = "mlh1_methylated"
-SECONDARY_STRATUM = "mlh1_unmethylated"
-UNDERPOWERED_STRATUM = "mlh1_intact_mmrd"
+#: The arms come from src.reference.mlh1_arms, which is the ONE definition.
+#: They used to be defined here and sized differently in interval_calibration,
+#: which put n=19 in the pre-registration for an arm the job reports at n=15.
 
 #: Patients whose NORMAL arm must carry at least one MLH1+ cell before the
 #: reading is attempted.
@@ -191,15 +197,6 @@ def strata_for(obs: pd.DataFrame) -> pd.DataFrame:
         log.info("  atlas annotation and pre-registered strata agree on all "
                  "%d patients", len(merged))
     return merged
-
-
-def arm_of(stratum: str) -> str:
-    """Which reported arm a pre-registered stratum belongs to."""
-    if stratum == PRIMARY_STRATUM:
-        return PRIMARY_STRATUM
-    if stratum == UNDERPOWERED_STRATUM:
-        return UNDERPOWERED_STRATUM
-    return SECONDARY_STRATUM
 
 
 def arm_reading(
@@ -408,7 +405,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         100 * (1 - width_ratio(n_primary)) if n_primary >= 2 else float("nan"))
 
     rows = []
-    for arm in (PRIMARY_STRATUM, SECONDARY_STRATUM, UNDERPOWERED_STRATUM):
+    for arm in ARMS:
         block = deltas[deltas["arm"] == arm] if arm != UNDERPOWERED_STRATUM else \
             deltas[deltas["mlh1_stratum"] == UNDERPOWERED_STRATUM]
         for gene in sorted(block["gene"].unique()):
@@ -422,7 +419,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                            }[arm]})
     readings = pd.DataFrame(rows)
 
-    for arm in (PRIMARY_STRATUM, SECONDARY_STRATUM, UNDERPOWERED_STRATUM):
+    for arm in ARMS:
         block = readings[readings["arm"] == arm]
         if block.empty:
             continue

@@ -33,9 +33,18 @@ correction, its stated evidence did not. **`docs/NEXT_AVENUES.md` reviews what i
 outrank a data hunt: the decomposition may be identifiable on adenoma, and the
 instrument has never had a positive control though one is sitting in the atlas.
 
-**The instrument now has a positive control, pre-registered and waiting on one
-`qsub` (§6g)** — the first test of this project's sensitivity to a silencing
-event known from an assay rather than from expression. And the statistic every
+**The positive control RAN on 2026-09-06 and returned UNINTERPRETABLE — the
+premise does not hold in the arm it is about (§6g).** ACTB moved 1.36× in the
+methylated arm's tumour cells, and `premise_holds` was biased *toward* passing
+by the very interval defect below and failed anyway. **The instrument's
+sensitivity to a known silencing event remains untested, and a FIFTH
+independent route says it cannot be tested on available data:** the premise has
+held in exactly one cohort (adenoma, `Chen_2021_Cell`), that cohort carries no
+MLH1 methylation annotation, and `Pelka_2021_Cell` is the only study in the
+whole 49-study atlas that does. The cohort with the ground truth cannot support
+the comparison; the cohort that supports it has no ground truth. **So every null
+this project has produced stays uninformative rather than becoming evidence of
+absence.** And the statistic every
 reading ends in has been calibrated for the first time: **the percentile
 bootstrap over patients is 0.82× the width it claims at n=10 and 0.53× at n=4,
 by a closed form with no data in it** (§3a). Nothing is retracted; `best4`
@@ -109,9 +118,14 @@ a freshly downloaded 3.1 GB cohort against the Windows originals: 11 bit-identic
 
 ## 3. The recurring defect, which is also the paper's thesis
 
-**A check that cannot fail reports success.** It has now been found **sixteen**
+**A check that cannot fail reports success.** It has now been found **seventeen**
 times, including six times inside guards written to prevent it, and twice
 inside guards written *during* this work. Assume the next one exists.
+
+**The seventeenth is not a check that could not fail — it is a quantity with no
+check at all**, which is the same failure one step earlier: the MLH1 secondary
+arm was defined twice, as 15 and as 19, and nothing compared them until a
+cluster log printed one against a document holding the other. §6g.
 
 **The fifteenth and sixteenth are not guards at all, and that is the news.**
 They are an *interval* and a *power calculation* — the two places a project
@@ -160,13 +174,14 @@ The five found on 2026-09-05, all in code written that day:
 | **gene specificity** | one gene's detection delta vs another's | **a proportion's sensitivity scales with its baseline; the fixture had no baselines in it** |
 | **the interval itself** | percentile bootstrap over patients | **0.82x the correct width at n=10, 0.53x at n=4 — a normal quantile where a t quantile is needed** |
 | **the power calculation** | simulated power at n=10 | **only binomial noise in it, so it could not come out underpowered from patient heterogeneity** |
+| **the secondary arm's size** | *nothing compared them* | **one arm, two definitions in two files — 15 and 19 — surfaced only when the cluster printed one against a document holding the other** |
 
 The last four were found this week. The invariant-2 guard has now been fixed
 **three times**; each fix covered the case just found, and the next was always
 the input nobody had loaded yet.
 
 **The rule the repo works to:** a guard needs a committed input that forces it to
-fail. `tests/test_checks_can_fail.py` holds those — 35 of them, 37 with
+fail. `tests/test_checks_can_fail.py` holds those — 38 of them, 40 with
 parametrisation. If you add a
 guard, add its failing input. If you cannot construct one, that is the finding.
 
@@ -607,59 +622,82 @@ its tables: every figure in the third-guard paragraph is re-derived from
 string in the `.tex`. All eleven assertions are mutation-tested. **If you re-run
 that job, this test tells you exactly what to edit.**
 
-## 6g. The MLH1 positive control — BUILT and pre-registered, needs one qsub
+## 6g. The MLH1 positive control — RAN 2026-09-06. UNINTERPRETABLE.
 
-**This is the only thing in this file that is half-finished, and it is finished
-on the laptop side.** The code, the pre-registration and the calibration it
-depends on are committed; what is missing is the 30 GB atlas, which is
-cluster-only.
+**Full account: `docs/prereg_g2_mlh1_within_stratum.md`, RESULT section.**
+Tables `results/2026-09-06_4b1afca/` — **still on the cluster, not yet
+committed.** 29 of 30 eligible patients scored; arms 10 methylated / 4
+intact-MMRd / 15 unmethylated.
 
-    qsub src/reference/jobs/mlh1_positive_control.sh
+**The verdict is §5's first branch and it was pre-committed.**
 
-The wrapper refuses to run without `results/*/interval_calibration.parquet`
-committed, because this reading reports a **Student-t** interval rather than the
-project's usual percentile bootstrap (§3a) and choosing the interval after
-seeing the result would make it a free parameter.
+    UNRESOLVED: control ACTB +0.443 [+0.116, +0.737] on log2 expression
+    (tolerance 0.5)
 
-**Read `docs/prereg_g2_mlh1_within_stratum.md` §5 before reading any number it
-produces.** Five branches, each with its pre-committed consequence, taken by
-`instrument_verdict()` against a table rather than by a reader against a
-paragraph. In short:
+ACTB is detected in 98.4%/99.3% of cells, so the premise assesses it on log2
+expression rather than detection; it moved 1.36×. **The interval correction in
+§3a does not rescue it** — the honest interval is *wider*, roughly
+[+0.065, +0.821], straddling the tolerance by more. And the bias runs the useful
+way: `premise_holds` is an equivalence test, so a too-narrow interval makes
+HOLDS *easier*. The check was biased toward passing and failed anyway.
+
+**MLH1 did fall, only in the methylated arm, and it does not count.**
+−1.666 [−2.453, −0.880] methylated; +0.191 unmethylated; +0.517 intact-MMRd;
+`patients_with_signal` 10/10 exactly as sized. That is the pre-registered
+pattern. **The gate is ordered before the reading precisely so a result this
+suggestive cannot be promoted by whoever wanted it**, and §5 binds. No claim
+about MLH1 silencing follows.
+
+### The result that outlives the verdict
+
+**The positive control is not available on any currently available data.** The
+loop is closed:
 
 | | |
 |---|---|
-| **the design** | does MLH1 fall in the mature cells of the 10 patients whose promoters are methylated |
-| **not the design** | the DiD from `prereg_g2_mlh1.md`. Its control arm is n=4, on two independent pipelines — a property of the cohort |
-| **powered for** | ≥75% silencing (99.3%). **Marginal at 50%** (73.7%) |
-| **if it fires** | the project's nulls become evidence of absence — without a mechanistic control behind them |
-| **if it does not** | the nulls stay uninformative, and that reframes the write-up |
+| the instrument can be validated only where | **the premise holds** |
+| the premise has held in exactly one place | **adenoma, `Chen_2021_Cell`, n=44** |
+| `Chen_2021_Cell` MLH1 annotation | **none — every cell null** |
+| studies in the 49-study atlas carrying it | **`Pelka_2021_Cell` only** (22 meth / 40 no_meth) |
+| and Pelka is | **where the premise just failed** |
 
-**RATIFIED 2026-09-06**, as a blanket delegation from Bode rather than a
-four-person review — recorded that way in the prereg's header because the
-difference is real. What the timestamp has to support is that nothing in the
-design was written or changed after MLH1 expression was read, and that holds
-regardless of who signed.
+**A fifth independent route to §2**, and the one that closes the
+instrument-validation question rather than a biological one. Its consequence is
+§5's third branch: an instrument whose sensitivity cannot be established cannot
+be cited for what it fails to see, so **the project's nulls stay uninformative
+rather than becoming evidence of absence.** That is weaker than a passing
+positive control would have bought, and it is what the data supports.
 
-**The scoring path has already been run end to end**, on a synthetic atlas built
-in the real one's shape (`tests/test_mlh1_end_to_end.py`): an injected 0.15×
-thinning in the methylated tumour arm is recovered at ≈ −1.7 against a true
-ln(0.15) = −1.90 and is absent from the comparison arm, while an atlas with no
-effect returns `INSTRUMENT DOES NOT SEE IT` with the arm still estimable. Stable
-over five seeds. **The cluster run will not be the first execution of that
-path** — which is what the two dead cluster jobs in §4 were each about.
+### Two things to do
 
-*Two numbers from the feasibility work that are worth carrying even if the run
-never happens.* The atlas's per-cell methylation annotation and the week-0
-clinical strata **agree exactly** on all 62 patients (22 against 22, no
-crossings) — two independent derivations of the arm the reading is about. And
-only **29 of 62** patients survive the pipeline's own filters, which is the
-number that killed the DiD.
+1. **Commit the cluster tables.** `results/2026-09-06_4b1afca/` is the only
+   uncommitted result in the project. Until it lands, the RESULT section quotes
+   numbers with no artifact behind them.
+2. **Avenue 1a is next** — the decomposition at `best4` on `Chen_2021`, the
+   project's original estimand, on the one cohort where the premise holds.
+   Re-checked 2026-09-06 and it survives: the algebraic collapse does not fire
+   on adenoma, and estimability at `best4` is 20/20 for GUCA2A and 19/20 for
+   MS4A12. It needs the adenoma job to emit `frac_mature_*` (no committed table
+   carries them) plus a cluster run. `docs/NEXT_AVENUES.md` §1a.
+
+### A defect found by running it
+
+**The secondary arm had two definitions, 15 and 19, and no check.** `arm_of()`
+broke out `mlh1_intact_mmrd`, so the reported arm is 15; `interval_calibration`
+sized the same arm as `mlh1_stratum != "mlh1_methylated"`, which is 19. The
+prereg's §3 inherited the 19. Both were right about different questions given
+one name in two files. **Not a check that could not fail — a quantity with two
+definitions and no check at all**, which is the same failure one step earlier.
+`src/reference/mlh1_arms.py` is now the single definition, with three failing
+inputs. Re-sized at n=15 (`results/2026-09-06_3bd168f/`): immaterial — 96.3% vs
+96.9% power at 75% silencing — and it does not touch the verdict, which rests on
+the n=10 arm.
 
 ---
 
 ## 7. Running things
 
-    pytest -q                      # expect 1482 passed, 22 env-only failures
+    pytest -q                      # expect 1485 passed, 22 env-only failures
     ruff check src tests submission
 
 The 22 are `anndata`, `diptest`, `lifelines` absent locally. That count is the
@@ -679,9 +717,11 @@ unset `BRP_DATA_DIR`, and missing inputs *before* the compute rather than after:
          src/reference/jobs/icbi_coexpression.sh         # validate, then:
     qsub -v BRP_ICBI_STUDY=all src/reference/jobs/icbi_coexpression.sh
 
-    qsub src/reference/jobs/mlh1_positive_control.sh      # §6g -- NOT yet run
+    qsub src/reference/jobs/mlh1_positive_control.sh      # §6g -- RAN 2026-09-06
 
-**All of these have already been run, except the last.** They are here for re-derivation, not
+**All of these have already been run.** The MLH1 run's tables are the one
+uncommitted result in the project: `results/2026-09-06_4b1afca/`, on the
+cluster. They are here for re-derivation, not
 because anything is pending.
 
 Local-only, no cluster needed — it reads committed tables:
