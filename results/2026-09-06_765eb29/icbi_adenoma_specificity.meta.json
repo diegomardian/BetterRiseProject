@@ -1,0 +1,273 @@
+{
+  "date": "2026-09-06",
+  "utc_timestamp": "2026-09-06T21:55:11+00:00",
+  "git_sha": "765eb29fe07863f9bc2840c424ea275d4327ed48",
+  "git_sha_short": "765eb29",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.11.15",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "scanpy_version": "1.10.2",
+  "anndata_version": "0.10.8",
+  "name": "icbi_adenoma_specificity",
+  "n_rows": 360,
+  "columns": [
+    "granularity_rung",
+    "statistic",
+    "standing",
+    "contrast",
+    "gene",
+    "other",
+    "role_of_gene",
+    "role_of_other",
+    "n_patients",
+    "mean_difference",
+    "ci_low",
+    "ci_high",
+    "excludes_zero",
+    "load_bearing"
+  ],
+  "table_kind": "harness",
+  "atlas": "final_crc_atlas-adata.h5ad",
+  "counts_layer": "layers/counts",
+  "counts_layer_note": "/X is log1p-normalised on this atlas; reading it would give log values to a detection statistic that reports them without complaint.",
+  "studies": [
+    "Chen_2021_Cell"
+  ],
+  "per_study_report": [
+    {
+      "study_id": "Chen_2021_Cell",
+      "reading": "adenoma",
+      "granularity_rung": "epithelial",
+      "mature_bin": "epithelial",
+      "n_patients_eligible": 44,
+      "genes_absent_from_var": [],
+      "batch_key": "sample_id",
+      "sorted_fraction_filter": "enrichment_cell_types == 'naive'",
+      "extra_genes": [],
+      "gene_roles": {
+        "ACTB": "control",
+        "KRT8": "control",
+        "EPCAM": "epithelial",
+        "CDX2": "identity",
+        "MS4A12": "identity",
+        "GUCA2A": "target"
+      },
+      "n_patients_scored": 44,
+      "n_patients_unlabellable": 0,
+      "unlabellable": [],
+      "collect_fractions": true,
+      "n_patients_unfractionable": 0,
+      "unfractionable": [],
+      "premise_holds": true,
+      "premise_reading": "holds over 44 patients on 2 control(s): worst is ACTB -0.272 [-0.462, -0.075] on log2 expression (tolerance 0.5); ACTB saturated on detection, assessed on expression"
+    },
+    {
+      "study_id": "Chen_2021_Cell",
+      "reading": "adenoma",
+      "granularity_rung": "lineage",
+      "mature_bin": "differentiated",
+      "n_patients_eligible": 44,
+      "genes_absent_from_var": [],
+      "batch_key": "sample_id",
+      "sorted_fraction_filter": "enrichment_cell_types == 'naive'",
+      "extra_genes": [],
+      "gene_roles": {
+        "ACTB": "control",
+        "KRT8": "control",
+        "EPCAM": "epithelial",
+        "CDX2": "identity",
+        "MS4A12": "identity",
+        "GUCA2A": "target"
+      },
+      "n_patients_scored": 44,
+      "n_patients_unlabellable": 0,
+      "unlabellable": [],
+      "collect_fractions": true,
+      "n_patients_unfractionable": 0,
+      "unfractionable": [],
+      "premise_holds": true,
+      "premise_reading": "holds over 44 patients on 2 control(s): worst is ACTB -0.035 [-0.054, -0.018] on detection (tolerance 0.1)"
+    },
+    {
+      "study_id": "Chen_2021_Cell",
+      "reading": "adenoma",
+      "granularity_rung": "crypt_position",
+      "mature_bin": "crypt_top",
+      "n_patients_eligible": 44,
+      "genes_absent_from_var": [],
+      "batch_key": "sample_id",
+      "sorted_fraction_filter": "enrichment_cell_types == 'naive'",
+      "extra_genes": [],
+      "gene_roles": {
+        "ACTB": "control",
+        "KRT8": "control",
+        "EPCAM": "epithelial",
+        "CDX2": "identity",
+        "MS4A12": "identity",
+        "GUCA2A": "target"
+      },
+      "n_patients_scored": 44,
+      "n_patients_unlabellable": 0,
+      "unlabellable": [],
+      "collect_fractions": true,
+      "n_patients_unfractionable": 0,
+      "unfractionable": [],
+      "premise_holds": true,
+      "premise_reading": "holds over 44 patients on 2 control(s): worst is ACTB -0.036 [-0.055, -0.018] on detection (tolerance 0.1)"
+    },
+    {
+      "study_id": "Chen_2021_Cell",
+      "reading": "adenoma",
+      "granularity_rung": "best4",
+      "mature_bin": "best4",
+      "n_patients_eligible": 44,
+      "genes_absent_from_var": [],
+      "batch_key": "sample_id",
+      "sorted_fraction_filter": "enrichment_cell_types == 'naive'",
+      "extra_genes": [],
+      "gene_roles": {
+        "ACTB": "control",
+        "KRT8": "control",
+        "EPCAM": "epithelial",
+        "CDX2": "identity",
+        "MS4A12": "identity",
+        "GUCA2A": "target"
+      },
+      "n_patients_scored": 20,
+      "n_patients_unlabellable": 0,
+      "unlabellable": [],
+      "collect_fractions": true,
+      "n_patients_unfractionable": 0,
+      "unfractionable": [],
+      "premise_holds": true,
+      "premise_reading": "holds over 20 patients on 2 control(s): worst is ACTB -0.283 [-0.461, -0.106] on log2 expression (tolerance 0.5); ACTB, KRT8 saturated on detection, assessed on expression"
+    }
+  ],
+  "batch_key": "sample_id",
+  "sorted_fraction_filter": "enrichment_cell_types == 'naive'",
+  "qc_population": "the full patient block, ALL compartments -- the epithelial subset is only the scoring population",
+  "min_epithelial_per_arm": 100,
+  "validation": {
+    "study_id": "Pelka_2021_Cell",
+    "against": "results/2026-09-04_975cf5c/coexpression_silencing.parquet",
+    "committed_study_id": "GSE178341",
+    "requirements": [
+      "the premise verdict word is the same (UNRESOLVED)",
+      "the ACTB log2 control interval overlaps the committed one",
+      "the GUCA2A detection delta is within 0.15 of the committed one"
+    ]
+  },
+  "reading": "adenoma",
+  "rungs": [
+    "epithelial",
+    "lineage",
+    "crypt_position",
+    "best4"
+  ],
+  "arm_map": {
+    "polyp": "tumour",
+    "adjacent normal": "normal",
+    "healthy normal": "normal"
+  },
+  "adenoma_read_bar": {
+    "primary_study": "Chen_2021_Cell",
+    "not_a_meta_analysis": "Two studies carry a polyp arm and MIN_STUDIES is 3, so this is NOT meta-analysed. Chen_2021_Cell (44 paired patients) is the primary per-study reading -- a single 44-patient study IS the power argument. Zheng_2022 (3 patients) is a gradient companion, reported beside it and never pooled with it.",
+    "rungs": [
+      "lineage",
+      "best4"
+    ],
+    "why_two_rungs": "lineage for comparability with the 13 carcinoma studies; best4 because it is the resolution the question is actually posed at and the one carcinoma structurally could not support -- a median of 3 mature cells there. Adenomas retain differentiated epithelium, so best4 may be estimable for the first time. That measurement is the whole reason path C exists.",
+    "how_this_will_be_read": [
+      "1. The premise verdict comes FIRST and gates everything. HOLDS licenses the detection reading; REFUSED or UNRESOLVED does not, at either rung.",
+      "2. Only if the premise holds: the GUCA2A detection delta within the mature population. A fall there, in cells still called mature, is consistent with silencing.",
+      "3. The best4 mature-cell counts are reported whatever the verdict, because 'best4 is estimable in adenoma' is itself a result and is the measurement carcinoma could not take."
+    ],
+    "what_a_positive_reading_would_and_would_not_mean": "It would be consistency with silencing, not proof of it. Survivorship -- GUCA2A-high cells preferentially destroyed -- is not transcript-detectable, and no amount of scale or resolution changes that. A premise that does not hold is an honest negative at a resolution nobody has measured, which is a result either way.",
+    "known_limits_before_the_run": [
+      "TruDrop: median 1,881 epithelial genes/cell against Pelka's 2,630. Shallower cuts both ways -- less control saturation, less GUCA2A sensitivity.",
+      "No within-patient polyp->carcinoma gradient exists in Chen_2021 (0 patients hold both), so timing evidence is polyp-versus-normal only.",
+      "The reference arm is labelled `healthy normal` and is the patient's own mucosa; pairing is established by patient_id, not by the label."
+    ]
+  },
+  "premise_reading": {
+    "Chen_2021_Cell": "holds over 20 patients on 2 control(s): worst is ACTB -0.283 [-0.461, -0.106] on log2 expression (tolerance 0.5); ACTB, KRT8 saturated on detection, assessed on expression"
+  },
+  "specificity_statistics": {
+    "cloglog": {
+      "column": "delta_cloglog",
+      "standing": "load-bearing",
+      "scale": "log fold change (natural log), from detection under a Poisson model",
+      "why": "comparable across genes of any baseline abundance, which the raw detection delta is not"
+    },
+    "log2_cp10k": {
+      "column": "log2_cp10k_ratio",
+      "standing": "corroborating",
+      "scale": "log2 fold change of the per-cell CP10K mean",
+      "why": "independent of the Poisson model, so agreement with cloglog is evidence the reading does not rest on that model"
+    },
+    "detection": {
+      "column": "delta_detect",
+      "standing": "diagnostic only -- NOT read across genes",
+      "scale": "difference of two proportions",
+      "why": "the statistic every earlier table reports, kept for comparability. Its sensitivity varies with baseline abundance, so ranking genes by it ranks them substantially by how detectable they were."
+    }
+  },
+  "load_bearing_statistic": "cloglog",
+  "specificity_panel": [
+    "KRT8",
+    "ACTB",
+    "EPCAM",
+    "CDX2",
+    "MS4A12",
+    "GUCA2A"
+  ],
+  "cross_gene_rule": "Detection deltas are NOT comparable between genes: the sensitivity of a proportion depends on its baseline, and this panel spans 0.36 to 0.98. Every cross-gene statement is made on the load-bearing log fold-change scale, with log2 CP10K corroborating. delta_detect is reported for comparability with earlier tables and is not read across genes.",
+  "cloglog_boundary_rule": "a rate is turned back into cell counts and given the Jeffreys correction (k + 1/2)/(n + 1) before the transform, so the correction scales with how many cells the estimate rests on rather than being a fixed epsilon",
+  "uniform_thinning_null": {
+    "best4": {
+      "verdict": "GRADIENT IS ABUNDANCE",
+      "common_factor": 0.7010000000000006,
+      "variance_explained": 0.6867723933281262,
+      "rank_correlation_with_null": 0.7142857142857143,
+      "baseline_spread": 0.7129696654200282,
+      "ceiling": 0.5,
+      "detail": "one common fold change of 0.701, with no gene-specificity in it, explains 68.7% of the cross-gene spread in detection deltas (rank correlation +0.71). At or above the ceiling: the ordering of the raw deltas is not readable as biology, and any tier structure must be shown on the log fold-change scale instead."
+    },
+    "crypt_position": {
+      "verdict": "STRUCTURE SURVIVES",
+      "common_factor": 0.6760000000000006,
+      "variance_explained": 0.29143721482048235,
+      "rank_correlation_with_null": 0.6571428571428573,
+      "baseline_spread": 0.621343003105693,
+      "ceiling": 0.5,
+      "detail": "one common fold change of 0.676, with no gene-specificity in it, explains 29.1% of the cross-gene spread in detection deltas (rank correlation +0.66). Below the ceiling: abundance alone does not reproduce the pattern, so structure beyond a uniform thinning survives. This licenses the ORDERING as more than abundance; it does not license reading the raw delta MAGNITUDES across genes."
+    },
+    "epithelial": {
+      "verdict": "STRUCTURE SURVIVES",
+      "common_factor": 0.7010000000000006,
+      "variance_explained": 0.21114249561335197,
+      "rank_correlation_with_null": 0.5428571428571429,
+      "baseline_spread": 0.6618187698407381,
+      "ceiling": 0.5,
+      "detail": "one common fold change of 0.701, with no gene-specificity in it, explains 21.1% of the cross-gene spread in detection deltas (rank correlation +0.54). Below the ceiling: abundance alone does not reproduce the pattern, so structure beyond a uniform thinning survives. This licenses the ORDERING as more than abundance; it does not license reading the raw delta MAGNITUDES across genes."
+    },
+    "lineage": {
+      "verdict": "STRUCTURE SURVIVES",
+      "common_factor": 0.6770000000000006,
+      "variance_explained": 0.2700849121527331,
+      "rank_correlation_with_null": 0.6571428571428573,
+      "baseline_spread": 0.6203296119408962,
+      "ceiling": 0.5,
+      "detail": "one common fold change of 0.677, with no gene-specificity in it, explains 27.0% of the cross-gene spread in detection deltas (rank correlation +0.66). Below the ceiling: abundance alone does not reproduce the pattern, so structure beyond a uniform thinning survives. This licenses the ORDERING as more than abundance; it does not license reading the raw delta MAGNITUDES across genes."
+    }
+  },
+  "uniform_thinning_r2_ceiling": 0.5,
+  "exploratory": true,
+  "pre_registered": false,
+  "what_this_is_not": "Confirmatory. Built after the week-0 falsification rule had already forbidden a biological claim from the decomposition."
+}
