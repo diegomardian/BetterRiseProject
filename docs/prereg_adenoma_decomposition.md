@@ -454,15 +454,112 @@ It is a **new primary result**, so it needs the team, not just W1.
 
 ---
 
-## RESULT
+## RESULT — run 2026-09-06. Nothing above was edited.
 
-*Not run.* Requires the ICBI atlas (cluster-only) and a re-run of the adenoma
-scoring path that **calls `labels.mature_cell_counts`** and emits its output
-(`mature_fraction`, `unresolved_fraction`, `n_cells_resolved`) pivoted by arm,
-plus `epithelial` and `crypt_position` alongside `lineage` and `best4`.
+`results/2026-09-06_5791c01/`, over `results/2026-09-06_765eb29/icbi_adenoma.parquet`
+(Chen_2021_Cell, 44 patients, four rungs, mature fractions emitted).
 
-**One decision is owed at ratification, not after:** §4's companion table
-against a schema amendment. It determines which artifact the paper's intervals
-are quoted from.
+### The falsifier did not fire: the estimand is IDENTIFIABLE here
 
-*Nothing above may be edited when it is.*
+§6's first row — *"the per-patient `i/c` ratios cluster on a single constant
+across genes"* — is what killed the decomposition on carcinoma, where the ratio
+collapsed onto **−5.85** for every gene on the same labels. At `lineage` the
+median ratio runs:
+
+| CDX2 | KRT8 | ACTB | EPCAM | MS4A12 | GUCA2A |
+|---|---|---|---|---|---|
+| 0.330 | 0.481 | 0.671 | 0.724 | 1.583 | 2.029 |
+
+Nothing near −5.85, and a six-fold spread across genes. **The project's original
+estimand is computable on this substrate.** That is the claim §1 was written to
+test and it holds.
+
+### And it is a TIER, not a gene — §6's third row, pre-registered as expected
+
+On the intrinsic share, `lineage`, 43 patients, Student-t:
+
+| gene | role | share [95%] |
+|---|---|---|
+| CDX2 | identity | 0.502 [0.411, 0.593] |
+| EPCAM | epithelial | 0.518 [0.435, 0.602] |
+| ACTB | control | 0.546 [0.457, 0.636] |
+| KRT8 | control | 0.550 [0.459, 0.640] |
+| **MS4A12** | **target** | **0.709 [0.639, 0.779]** |
+| **GUCA2A** | **target** | **0.715 [0.653, 0.776]** |
+
+**All eight cross-block contrasts exclude zero. Neither within-block contrast
+does** — the four-gene block returns 0 of 6, and `GUCA2A − MS4A12` is **−0.011**,
+containing zero. `best4` (n=18) reproduces the same structure with all eight
+cross-block contrasts excluding zero.
+
+This is §6's third row exactly: **identifiable, GUCA2A separating from
+housekeeping and from CDX2 but NOT from MS4A12 — a tier-level intrinsic result
+and explicitly not a gene-specific one.** It was named as the expected outcome
+before the run, and §5 exists precisely so that this could not be reported as a
+GUCA2A result.
+
+**CDX2 sits with the controls on this statistic too**, so *terminal
+differentiation down, intestinal identity retained* now rests on the
+decomposition as well as on the corrected specificity reading — **two different
+estimands, agreeing.**
+
+### The arithmetic check passed
+
+`epithelial` returned a compositional term of **exactly 0.000** for all six
+genes, and an interaction of exactly 0.000. Every epithelial cell is mature at
+that rung, so Δf is identically zero and the whole change must land in the
+intrinsic term. That is arithmetic rather than data, and it is the cheapest test
+that the new mature-fraction code is right. It is also why §2 refused a
+`best4`-only reading: a curve whose lower bound is absent cannot show it is a
+curve.
+
+### §3.3's separation paid, on its first use
+
+**Compositional estimability is `ok` for 20 of 20 patients at `best4`**, where
+the intrinsic arm is 4 `ok` / 14 `wide_interval` / 2 `not_estimable` on the
+provisional cutpoints and **0 `ok` on either calibrated candidate** (Amendment
+3). The two rules genuinely answer different questions, and folding them would
+have reported `best4`'s compositional term as unavailable when it is fully
+estimable.
+
+**So `best4`'s contribution to the curve is its compositional point.** Its
+intrinsic share is reported and reproduces `lineage`'s block structure, but it
+carries the Amendment 3 caveat and no unqualified claim.
+
+### What is NOT claimed, and one gap in this document
+
+**Seven contrasts are denominator-dependent** and carry no unqualified claim
+(`adenoma_decomposition_denominator_disagreements.parquet`). None is a
+cross-block contrast on the share statistic, so the reading above does not
+depend on open decision #14.
+
+**§5 fixed the comparator SET and did not fix the cross-gene STATISTIC.** It
+says score every pair, and it does not say on what scale — and the raw
+compositional and intrinsic terms are in each gene's own CP10K units, so
+comparing their magnitudes across genes is the very error the detection-scale
+correction was written to stop. The intrinsic **share** used above is
+scale-free, and the `i/c` ratio agrees with it directionally, but **neither was
+pre-specified.** That is a gap in this pre-registration, it is recorded here
+rather than papered over, and any successor design should fix the statistic as
+well as the set.
+
+**Nothing here bears on survivorship.** §7 stands unchanged: GUCA2A-high cells
+having been preferentially destroyed is not transcript-detectable, and a
+compositional/intrinsic split does not address it.
+
+### Two bugs the real data found, both in code written for this
+
+Neither appeared on the synthetic fixture. Both are committed with failing
+inputs.
+
+1. **The schema write failed outright.** `bootstrap_over_patients` is long-form
+   by term, so merging it onto `decompose_cohort`'s wide output fanned every
+   patient row into three and carried `term`/`n_boot` into a frozen schema.
+   `attach_intrinsic_ci` exists for exactly this and encodes open_decisions
+   #10's real choice.
+2. **The denominator-disagreement detector fired on noise** — the same defect as
+   the threshold gate Amendment 2 replaced it with, reappearing in the
+   replacement. It flagged 46 contrasts, nearly all at `epithelial` where the
+   compositional term is exactly 0.0 one way and −0.001 the other:
+   `np.sign(0.0)` is 0 and `np.sign(-0.001)` is −1. A sign flip now counts only
+   where both intervals exclude zero. Seven survive.

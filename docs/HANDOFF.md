@@ -20,6 +20,16 @@ result, not a stalled analysis.
 13-study coexpression meta (§6b), and the adenoma reading (§6d). Nothing is
 half-finished.
 
+**THE DECOMPOSITION RAN ON ADENOMA ON 2026-09-06 AND IS IDENTIFIABLE THERE.**
+The project's original deliverable, produced for the first time. On carcinoma
+the `i/c` ratio collapsed onto −5.85 for every gene; on adenoma it runs 0.33 to
+2.03 and the falsifier did not fire. On the intrinsic share the panel splits
+into **two blocks** — {CDX2, EPCAM, ACTB, KRT8} at 0.50–0.55 and
+{MS4A12, GUCA2A} at 0.71 — with all eight cross-block contrasts excluding zero
+and `GUCA2A − MS4A12` containing zero. **A tier-level result, not a
+gene-specific one**, which is the outcome the pre-registration named in advance.
+§6h and `docs/prereg_adenoma_decomposition.md`.
+
 Path C is the one positive: the premise HOLDS, `best4` is estimable for the
 first time, and inside the surviving mature cells of adenomas the
 **terminal-differentiation tier is down while intestinal identity is retained**.
@@ -637,6 +647,50 @@ cannot see MLH1, those nulls are uninformative rather than evidence.
 
 **See §6g.** The design is fixed in `docs/prereg_g2_mlh1_within_stratum.md` and
 the calibration it depends on is committed. What is left is one `qsub`.
+
+## 6h. Avenue A — RUN 2026-09-06. Identifiable, and it is a tier.
+
+**The project's original deliverable, produced.** Full account in
+`docs/prereg_adenoma_decomposition.md`, RESULT section. Tables
+`results/2026-09-06_5791c01/`; inputs `results/2026-09-06_765eb29/`.
+
+**The falsifier did not fire.** Carcinoma's collapse — `i/c → −(f_N/Δf)`,
+−5.85 for every gene on the same labels — is what killed this arm. On adenoma
+the median ratio runs CDX2 0.330, KRT8 0.481, ACTB 0.671, EPCAM 0.724,
+MS4A12 1.583, GUCA2A 2.029. Six-fold spread, nothing near −5.85.
+
+**And it is a tier.** Intrinsic share at `lineage`, 43 patients, Student-t:
+
+| block | genes | share |
+|---|---|---|
+| identity + housekeeping | CDX2 0.502, EPCAM 0.518, ACTB 0.546, KRT8 0.550 | **0 of 6** contrasts exclude zero |
+| targets | MS4A12 0.709, GUCA2A 0.715 | `GUCA2A − MS4A12` = −0.011, contains zero |
+
+**All eight cross-block contrasts exclude zero**, and `best4` (n=18)
+reproduces it. That is the pre-registration's own third row, named as the
+expected outcome before the run: **GUCA2A separates from housekeeping and from
+CDX2 but not from MS4A12.** CDX2 sits with the controls, so *terminal
+differentiation down, identity retained* now rests on **two different
+estimands** — this and the corrected specificity reading.
+
+**The arithmetic check passed.** `epithelial` returned compositional and
+interaction of **exactly 0.000** for all six genes. Δf is identically zero at
+that rung, so it must. It is the cheapest test that the mature-fraction code is
+right, and it is why a `best4`-only reading was refused.
+
+**§3.3's two-rule separation paid on its first use.** Compositional estimability
+is `ok` for **20 of 20** at `best4`, where the intrinsic arm is 4 `ok` on
+provisional cutpoints and **0 `ok` on either calibrated candidate** (§3a-bis).
+So `best4`'s contribution to the curve is its **compositional** point; its
+intrinsic share reproduces the block structure but carries that caveat.
+
+**What is not claimed.** Seven contrasts are denominator-dependent (none of them
+cross-block on the share statistic), so the reading does not rest on open
+decision #14. Nothing here bears on survivorship. And **the prereg fixed the
+comparator SET but not the cross-gene STATISTIC** — the raw terms are in each
+gene's own CP10K units, so the share was chosen after the fact as the
+scale-free option. It is recorded as a gap, not papered over; a successor design
+should fix the statistic too.
 
 ## 6e. Different data, not more of it — still true for survivorship
 
