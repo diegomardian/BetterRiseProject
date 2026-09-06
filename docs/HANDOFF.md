@@ -647,7 +647,7 @@ number that killed the DiD.
 
 ## 7. Running things
 
-    pytest -q                      # expect 1437 passed, 22 env-only failures
+    pytest -q                      # expect 1480 passed, 22 env-only failures
     ruff check src tests submission
 
 The 22 are `anndata`, `diptest`, `lifelines` absent locally. That count is the
