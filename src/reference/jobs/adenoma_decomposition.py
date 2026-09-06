@@ -60,6 +60,7 @@ from src.common.paths import RESULTS_DIR
 from src.common.provenance import DEFAULT_SEED
 from src.estimator.kitagawa import (
     CUTPOINTS,
+    attach_intrinsic_ci,
     bootstrap_over_patients,
     decompose_cohort,
 )
@@ -73,7 +74,7 @@ from src.reference.interval_calibration import (
     student_t_interval,
 )
 from src.reference.jobs.coexpression_silencing import AXIS
-from src.schema import KEY_COLUMNS, coerce_results, write_results
+from src.schema import coerce_results, write_results
 
 log = logging.getLogger(__name__)
 
@@ -209,11 +210,27 @@ def denominator_disagreements(companions: dict[str, pd.DataFrame]) -> pd.DataFra
     )
     if merged.empty:
         return merged
-    flipped_sign = np.sign(merged["mean"]) != np.sign(merged[f"mean_{other}"])
     flipped_call = merged["excludes_zero"] != merged[f"excludes_zero_{other}"]
-    disputed = merged.loc[flipped_sign | flipped_call].copy()
+    # A SIGN FLIP ONLY COUNTS WHERE BOTH SIGNS ARE ESTABLISHED. The first
+    # version compared np.sign directly and flagged 46 contrasts on real data,
+    # nearly all of them at `epithelial`, where the compositional term is
+    # EXACTLY 0.0 under the resolved denominator (delta-f is identically zero at
+    # that rung) and about -0.001 under the other. np.sign(0.0) is 0 and
+    # np.sign(-0.001) is -1, so the comparison fired on a difference of one
+    # thousandth between two numbers that are both indistinguishable from zero.
+    #
+    # That is a check firing on noise -- the same defect as the threshold gate
+    # this function was written to REPLACE, reappearing in its replacement. If
+    # a term's interval contains zero its sign is not established, so a flip is
+    # not a finding.
+    both_resolved = merged["excludes_zero"] & merged[f"excludes_zero_{other}"]
+    flipped_sign = both_resolved & (
+        np.sign(merged["mean"]) != np.sign(merged[f"mean_{other}"])
+    )
+    keep = flipped_sign | flipped_call
+    disputed = merged.loc[keep].copy()
     disputed["denominator_dependent_on"] = np.where(
-        flipped_call[flipped_sign | flipped_call], "zero-exclusion", "sign"
+        flipped_call[keep], "zero-exclusion", "sign"
     )
     return disputed.reset_index(drop=True)
 
@@ -331,13 +348,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         "pre_registered": True,
     }
 
-    merged = primary_split.merge(
-        bands.rename(columns={"ci_low": "band_low", "ci_high": "band_high"}),
-        on=[c for c in KEY_COLUMNS if c != "patient_id"], how="left",
-    )
-    merged["ci_low"] = merged.pop("band_low")
-    merged["ci_high"] = merged.pop("band_high")
-    schema_frame = coerce_results(merged)
+    # attach_intrinsic_ci, NOT a hand-rolled merge. `bootstrap_over_patients`
+    # is long-form by term, so merging it directly fans every patient row into
+    # three and carries `term` and `n_boot` into a frozen schema that refuses
+    # them. That function also encodes open_decisions #10's actual choice --
+    # the schema's single ci slot carries the INTRINSIC term's band, because
+    # estimability is defined for intrinsic and not for the other two.
+    schema_frame = coerce_results(attach_intrinsic_ci(primary_split, bands))
     written = write_results(
         schema_frame, "adenoma_decomposition", seed=args.seed,
         results_dir=args.results_dir, allow_dirty=args.allow_dirty,
