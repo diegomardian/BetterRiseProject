@@ -1,0 +1,93 @@
+{
+  "date": "2026-09-05",
+  "utc_timestamp": "2026-09-06T03:56:16+00:00",
+  "git_sha": "9c43f4ff0bb2599e7334cf0d44d54d3835340325",
+  "git_sha_short": "9c43f4f",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "adenoma_specificity_disagreements",
+  "n_rows": 6,
+  "columns": [
+    "granularity_rung",
+    "contrast",
+    "role_of_gene",
+    "role_of_other",
+    "cloglog",
+    "detection",
+    "log2_cp10k",
+    "cloglog_mean",
+    "detection_mean",
+    "log2_cp10k_mean"
+  ],
+  "table_kind": "harness",
+  "source": "2026-09-05_d869bdd/icbi_adenoma.parquet",
+  "specificity_statistics": {
+    "cloglog": {
+      "column": "delta_cloglog",
+      "standing": "load-bearing",
+      "scale": "log fold change (natural log), from detection under a Poisson model",
+      "why": "comparable across genes of any baseline abundance, which the raw detection delta is not"
+    },
+    "log2_cp10k": {
+      "column": "log2_cp10k_ratio",
+      "standing": "corroborating",
+      "scale": "log2 fold change of the per-cell CP10K mean",
+      "why": "independent of the Poisson model, so agreement with cloglog is evidence the reading does not rest on that model"
+    },
+    "detection": {
+      "column": "delta_detect",
+      "standing": "diagnostic only -- NOT read across genes",
+      "scale": "difference of two proportions",
+      "why": "the statistic every earlier table reports, kept for comparability. Its sensitivity varies with baseline abundance, so ranking genes by it ranks them substantially by how detectable they were."
+    }
+  },
+  "load_bearing_statistic": "cloglog",
+  "specificity_panel": [
+    "KRT8",
+    "ACTB",
+    "EPCAM",
+    "CDX2",
+    "MS4A12",
+    "GUCA2A"
+  ],
+  "supersedes": "results/2026-09-05_d869bdd/icbi_adenoma_specificity.parquet, which compared six genes' detection deltas to each other across baseline rates of 0.36 to 0.98, and reported only GUCA2A - X",
+  "cross_gene_rule": "every cross-gene statement is made on the load-bearing log fold-change scale; delta_detect is reported for comparability with earlier tables and is NOT read across genes",
+  "uniform_thinning_null": {
+    "best4": {
+      "verdict": "GRADIENT IS ABUNDANCE",
+      "common_factor": 0.7010000000000006,
+      "variance_explained": 0.6867723933281262,
+      "rank_correlation_with_null": 0.7142857142857143,
+      "baseline_spread": 0.7129696654200282,
+      "ceiling": 0.5,
+      "detail": "one common fold change of 0.701, with no gene-specificity in it, explains 68.7% of the cross-gene spread in detection deltas (rank correlation +0.71). At or above the ceiling: the ordering of the raw deltas is not readable as biology, and any tier structure must be shown on the log fold-change scale instead."
+    },
+    "lineage": {
+      "verdict": "STRUCTURE SURVIVES",
+      "common_factor": 0.6770000000000006,
+      "variance_explained": 0.2700849121527331,
+      "rank_correlation_with_null": 0.6571428571428573,
+      "baseline_spread": 0.6203296119408962,
+      "ceiling": 0.5,
+      "detail": "one common fold change of 0.677, with no gene-specificity in it, explains 27.0% of the cross-gene spread in detection deltas (rank correlation +0.66). Below the ceiling: abundance alone does not reproduce the pattern, so structure beyond a uniform thinning survives. This licenses the ORDERING as more than abundance; it does not license reading the raw delta MAGNITUDES across genes."
+    }
+  },
+  "uniform_thinning_r2_ceiling": 0.5,
+  "statistics_disagree_on": [
+    "CDX2 - GUCA2A",
+    "CDX2 - MS4A12",
+    "ACTB - CDX2",
+    "ACTB - EPCAM",
+    "CDX2 - KRT8",
+    "EPCAM - KRT8"
+  ],
+  "exploratory": true,
+  "pre_registered": false,
+  "what_this_is_not": "A new measurement. The cells were scored once, on the cluster; this re-reads the committed per-patient table on a scale that supports the comparison being made."
+}
