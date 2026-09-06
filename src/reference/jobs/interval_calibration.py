@@ -61,6 +61,7 @@ from src.reference.interval_calibration import (
     expected_false_positive_rate,
     heterogeneity_tau,
     power_curve,
+    two_sample_power_curve,
     width_ratio,
 )
 
@@ -277,6 +278,38 @@ def main(argv: Sequence[str] | None = None) -> int:
         "measure tau ~ 0.2 and the trend\n  across baseline detection puts a "
         "gene as rare as MLH1 nearer 0.4.")
 
+    # -- 5. what the two between-arm contrasts could do ----------------------
+    log.info("\n%s\nTHE TWO-SAMPLE CONTRASTS -- neither is the primary reading\n%s",
+             "=" * 72, "=" * 72)
+    log.info("  Silencing in the methylated arm only, comparison arm under the "
+             "null.\n  Welch t-test, since the arms differ in size and in cells "
+             "per patient.")
+    did = pd.concat([
+        two_sample_power_curve(
+            treated=cohorts["mlh1_methylated"],
+            comparison=cohorts["mlh1_intact_mmrd"],
+            cp10k=MLH1_CP10K_NORMAL, fold_changes=FOLD_CHANGES, taus=TAUS,
+            seed=args.seed, n_trials=args.trials,
+            contrast="methylated_vs_intact_mmrd (PRE-REGISTERED DiD)",
+        ),
+        two_sample_power_curve(
+            treated=cohorts["mlh1_methylated"],
+            comparison=cohorts["mlh1_unmethylated"],
+            cp10k=MLH1_CP10K_NORMAL, fold_changes=FOLD_CHANGES, taus=TAUS,
+            seed=args.seed, n_trials=args.trials,
+            contrast="methylated_vs_unmethylated (CONFOUNDED)",
+        ),
+    ], ignore_index=True)
+    check_power_carries_its_own_calibration(did)
+    log.info("%s", (100 * did.pivot_table(
+        index=["contrast", "n_comparison", "silencing_pct"],
+        columns="tau", values="power")).round(1).to_string())
+    log.info(
+        "\n  THIS IS THE QUANTITATIVE FORM OF 'THE DiD IS NOT AVAILABLE'. At "
+        "75%%\n  silencing the pre-registered control arm is close to a coin "
+        "flip. Saying\n  'four patients is too few' is an assertion; this is "
+        "the measurement that\n  settles whether to run the design.")
+
     meta = {
         "purpose": (
             "calibrate the interval the MLH1 positive control will report, "
@@ -330,7 +363,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     for frame, name in ((tau_table, "interval_heterogeneity"),
                         (calibration, "interval_calibration"),
-                        (power, "mlh1_power")):
+                        (power, "mlh1_power"),
+                        (did, "mlh1_two_sample_power")):
         written = write_versioned_table(
             frame, name, seed=args.seed, results_dir=args.results_dir,
             allow_dirty=args.allow_dirty, extra_meta=meta,

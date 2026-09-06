@@ -472,6 +472,73 @@ def power_curve(
     return pd.DataFrame(rows)
 
 
+def two_sample_power_curve(
+    *, treated: tuple[np.ndarray, np.ndarray],
+    comparison: tuple[np.ndarray, np.ndarray], cp10k: float,
+    fold_changes: tuple[float, ...], taus: tuple[float, ...],
+    seed: int, n_trials: int = DEFAULT_N_TRIALS, contrast: str = "",
+) -> pd.DataFrame:
+    """Power of a between-arm contrast, on a Welch t-test.
+
+    THE QUANTITATIVE FORM OF "THE DESIGN IS NOT AVAILABLE". A
+    difference-in-differences was pre-registered against a mechanistic negative
+    control arm, and that arm is four patients. Saying "four is too few" is an
+    assertion; saying "at 75% silencing it detects the effect 55% of the time"
+    is a measurement, and it is the one that settles whether to run the design.
+
+    ``treated`` and ``comparison`` are each ``(n_cells, depth)`` for their arm.
+    Silencing is applied to the treated arm only; the comparison arm is
+    generated under the null, which is what the design assumes about it.
+
+    Welch rather than Student because the arms differ in size and in cell count
+    per patient, so their variances differ by construction. The false-positive
+    rate is measured in the same call for the same reason as in
+    ``power_curve``: a two-sample power figure beside a one-sample calibration
+    would be two claims about different tests.
+    """
+    t_cells, t_depth = treated
+    c_cells, c_depth = comparison
+    rows = []
+    for tau in taus:
+        rates = {}
+        for fold_change in fold_changes:
+            rng = np.random.default_rng(seed)
+            hits = 0
+            for _ in range(n_trials):
+                a = simulate_deltas(
+                    n_cells=t_cells, depth=t_depth, cp10k=cp10k,
+                    fold_change=fold_change, tau=tau, rng=rng,
+                )
+                b = simulate_deltas(
+                    n_cells=c_cells, depth=c_depth, cp10k=cp10k,
+                    fold_change=1.0, tau=tau, rng=rng,
+                )
+                hits += bool(
+                    stats.ttest_ind(a, b, equal_var=False).pvalue < NOMINAL_ALPHA
+                )
+            rates[fold_change] = hits / n_trials
+
+        fpr = rates.get(1.0, float("nan"))
+        for fold_change, rate in rates.items():
+            rows.append({
+                "contrast": contrast,
+                "n_treated": int(len(t_cells)),
+                "n_comparison": int(len(c_cells)),
+                "cp10k_normal": float(cp10k),
+                "tau": float(tau),
+                "method": "welch_t",
+                "fold_change": float(fold_change),
+                "silencing_pct": float(100 * (1 - fold_change)),
+                "power": rate,
+                "false_positive_rate": fpr,
+                "calibration_verdict": (
+                    calibration_verdict(fpr) if np.isfinite(fpr) else "UNMEASURED"
+                ),
+                "n_trials": int(n_trials),
+            })
+    return pd.DataFrame(rows)
+
+
 def check_power_carries_its_own_calibration(frame: pd.DataFrame) -> None:
     """Refuse a power table whose power and calibration are from different runs.
 
@@ -485,18 +552,24 @@ def check_power_carries_its_own_calibration(frame: pd.DataFrame) -> None:
     A frame that passes this is not thereby correct; it is merely not
     self-inconsistent in the one way that has already happened.
     """
-    required = {"cohort", "tau", "cp10k_normal", "method",
-                "power", "false_positive_rate"}
+    # One-sample curves key on `cohort`, two-sample ones on `contrast`. Either
+    # names the design the power figure is about; requiring both would make the
+    # guard inapplicable to half the tables it is for.
+    label = next((c for c in ("cohort", "contrast") if c in frame.columns), None)
+    required = {"tau", "cp10k_normal", "method", "power", "false_positive_rate"}
     missing = required - set(frame.columns)
+    if label is None:
+        missing = missing | {"cohort or contrast"}
     if missing:
         raise CalibrationError(
-            f"a power table must carry {sorted(required)}; missing "
-            f"{sorted(missing)}. A power number without the false-positive rate "
-            f"of the interval that produced it is not a claim about a design."
+            f"a power table must carry {sorted(required | {'cohort or contrast'})}; "
+            f"missing {sorted(missing)}. A power number without the "
+            f"false-positive rate of the interval that produced it is not a "
+            f"claim about a design."
         )
     if frame.empty:
         return
-    grouped = frame.groupby(["cohort", "tau", "cp10k_normal"], dropna=False)
+    grouped = frame.groupby([label, "tau", "cp10k_normal"], dropna=False)
     for key, block in grouped:
         if block["method"].nunique() > 1:
             raise CalibrationError(
