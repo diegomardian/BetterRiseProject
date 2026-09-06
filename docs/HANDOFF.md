@@ -33,6 +33,14 @@ correction, its stated evidence did not. **`docs/NEXT_AVENUES.md` reviews what i
 outrank a data hunt: the decomposition may be identifiable on adenoma, and the
 instrument has never had a positive control though one is sitting in the atlas.
 
+**The instrument now has a positive control, pre-registered and waiting on one
+`qsub` (§6g)** — the first test of this project's sensitivity to a silencing
+event known from an assay rather than from expression. And the statistic every
+reading ends in has been calibrated for the first time: **the percentile
+bootstrap over patients is 0.82× the width it claims at n=10 and 0.53× at n=4,
+by a closed form with no data in it** (§3a). Nothing is retracted; `best4`
+contrasts are ~7% tests rather than 5% ones.
+
 Two papers exist; the WMHS one is a methods paper about validation statistics
 that cannot fail, and it is the near deliverable — **deadline 15 September
 2026**.
@@ -101,9 +109,16 @@ a freshly downloaded 3.1 GB cohort against the Windows originals: 11 bit-identic
 
 ## 3. The recurring defect, which is also the paper's thesis
 
-**A check that cannot fail reports success.** It has now been found **fourteen**
+**A check that cannot fail reports success.** It has now been found **sixteen**
 times, including six times inside guards written to prevent it, and twice
 inside guards written *during* this work. Assume the next one exists.
+
+**The fifteenth and sixteenth are not guards at all, and that is the news.**
+They are an *interval* and a *power calculation* — the two places a project
+states how sure it is. Same shape, same silence: an interval narrower than it
+claims turns noise into a finding exactly as a guard that cannot fail turns
+absence into a green light, and neither raises. See §3a; the measurement is
+`results/2026-09-06_a0483ae/`.
 
 The fourteenth is the most consequential yet, because it sat under the project's
 **only positive result**. `specificity()` compared six genes' detection deltas to
@@ -143,15 +158,85 @@ The five found on 2026-09-05, all in code written that day:
 | **invariant 1** | `None` is not `0.0` | validating writer used by 1 of 26 call sites |
 | **invariant 2** | targets absent from signature | classifier with no reject option: a positional index read as "symbol" |
 | **gene specificity** | one gene's detection delta vs another's | **a proportion's sensitivity scales with its baseline; the fixture had no baselines in it** |
+| **the interval itself** | percentile bootstrap over patients | **0.82x the correct width at n=10, 0.53x at n=4 — a normal quantile where a t quantile is needed** |
+| **the power calculation** | simulated power at n=10 | **only binomial noise in it, so it could not come out underpowered from patient heterogeneity** |
 
 The last four were found this week. The invariant-2 guard has now been fixed
 **three times**; each fix covered the case just found, and the next was always
 the input nobody had loaded yet.
 
 **The rule the repo works to:** a guard needs a committed input that forces it to
-fail. `tests/test_checks_can_fail.py` holds those — 26 of them, 28 with
+fail. `tests/test_checks_can_fail.py` holds those — 35 of them, 37 with
 parametrisation. If you add a
 guard, add its failing input. If you cannot construct one, that is the finding.
+
+---
+
+## 3a. The interval is 0.82x the width it claims, and that is arithmetic
+
+**Every reading in this project ends in a percentile bootstrap over patients** —
+`premise_holds`, `summarise`, `specificity`, `control_log2_interval`, all at
+`N_BOOTSTRAP = 10_000`. At n=44 that is fine. Below about n=20 it is not, and
+**the mechanism is closed form with no data in it.**
+
+The bootstrap distribution of a mean has standard deviation `s·sqrt((n−1)/n)` —
+the plug-in, divide-by-n one. So the percentile interval is approximately
+
+    mean ± z·s·sqrt((n−1)/n)/√n     against the correct     mean ± t(n−1)·s/√n
+
+and the ratio is **`z·sqrt((n−1)/n)/t(n−1)`: a function of n alone.** Two errors
+running the same way — a normal quantile where a t quantile is needed, and a
+biased standard deviation where an unbiased one is needed.
+
+| n | width vs correct | false positives, closed form | measured |
+|---|---|---|---|
+| 4 | 0.53× | 18.8% | 19.1% |
+| 10 | 0.82× | 9.6% | 10.7% |
+| 19 | 0.91× | 7.3% | 8.3% |
+| 20 | 0.91× | 7.1% | 7.3% |
+| 44 | 0.96× | 5.9% | 6.2% |
+
+Nominal is 5%. **Simulation and arithmetic agree to within 1.1pp at every n, and
+the excess is positive everywhere** — that gap is the skew a normal
+approximation drops, so the closed form is a *floor* and the two routes describe
+one phenomenon. It is not about MLH1 being rare, not about `cloglog`, and not
+about this project: it is a property of the estimator at that n.
+
+**Neither sophisticated repair works.** BCa is *worse* (17 of 20 cells
+miscalibrated against the percentile's 14) because its bias correction and
+jackknife acceleration are estimated from the same ten numbers. Raising
+`N_BOOTSTRAP` does nothing — the error is not Monte Carlo error, so more
+replicates estimate the wrong thing more precisely. **The plain Student-t
+interval is calibrated at every n measured**: 0 of 20 cells, worst 5.9%.
+
+`src/reference/interval_calibration.py` is the module;
+`results/2026-09-06_a0483ae/` is the measurement.
+
+### What it does to the committed tables — and what is NOT being restated
+
+**Nothing is retracted and 138 tables are not being re-run.**
+
+- **The adenoma `lineage` reading is n=44 → 5.9%.** Fine, and its margins are
+  large: all eight cross-block contrasts exclude zero with room to spare.
+- **The `best4` reading is n=20 → 7.1%.** A recorded caveat, not a retraction —
+  and note it is the rung where the thinning null already fires
+  (GRADIENT IS ABUNDANCE, 68.7% variance explained), so the block structure
+  there was already resting on the load-bearing scale alone. **Quote `best4`
+  contrasts as ~7% tests, not 5% ones.**
+- **The 13-study meta-analysis is unaffected.** `src/harness/meta.py` is
+  DerSimonian–Laird with a Higgins–Thompson prediction interval; it is not a
+  percentile bootstrap over patients.
+- **`premise_holds` is the one to think about, and it goes the wrong way.** It is
+  an *equivalence* test — it asks whether the interval fits *inside* a tolerance
+  — so a **narrower** interval fits more easily and the check is
+  **anti-conservative** at small n. A HOLDS at n=10 is weaker than the same word
+  at n=44. The premise results that matter (13 studies, k=11) are UNRESOLVED
+  anyway, and a check biased toward HOLDS returning UNRESOLVED is a stronger
+  negative, not a weaker one.
+
+**The rule going forward:** any new reading below about n=20 reports the
+Student-t interval and says so. Existing tables keep their numbers and gain this
+paragraph.
 
 ---
 
@@ -239,11 +324,17 @@ not fail to join, they join wrongly. `src/bulk/ingest_cluster.sh` pins it.
 
 ## 6. What to do next
 
-**Read this first: there is nothing half-finished to resume.** Both analysis
-paths ran to completion and terminated in pre-committed negative results (§6a,
-§6b). Every table is committed and clean-stamped; the repo has zero dirty
-tables and no uncommitted producers. The two open items are a **write-up**
-(§6e) and a **data hunt** (§6d).
+**Read this first.** Both analysis paths ran to completion and terminated in
+pre-committed negative results (§6a, §6b). Every table is committed and
+clean-stamped; the repo has zero dirty tables and no uncommitted producers.
+
+**One thing is now waiting rather than finished: the MLH1 positive control
+(§6g).** Its code, pre-registration and calibration are committed and it needs a
+single `qsub` against the cluster's atlas. It is the highest-leverage item here
+because it is the first test of the instrument this project has ever had, and
+both of its outcomes change how the write-up reads.
+
+The other open items are a **write-up** (§6f) and a **data hunt** (§6e).
 
 **The WMHS paper is the outstanding deliverable. Deadline 15 September 2026,
 AoE.** As of 2026-09-05 it carries the week's findings: `allow_dirty` and
@@ -411,6 +502,15 @@ change verdict with the statistic and
 contains zero on **all three** statistics at **both** rungs, so the
 "no gene-specific claim" conclusion does not depend on the choice.
 
+**The `best4` numbers are ~7% tests, not 5% ones.** Everything in this section
+rests on the percentile bootstrap over patients, and that interval is 0.91× the
+width it claims at n=20 — a false-positive rate of 7.1%, by the closed form in
+§3a. At `lineage` (n=44) it is 5.9% and the margins are large, so the two-block
+reading is unaffected. At `best4` (n=20) it is a **recorded caveat, not a
+retraction**: the committed numbers stand, and a contrast quoted from that rung
+should be quoted as a 7% test. Note this compounds with the fact that `best4` is
+also where the thinning null fires, below.
+
 **The thinning null fires at one rung and not the other**, which is why it is in
 the run rather than done once by hand. Fitting ONE common fold change across all
 six genes — the most gene-unspecific model there is:
@@ -449,14 +549,18 @@ across the panel and the bracket runs −0.05 to −0.63, nothing near −1. The
 project's original method may work on this substrate. Same run, cells already
 loaded.
 
-**The instrument has never had a positive control, and one is available.** The
-atlas carries `MLH1_promoter_methylation_status` on 240,630 of Pelka's cells,
-patient-level, from an assay rather than from expression. MLH1 silencing in
-methylated patients is a known event. Asking whether the detection statistic can
-see it tests **the instrument, not the biology** — and every null this project
-has produced (UNRESOLVED ×3, UNRESOLVED at 13 studies, not-specific on adenoma)
-rests on an instrument whose sensitivity to real silencing has never been shown.
-If it cannot see MLH1, those nulls are uninformative rather than evidence.
+**The instrument has never had a positive control. One is now built,
+pre-registered, and waiting on a cluster run.** The atlas carries
+`MLH1_promoter_methylation_status` on 240,630 of Pelka's cells, patient-level,
+from an assay rather than from expression. MLH1 silencing in methylated patients
+is a known event. Asking whether the detection statistic can see it tests **the
+instrument, not the biology** — and every null this project has produced
+(UNRESOLVED ×3, UNRESOLVED at 13 studies, not-specific on adenoma) rests on an
+instrument whose sensitivity to real silencing has never been shown. If it
+cannot see MLH1, those nulls are uninformative rather than evidence.
+
+**See §6g.** The design is fixed in `docs/prereg_g2_mlh1_within_stratum.md` and
+the calibration it depends on is committed. What is left is one `qsub`.
 
 ## 6e. Different data, not more of it — still true for survivorship
 
@@ -503,6 +607,42 @@ its tables: every figure in the third-guard paragraph is re-derived from
 string in the `.tex`. All eleven assertions are mutation-tested. **If you re-run
 that job, this test tells you exactly what to edit.**
 
+## 6g. The MLH1 positive control — BUILT and pre-registered, needs one qsub
+
+**This is the only thing in this file that is half-finished, and it is finished
+on the laptop side.** The code, the pre-registration and the calibration it
+depends on are committed; what is missing is the 30 GB atlas, which is
+cluster-only.
+
+    qsub src/reference/jobs/mlh1_positive_control.sh
+
+The wrapper refuses to run without `results/*/interval_calibration.parquet`
+committed, because this reading reports a **Student-t** interval rather than the
+project's usual percentile bootstrap (§3a) and choosing the interval after
+seeing the result would make it a free parameter.
+
+**Read `docs/prereg_g2_mlh1_within_stratum.md` §5 before reading any number it
+produces.** Five branches, each with its pre-committed consequence, taken by
+`instrument_verdict()` against a table rather than by a reader against a
+paragraph. In short:
+
+| | |
+|---|---|
+| **the design** | does MLH1 fall in the mature cells of the 10 patients whose promoters are methylated |
+| **not the design** | the DiD from `prereg_g2_mlh1.md`. Its control arm is n=4, on two independent pipelines — a property of the cohort |
+| **powered for** | ≥75% silencing (99.3%). **Marginal at 50%** (73.7%) |
+| **if it fires** | the project's nulls become evidence of absence — without a mechanistic control behind them |
+| **if it does not** | the nulls stay uninformative, and that reframes the write-up |
+
+**It can reframe the project, so it needs the team, not just W1.**
+
+*Two numbers from the feasibility work that are worth carrying even if the run
+never happens.* The atlas's per-cell methylation annotation and the week-0
+clinical strata **agree exactly** on all 62 patients (22 against 22, no
+crossings) — two independent derivations of the arm the reading is about. And
+only **29 of 62** patients survive the pipeline's own filters, which is the
+number that killed the DiD.
+
 ---
 
 ## 7. Running things
@@ -527,12 +667,15 @@ unset `BRP_DATA_DIR`, and missing inputs *before* the compute rather than after:
          src/reference/jobs/icbi_coexpression.sh         # validate, then:
     qsub -v BRP_ICBI_STUDY=all src/reference/jobs/icbi_coexpression.sh
 
-**All of these have already been run.** They are here for re-derivation, not
+    qsub src/reference/jobs/mlh1_positive_control.sh      # §6g -- NOT yet run
+
+**All of these have already been run, except the last.** They are here for re-derivation, not
 because anything is pending.
 
 Local-only, no cluster needed — it reads committed tables:
 
     python -m src.reference.jobs.adenoma_specificity      # the corrected path C read
+    python -m src.reference.jobs.interval_calibration     # §3a, ~6 min
     python -m src.reference.jobs.coexpression_meta        # newest ICBI run
     python -m src.reference.jobs.coexpression_meta \
         --deltas results/2026-09-04_975cf5c/coexpression_silencing.parquet

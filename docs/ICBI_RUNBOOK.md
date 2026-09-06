@@ -149,7 +149,26 @@ qsub -v BRP_ICBI_STUDY=all src/reference/jobs/icbi_coexpression.sh
 
 # 4. local, over committed tables. No cluster.
 python -m src.reference.jobs.coexpression_meta
+
+# 5. the MLH1 positive control. Calibration FIRST, and commit it -- the
+#    wrapper refuses without results/*/interval_calibration.parquet, because
+#    this reading departs from the project's usual interval and the reason
+#    has to exist before the numbers do.
+python -m src.reference.jobs.interval_calibration     # laptop, ~6 min
+git add results/<dir> && git commit
+qsub src/reference/jobs/mlh1_positive_control.sh
 ```
+
+**Read `docs/prereg_g2_mlh1_within_stratum.md` §5 before reading anything step 5
+produces.** Its five branches and their consequences are fixed there, and
+`instrument_verdict()` takes the branch against a table rather than leaving it
+to a reader.
+
+*Why step 5 reports a Student-t interval and everything above it does not.* The
+percentile bootstrap over patients is **0.82× the width it claims at n=10**, by
+a closed form with no data in it — `docs/HANDOFF.md` §3a. The MLH1 arm is n=10.
+Nothing above is retracted; `best4` (n=20) contrasts are ~7% tests rather than
+5% ones.
 
 The validation on Pelka is mechanical, not a matter of judgement: it reads
 `results/2026-09-04_975cf5c/`, requires the same premise verdict word, an

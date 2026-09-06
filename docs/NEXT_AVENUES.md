@@ -137,21 +137,58 @@ the raw detection scale is not one the statistic supports (`docs/HANDOFF.md`
 exactly the way it exists to resolve. That correction is done:
 `src/reference/detection_scale.py`.
 
-**Two design corrections to the reading itself.** As phrased above it is a
-BETWEEN-patient comparison — methylated patients against non-methylated ones —
-and everything else in this project is patient-paired. Make it a
-difference-in-differences instead: the within-patient tumour-versus-own-normal
-contrast, compared across strata. And size the **mature** subset at `lineage`
-and `best4` before anything else; the all-epithelial counts are comfortable
-(23,256 meth / 54,623 no_meth cells over 21 and 39 patients, against ~2,200 per
-arm needed for a 50% effect) but carcinoma's median at `best4` was **3 mature
-cells**, and that is the binding constraint, not the epithelial total.
+### DONE, 2026-09-06 — built, pre-registered, and the DiD did not survive sizing
 
-*Provenance of those figures:* computed from the cached obs
-(`data/interim/icbi_obs.parquet`) and the 0.039 CP10K in
-`docs/prereg_g2_mlh1.md`, **not from a committed table**. They are a sizing
-argument, and the feasibility check that commits them is step one of the
-reading.
+**`docs/prereg_g2_mlh1_within_stratum.md` is the design;
+`src/reference/jobs/mlh1_positive_control.sh` is the run.** What is left is one
+`qsub` against the cluster's atlas.
+
+**The difference-in-differences recommended above is not available, and the
+feasibility check is why.** It was the right correction — a between-patient
+comparison is not what the rest of this project does — but only **29 of 62**
+Pelka patients survive the pipeline's own filters, and the arms at `lineage` are:
+
+| stratum | patients scored | median mature cells/arm |
+|---|---|---|
+| `mlh1_methylated` | **10** | 262 |
+| `mlh1_intact_mmrd` | **4** | 127 |
+| `mmr_proficient` | 14 | 182 |
+
+**Four is the number the original prereg also reached after depth matching**, by
+the GSE178341 route rather than this one. Two independent pipelines agreeing on
+four makes it a property of the cohort, not of anybody's filters. And the
+dilution cannot be fixed by stratifying, because the stratum you would stratify
+into has four patients in it.
+
+Measured rather than asserted (`results/2026-09-06_a0483ae/mlh1_two_sample_power.parquet`,
+Welch, τ=0.2): at **75%** silencing the pre-registered DiD detects it **60.0%**
+of the time. It is close to a coin flip at the effect size it exists to catch.
+
+**So the reading is within-stratum, and it is powered:** 10 methylated patients,
+~262 mature cells each, MLH1 at ~3.2% detection → about 8 positive cells per
+patient per arm. **99.3%** power at 75% silencing, **73.7%** at 50%. The n=19
+unmethylated arm is reported as secondary and CONFOUNDED (it mixes methylation
+with MSI status); the n=4 arm is reported as UNDERPOWERED and carries no verdict
+in either direction.
+
+**Two things the sizing turned up that were not on anyone's list.**
+
+*The atlas annotation and the week-0 clinical strata agree exactly* — 22 `meth`
+against 22 `mlh1_methylated` on all 62 patients, no crossings. Two independent
+derivations of the arm the reading is about, and a disagreement would have meant
+the reading was not about the arm the prereg named.
+
+*The interval was wrong before the gene was.* See `docs/HANDOFF.md` §3a: the
+percentile bootstrap this project uses everywhere is **0.82× the width it claims
+at n=10 and 0.53× at n=4**, by a closed form containing no data. The MLH1
+reading reports a Student-t interval for that reason, and the measurement was
+committed before the design was written so that the choice could not be a free
+parameter.
+
+*Provenance:* the earlier sizing figures in this section (23,256 meth / 54,623
+no_meth cells, ~2,200 per arm for a 50% effect) came from the cached obs and
+were **not from a committed table**. They are superseded by the numbers above,
+which are.
 
 ---
 
@@ -196,9 +233,10 @@ Cheap: the per-study estimates are already committed.
    (`results/2026-09-05_9c43f4f/`). It had to come first because MLH1 lands at
    the far end of the abundance range and would have been read against this
    panel.
-1. **The MLH1 positive control.** It is the cheapest item here and the only one
-   that can change how every previous result is read. Take the two design
-   corrections above with it.
+1. ~~**The MLH1 positive control.**~~ **BUILT AND PRE-REGISTERED**, 2026-09-06.
+   Needs `qsub src/reference/jobs/mlh1_positive_control.sh` and nothing else.
+   Still the only item here that can change how every previous result is read.
+   The DiD correction recommended above did not survive sizing — see above.
 2. **The decomposition at `best4` on Chen_2021** (1a). Same run, and the algebra
    has already been checked to not collapse.
 3. **Zheng's gradient** (1c), descriptive, alongside.
