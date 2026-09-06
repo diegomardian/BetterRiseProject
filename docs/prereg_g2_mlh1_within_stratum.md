@@ -8,8 +8,10 @@ whose difference-in-differences is not available on this data (§2).
 > directional prediction, the analysis that tests it, the interval that analysis
 > will report, and what would falsify it — **before any MLH1 expression has been
 > read on this pipeline**. The calibration and power tables it cites were
-> committed first, in `cf3c76f`, for the same reason. Ratify it, amend it, or
-> reject it; do not edit the prediction after results exist.
+> committed first — `cf3c76f`, superseded by `9f2668b` which adds the
+> two-sample table and whose three shared tables are frame-identical — for the
+> same reason. Ratify it, amend it, or reject it; do not edit the prediction
+> after results exist.
 
 ---
 
@@ -108,7 +110,7 @@ arm is uninformative.
 ## 4 · The interval, chosen by measurement and fixed here
 
 **This reading does not use the interval the rest of the repository uses.**
-Justified before the fact by `results/2026-09-06_7685baa/interval_calibration.parquet`.
+Justified before the fact by `results/2026-09-06_a0483ae/interval_calibration.parquet`.
 
 The percentile bootstrap over patients — used by `premise_holds`, `summarise`,
 `specificity` and `control_log2_interval` — is **narrower than it claims at
@@ -176,7 +178,7 @@ premise verdict in the project; the caveat travels in the sidecar.
 
 ## 6 · Power, on the interval that will actually be reported
 
-From `results/2026-09-06_7685baa/mlh1_power.parquet`. Student-t, n=10, the real
+From `results/2026-09-06_a0483ae/mlh1_power.parquet`. Student-t, n=10, the real
 per-patient cell counts and depths, MLH1 at 0.039 CP10K → ~3.2% detection →
 about **8 positive cells per patient per arm**.
 
@@ -188,7 +190,7 @@ about **8 positive cells per patient per arm**.
 | 90% | 100% | 99.9% | 99.9% |
 
 **τ is between-patient heterogeneity and it is measured, not assumed.**
-`results/2026-09-06_7685baa/interval_heterogeneity.parquet`, on Pelka, net of
+`results/2026-09-06_a0483ae/interval_heterogeneity.parquet`, on Pelka, net of
 binomial sampling: ACTB 0.203, KRT8 0.197, EPCAM 0.289, CDX2 0.496 — and τ
 **rises as baseline detection falls**. MLH1 at ~0.03 detection sits off the
 bottom of that range, so 0.4 is the honest pessimistic end and **τ = 0 is not a
@@ -217,14 +219,18 @@ that sentence attached.
 
 Neither is the primary reading. Measured on the same generator, Welch t-test:
 
-| contrast | 50% | 75% | 90% |
-|---|---|---|---|
-| vs `mlh1_intact_mmrd` (n=4) — **the pre-registered DiD** | 22% | 55% | 82% |
-| vs `mlh1_unmethylated` (n=19) — confounded | 59% | 97% | ~100% |
+From `results/2026-09-06_a0483ae/mlh1_two_sample_power.parquet`, at τ = 0.2:
+
+| contrast | H₀ | 50% | 75% | 90% |
+|---|---|---|---|---|
+| vs `mlh1_intact_mmrd` (n=4) — **the pre-registered DiD** | 4.3% | 23.1% | **60.0%** | 84.7% |
+| vs `mlh1_unmethylated` (n=19) — confounded | 4.7% | 60.4% | **96.9%** | 99.9% |
 
 **This is the quantitative form of "the DiD is not available."** At 75%
-silencing the pre-registered control arm is a coin flip. The confounded arm is
-not — which is why §3 reports it as secondary rather than discarding it.
+silencing the pre-registered control arm is close to a coin flip. The confounded
+arm is not — which is why §3 reports it as secondary rather than discarding it.
+"Four patients is too few" was an assertion; this is the measurement that
+settles it, and it was made on the same generator as everything else here.
 
 ---
 
