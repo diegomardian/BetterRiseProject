@@ -634,6 +634,13 @@ paragraph. In short:
 | **if it fires** | the project's nulls become evidence of absence — without a mechanistic control behind them |
 | **if it does not** | the nulls stay uninformative, and that reframes the write-up |
 
+**After this: avenue 1a** — the decomposition at `best4` on Chen_2021, the
+project's ORIGINAL estimand. Re-checked 2026-09-06 and it survives: the
+algebraic collapse does not fire on adenoma, and estimability at `best4` is
+20/20 for GUCA2A and 19/20 for MS4A12, better than at `lineage`. It needs the
+adenoma job to emit `frac_mature_*` (no committed table carries them) plus a
+cluster run. `docs/NEXT_AVENUES.md` §1a has the re-check.
+
 **RATIFIED 2026-09-06**, as a blanket delegation from Bode rather than a
 four-person review — recorded that way in the prereg's header because the
 difference is real. What the timestamp has to support is that nothing in the
