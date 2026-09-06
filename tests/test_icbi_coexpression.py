@@ -388,3 +388,71 @@ def test_the_adenoma_run_writes_to_its_own_table_name():
 
     source = inspect.getsource(mod.main)
     assert 'stem = "icbi_coexpression" if args.arms == "carcinoma"' in source
+
+
+def test_summarise_runs_per_rung_not_across_them():
+    """The first adenoma run reported n_patients = 64, which is 44 at lineage
+    plus 20 at best4 -- two different populations averaged into one row.
+
+    `summarise` groups by (study, gene, statistic) and knows nothing about
+    rungs, so calling it once on a concatenated frame silently pools them.
+    """
+    import inspect
+
+    from src.reference.jobs import icbi_coexpression as mod
+
+    source = inspect.getsource(mod.main)
+    assert 'deltas.groupby("granularity_rung")' in source, (
+        "summarise is being called across rungs again"
+    )
+
+
+def test_specificity_separates_a_targeted_fall_from_a_programme_wide_one():
+    """The discriminating statistic, on data where the answer is constructed.
+
+    Case A: GUCA2A falls further than the identity marker -> specific.
+    Case B: both fall together -> the mature LABEL is admitting less-mature
+    cells and no gene-specific claim follows.
+    """
+    from src.reference.jobs.icbi_coexpression import specificity
+
+    rng = np.random.default_rng(4)
+
+    def frame(guca2a: float, ms4a12: float, n: int = 30) -> pd.DataFrame:
+        rows = []
+        for i in range(n):
+            for gene, delta in (("GUCA2A", guca2a), ("MS4A12", ms4a12),
+                                ("ACTB", -0.02)):
+                rows.append({
+                    "granularity_rung": "lineage", "patient_id": f"p{i}",
+                    "gene": gene, "delta_detect": delta + rng.normal(0, 0.03),
+                })
+        return pd.DataFrame(rows)
+
+    specific = specificity(frame(-0.40, -0.10)).set_index("contrast")
+    assert specific.loc["GUCA2A - MS4A12", "excludes_zero"]
+    assert specific.loc["GUCA2A - MS4A12", "mean_difference"] < 0
+
+    programme = specificity(frame(-0.17, -0.165)).set_index("contrast")
+    assert not programme.loc["GUCA2A - MS4A12", "excludes_zero"], (
+        "a programme-wide fall is being reported as gene-specific"
+    )
+    # Both cases must still show the target beating housekeeping.
+    for got in (specific, programme):
+        assert got.loc["GUCA2A - ACTB", "excludes_zero"]
+
+
+def test_specificity_labels_the_role_of_the_comparator():
+    """A control and an identity marker mean opposite things here, so the row
+    has to say which it is."""
+    from src.reference.jobs.icbi_coexpression import specificity
+
+    rng = np.random.default_rng(5)
+    rows = []
+    for i in range(20):
+        for gene in ("GUCA2A", "MS4A12", "ACTB", "KRT8", "CDX2"):
+            rows.append({"granularity_rung": "lineage", "patient_id": f"p{i}",
+                         "gene": gene, "delta_detect": rng.normal(-0.1, 0.05)})
+    got = specificity(pd.DataFrame(rows)).set_index("contrast")
+    assert got.loc["GUCA2A - ACTB", "role_of_other"] == "control"
+    assert got.loc["GUCA2A - MS4A12", "role_of_other"] == "identity"

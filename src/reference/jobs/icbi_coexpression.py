@@ -398,6 +398,51 @@ def control_log2_interval(
     return float(values.mean()), lo, hi
 
 
+def specificity(deltas: pd.DataFrame, *, seed: int = DEFAULT_SEED) -> pd.DataFrame:
+    """Is the target's fall SPECIFIC to it, or the whole mature programme?
+
+    The premise check compares housekeeping between arms, which asks whether
+    these are still cells. It cannot ask whether they are still equally MATURE
+    cells, because ACTB and KRT8 do not vary with maturity -- a control that
+    cannot move with the thing in question cannot certify it.
+
+    So this pairs the target against an identity marker WITHIN each patient.
+    `MS4A12` is a mature-colonocyte marker with no silencing story attached to
+    it. If GUCA2A were specifically silenced it should fall further than
+    MS4A12; if the mature LABEL is admitting less-mature cells in the diseased
+    arm, both fall together and the difference is zero.
+
+    This is the week-0 falsification rule in a second place: when the target and
+    the identity markers return the same answer, no gene-specific claim follows.
+    """
+    rows = []
+    rng = np.random.default_rng(seed)
+    for rung, block in deltas.groupby("granularity_rung", observed=True):
+        wide = block.pivot_table(
+            index="patient_id", columns="gene", values="delta_detect"
+        )
+        if "GUCA2A" not in wide.columns:
+            continue
+        for other in ("MS4A12", "CDX2", "ACTB", "KRT8", "EPCAM"):
+            if other not in wide.columns:
+                continue
+            paired = (wide["GUCA2A"] - wide[other]).dropna().to_numpy(dtype=float)
+            if paired.size < 3:
+                continue
+            draws = rng.choice(
+                paired, size=(N_BOOTSTRAP, paired.size), replace=True
+            ).mean(axis=1)
+            lo, hi = (float(x) for x in np.percentile(draws, [2.5, 97.5]))
+            rows.append({
+                "granularity_rung": rung, "contrast": f"GUCA2A - {other}",
+                "role_of_other": GENE_ROLES.get(other, "?"),
+                "n_patients": int(paired.size), "mean_difference": float(paired.mean()),
+                "ci_low": lo, "ci_high": hi,
+                "excludes_zero": bool(lo > 0 or hi < 0),
+            })
+    return pd.DataFrame(rows)
+
+
 def verdict_word(reading: str) -> str:
     """The state at the front of a premise reading: UNRESOLVED / REFUSED / ...
 
@@ -572,7 +617,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 3
 
     deltas = pd.concat(frames, ignore_index=True)
-    summary = summarise(deltas, seed=args.seed)
+    # SUMMARISE PER RUNG. `summarise` groups by (study, gene, statistic) and
+    # knows nothing about rungs, so concatenating two rungs and calling it once
+    # averages two different populations into one row -- the first adenoma run
+    # reported n_patients = 64, which is 44 at lineage plus 20 at best4, and
+    # those are not the same 64 patients or the same cells.
+    summary = pd.concat(
+        [summarise(block, seed=args.seed).assign(granularity_rung=rung)
+         for rung, block in deltas.groupby("granularity_rung")],
+        ignore_index=True,
+    )
 
     validation = {}
     if VALIDATION["study_id"] in set(deltas["study_id"]):
@@ -589,7 +643,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         log.info("%s", "=" * 68)
 
     stem = "icbi_coexpression" if args.arms == "carcinoma" else f"icbi_{args.arms}"
-    for frame, name in ((deltas, stem), (summary, f"{stem}_summary")):
+    contrasts = specificity(deltas, seed=args.seed)
+    if not contrasts.empty:
+        log.info("\n%s\nIS THE TARGET'S FALL SPECIFIC TO IT?\n%s", "=" * 72, "=" * 72)
+        log.info("%s", contrasts.to_string(index=False))
+        log.info(
+            "\nGUCA2A minus a CONTROL excluding zero says it falls more than "
+            "housekeeping.\nGUCA2A minus an IDENTITY marker containing zero says "
+            "it is indistinguishable\nfrom the mature programme as a whole -- and "
+            "no gene-specific claim follows."
+        )
+    for frame, name in ((deltas, stem), (summary, f"{stem}_summary"),
+                        (contrasts, f"{stem}_specificity")):
+        if frame.empty:
+            continue
         path = write_versioned_table(
             frame, name, seed=args.seed,
             results_dir=args.results_dir, allow_dirty=args.allow_dirty,
