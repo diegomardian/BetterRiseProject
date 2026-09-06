@@ -134,3 +134,76 @@ def test_only_the_two_arms_map_and_healthy_normal_does_not():
 
 def test_the_counts_layer_constant_is_not_X():
     assert COUNTS_LAYER == "layers/counts"
+
+
+# ---------------------------------------------------------------------------
+# The adenoma arms, and the label that cost a cohort
+
+
+def test_healthy_normal_is_a_reference_arm_for_the_adenoma_reading():
+    """The fifth vocabulary error in this repo, and the first inside a verdict.
+
+    `healthy normal` was excluded because it can mean a different donor. But
+    the reading only ever compares two arms OF ONE PATIENT and every caller
+    groups by patient_id first, so a `healthy normal` reachable from a patient
+    who also has a polyp is that patient's own mucosa. Reading the LABEL put
+    the VUMC/HTAN cohort's usable pairs at 0; reading it per patient puts them
+    at 44.
+    """
+    from src.reference.icbi_slice import ADENOMA_TISSUE_MAP
+
+    got = arms(pd.Series(
+        ["polyp", "healthy normal", "adjacent normal", "primary tumor"]
+    ), ADENOMA_TISSUE_MAP)
+    assert list(got[:3]) == ["tumour", "normal", "normal"]
+    assert pd.isna(got.iloc[3]), "carcinoma is not the adenoma reading's arm"
+
+
+def test_the_carcinoma_mapping_is_unchanged():
+    """The adenoma fix must not move the published 13-study result."""
+    got = arms(pd.Series(["primary tumor", "adjacent normal", "healthy normal", "polyp"]))
+    assert list(got[:2]) == ["tumour", "normal"]
+    assert got[2:].isna().all(), (
+        "healthy normal or polyp entered the CARCINOMA contrast; the committed "
+        "13-study result was computed without them"
+    )
+
+
+def test_allowing_healthy_normal_adds_no_carcinoma_patients():
+    """Asserted against the real obs, because it is what makes the fix safe.
+
+    If any of the 14 candidate studies gained a patient from the looser
+    reference set, the committed carcinoma result would be incomplete rather
+    than merely conservative.
+    """
+
+    from src.common.paths import INTERIM_DIR, RESULTS_DIR
+
+    cache = INTERIM_DIR / "icbi_obs.parquet"
+    candidates = sorted(RESULTS_DIR.glob("*/icbi_premise_candidate_studies.parquet"))
+    if not cache.exists() or not candidates:
+        pytest.skip("the cached obs or the candidate table is absent")
+
+    obs = pd.read_parquet(cache)
+    studies = set(pd.read_parquet(candidates[-1])["study_id"])
+    epithelial = {"Epithelial cell", "Cancer cell"}
+    gained = {}
+    for study in studies:
+        block = obs[(obs["study_id"] == study)
+                    & (obs["enrichment_cell_types"].astype(str) == "naive")]
+        cells = block[block["atlas_cell_type_coarse"].astype(str).isin(epithelial)]
+        counts = cells.groupby(["patient_id", "sample_type"]).size().unstack(fill_value=0)
+        for col in ("primary tumor", "adjacent normal", "healthy normal"):
+            if col not in counts:
+                counts[col] = 0
+        strict = ((counts["primary tumor"] >= 100) & (counts["adjacent normal"] >= 100)).sum()
+        loose = (
+            (counts["primary tumor"] >= 100)
+            & (counts[["adjacent normal", "healthy normal"]].max(axis=1) >= 100)
+        ).sum()
+        if loose != strict:
+            gained[study] = int(loose - strict)
+    assert not gained, (
+        f"the looser reference set adds carcinoma patients {gained}; the "
+        f"committed 13-study result would be incomplete, not conservative"
+    )

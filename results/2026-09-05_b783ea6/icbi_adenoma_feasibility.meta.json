@@ -1,0 +1,49 @@
+{
+  "date": "2026-09-05",
+  "utc_timestamp": "2026-09-06T00:16:14+00:00",
+  "git_sha": "b783ea665f3f711da47907a5e336d56a91b5dfcf",
+  "git_sha_short": "b783ea6",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "icbi_adenoma_feasibility",
+  "n_rows": 2,
+  "columns": [
+    "study_id",
+    "polyp_cells",
+    "polyp_patients",
+    "raw_counts_share",
+    "has_adjacent_normal",
+    "has_healthy_normal",
+    "patients_with_both_arms",
+    "median_epithelial_genes",
+    "paired_at_50",
+    "gradient_at_50",
+    "paired_at_100",
+    "gradient_at_100",
+    "paired_at_200",
+    "gradient_at_200",
+    "paired_at_500",
+    "gradient_at_500"
+  ],
+  "table_kind": "harness",
+  "verdict": "VIABLE",
+  "verdict_detail": "one study carries 44 patients with matched polyp and adjacent normal at >= 100 epithelial cells per arm.",
+  "threshold_epithelial_per_arm": 100,
+  "arms": {
+    "polyp": "polyp",
+    "reference": [
+      "adjacent normal",
+      "healthy normal"
+    ],
+    "carcinoma": "primary tumor"
+  },
+  "healthy_normal_included": "`healthy normal` counts as the reference arm. What makes it the patient's own is the patient_id grouping, not the label -- 51 of Chen_2021_Cell's patients carry both a polyp and a `healthy normal` under one patient_id. Reading the label instead put this cohort's usable pairs at 0 against 44.",
+  "what_this_answers": "Whether the adenoma question can be asked on data already on disk -- the cheapest member of the different-substrate family that remains after every carcinoma route terminated.",
+  "what_this_does_not_answer": "Whether an adenoma reading would resolve the premise on a cohort that DOES have matched normals. This is availability, not power."
+}
