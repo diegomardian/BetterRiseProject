@@ -246,6 +246,156 @@ which are.
 
 ---
 
+## Reviewed 2026-09-06 — three proposals, checked against the repo
+
+Three avenues (A, B, C) proposed after the MLH1 positive control returned
+UNINTERPRETABLE. Reviewed to this file's own standard: **claims checkable
+against the cached obs or a committed table were checked, and the ones that
+could not be are marked as such.** Nothing external was verified from here.
+
+### A. The decomposition on the adenoma already in hand — CONFIRMED as the flagship
+
+**The premise is right and the arithmetic behind it holds** (see §1a's re-check).
+This is the project's original deliverable, on the one substrate where the
+collapse does not fire, and it needs no MLH1, no premise resolution and no
+instrument sensitivity. It should be next.
+
+**The input contract is as described, with two additions.** `decompose_cohort`
+requires ten columns, not four: the six identifiers plus the four statistics.
+`icbi_adenoma.parquet` carries `mean_normal`/`mean_tumour` (as
+`cp10k_normal`/`cp10k_tumour`), `n_cells_mature` (as `n_tumour` — correct, the
+tumour arm is what `classify_estimability` reads), `patient_id`, `study_id`,
+`granularity_rung`; `labeling_axis` is a constant (`stem_pole`). **Only
+`frac_mature_normal`/`frac_mature_tumour` are genuinely missing.** Confirmed.
+
+**Three gaps the plan does not name, all in the compositional term — which is
+the half the decomposition exists to produce.**
+
+**1. The denominator is a decision, not a lookup, and it is load-bearing.**
+Every patient in the MLH1 run reported *exactly* 25.0% of epithelial cells as
+`unresolved_depth` — 351/1405, 404/1614, 1103/4411, thirty of thirty. That is
+not data, it is `DEPTH_QUANTILE = 0.25`: the depth target is the 25th percentile
+so a quarter of cells fall below it by construction. So a quarter of the
+epithelium is excluded from any denominator, and **whether that quarter splits
+evenly between the two arms is unknown and unchecked.** It is applied in
+`assign_labels`, per patient, over both arms pooled and *before* depth matching.
+If the arms differ in depth pre-matching, the exclusions concentrate in the
+shallower one and the mature *fraction* differs between arms for a purely
+technical reason — which is the compositional term measuring sequencing depth.
+**Emit the per-arm unresolved share and pre-commit a tolerance on it.** This is
+the one new risk in A and it is not "none".
+
+*What is reassuring:* `depth_ratio` runs 0.97–1.05 across all 44 adenoma
+patients. That is measured **after** matching, so it does not settle the
+question — but it does mean matching is not being asked to close a large gap.
+
+**2. The mean and the fraction would be computed on different populations.**
+`rows_for_patient` selects mature cells, depth-matches *those*, and computes
+`cp10k_*` on the survivors. The epithelial denominator a fraction needs is not
+matched and cannot be, since matching is defined on the mature set. So
+`mean_*` is post-matching and `frac_mature_*` is pre-matching unless the design
+says otherwise. **Pre-commit which**, and report it on the row — this is
+precisely the kind of population mismatch `build_decomposition_summary` already
+records learning the hard way.
+
+**3. Student-t in the schema slot collides with a settled decision.**
+`docs/open_decisions.md` #10 puts `bootstrap_over_patients`'s **percentile**
+band in the schema's `ci_low`/`ci_high` — W2 proposed, W4 confirmed 2026-08-22 —
+and `src/estimator/` is W4's under CONTRIBUTING §2. So A may not simply swap the
+interval. **Carry the Student-t interval BESIDE the schema band, in its own
+columns**: additive, needs nobody's approval, changes no frozen decision, and
+lets a reader see both. Note what the schema band is worth here — at `best4`,
+n=20, the percentile bootstrap is a **7.1%** test, not a 5% one (§3a).
+
+**4. The comparator rule is right and should be pre-committed as stated.** Score
+housekeeping and the identity markers in the same run. §1a's re-check adds a
+number to it: at `best4` the two targets are 0.517 against 0.385, *not*
+indistinguishable as they are at `lineage`. Whether that separation is real is
+exactly what A would settle, so the prereg must not assume it in either
+direction.
+
+### B. More polyp substrate — the ICBI claim is exact, and B1 is not a new idea
+
+**"ICBI is exhausted" is VERIFIED, precisely.** Two studies carry any `polyp`
+cells at all, out of 49:
+
+| study | polyp cells | patients |
+|---|---|---|
+| `Chen_2021_Cell` | 93,913 | 94 |
+| `Zheng_2022_Signal_Transduct_Target_Ther` | 13,045 | **3** |
+
+So B2's n=3 is confirmed, and there is no third polyp cohort in the atlas.
+
+**B1 is the substrate this project froze its third axis against in week 0, and
+nobody has ever fetched it.** `config/labeling_axes.yaml` — frozen, PR plus two
+approvals to change — names axis 3 as:
+
+    chromatin:
+      basis: "A different measurement — chromatin accessibility"
+      transcript_based: false
+      source: "Becker/Chang multiome"
+
+with the caveat *"Not transcript-based, and therefore the strongest defence
+against label leakage. Week 13+."* **That is Becker 2022.** So B1 is not a new
+avenue competing with the others; it is the pre-registered week-13 substrate,
+and the circularity objection every design here carries was answered in advance
+by a dataset nobody has downloaded. That materially raises its ranking, and it
+means C3 is not a separate item — it is what axis 3 always was.
+
+**B1's stated risk is the right one and here is its number.** snRNA-seq on
+cytoplasmic transcripts. The panel's baseline detection in the adenoma normal
+arm, which snRNA would have to preserve:
+
+| rung | GUCA2A | MS4A12 | CDX2 | ACTB |
+|---|---|---|---|---|
+| `lineage` | 0.437 | **0.363** | 0.822 | 0.984 |
+| `best4` | 0.582 | **0.279** | 0.868 | 0.992 |
+
+**MS4A12 at 0.279 is the floor of the panel.** A nuclear protocol that halves
+cytoplasmic detection puts it near zero, and a gene that cannot be detected
+cannot be a tier member. **So B1's feasibility gate is DETECTION OF THE PANEL,
+not cell count** — the shape of `icbi_premise_feasibility.py`, run on the panel
+before anything else. The scATAC arm does not share this risk and is the more
+valuable half regardless.
+
+**B3 could not be checked from here.** No accession in it is verifiable against
+the cached obs. Treat the cell counts as unconfirmed until a read-only
+feasibility check exists.
+
+### C. The survivorship discriminators — consistent, and C2's target choice is corroborated
+
+**C1 (segmented spatial)** is the standing Tier 2 ranking unchanged, and the
+Visium caveat it carries is already this repo's (`docs/HANDOFF.md` §6e: a spot
+is still a mixture). Ruling Pelka's own GeoMx out as a primary is right —
+region-level, 3 samples.
+
+**C2's instinct to target CDX2 before GUCA2A is right, and a committed table
+supports it more strongly than the proposal claims.** The pre-registered CIMP
+screen (`results/2026-09-05_9203809/`) returned NOT SPECIFIC with GUCA2A falling
+**less** than CDX2, +0.544 [+0.219, +0.878]. So at bulk level CDX2 is the gene
+with the real fall, and it is the better first methylation target on the
+evidence rather than only on field convention.
+
+*One thing to carry with it:* CDX2 behaves differently in the two substrates.
+In carcinoma it falls (MLH1 run, methylated arm: −0.684 [−1.182, −0.186],
+excluding zero); in adenoma it is indistinguishable from housekeeping on the
+load-bearing scale (§6d). C2 is a TCGA carcinoma study, so it is the arm where
+CDX2-down is established — consistent, but the two must not be quoted as one.
+
+**C3 folds into B1**, as above — it is axis 3.
+
+### Ranking after this review
+
+1. **A**, unchanged — the flagship, in hand, and the only one that produces the
+   README's actual deliverable. Fix the three gaps above in the prereg.
+2. **B1**, raised — the frozen axes file's own week-13 substrate, unfetched,
+   and the only thing here that answers the circularity objection outright.
+   Gate on panel detection under a nuclear protocol.
+3. **C2**, on CDX2 rather than GUCA2A, with the 450k already in hand.
+4. C1, B3, B2 as supplementary.
+
+---
+
 ## Tier 2 — the survivorship discriminators
 
 None of the above separates *silencing* from *GUCA2A-high cells having been
@@ -287,10 +437,13 @@ Cheap: the per-study estimates are already committed.
    (`results/2026-09-05_9c43f4f/`). It had to come first because MLH1 lands at
    the far end of the abundance range and would have been read against this
    panel.
-1. ~~**The MLH1 positive control.**~~ **BUILT AND PRE-REGISTERED**, 2026-09-06.
-   Needs `qsub src/reference/jobs/mlh1_positive_control.sh` and nothing else.
-   Still the only item here that can change how every previous result is read.
-   The DiD correction recommended above did not survive sizing — see above.
+1. ~~**The MLH1 positive control.**~~ **RAN 2026-09-06 — UNINTERPRETABLE.**
+   The premise does not hold in the methylated arm (ACTB +0.443 on log2
+   expression, tolerance 0.5). Not a negative result; the pre-committed gate
+   fired. **And it closed the question rather than answering it:** the
+   instrument can only be validated where the premise holds, the premise has
+   held only on adenoma, adenoma carries no MLH1 annotation, and Pelka is the
+   only study in the 49-study atlas that does. `docs/HANDOFF.md` §6g.
 2. **The decomposition at `best4` on Chen_2021** (1a). **NEXT after MLH1.** The
    algebra has been re-checked and does not collapse, and estimability at
    `best4` is 20/20 and 19/20 — better than at `lineage`. It is NOT a re-read
@@ -301,6 +454,11 @@ Cheap: the per-study estimates are already committed.
 4. Tier 3's heterogeneity explanation — cheap, and it strengthens a result
    already in hand.
 
-Tier 2 only after the MLH1 control says whether the instrument can see silencing
-at all. Spending weeks on a new assay to feed an instrument of unknown
-sensitivity is the wrong order.
+~~Tier 2 only after the MLH1 control says whether the instrument can see
+silencing at all.~~ **That gate is now permanently open, and not the way anyone
+wanted.** The control cannot be run on available data (above), so waiting for it
+is waiting for nothing. The reasoning it encoded still stands and now points
+elsewhere: **do not spend weeks feeding a transcript instrument whose
+sensitivity cannot be established.** Prefer the avenues that do not depend on it
+— A, which needs no premise and no sensitivity, and B1/C2, which replace the
+label rather than trusting it.

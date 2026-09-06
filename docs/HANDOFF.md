@@ -673,12 +673,24 @@ positive control would have bought, and it is what the data supports.
 1. **Commit the cluster tables.** `results/2026-09-06_4b1afca/` is the only
    uncommitted result in the project. Until it lands, the RESULT section quotes
    numbers with no artifact behind them.
-2. **Avenue 1a is next** — the decomposition at `best4` on `Chen_2021`, the
-   project's original estimand, on the one cohort where the premise holds.
-   Re-checked 2026-09-06 and it survives: the algebraic collapse does not fire
-   on adenoma, and estimability at `best4` is 20/20 for GUCA2A and 19/20 for
-   MS4A12. It needs the adenoma job to emit `frac_mature_*` (no committed table
-   carries them) plus a cluster run. `docs/NEXT_AVENUES.md` §1a.
+2. **Avenue A/1a is next** — the decomposition at `best4` on `Chen_2021`, the
+   project's original estimand, on the one cohort where the premise holds. It
+   needs no MLH1, no premise resolution and no instrument sensitivity, which
+   after §6g is the point. `docs/NEXT_AVENUES.md` §1a and the 2026-09-06
+   review. **Three gaps to close in its prereg, all in the compositional term:**
+   the `unresolved_depth` quarter is `DEPTH_QUANTILE` by construction and its
+   per-arm split is unmeasured; `mean_*` is post-depth-matching while any
+   `frac_mature_*` is pre-matching; and open_decisions #10 pins the percentile
+   band in the schema slot, so a Student-t interval goes BESIDE it, not in it.
+
+3. **B1 — Becker 2022 — is the frozen axes file's own week-13 substrate and has
+   never been fetched.** `config/labeling_axes.yaml` names "Becker/Chang
+   multiome" as the source for axis 3, chromatin, *"not transcript-based, and
+   therefore the strongest defence against label leakage."* The circularity
+   objection every design here carries was answered in advance by a dataset
+   nobody has downloaded. Gate it on **panel detection under a nuclear
+   protocol** — MS4A12's baseline is 0.279 at `best4`, the floor of the panel,
+   and snRNA-seq on a cytoplasmic transcript could put it under.
 
 ### A defect found by running it
 
