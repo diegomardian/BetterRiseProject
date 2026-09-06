@@ -25,6 +25,48 @@ team ratification · **Closes** `docs/NEXT_AVENUES.md` §1a / proposal A.
 > 2. **§1's agreement claim was too tight and its geometric mean needed a
 >    qualifier.** The unfiltered geometric mean is *degenerate* for both target
 >    genes. Restated with the filter named and the real bound.
+> ### Amendment 3 — 2026-09-06, from calibrating the cutpoints, still before any run
+>
+> **§3.3 said the intrinsic cutpoints were provisional. They are worse than
+> provisional: on the project's own pre-registered criteria they are not
+> identifiable on either available carcinoma cohort.** The calibration had
+> already been run four times (`results/2026-08-31_350e546`, `_593e11e`,
+> `2026-09-03_e4a00b3` ×2) and no document read those tables. Re-run here on a
+> grid dense enough to resolve the answer (`results/2026-09-06_77fee05`,
+> W2_HANDOFF §5 item 6, previously not started):
+>
+> | cohort | pool | returned | `ok` | `wide` |
+> |---|---|---|---|---|
+> | SMC | `pooled` | **0/8** | — | — |
+> | SMC | `reference` | 8/8 | 70 | **42** |
+> | KUL3 | `pooled` | **0/8** | — | — |
+> | KUL3 | `reference` | 8/8 | 800 (400–800) | **70** |
+>
+> The `pooled` draw pool returns **no cutpoint on any seed of either cohort on
+> any grid** — max discrimination 0.750/0.795 against a 0.80 target. That is G4,
+> reproducible, and not a grid-resolution artefact now that the grid reaches 5.
+>
+> **What this does to §3.3's rung table, and it is severe for one rung:**
+>
+> | rung | provisional 50/20 | SMC 70/42 | KUL3 400–800/70 |
+> |---|---|---|---|
+> | `lineage` (n=44) | 43/44 keep an intrinsic term | 39/44 | 36/44 |
+> | `best4` (n=20) | 18/20 | **6/20** | **0/20** |
+>
+> **`lineage` is robust and `best4`'s intrinsic arm is not.** Whether that rung
+> yields any intrinsic estimate at all depends on which carcinoma cohort the
+> cutpoint was calibrated against. §6 gains a falsifier for it below.
+>
+> **The compositional arm is untouched.** It gates on `n_cells_resolved` under
+> `COMPOSITIONAL_CUTPOINTS` — decision #22, *not* provisional — and the adenoma
+> resolved-epithelium counts are large. So `best4` still contributes a
+> compositional point to the curve. That is exactly why §3.3 reports the two
+> rules separately, and it is the first time the separation has paid.
+>
+> **`positivity.CUTPOINTS` is NOT changed by this design.** It is W2's file, and
+> on this evidence the honest value is not 70 and not 400 — it is unresolved.
+> The reading is reported under **all three** candidate cutpoint sets instead.
+>
 > ### Amendment 2 — 2026-09-06, from building it, still before any run
 >
 > **§3.1's gate was mis-specified and is replaced by a sensitivity analysis.**
@@ -286,9 +328,18 @@ committed mature-cell counts:
 not a reason to skip the rung — the intrinsic term is still written there — but
 it is a reason not to quote `best4` as though it were `lineage`.
 
-Pre-committed: **the estimability mix is reported beside every rung's summary**,
-and a rung whose `ok` count is below 5 is labelled **`weak`** in the results and
-in any prose quoting it. `best4` will be `weak` at n=4 unless the re-run moves
+Pre-committed: **the estimability mix is reported beside every rung's summary,
+under EVERY candidate cutpoint set — provisional 50/20, SMC-dense 70/42 and
+KUL3-dense 400/70 — not under one.** Amendment 3 is why: there is no single
+calibrated value to report against, and picking one would present a choice
+between two disagreeing cohorts as a measurement.
+
+A rung whose `ok` count is below 5 is labelled **`weak`** in the results and in
+any prose quoting it. **A rung that keeps an intrinsic term for fewer than half
+its patients under any candidate is labelled `intrinsic_not_supported` at that
+candidate**, and no unqualified intrinsic claim is made from it. On present
+counts `best4` will carry that label under both calibrated candidates and
+`lineage` under none. `best4` will be `weak` at n=4 unless the re-run moves
 it. **`not_estimable` rows carry `intrinsic = None`, never `0.0`** (invariant 1,
 enforced by `src/schema.py`'s writer assertion, not by review); their
 compositional term is still estimable and the row is **not dropped**.
@@ -383,6 +434,7 @@ open.
 | Identifiable, GUCA2A separates from housekeeping and CDX2 but **not from MS4A12** | **The expected outcome on current evidence.** A tier-level intrinsic result — terminal differentiation down, identity retained — and explicitly **not** a GUCA2A-specific one. |
 | The compositional term's sign or zero-exclusion **flips between the two denominators** (§3.1) | That contrast is **denominator-dependent**: reported as such, no unqualified claim. |
 | The direction reverses across rungs | **A labelling artefact, not biology** — which is what the rung curve exists to detect, and is a reportable negative. |
+| `best4` keeps an intrinsic term for 0–6 of 20 patients under the calibrated cutpoints (§3.3, Amendment 3) | **Expected, and pre-committed as not a failure of this design.** `best4`'s contribution to the curve is its **compositional** point; its intrinsic arm is reported with the calibration sensitivity attached and carries no unqualified claim. |
 
 **No result from this is a mechanism claim about survivorship.** GUCA2A-high
 cells having been preferentially destroyed is not transcript-detectable, and a

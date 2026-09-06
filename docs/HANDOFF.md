@@ -255,6 +255,67 @@ paragraph.
 
 ---
 
+## 3a-bis. The intrinsic cutpoints do not calibrate, on either cohort
+
+**`positivity.CUTPOINTS` is `ok=50, wide=20` and its own `source` field says
+`provisional`. It is worse than provisional: on the project's pre-registered
+criteria the cutpoint is not identifiable on either available carcinoma
+cohort.** That was not neglect and it was not unknown — W2's handoff says
+"numbers not yet meaningful" — but the four committed calibration runs had
+never been read, and W2's §5 item 6, *"recalibrate on a denser 5-50 grid"*, was
+still not started.
+
+Run on a grid that reaches 5 (`results/2026-09-06_77fee05/`, both Lee cohorts,
+200 replicates, 8 seeds):
+
+| cohort | pool | returned a cutpoint | `ok` | `wide` |
+|---|---|---|---|---|
+| SMC | `pooled` | **0 of 8** | — | — |
+| SMC | `reference` | 8 of 8 | 70 | **42** |
+| KUL3 | `pooled` | **0 of 8** | — | — |
+| KUL3 | `reference` | 8 of 8 | 800 (400–800) | **70** |
+
+**Three things, and the middle one is the useful one.**
+
+**The `pooled` draw pool returns no cutpoint at all** — every seed, both
+cohorts, every grid including one dense enough that a short grid cannot be the
+explanation. Max discrimination 0.750 and 0.795 against a 0.80 target. That is
+**G4 firing, reproducibly**, and `calibrate_cutpoints` documents the
+consequence: non-identifiability is the headline, not a caveat.
+
+**`wide` is stable once the grid can express it.** 42/42/42 on SMC, 70/70/70 on
+KUL3, across eight seeds. The committed runs reported 40–45 and 65–100 for the
+same quantity — **that spread was the grid, not the estimator.** Neither older
+grid had a single point below 20, and `wide` is the boundary that decides
+whether an intrinsic term is written or is `None`.
+
+**The cohorts disagree, but far less on the quantity that matters.** `wide` 42
+against 70 is a factor of 1.7; `ok` is 70 against 400–800. Since `ok` sits far
+above anything the adenoma cohort reaches, the parameter governing avenue A is
+the better-determined one.
+
+### What it does to avenue A
+
+| rung | provisional 50/20 | SMC 70/42 | KUL3 400–800/70 |
+|---|---|---|---|
+| `lineage` (n=44) | 43/44 keep an intrinsic term | 39/44 | 36/44 |
+| `best4` (n=20) | 18/20 | **6/20** | **0/20** |
+
+**`lineage` is robust; `best4`'s intrinsic arm is not.** Whether that rung
+yields any intrinsic estimate depends on which carcinoma cohort you calibrated
+against. **The compositional arm is untouched** — it gates on `n_cells_resolved`
+under decision #22, which is not provisional — so `best4` still contributes its
+compositional point to the curve. That separation is why §3.3 of the prereg
+reports the two rules apart, and this is the first time it has paid.
+
+**`positivity.CUTPOINTS` is deliberately NOT changed.** `src/harness/` is W2's,
+and on this evidence the honest value is neither 70 nor 400 — it is unresolved.
+The decomposition reports its estimability mix under **all three** candidate
+sets instead of picking one. The dense grid runs from W1's side with no edit to
+W2's module: `run_calibration_gap` already takes `grids` as a parameter.
+
+---
+
 ## 4. Traps that have each cost real time
 
 **`BRP_DATA_DIR` unset does not fail — it reads the wrong disk.** `paths.py`
@@ -689,7 +750,9 @@ positive control would have bought, and it is what the data supports.
    title said `best4`, and a single-rung reading is the point estimate the
    frozen axes file forbids.** It runs the rung curve.
 
-   **BUILT 2026-09-06 and waiting on one cluster run.**
+   **BUILT 2026-09-06 and waiting on one cluster run. Read §3a-bis first —
+   the intrinsic cutpoints do not calibrate, and it changes what `best4` can
+   claim.**
    `src/reference/jobs/adenoma_decomposition.py` is the reading;
    `icbi_coexpression --arms adenoma` now scores **all four rungs** and emits
    the mature fraction per arm. Verified end to end on a synthetic cohort, and
