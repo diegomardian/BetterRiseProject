@@ -682,14 +682,19 @@ positive control would have bought, and it is what the data supports.
    `unresolved_depth` quarter is `DEPTH_QUANTILE` by construction, so the
    per-arm share is emitted and gated at 0.05; `mean_*` is declared
    post-matching against a pre-matching `frac_mature_*`; and the Student-t
-   interval sits BESIDE the schema band rather than in it, leaving
-   open_decisions #10 untouched. **A fourth gap the review found: §1a's own
+   interval sits in a COMPANION TABLE keyed by `KEY_COLUMNS`, leaving
+   open_decisions #10 and the frozen schema untouched — `coerce_results`
+   raises on any column outside `REQUIRED_COLUMNS`, so a Student-t column on
+   the schema frame does not need approval so much as fail to write. **A fourth gap the review found: §1a's own
    title said `best4`, and a single-rung reading is the point estimate the
    frozen axes file forbids.** It runs the rung curve.
 
-   **What it needs:** the adenoma scoring path to emit `frac_mature_*` and
-   `unresolved_share_*` and to run `epithelial` and `crypt_position` as well as
-   `lineage` and `best4`, then a cluster run. Read §3.3 first — at `best4` only
+   **What it needs is smaller than it looks:** `labels.mature_cell_counts`
+   already returns `mature_fraction`, `unresolved_fraction` and
+   `n_cells_resolved` per (patient, tissue, axis, rung) — tissue *is* the arm,
+   so both fractions are a pivot of an existing function. The adenoma path has
+   to CALL it and emit its output, plus run `epithelial` and `crypt_position`
+   alongside `lineage` and `best4`. Then a cluster run. Read §3.3 first — at `best4` only
    4 of 20 patients are `ok` and 14 are `wide_interval`, on **provisional,
    never-calibrated** cutpoints.
 
