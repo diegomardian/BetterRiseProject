@@ -64,6 +64,13 @@ from src.reference.interval_calibration import (
     two_sample_power_curve,
     width_ratio,
 )
+from src.reference.mlh1_arms import (
+    ARMS,
+    PRIMARY_STRATUM,
+    SECONDARY_STRATUM,
+    UNDERPOWERED_STRATUM,
+    arm_of,
+)
 
 log = logging.getLogger(__name__)
 
@@ -178,14 +185,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         "is a calculation about\na cohort more homogeneous than this one.")
 
     # -- 2. the cohorts this project reports at ------------------------------
-    meth = pelka[pelka["mlh1_stratum"] == "mlh1_methylated"]
-    unmeth = pelka[pelka["mlh1_stratum"] != "mlh1_methylated"]
-    intact = pelka[pelka["mlh1_stratum"] == "mlh1_intact_mmrd"]
-
+    # THE ARMS COME FROM mlh1_arms.arm_of, NOT FROM A TEST WRITTEN HERE.
+    # This block used to read `mlh1_stratum != "mlh1_methylated"` for the
+    # secondary arm, which counts the four intact-MMRd patients that the
+    # reading job reports separately -- 19 against the job's 15. The
+    # pre-registration inherited the 19. One definition now, imported.
+    pelka["arm"] = pelka["mlh1_stratum"].map(arm_of)
     cohorts = {
-        "mlh1_methylated": cohort_vectors(meth),
-        "mlh1_unmethylated": cohort_vectors(unmeth),
-        "mlh1_intact_mmrd": cohort_vectors(intact),
+        arm: cohort_vectors(pelka[pelka["arm"] == arm])
+        for arm in ARMS if not pelka[pelka["arm"] == arm].empty
     }
     adenoma_path = newest("icbi_adenoma")
     if adenoma_path is not None:
@@ -259,7 +267,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # -- 4. power for the MLH1 reading ---------------------------------------
     log.info("\n%s\nPOWER, MLH1 within the methylated stratum, %s interval\n%s",
              "=" * 72, CALIBRATED_METHOD, "=" * 72)
-    n_cells, depth = cohorts["mlh1_methylated"]
+    n_cells, depth = cohorts[PRIMARY_STRATUM]
     power = power_curve(
         n_cells=n_cells, depth=depth, cp10k=MLH1_CP10K_NORMAL,
         fold_changes=FOLD_CHANGES, taus=TAUS, method=CALIBRATED_METHOD,
@@ -286,15 +294,15 @@ def main(argv: Sequence[str] | None = None) -> int:
              "per patient.")
     did = pd.concat([
         two_sample_power_curve(
-            treated=cohorts["mlh1_methylated"],
-            comparison=cohorts["mlh1_intact_mmrd"],
+            treated=cohorts[PRIMARY_STRATUM],
+            comparison=cohorts[UNDERPOWERED_STRATUM],
             cp10k=MLH1_CP10K_NORMAL, fold_changes=FOLD_CHANGES, taus=TAUS,
             seed=args.seed, n_trials=args.trials,
             contrast="methylated_vs_intact_mmrd (PRE-REGISTERED DiD)",
         ),
         two_sample_power_curve(
-            treated=cohorts["mlh1_methylated"],
-            comparison=cohorts["mlh1_unmethylated"],
+            treated=cohorts[PRIMARY_STRATUM],
+            comparison=cohorts[SECONDARY_STRATUM],
             cp10k=MLH1_CP10K_NORMAL, fold_changes=FOLD_CHANGES, taus=TAUS,
             seed=args.seed, n_trials=args.trials,
             contrast="methylated_vs_unmethylated (CONFOUNDED)",

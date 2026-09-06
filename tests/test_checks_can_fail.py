@@ -1090,3 +1090,114 @@ def test_an_extra_gene_already_on_the_panel_is_refused():
             Path("/nonexistent/atlas.h5ad"), pd.DataFrame(), "Pelka_2021_Cell",
             extra_genes=("GUCA2A",),
         )
+
+
+# ---------------------------------------------------------------------------
+# One arm, two definitions, no check
+#
+# The defect, found when the cluster printed `mlh1_unmethylated  15` against a
+# pre-registration that said 19. `mlh1_positive_control.arm_of` sent
+# `mlh1_intact_mmrd` to its own arm, so the secondary arm was 15;
+# `interval_calibration` sized the same arm as `mlh1_stratum != methylated`,
+# which is 19. Both were correct answers to different questions that had been
+# given one name in two files.
+#
+# This is not a check that could not fail. It is a quantity with two
+# definitions and NO check -- which is the same failure one step earlier, and
+# the reason the panel and the labelling axes are loaded from one place.
+# ---------------------------------------------------------------------------
+
+
+def test_the_mlh1_arms_have_exactly_one_definition():
+    """No consumer may re-derive an arm from `mlh1_stratum` by hand.
+
+    The failing input is the source itself: a module that partitions the cohort
+    with its own comparison instead of importing `arm_of` is how 15 and 19 got
+    into two files. Both consumers are read, so adding a third that hand-rolls
+    the split fails here rather than in a document six weeks later.
+    """
+    consumers = [
+        REPO_ROOT / "src" / "reference" / "jobs" / "mlh1_positive_control.py",
+        REPO_ROOT / "src" / "reference" / "jobs" / "interval_calibration.py",
+    ]
+    for path in consumers:
+        source = path.read_text(encoding="utf-8")
+        assert "from src.reference.mlh1_arms import" in source, (
+            f"{path.name} must take the arms from src.reference.mlh1_arms"
+        )
+        # AST, NOT TEXT. The first version of this guard grepped for the
+        # string and fired on the COMMENT that explains the defect -- a check
+        # that cannot tell code from prose about code, which is a false
+        # positive of exactly the kind this file exists to eliminate in the
+        # other direction. Comparisons are read as comparisons.
+        for node in ast.walk(ast.parse(source)):
+            if not isinstance(node, ast.Compare):
+                continue
+            operands = [node.left, *node.comparators]
+            names = {n.value for n in operands
+                     if isinstance(n, ast.Constant) and isinstance(n.value, str)}
+            if "mlh1_methylated" in names and any(
+                isinstance(op, (ast.NotEq, ast.Eq)) for op in node.ops
+            ):
+                raise AssertionError(
+                    f"{path.name} line {node.lineno} partitions the cohort by "
+                    f"comparing against 'mlh1_methylated' directly. That is how "
+                    f"n=19 reached the pre-registration for an arm the reading "
+                    f"job emits at n=15: the comparison counts the four "
+                    f"intact-MMRd patients that are reported separately. Use "
+                    f"arm_of()."
+                )
+
+
+def test_the_arms_are_disjoint_and_exhaust_the_cohort():
+    """Three arms, every stratum in exactly one, nothing counted twice.
+
+    A stratum landing in two arms would report the same patients under two
+    standings -- one 'powered', one 'UNDERPOWERED' -- and the reader could not
+    tell that the second was a subset of the first.
+    """
+    from src.reference.mlh1_arms import ARMS, arm_of
+
+    strata = ("mlh1_methylated", "mlh1_intact_mmrd", "mmr_proficient",
+              "mlh1_deficient_unmethylated")
+    assignments = [arm_of(s) for s in strata]
+    assert set(assignments) <= set(ARMS)
+    assert len(assignments) == len(strata), "arm_of must be a function, not a fan-out"
+    assert arm_of("mlh1_intact_mmrd") != arm_of("mmr_proficient"), (
+        "the pre-registered control arm must not be folded into the secondary "
+        "arm; it is reported separately because it carries no verdict"
+    )
+
+
+def test_both_consumers_size_the_secondary_arm_the_same_way():
+    """The two files, run over the same cohort table, must agree on every arm.
+
+    THE INPUT THAT WOULD HAVE CAUGHT IT. This is the comparison nobody made:
+    the reading job's arm sizes against the sizing job's, on the committed
+    data, before either number reached a document.
+    """
+    import glob
+
+    from src.reference.mlh1_arms import arm_of
+
+    deltas = sorted(RESULTS_DIR.glob("*/icbi_coexpression.parquet"))
+    cohorts = sorted(glob.glob(str(RESULTS_DIR / "*" / "cohort_table.parquet")))
+    if not deltas or not cohorts:
+        pytest.skip("needs the committed Pelka deltas and cohort table")
+
+    scored = pd.read_parquet(deltas[-1])
+    scored = scored[scored["study_id"] == "Pelka_2021_Cell"].copy()
+    scored["short_id"] = scored["patient_id"].astype(str).str.split(".").str[-1]
+    table = pd.read_parquet(cohorts[-1])
+    joined = (scored.drop_duplicates("short_id")
+              .merge(table[["patient_id", "mlh1_stratum"]],
+                     left_on="short_id", right_on="patient_id",
+                     suffixes=("", "_c")))
+
+    by_arm = joined["mlh1_stratum"].map(arm_of).value_counts()
+    # The superseded hand-rolled split, kept as the thing that must NOT be used.
+    hand_rolled = int((joined["mlh1_stratum"] != "mlh1_methylated").sum())
+    assert hand_rolled != by_arm.get("mlh1_unmethylated", 0), (
+        "if these ever coincide the fixture has stopped exercising the defect"
+    )
+    assert sum(by_arm) == len(joined), "the arms must exhaust the scored cohort"
