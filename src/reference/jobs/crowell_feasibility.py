@@ -207,79 +207,206 @@ def per_domain_table(matrix, panel_index: dict[str, int], domains,
                              ignore_index=True)
 
 
-def verdict(table: pd.DataFrame, *, adenoma_domain: str | None = None) -> dict:
-    """Prereg §5: is the question askable here, and where?
+def control_referenced_change(table: pd.DataFrame, reference_domain: str,
+                              target_domain: str) -> pd.DataFrame:
+    """EXPLORATORY. Each gene's separation change, against the control's.
 
-    ``adenoma_domain`` is passed by a human who has read ``--inspect``. It is
-    not guessed: the deposit's words are a measurement, and this project has
-    put a cohort's usable pairs at zero once by reading a label instead.
+    **Not specified in prereg §5, and not a missing line of pre-registered
+    code.** It is a new analysis on a new estimand: Becker's
+    ``enrichment_audit`` compares transcript-defined subsets WITHIN an arm,
+    this compares ACROSS histological domains. Amendment 2.
+
+    **It carries no interval and it must not be given one.** The band is a
+    min/max over the control-role genes present — one, since ACTB is absent
+    from this deposit — and a range over one or two genes contains no
+    patient-level uncertainty. The biological unit here is one patient.
     """
+    wide = table.pivot(index="gene", columns="domain", values="log_separation")
+    if reference_domain not in wide.columns or target_domain not in wide.columns:
+        return pd.DataFrame()
+    roles = table.drop_duplicates("gene").set_index("gene")["role"]
+    change = (wide[target_domain] - wide[reference_domain]).rename("change")
+    out = change.to_frame().join(roles)
+    band = out.loc[out["role"] == "control", "change"]
+    out["control_band_low"] = float(band.min()) if len(band) else float("nan")
+    out["control_band_high"] = float(band.max()) if len(band) else float("nan")
+    out["n_control_genes"] = int(len(band))
+    out["opposite_to_controls"] = (
+        out["change"] < 0) & (out["control_band_low"] > 0)
+    out["reference_domain"] = reference_domain
+    out["target_domain"] = target_domain
+    out["exploratory"] = True
+    out["carries_no_interval"] = True
+    return out.reset_index().sort_values("change", ignore_index=True)
+
+
+def _directional_read(critical: pd.DataFrame, controls: pd.DataFrame,
+                      reference_domain: str | None, adenoma_domain: str | None
+                      ) -> tuple[dict[str, object], list[str]]:
+    """§6's pre-specified direction and the global-capture control, once.
+
+    Extracted because the first version computed them only where the target sat
+    BELOW the bar, and in that branch ``no_fall`` cannot occur — a target above
+    the bar in the reference and below it in the adenoma has fallen by
+    construction. An unreachable branch is a check that cannot fail. §6's
+    "no fall is uninterpretable" case lives where BOTH domains clear the bar,
+    and it is now evaluated there too.
+    """
+    fields: dict[str, object] = {}
+    detail: list[str] = []
+    if not (reference_domain and adenoma_domain):
+        return fields, detail
+    sep = critical.set_index("domain")["log_separation"]
+    if reference_domain not in sep.index or adenoma_domain not in sep.index:
+        return fields, detail
+
+    fell = bool(sep[adenoma_domain] < sep[reference_domain])
+    fields["prespecified_directional_read"] = "fall_observed" if fell else "no_fall"
+    detail.append(
+        f"§6's pre-specified direction: {CRITICAL_GENE} "
+        f"{sep[reference_domain]:+.3f} in {reference_domain!r} -> "
+        f"{sep[adenoma_domain]:+.3f} in {adenoma_domain!r} — "
+        + ("a FALL, which §6 fixed in advance as the safe direction because a "
+           "field-affected reference understates it."
+           if fell else
+           "NO fall, which §6 fixed in advance as UNINTERPRETABLE: a reference "
+           "already depleted cannot show a further fall, and this may not be "
+           "quoted as a negative."))
+
+    by_domain = controls.set_index(["gene", "domain"])["log_separation"]
+    worse = []
+    for gene in controls["gene"].unique():
+        try:
+            worse.append(bool(by_domain[(gene, adenoma_domain)]
+                              < by_domain[(gene, reference_domain)]))
+        except KeyError:
+            continue
+    if worse:
+        n = int(controls["gene"].nunique())
+        fields["global_sensitivity_control"] = (
+            "worse_in_adenoma" if all(worse) else "not_worse")
+        detail.append(
+            f"Global capture in {adenoma_domain!r} is "
+            f"{'WORSE' if all(worse) else 'not worse'} than in "
+            f"{reference_domain!r}, over {n} control-role gene(s). **That is "
+            f"global capture only. It does not establish {CRITICAL_GENE}-"
+            f"specific sensitivity or any false-negative rate** (prereg §7), "
+            f"and with ACTB absent it rests on one gene (Amendment 1 §3).")
+    return fields, detail
+
+
+def verdict(table: pd.DataFrame, *, adenoma_domain: str | None = None,
+            reference_domain: str | None = None, patient_n: int | None = None
+            ) -> dict:
+    """Prereg §5 and Amendment 2: the components, never one word.
+
+    §6's branch table anticipates "separates in REF and falls in TVA" and "fails
+    to separate in ANY domain". The outcome on section 231 is neither —
+    separates in REF, below the bar in TVA — and the first implementation
+    collapsed that to ``NOT ASKABLE IN THE ADENOMA``, which is true of the
+    per-cell reading and silent about a direction §6 had pre-specified.
+
+    So the components are returned as fields. **This never returns ASKABLE on
+    an outcome where the target sits below the bar in the adenoma**: the target
+    did not become independently measurable per cell and no relabelling makes
+    it so.
+    """
+    base: dict[str, object] = {
+        "per_cell_feasibility": "not_assessed",
+        "prespecified_directional_read": "not_assessed",
+        "global_sensitivity_control": "not_assessed",
+        "control_referenced_pattern": "not_computed",
+        "patient_n": patient_n,
+    }
     if table.empty:
-        return {"verdict": "NOT ESTIMABLE",
+        return {**base, "verdict": "NOT ESTIMABLE",
                 "detail": "no domain carried enough cells to score."}
 
     controls = table[table["role"] == "control"]
-    if len(controls) and not controls["usable"].any():
-        return {
-            "verdict": "READ REFUSED — THE INSTRUMENT IS NOT MEASURING THIS TISSUE",
-            "detail": (
-                "no control gene separates from the false-positive floor in any "
-                "domain. Prereg §6's fourth branch: this is not a statement "
-                "about the target."
-            ),
-        }
+    n_controls = int(controls["gene"].nunique())
+    if n_controls and not controls["usable"].any():
+        return {**base,
+                "verdict": "READ REFUSED — THE INSTRUMENT IS NOT MEASURING THIS TISSUE",
+                "per_cell_feasibility": "failed",
+                "global_sensitivity_control": "absent",
+                "detail": (
+                    "no control-role gene separates from the false-positive "
+                    "floor in any domain. Prereg §6's fourth branch — which "
+                    "Amendment 1 notes now rests on KRT8 alone, ACTB being "
+                    "absent. This is not a statement about the target."
+                )}
 
     critical = table[table["gene"] == CRITICAL_GENE]
     if critical.empty:
-        return {"verdict": "NOT ESTIMABLE",
+        return {**base, "verdict": "NOT ESTIMABLE",
                 "detail": f"{CRITICAL_GENE} is absent from the object."}
 
     usable_domains = sorted(critical.loc[critical["usable"], "domain"])
     if not usable_domains:
-        return {
-            "verdict": "NOT ASKABLE HERE",
-            "detail": (
-                f"{CRITICAL_GENE} does not separate from the false-positive "
-                f"floor in any domain (best "
-                f"{critical['log_separation'].max():+.3f} against a bar of "
-                f"{MIN_LOG_SEPARATION:+.3f}). Prereg §6: this is a statement "
-                f"about in-situ sensitivity, NOT about the biology — the same "
-                f"distinction §3 of the Becker prereg drew, where it held."
-            ),
-        }
+        return {**base, "verdict": "NOT ASKABLE HERE",
+                "per_cell_feasibility": "failed",
+                "detail": (
+                    f"{CRITICAL_GENE} clears the bar in no domain (best "
+                    f"{critical['log_separation'].max():+.3f} against "
+                    f"{MIN_LOG_SEPARATION:+.3f}). Prereg §6: a statement about "
+                    f"in-situ sensitivity, NOT about the biology."
+                )}
 
     if adenoma_domain is None:
-        return {
-            "verdict": "ASKABLE — DOMAIN NAMING NOT SUPPLIED",
-            "detail": (
-                f"{CRITICAL_GENE} separates in {usable_domains}. Which of these "
-                f"is the adenoma is a reading of the deposit's own vocabulary "
-                f"and is not guessed here; pass --adenoma-domain after "
-                f"--inspect."
-            ),
-        }
+        return {**base, "verdict": "DOMAIN NAMING NOT SUPPLIED",
+                "detail": (
+                    f"{CRITICAL_GENE} clears the bar in {usable_domains}. Which "
+                    f"is the adenoma is a reading of the deposit's vocabulary "
+                    f"and is not guessed; pass --adenoma-domain after --inspect."
+                )}
+
+    sep = critical.set_index("domain")["log_separation"]
+    controls_by_domain = (controls.set_index(["gene", "domain"])["log_separation"]
+                          if n_controls else None)
+
     if adenoma_domain not in usable_domains:
+        fields = dict(base)
+        fields["per_cell_feasibility"] = "failed"
+        detail = [
+            f"{CRITICAL_GENE} clears the bar in {usable_domains} and sits BELOW "
+            f"it in {adenoma_domain!r} ({sep.get(adenoma_domain, float('nan')):+.3f} "
+            f"against {MIN_LOG_SEPARATION:+.3f}). **Below the limit of "
+            f"quantification, NOT censored** — the bar is analyst-chosen "
+            f"(Amendment 1 §6), and nothing here builds a background-adjusted "
+            f"bound.",
+            "**The per-cell spatial reading is NOT licensed.**",
+        ]
+        extra_fields, extra_detail = _directional_read(
+            critical, controls, reference_domain, adenoma_domain)
+        fields.update(extra_fields)
+        detail += extra_detail
+        detail.append(
+            f"n = {patient_n if patient_n is not None else 'unrecorded'} "
+            f"patient(s). Supportive, NOT confirmatory.")
         return {
-            "verdict": "NOT ASKABLE IN THE ADENOMA",
-            "detail": (
-                f"{CRITICAL_GENE} separates in {usable_domains} but not in "
-                f"{adenoma_domain!r}, which is the domain the estimand is "
-                f"defined on. The spatial reading of avenue A cannot proceed "
-                f"on this section."
-            ),
+            **fields,
+            "verdict": ("TARGET BELOW THE ADENOMA USABILITY BAR — "
+                        "PER-CELL READING NOT LICENSED; "
+                        "DIRECTIONAL READ SUPPORTIVE, NOT CONFIRMATORY"),
+            "detail": " ".join(detail),
         }
-    return {
-        "verdict": "ASKABLE IN THE ADENOMA",
-        "detail": (
-            f"{CRITICAL_GENE} separates from the false-positive floor in "
-            f"{adenoma_domain!r} and in {usable_domains}. **This licenses the "
-            f"QUESTION, not an answer.** Prereg §6: a fall from reference to "
-            f"adenoma would be understated by a field-affected reference and is "
-            f"therefore safe; NO fall is uninterpretable and may not be quoted "
-            f"as a negative. Prereg §7: nothing here licenses a per-cell "
-            f"'GUCA2A-low = silenced' claim."
-        ),
-    }
+
+    fields = dict(base)
+    fields["per_cell_feasibility"] = "passed"
+    detail = [
+        f"{CRITICAL_GENE} clears the bar in {adenoma_domain!r} and in "
+        f"{usable_domains}. **This licenses the QUESTION, not an answer.**",
+    ]
+    extra_fields, extra_detail = _directional_read(
+        critical, controls, reference_domain, adenoma_domain)
+    fields.update(extra_fields)
+    detail += extra_detail
+    detail.append(
+        f"§7: nothing here licenses a per-cell '{CRITICAL_GENE}-low = silenced' "
+        f"claim. n = {patient_n if patient_n is not None else 'unrecorded'} "
+        f"patient(s).")
+    return {**fields, "verdict": "ASKABLE IN THE ADENOMA",
+            "detail": " ".join(detail)}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -294,6 +421,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--adenoma-domain", default=None,
                         help="the value in that column naming the adenoma, "
                              "from --inspect. Not guessed.")
+    parser.add_argument("--reference-domain", default=None,
+                        help="the value naming the reference mucosa, from "
+                             "--inspect. Enables §6's pre-specified "
+                             "directional read and the exploratory "
+                             "control-referenced pattern. Not guessed.")
+    parser.add_argument("--patient-n", type=int, default=None,
+                        help="biological units behind this run. Invariant 5. "
+                             "One section of one block is n=1 and the verdict "
+                             "says so.")
     parser.add_argument("--layer", default=None, help="counts layer, if not X")
     parser.add_argument("--n-negative-probes", type=int, default=None,
                         help="negative-probe count for the per-probe floor. "
@@ -418,7 +554,31 @@ def main(argv: list[str] | None = None) -> int:
             ["domain", "n_cells", "median_counts_per_cell",
              "median_genes_per_cell", "any_probe_union_rate"]].to_string(index=False))
 
-    outcome = verdict(table, adenoma_domain=args.adenoma_domain)
+    outcome = verdict(table, adenoma_domain=args.adenoma_domain,
+                      reference_domain=args.reference_domain,
+                      patient_n=args.patient_n)
+
+    # EXPLORATORY, Amendment 2. Emitted separately, labelled in its own column,
+    # and carrying no interval — the band is a min/max over the control-role
+    # genes present (one, ACTB being absent) and holds no patient-level
+    # uncertainty.
+    pattern = pd.DataFrame()
+    if args.reference_domain and args.adenoma_domain:
+        pattern = control_referenced_change(table, args.reference_domain,
+                                            args.adenoma_domain)
+        if not pattern.empty:
+            outcome["control_referenced_pattern"] = "exploratory_two_block" if (
+                pattern.loc[pattern.gene == CRITICAL_GENE,
+                            "opposite_to_controls"].any()) else "exploratory"
+            log.info("\n%s\nCONTROL-REFERENCED CHANGE — EXPLORATORY, POST-HOC, "
+                     "NO INTERVAL\n%s", "=" * 72, "=" * 72)
+            log.info("%s", pattern[["gene", "role", "change", "control_band_low",
+                                    "control_band_high", "n_control_genes",
+                                    "opposite_to_controls"]].to_string(index=False))
+            log.info("  Amendment 2: a new estimand, not a missing line of "
+                     "pre-registered code. It compares ACROSS histological\n"
+                     "  domains, where Becker's audit compared transcript-defined "
+                     "subsets WITHIN an arm.")
     log.info("\n%s\nVERDICT\n%s", "=" * 72, "=" * 72)
     log.info("  %s\n  %s", outcome["verdict"], outcome["detail"])
     log.info(
@@ -461,17 +621,26 @@ def main(argv: list[str] | None = None) -> int:
             "rate is unmeasured here as everywhere else (§6g)."
         ),
         "n_patients_in_deposit": 7,
+        "patient_n_this_run": args.patient_n,
+        "reference_domain": args.reference_domain,
+        "amendments": ["Amendment 1 — floor, obs controls, ACTB absent, the "
+                       "§2 fallback DEVIATION, below-quantification not "
+                       "censored", "Amendment 2 — verdict decomposed into "
+                       "fields; control-referenced pattern is exploratory"],
         "width_penalty_vs_n43": 3.01,
         "verdict": outcome,
         "exploratory": False,
         "pre_registered": True,
     }
     if not table.empty:
-        log.info("\nwrote %s", write_versioned_table(
-            table, "crowell_feasibility", seed=args.seed,
-            results_dir=args.results_dir, allow_dirty=args.allow_dirty,
-            extra_meta=meta,
-        ))
+        tables = [(table, "crowell_feasibility")]
+        if not pattern.empty:
+            tables.append((pattern, "crowell_control_referenced_exploratory"))
+        for frame, name in tables:
+            log.info("wrote %s", write_versioned_table(
+                frame, name, seed=args.seed, results_dir=args.results_dir,
+                allow_dirty=args.allow_dirty, extra_meta=meta,
+            ))
     return 0 if outcome["verdict"].startswith("ASKABLE") else 5
 
 

@@ -222,15 +222,64 @@ def test_the_adenoma_domain_is_not_guessed():
     table = _table(REF={"ACTB": 3.0, CRITICAL_GENE: 2.0},
                    TVA={"ACTB": 3.0, CRITICAL_GENE: 2.0})
     out = verdict(table, adenoma_domain=None)
-    assert out["verdict"] == "ASKABLE — DOMAIN NAMING NOT SUPPLIED"
-    assert "not guessed here" in out["detail"]
+    assert out["verdict"] == "DOMAIN NAMING NOT SUPPLIED"
+    assert "is not guessed" in out["detail"]
 
 
-def test_the_target_separating_only_outside_the_adenoma_does_not_pass():
-    table = _table(REF={"ACTB": 3.0, CRITICAL_GENE: 2.0},
-                   TVA={"ACTB": 3.0, CRITICAL_GENE: 0.02})
-    out = verdict(table, adenoma_domain="TVA")
-    assert out["verdict"] == "NOT ASKABLE IN THE ADENOMA"
+def test_the_target_below_the_bar_keeps_both_halves_of_the_answer():
+    """Amendment 2. §6 has no branch for "separates in REF, below the bar in
+    TVA", and the first implementation collapsed it to NOT ASKABLE — true of
+    the per-cell reading and silent about a direction §6 pre-specified.
+
+    A single label cannot carry both, so the components are fields.
+    """
+    table = _table(REF={"KRT8": 3.0, CRITICAL_GENE: 2.0},
+                   TVA={"KRT8": 3.6, CRITICAL_GENE: 0.02})
+    out = verdict(table, adenoma_domain="TVA", reference_domain="REF",
+                  patient_n=1)
+
+    assert out["verdict"].startswith("TARGET BELOW THE ADENOMA USABILITY BAR")
+    assert out["per_cell_feasibility"] == "failed"
+    assert out["prespecified_directional_read"] == "fall_observed"
+    assert out["global_sensitivity_control"] == "not_worse"
+    assert out["patient_n"] == 1
+    # it must never claim the target became measurable per cell
+    assert "NOT licensed" in out["detail"]
+    # below the LOQ, not censored -- the bar is analyst-chosen
+    assert "NOT censored" in out["detail"]
+    assert "limit of quantification" in out["detail"]
+    # global capture must not be read as gene-specific sensitivity
+    assert "does not establish" in out["detail"]
+    assert "Supportive, NOT confirmatory" in out["detail"]
+
+
+def test_a_target_below_the_bar_never_returns_askable():
+    """No relabelling makes an unmeasured gene measurable."""
+    table = _table(REF={"KRT8": 3.0, CRITICAL_GENE: 2.0},
+                   TVA={"KRT8": 3.6, CRITICAL_GENE: 0.02})
+    for ref in (None, "REF"):
+        out = verdict(table, adenoma_domain="TVA", reference_domain=ref,
+                      patient_n=1)
+        assert "ASKABLE IN THE ADENOMA" != out["verdict"]
+        assert out["per_cell_feasibility"] == "failed"
+
+
+def test_no_fall_is_recorded_as_uninterpretable_not_as_a_negative():
+    """§6's no-fall branch lives where BOTH domains clear the bar.
+
+    It was unreachable in the below-bar branch: a target above the bar in the
+    reference and below it in the adenoma has fallen by construction. An
+    unreachable branch is a check that cannot fail, which is why the directional
+    read is now computed once and attached to both outcomes.
+    """
+    table = _table(REF={"KRT8": 3.0, CRITICAL_GENE: 1.50},
+                   TVA={"KRT8": 3.6, CRITICAL_GENE: 2.00})
+    out = verdict(table, adenoma_domain="TVA", reference_domain="REF",
+                  patient_n=1)
+    assert out["per_cell_feasibility"] == "passed"
+    assert out["prespecified_directional_read"] == "no_fall"
+    assert "UNINTERPRETABLE" in out["detail"]
+    assert "may not be quoted as a negative" in out["detail"]
 
 
 def test_a_pass_says_it_licenses_the_question_and_not_an_answer():
@@ -238,11 +287,14 @@ def test_a_pass_says_it_licenses_the_question_and_not_an_answer():
     without them."""
     table = _table(REF={"ACTB": 3.0, CRITICAL_GENE: 2.0},
                    TVA={"ACTB": 3.0, CRITICAL_GENE: 1.8})
-    out = verdict(table, adenoma_domain="TVA")
+    out = verdict(table, adenoma_domain="TVA", reference_domain="REF",
+                  patient_n=1)
     assert out["verdict"] == "ASKABLE IN THE ADENOMA"
+    assert out["per_cell_feasibility"] == "passed"
     assert "QUESTION, not an answer" in out["detail"]
-    assert "uninterpretable" in out["detail"].lower()
     assert "silenced" in out["detail"]
+    # §6's direction is carried on the pass too, not only on the failure
+    assert out["prespecified_directional_read"] in {"fall_observed", "no_fall"}
 
 
 # ---------------------------------------------------------------------------

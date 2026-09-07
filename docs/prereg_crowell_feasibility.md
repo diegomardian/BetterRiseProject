@@ -190,6 +190,131 @@ different deposit.
 
 ---
 
+## Amendment 1 — 2026-09-07, after the inspection and before the verdict is re-read
+
+Five corrections. Three are things the deposit turned out not to be; two are
+errors in this document. **One is a deviation that already happened and is
+recorded as one rather than absorbed.**
+
+### 1 · The floor is the MEAN PER-PROBE rate, not the union over 50
+
+§5 item 2 specified *"fraction of cells with ≥1 count on any of the 50 negative
+probes."* That is a union over 50 features and a gene's detection is one
+feature; it overstates the floor by roughly the probe count and would fail every
+gene including the controls. **The gate uses the mean per-probe detection
+rate**, which is the comparable quantity. The union rate is retained and
+reported as a **contamination QC indicator** under its own name.
+
+The implementation has done this since `07d5300` and §5 was never amended to
+match, so for one commit-range the pre-registration and its own code specified
+different statistics. **The code was right and the document was stale**; both
+are now the per-probe rate.
+
+### 2 · The control probes are in `obs`, not in `var`
+
+Zero features matched the negative-probe naming, correctly — this deposit
+summarised the controls per cell (`nCount_negprobes`, `nFeature_negprobes`,
+`nCount_falsecode`) before writing the object. `require_controls` refused the
+run rather than proceeding on a floor of zero, which is the behaviour §5
+depends on. The floor is now built from those obs columns, with the probe count
+supplied as 50 from the paper and recorded in the sidecar.
+
+### 3 · ACTB is absent, so the control branch rests on ONE gene
+
+The whole-transcriptome space carries 18,936 features and ACTB is not one of
+them — as it was not on the CosMx 1K or 6K panels. **§6's fourth branch was
+written as "the controls (ACTB, KRT8) fail to separate" and now concerns KRT8
+alone.** EPCAM is `epithelial` in `GENE_ROLES`, not `control`, and must not be
+counted as a second control to make the branch look wider than it is.
+
+**This materially weakens every sensitivity statement this document can make.**
+One control gene establishes that global capture happened; it cannot establish
+anything gene-specific, and §7 already said so.
+
+### 4 · DEVIATION: the fallback fired, for the opposite reason than written
+
+§2 said: *"If `232` carries no TVA, the named fallback is `231`."* **`232`
+carries ONLY TVA** — `tissue` is `TVA` for all 130,814 cells. The file actually
+read was `231`, chosen after the inspection because `232` lacked a **reference**
+domain, which is not the condition §2 states.
+
+**The file was pre-named and the reason was not.** That is a post-inspection
+deviation, and it is recorded here as one. It is a mild deviation — `231` was
+named in this document before any download and no third file was considered —
+but a fallback whose trigger is rewritten after looking is exactly the mechanism
+this project distrusts, and calling it "the prereg named 231" without the rest
+would be the overstatement.
+
+### 5 · "Within the same section" describes the tissue, not the files
+
+§1 quotes the paper correctly: REF, TVA and CRC occur within one physical
+section. **The deposit's objects are split by field-of-view range**, so one
+`.h5ad` need not carry all three. `metadata.txt` (Zenodo `10.5281/zenodo.15550908`)
+shows `231` and `232` as FOV ranges 1–146 and 147–217 of the same block
+`24H12439_A4`, same run and replicate. `231` carries all three domains; `232`
+carries one.
+
+### 6 · Below-quantification, NOT censored
+
+A target under `MIN_LOG_SEPARATION` has not been censored by the assay. It fell
+below **an analyst-chosen usability bar** set in this document. The correct
+description is **near-floor / below the limit of quantification**, and nothing
+here constructs a background-adjusted bound that would license the stronger
+word. Recorded because "censored" was used in review and is a technical claim
+this design does not support.
+
+### What Amendment 1 does NOT change
+
+The gate, the bar, the primary object, §6's asymmetry and §7's
+specificity-only limit are untouched. **No threshold moved and no branch was
+added to make an outcome pass.**
+
+---
+
+## Amendment 2 — the verdict is decomposed, because §6 has no branch for what happened
+
+§6's branch table anticipates *"GUCA2A separates in REF and falls in TVA"* and
+*"fails to separate from the floor in ANY domain."* The observed outcome is
+**neither**: GUCA2A separates in REF and sits **below the bar** in TVA. A single
+label cannot carry that without discarding one half of it, and the first
+implementation discarded the half that mattered — it returned `NOT ASKABLE IN
+THE ADENOMA`, which is true of the per-cell reading and silent about a
+directional signal §6 had pre-specified.
+
+**So the verdict is emitted as fields, not as one word:**
+
+| field | meaning |
+|---|---|
+| `per_cell_feasibility` | did the target clear the usability bar in the adenoma domain |
+| `prespecified_directional_read` | §6's REF→adenoma direction, at section level |
+| `global_sensitivity_control` | whether the control-role gene's separation is worse in the adenoma domain |
+| `control_referenced_pattern` | **exploratory**, post-hoc, and labelled in its own column |
+| `patient_n` | the biological unit, which here is **1** |
+
+**`verdict()` does not return `ASKABLE IN THE ADENOMA` on this outcome.** The
+target did not become independently measurable per cell and no relabelling makes
+it so.
+
+### The control-referenced comparison is an addition, not a repair
+
+Referencing each gene's REF→domain change against the control's is **not
+specified in §5** and is not a missing line of pre-registered code. It is a new
+exploratory analysis on a new estimand — Becker's `enrichment_audit` compares
+transcript-defined subsets *within* an arm, and this compares *across
+histological domains*, which is a different question. It is emitted with
+`exploratory = True` and it carries **no interval**: a min/max band over one or
+two control genes has no patient-level uncertainty in it, and the biological
+unit here is one patient.
+
+### CDX2 is used continuously, never as a label
+
+CDX2 missed the bar in the TVA by **0.0031** on a bar of 1.0986. A binary flag
+at the fourth decimal is not a measurement. CDX2's separation is reported as a
+number and enters the exploratory pattern continuously; the `usable` flag is not
+read for it.
+
+---
+
 ## RESULT
 
 **Inspection and first gate run 2026-09-07; gate result pending a required QC
