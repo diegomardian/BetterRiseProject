@@ -1,0 +1,126 @@
+{
+  "date": "2026-09-06",
+  "utc_timestamp": "2026-09-07T01:08:45+00:00",
+  "git_sha": "0d73b330783d2176267b9a3cdbdf43c3d68a3003",
+  "git_sha_short": "0d73b33",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.11.15",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "scanpy_version": "1.10.2",
+  "anndata_version": "0.10.8",
+  "name": "wnt_mechanism_per_patient",
+  "n_rows": 516,
+  "columns": [
+    "study_id",
+    "patient_id",
+    "arm",
+    "granularity_rung",
+    "labeling_axis",
+    "n_cells",
+    "n_signature_genes",
+    "wnt_stem_correlation",
+    "gene",
+    "role",
+    "partial_rho",
+    "unconditioned_rho"
+  ],
+  "table_kind": "harness",
+  "prereg": "docs/prereg_wnt_mechanism.md",
+  "signature": [
+    "AXIN2",
+    "NKD1",
+    "RNF43",
+    "NOTUM",
+    "TCF7"
+  ],
+  "invariant_8": "target signature, not CTNNB1/TCF7L2; ASCL2 and LGR5 excluded because the stem axis IS in play and they are its markers",
+  "conditioners": [
+    "maturity_score (stem_pole)",
+    "log library depth"
+  ],
+  "why_conditioned": "the mature bin is a bin and not a point, so an unconditioned correlation recovers residual maturity; and two per-cell scores in one cell correlate through library size even after CP10K",
+  "technical_floor": "ACTB and KRT8, scored through the identical path",
+  "wnt_stem_verdict": {
+    "verdict": "SEPARABLE",
+    "detail": "|r| = 0.060, below 0.7. The Wnt score carries variation the maturity axis does not, which is what the partial correlation needs in order to mean anything."
+  },
+  "interval": "Student-t over patients (HANDOFF \u00a73a), not the bootstrap",
+  "rung": "lineage",
+  "why_not_best4": "best4's intrinsic arm carries no claim after Amendment 3; a mechanism test there would ask why something is true that has not been established",
+  "report": {
+    "study_id": "Chen_2021_Cell",
+    "granularity_rung": "lineage",
+    "labeling_axis": "stem_pole",
+    "signature": [
+      "AXIN2",
+      "NKD1",
+      "RNF43",
+      "NOTUM",
+      "TCF7"
+    ],
+    "n_patients_eligible": 44,
+    "conditioners": [
+      "maturity_score",
+      "log_depth"
+    ],
+    "leakage_checked_against": {
+      "panel": [
+        "AQP8",
+        "CA1",
+        "CA2",
+        "CA4",
+        "CA7",
+        "CDX2",
+        "CEACAM7",
+        "FABP1",
+        "GUCA2A",
+        "GUCA2B",
+        "KRT20",
+        "LGALS4",
+        "MLH1",
+        "MS4A12",
+        "MUC2",
+        "OTOP2",
+        "PIGR",
+        "SATB2",
+        "SFRP1",
+        "SFRP2",
+        "SLC26A3",
+        "TFF3",
+        "VIL1"
+      ],
+      "axis_markers": [
+        "ASCL2",
+        "ITLN1",
+        "LGR5",
+        "MKI67",
+        "MUC2",
+        "OLFM4",
+        "SMOC2",
+        "SPDEF",
+        "TFF3"
+      ]
+    },
+    "n_patients_scored": 44,
+    "skipped": [
+      {
+        "patient_id": "Chen_2021_Cell.HTA11_8471",
+        "arm": "normal",
+        "reason": "28 mature cells"
+      },
+      {
+        "patient_id": "Chen_2021_Cell.HTA11_9408",
+        "arm": "tumour",
+        "reason": "24 mature cells"
+      }
+    ]
+  },
+  "exploratory": true,
+  "pre_registered": true,
+  "what_this_cannot_show": "direction. A within-cell association is equally consistent with Wnt suppressing the programme and with less-differentiated cells carrying more Wnt tone for other reasons."
+}
