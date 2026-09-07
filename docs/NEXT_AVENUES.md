@@ -657,10 +657,18 @@ D1 was within-patient and explicitly conceded between-lesion variation. The
 substrate now exists but is thin: **Crowell gives 2 of the 6 blocks that were
 audited for sub-regions with multiple adenoma sub-regions** (`110` and `221`,
 three each — from `crowell_subdomains_exploratory.parquet`; `242` arrived after
-that audit and has not been read for sub-regions). Becker has 43 polyps across 12
-donors, seven of them with ≥2, but **only four donors carry a reference arm and
-those per-donor counts were never committed** — they exist only in a
-`--inspect` log and need the 8.8 KB series matrix re-read to become an artifact.
+that audit and has not been read for sub-regions). Becker has **42 polyp lesions across 12
+donors** — re-read from the series matrix 2026-09-07. **The 43 quoted here
+before was sequencing rows, not lesions:** `A002-C-010` has two
+technical-replicate GSM rows and counting GSMs turns one physical polyp into
+two. **31 of those lesions sit in the 4 donors that carry a reference arm** —
+A001 (7), A002 (10), A014 (6), A015 (8). `becker_io.tumour_lesion_counts`
+collapses replicates by `sample_id` and keeps the row count beside the
+biological count so the collapse stays auditable.
+**The independent unit is still 4 donors, not 31 lesions** (invariant 5, Becker
+Amendment 2), so this needs a lesion-within-donor pre-specification before any
+analysis. **Still not an artifact:** `--inspect` logs the inventory and writes
+no table, which is what this item asked for.
 Sub-regions and lesions are **not independent patients**; any analysis is
 patient-clustered or mixed-model, with the Wnt score and adjustment set fixed
 first, and read as association. Crowell's sub-domains stay `exploratory` under
