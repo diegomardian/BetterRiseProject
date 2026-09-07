@@ -666,12 +666,34 @@ MS4A12 1.583, GUCA2A 2.029. Six-fold spread, nothing near −5.85.
 | identity + housekeeping | CDX2 0.502, EPCAM 0.518, ACTB 0.546, KRT8 0.550 | **0 of 6** contrasts exclude zero |
 | targets | MS4A12 0.709, GUCA2A 0.715 | `GUCA2A − MS4A12` = −0.011, contains zero |
 
-**All eight cross-block contrasts exclude zero**, and `best4` (n=18)
-reproduces it. That is the pre-registration's own third row, named as the
-expected outcome before the run: **GUCA2A separates from housekeeping and from
-CDX2 but not from MS4A12.** CDX2 sits with the controls, so *terminal
-differentiation down, identity retained* now rests on **two different
-estimands** — this and the corrected specificity reading.
+All eight cross-block contrasts exclude zero **on this statistic**. That is the
+pre-registration's own third row, named as the expected outcome before the run:
+**GUCA2A separates from housekeeping and from CDX2 but not from MS4A12.** CDX2
+sits with the controls, so *terminal differentiation down, identity retained*
+now rests on **two different estimands** — this and the corrected specificity
+reading.
+
+**HOW MUCH OF IT DEPENDS ON A STATISTIC NOBODY PRE-SPECIFIED — measured, and it
+is not all robust.** §5 fixed the comparator set and not the scale, and the
+share was chosen after seeing the output. Run on all three defensible
+scale-free constructions (`results/2026-09-06_5f70bb3/`), cross-block contrasts
+excluding zero, out of 8:
+
+| rung | `share_abs` | `ratio` | `share_signed` |
+|---|---|---|---|
+| `lineage` | **8/8** | **7/8** | 6/8 |
+| `best4` | **8/8** | **1/8** | 3/8 |
+
+**At `lineage` the two-block reading survives the choice.** `share_abs` and
+`ratio` both return 0 of 7 within-block, so the blocks are internally
+homogeneous on both. **At `best4` it does not** — `ratio`, the form §1a states
+the identifiability claim in, returns 1 of 8. **Quote the two blocks at
+`lineage` only.** `best4`'s contribution is its compositional point and its
+estimability result, which are scale-free by construction.
+
+`GUCA2A − MS4A12` contains zero on 2 of 3 at `lineage` and 3 of 3 at `best4`, so
+**the "not gene-specific" conclusion is the most robust thing here** — which is
+the right way round, since it is the one that withholds a claim.
 
 **The arithmetic check passed.** `epithelial` returned compositional and
 interaction of **exactly 0.000** for all six genes. Δf is identically zero at

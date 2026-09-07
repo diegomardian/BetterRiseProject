@@ -487,10 +487,16 @@ On the intrinsic share, `lineage`, 43 patients, Student-t:
 | **MS4A12** | **target** | **0.709 [0.639, 0.779]** |
 | **GUCA2A** | **target** | **0.715 [0.653, 0.776]** |
 
-**All eight cross-block contrasts exclude zero. Neither within-block contrast
-does** — the four-gene block returns 0 of 6, and `GUCA2A − MS4A12` is **−0.011**,
-containing zero. `best4` (n=18) reproduces the same structure with all eight
-cross-block contrasts excluding zero.
+**On this statistic** all eight cross-block contrasts exclude zero and neither
+within-block contrast does — the four-gene block returns 0 of 6, and
+`GUCA2A − MS4A12` is **−0.011**, containing zero. `best4` (n=18) reproduces it.
+
+> ### But the statistic was not pre-specified, and it matters — see "How much of this depends on the scale" below.
+> Run on all three defensible scale-free constructions
+> (`results/2026-09-06_5f70bb3/`), the cross-block count is **8/8 on
+> `share_abs`, 7/8 on `ratio` and 6/8 on `share_signed` at `lineage`** — and at
+> **`best4` it is 8/8, 1/8 and 3/8.** The two-block reading is well supported at
+> `lineage` and **is not robust at `best4`.**
 
 This is §6's third row exactly: **identifiable, GUCA2A separating from
 housekeeping and from CDX2 but NOT from MS4A12 — a tier-level intrinsic result
@@ -541,6 +547,36 @@ estimable.
 intrinsic share is reported and reproduces `lineage`'s block structure, but it
 carries the Amendment 3 caveat and no unqualified claim.
 
+### How much of this depends on the scale — measured, and it is not all robust
+
+`results/2026-09-06_5f70bb3/`, by `adenoma_decomposition_scales.py`. Every
+ordered pair on three scale-free statistics; **74 contrasts disagree between
+them, 44 of those cross-block.** Cross-block contrasts excluding zero, out of 8:
+
+| rung | `share_abs` | `ratio` | `share_signed` |
+|---|---|---|---|
+| `lineage` | **8/8** | **7/8** | 6/8 |
+| `best4` | **8/8** | **1/8** | 3/8 |
+
+**At `lineage` the two-block separation survives the choice** — 8/8 and 7/8 on
+the two statistics that keep the blocks internally homogeneous (`share_abs` and
+`ratio` both return 0 of 7 within-block). `share_signed` returns 4 of 7
+within-block, so on that construction the blocks are not clean and its 6/8 is
+not evidence for the same structure.
+
+**At `best4` it does not survive.** `ratio` — the form
+`docs/NEXT_AVENUES.md` §1a states the identifiability claim in — returns **1 of
+8**. So `best4`'s block structure rests on `share_abs` alone, and `share_abs` is
+the statistic chosen after seeing the output. **No two-block claim should be
+made at `best4`.** That rung's contribution stands as its compositional point
+and its estimability result, both of which are scale-free by construction.
+
+**`GUCA2A − MS4A12` contains zero on 2 of 3 at `lineage` and 3 of 3 at
+`best4`.** The "not gene-specific" conclusion is the most robust thing here —
+which is the right way round, since it is the conclusion that withholds a claim.
+The exception is `share_signed` at `lineage` (−0.184, excluding zero), and it is
+recorded rather than dropped.
+
 ### What is NOT claimed, and one gap in this document
 
 **Seven contrasts are denominator-dependent** and carry no unqualified claim
@@ -548,15 +584,20 @@ carries the Amendment 3 caveat and no unqualified claim.
 cross-block contrast on the share statistic, so the reading above does not
 depend on open decision #14.
 
-**§5 fixed the comparator SET and did not fix the cross-gene STATISTIC.** It
-says score every pair, and it does not say on what scale — and the raw
-compositional and intrinsic terms are in each gene's own CP10K units, so
-comparing their magnitudes across genes is the very error the detection-scale
-correction was written to stop. The intrinsic **share** used above is
-scale-free, and the `i/c` ratio agrees with it directionally, but **neither was
-pre-specified.** That is a gap in this pre-registration, it is recorded here
-rather than papered over, and any successor design should fix the statistic as
-well as the set.
+**§5 fixed the comparator SET and did not fix the cross-gene STATISTIC**, and
+the section above measures what that cost. The raw terms are in each gene's own
+CP10K units, so comparing their magnitudes across genes is the very error the
+detection-scale correction was written to stop; a scale-free statistic is
+required and **none was pre-specified**. The one the headline quotes was chosen
+after seeing the output.
+
+**The consequence is not uniform.** At `lineage` the reading survives every
+construction that keeps the blocks internally homogeneous. At `best4` it does
+not, and that is a real retraction of the sentence this document first carried
+("`best4` reproduces the same structure") — it reproduces it on one statistic
+out of three. **A successor design must fix the statistic before the run**, and
+the agreement table is what stands in for a pre-specification that does not
+exist, not a substitute for one.
 
 **Nothing here bears on survivorship.** §7 stands unchanged: GUCA2A-high cells
 having been preferentially destroyed is not transcript-detectable, and a
