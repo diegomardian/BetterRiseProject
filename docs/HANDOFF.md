@@ -768,8 +768,9 @@ that job, this test tells you exactly what to edit.**
 ## 6g. The MLH1 positive control — RAN 2026-09-06. UNINTERPRETABLE.
 
 **Full account: `docs/prereg_g2_mlh1_within_stratum.md`, RESULT section.**
-Tables `results/2026-09-06_4b1afca/` — **still on the cluster, not yet
-committed.** 29 of 30 eligible patients scored; arms 10 methylated / 4
+Tables `results/2026-09-06_4b1afca/`, committed in `5428a9a` and verified
+against the write-up (verdict, premise, strata, interval method and all three
+MLH1 rows match the sidecar). 29 of 30 eligible patients scored; arms 10 methylated / 4
 intact-MMRd / 15 unmethylated.
 
 **The verdict is §5's first branch and it was pre-committed.**
@@ -813,10 +814,7 @@ positive control would have bought, and it is what the data supports.
 
 ### Two things to do
 
-1. **Commit the cluster tables.** `results/2026-09-06_4b1afca/` is the only
-   uncommitted result in the project. Until it lands, the RESULT section quotes
-   numbers with no artifact behind them.
-2. **Avenue A/1a is next, and is now PRE-REGISTERED** —
+1. **Avenue A/1a is next, and is now PRE-REGISTERED** —
    `docs/prereg_adenoma_decomposition.md`. The decomposition on `Chen_2021`, the
    project's original estimand, on the one cohort where the premise holds. It
    needs no MLH1, no premise resolution and no instrument sensitivity, which
