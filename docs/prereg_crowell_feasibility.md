@@ -340,13 +340,43 @@ table and records their count in the sidecar. This does not change any named
 domain or the gate verdict, but the table is rerun once more so the published
 artifact contains only real histopathological domains.
 
-Neither superseded table nor its verdict should be quoted. Rerun the same
-pre-registered gate on the corrected population and domain set:
+Neither superseded table nor its verdict should be quoted. **A third
+supersession followed**: Amendment 2 replaced the single-word verdict, because
+`NOT ASKABLE IN THE ADENOMA` is true of the per-cell reading and silent about a
+direction §6 had pre-specified. Rerun with the reference domain and the
+biological n supplied, so both halves are emitted:
 
 ```bash
 python -m src.reference.jobs.crowell_feasibility \
   --object "$BRP_DATA_DIR/raw/crowell/231.h5ad" \
   --domain-column typ \
   --adenoma-domain 231_TVA \
-  --n-negative-probes 50
+  --reference-domain 231_REF \
+  --n-negative-probes 50 \
+  --patient-n 1
 ```
+
+### What the superseded numbers say, replayed through the corrected verdict
+
+Not a result — `results/2026-09-07_d3d1369/` is superseded three times over and
+the rerun above is what will be quoted. Recorded so the rerun is not the first
+time anyone sees the shape of it.
+
+| field | value |
+|---|---|
+| `per_cell_feasibility` | **failed** — GUCA2A +0.700 in `231_TVA` against a bar of +1.099 |
+| `prespecified_directional_read` | **fall_observed** — +1.571 in `231_REF` → +0.700 in `231_TVA` |
+| `global_sensitivity_control` | **not_worse** — over **one** control-role gene, ACTB being absent |
+| `patient_n` | **1** |
+
+**Below the limit of quantification, not censored.** The per-cell spatial
+reading is not licensed and no relabelling makes GUCA2A independently
+measurable there.
+
+**The exploratory control-referenced pattern, `exploratory=True`, no interval.**
+REF→TVA change in separation: KRT8 **+0.642** (the entire control band, one
+gene), CDX2 +0.629, EPCAM +0.609, MS4A12 **−0.729**, GUCA2A **−0.871**. The two
+targets move opposite in sign to the control while CDX2 sits beside it — the
+same two-block shape avenue A found on Chen, on a different platform. **At n=1,
+post-hoc, on a band of one gene, that is a hypothesis with a number attached and
+nothing more.** It may not be quoted as replication or as silencing.
