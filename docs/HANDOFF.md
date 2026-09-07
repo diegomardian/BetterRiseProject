@@ -423,6 +423,16 @@ It is set in `~/.bashrc`; a fresh shell already has it, and the failure mode is
 **overwriting** it rather than forgetting to. Recorded because it cost a
 round-trip on 2026-09-07.
 
+**`BRP_PROJECT_ROOT` is NOT in the profile, and `BRP_DATA_DIR` is.** So a fresh
+shell has one and not the other, and `cd $BRP_PROJECT_ROOT/BetterRiseProject`
+silently becomes `cd /BetterRiseProject` while every `$BRP_DATA_DIR` path in the
+same command still resolves. That half-set state is worse than neither being
+set, because the failure looks like a missing repository rather than a missing
+variable. The checkout is
+`/projectnb/rise-batteries/bode/guanylin/BetterRiseProject`; either use the
+absolute path or add the export to `~/.bashrc` beside the other. Cost a second
+round-trip the same day.
+
 `data/manifest.csv` carries every file's url and sha256 and is the only record
 that travels — verify downloads against it.
 
