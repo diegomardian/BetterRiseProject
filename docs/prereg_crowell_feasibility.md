@@ -192,4 +192,26 @@ different deposit.
 
 ## RESULT
 
-*Not run. Nothing has been downloaded.*
+**Inspection and first gate run 2026-09-07; gate result pending a required QC
+rerun.** Sections 232 and the pre-registered fallback 231 were downloaded and
+their checksums matched. Section 231 carries the explicit histopathological
+domains `231_REF`, `231_TVA`, and `231_CRC` in `typ`.
+
+The first gate run is **invalidated, not interpreted**: it used all 298,151
+rows, including 19,460 cells with `fil=False`. The deposit's own Zenodo record
+defines `fil` as whether a cell passed quality control, so the analysis
+population is the 278,691 cells with `fil=True`. The runner now requires this
+field, refuses non-logical or missing values, filters before computing either
+detection or the negative-probe floor, and records the before/after counts in
+the sidecar. This correction was made before reading a filtered result.
+
+The invalidated table and its `NOT ASKABLE IN THE ADENOMA` verdict must not be
+quoted. Rerun the same pre-registered gate on the corrected population:
+
+```bash
+python -m src.reference.jobs.crowell_feasibility \
+  --object "$BRP_DATA_DIR/raw/crowell/231.h5ad" \
+  --domain-column typ \
+  --adenoma-domain 231_TVA \
+  --n-negative-probes 50
+```

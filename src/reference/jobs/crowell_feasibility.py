@@ -51,6 +51,7 @@ from src.common.io import write_versioned_table
 from src.common.paths import RESULTS_DIR
 from src.reference.crowell_io import (
     OBS_NEGATIVE_FEATURES,
+    OBS_QC_PASS,
     SECTIONS,
     CrowellError,
     check_counts_are_integers,
@@ -58,6 +59,7 @@ from src.reference.crowell_io import (
     domain_vocabulary,
     floor_from_obs,
     open_section,
+    qc_pass_mask,
     require_controls,
     require_counts,
 )
@@ -78,7 +80,8 @@ CRITICAL_GENE = "GUCA2A"
 #: handful of cells is not a detection rate.
 MIN_CELLS_PER_DOMAIN = 200
 
-_MU = lambda p: -np.log1p(-np.clip(np.asarray(p, dtype=float), 0.0, 1 - 1e-12))
+def _mu(p):
+    return -np.log1p(-np.clip(np.asarray(p, dtype=float), 0.0, 1 - 1e-12))
 
 
 def find_panel(var_names) -> tuple[dict[str, int], list[str]]:
@@ -130,7 +133,7 @@ def negative_floor(matrix, control_indices: np.ndarray, *,
 
 def per_domain_table(matrix, panel_index: dict[str, int], domains,
                      control_indices: np.ndarray | None = None, *,
-                     obs: "pd.DataFrame | None" = None,
+                     obs: pd.DataFrame | None = None,
                      n_negative_probes: int | None = None,
                      min_umi: int = DETECTION_MIN_UMI) -> pd.DataFrame:
     """One row per (domain, gene): detection, the floor, separation, depth.
@@ -186,8 +189,8 @@ def per_domain_table(matrix, panel_index: dict[str, int], domains,
                 # finite number that reads like a measurement.
                 "log_separation": (
                     float("-inf") if detection <= 0.0 else float(
-                        np.log(_MU(detection)
-                               / max(_MU(floor["floor_per_probe_mean"]), 1e-12)))),
+                        np.log(_mu(detection)
+                               / max(_mu(floor["floor_per_probe_mean"]), 1e-12)))),
             })
     frame = pd.DataFrame(rows)
     if frame.empty:
@@ -299,6 +302,9 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     adata = open_section(args.object)
+    n_cells_before_qc = int(adata.n_obs)
+    pass_qc = qc_pass_mask(adata.obs)
+    n_cells_after_qc = int(pass_qc.sum())
     var_names = [str(v) for v in adata.var_names]
     panel_index, absent = find_panel(var_names)
     controls = control_features(var_names)
@@ -309,6 +315,8 @@ def main(argv: list[str] | None = None) -> int:
         log.info("  file                      %s", args.object)
         log.info("  shape                     %d cells x %d features",
                  adata.n_obs, adata.n_vars)
+        log.info("  QC pass (%s=True)        %d of %d cells",
+                 OBS_QC_PASS, n_cells_after_qc, n_cells_before_qc)
         log.info("  layers                    %s", list(adata.layers.keys()))
         log.info("  panel genes located       %d of %d%s",
                  len(panel_index), len(GENE_ROLES),
@@ -336,6 +344,15 @@ def main(argv: list[str] | None = None) -> int:
             "rather than the grouping once put\n  Chen_2021's usable pairs at "
             "zero when the true number was 44.")
         return 0
+
+    # The deposit defines `fil` as whether a cell passed quality control. The
+    # first feasibility run accidentally used every row (298,151 rather than
+    # the 278,691 retained cells) and is invalidated by this line. Filtering is
+    # mandatory rather than an option because the alternative population is
+    # not the one Crowell released for analysis.
+    adata = adata[pass_qc]
+    log.info("QC: retained %d of %d cells with obs[%r] == True",
+             n_cells_after_qc, n_cells_before_qc, OBS_QC_PASS)
 
     if not panel_index:
         raise CrowellError(
@@ -423,6 +440,10 @@ def main(argv: list[str] | None = None) -> int:
         "min_log_separation": MIN_LOG_SEPARATION,
         "floor_source": floor_source,
         "n_negative_probes": args.n_negative_probes,
+        "qc_filter_column": OBS_QC_PASS,
+        "n_cells_before_qc": n_cells_before_qc,
+        "n_cells_after_qc": n_cells_after_qc,
+        "n_cells_qc_failed_excluded": n_cells_before_qc - n_cells_after_qc,
         "negative_probes_are_specificity_only": True,
         "does_not_license": (
             "any per-cell 'GUCA2A-low = silenced' claim. The false-negative "

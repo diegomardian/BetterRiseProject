@@ -114,7 +114,7 @@ def open_section(path: str | Path, *, backed: bool = True):
     return adata
 
 
-def _match_any(names: "np.ndarray | list[str]", patterns: tuple[str, ...]) -> dict[str, np.ndarray]:
+def _match_any(names: np.ndarray | list[str], patterns: tuple[str, ...]) -> dict[str, np.ndarray]:
     """Which pattern matched, and the indices it matched. Reported, not merged."""
     names = np.asarray([str(n) for n in names])
     out: dict[str, np.ndarray] = {}
@@ -125,7 +125,7 @@ def _match_any(names: "np.ndarray | list[str]", patterns: tuple[str, ...]) -> di
     return out
 
 
-def control_features(var_names: "np.ndarray | list[str]") -> dict[str, object]:
+def control_features(var_names: np.ndarray | list[str]) -> dict[str, object]:
     """Locate the negative probes and false codes, and say which convention hit.
 
     THE FLOOR IS BUILT FROM THESE. An empty match returns zero controls, a zero
@@ -171,6 +171,44 @@ OBS_NEGATIVE_COUNT = "nCount_negprobes"
 OBS_NEGATIVE_FEATURES = "nFeature_negprobes"
 OBS_FALSECODE_COUNT = "nCount_falsecode"
 OBS_FALSECODE_FEATURES = "nFeature_falsecode"
+#: Deposit-defined QC inclusion flag. The Zenodo record describes ``fil`` as
+#: "logical flag indicating whether or not a cell passed quality control".
+#: A production read over every row silently mixes retained cells with cells
+#: the data producer rejected, so there is deliberately no missing-column
+#: fallback.
+OBS_QC_PASS = "fil"
+
+
+def qc_pass_mask(obs: pd.DataFrame, *, column: str = OBS_QC_PASS) -> np.ndarray:
+    """Return the deposit's QC-pass mask, refusing anything non-logical.
+
+    AnnData may round-trip logical metadata as booleans or as the strings
+    ``"True"``/``"False"``. Both encodings are accepted; missing values and
+    any third value are refused rather than treated as failures or passes.
+    """
+    if column not in obs.columns:
+        raise CrowellError(
+            f"obs has no {column!r}. The Crowell deposit defines it as the "
+            "cell-level QC-pass flag; do not run the feasibility gate on an "
+            "unfiltered population."
+        )
+    values = obs[column]
+    if values.isna().any():
+        raise CrowellError(
+            f"obs[{column!r}] contains missing values; QC inclusion is undefined "
+            "for those cells."
+        )
+    logical = values.astype(str).str.strip().str.lower()
+    unexpected = sorted(set(logical) - {"true", "false"})
+    if unexpected:
+        raise CrowellError(
+            f"obs[{column!r}] is not logical; unexpected values {unexpected}. "
+            "Do not guess which cells passed QC."
+        )
+    mask = logical.eq("true").to_numpy(dtype=bool)
+    if not mask.any():
+        raise CrowellError(f"obs[{column!r}] marks zero cells as passing QC.")
+    return mask
 
 
 def floor_from_obs(obs: pd.DataFrame, *, n_negative_probes: int | None = None
@@ -248,7 +286,10 @@ def domain_vocabulary(obs: pd.DataFrame, *, max_distinct: int = 50) -> dict[str,
         except Exception:  # pragma: no cover - exotic dtypes
             continue
         n_distinct = int(values.nunique())
-        if n_distinct > max_distinct or n_distinct <= 1 and column.lower() not in DOMAIN_COLUMN_CANDIDATES:
+        if (
+            n_distinct > max_distinct
+            or n_distinct <= 1 and column.lower() not in DOMAIN_COLUMN_CANDIDATES
+        ):
             # A constant column is not a vocabulary — unless it is one of the
             # named candidates, where "all cells are TVA" is the finding.
             if not (n_distinct <= 1 and column.lower() in DOMAIN_COLUMN_CANDIDATES):

@@ -24,6 +24,7 @@ from src.reference.crowell_io import (
     check_counts_are_integers,
     control_features,
     domain_vocabulary,
+    qc_pass_mask,
     require_controls,
     require_counts,
 )
@@ -164,7 +165,8 @@ def test_separation_is_on_the_detection_scale_not_a_ratio_of_probabilities():
     table = per_domain_table(matrix, find_panel(names)[0], domains,
                              control_features(names)["negative_indices"])
     row = table.set_index("gene")
-    mu = lambda p: -np.log1p(-p)
+    def mu(p):
+        return -np.log1p(-p)
     floor = row.loc["ACTB", "floor_per_probe_mean"]
     assert row.loc["ACTB", "log_separation"] == pytest.approx(
         np.log(mu(row.loc["ACTB", "detection"]) / mu(floor)), abs=1e-9)
@@ -280,6 +282,28 @@ def test_a_constant_named_column_is_reported_because_that_is_the_finding():
     obs = pd.DataFrame({"tissue": ["TVA"] * 10})
     vocab = domain_vocabulary(obs)
     assert vocab["candidate_columns"]["tissue"] == {"TVA": 10}
+
+
+def test_the_deposit_qc_flag_excludes_failed_cells():
+    """The first real run used all 298,151 rows even though Crowell defines
+    `fil` as the cell-level QC-pass flag. The rejected population must not be
+    silently mixed back into the assay."""
+    obs = pd.DataFrame({"fil": [True, False, True, False]})
+    assert qc_pass_mask(obs).tolist() == [True, False, True, False]
+
+
+def test_the_qc_flag_may_round_trip_as_logical_strings():
+    obs = pd.DataFrame({"fil": ["True", "False", "true"]})
+    assert qc_pass_mask(obs).tolist() == [True, False, True]
+
+
+def test_a_missing_or_nonlogical_qc_flag_is_refused():
+    with pytest.raises(CrowellError, match="unfiltered population"):
+        qc_pass_mask(pd.DataFrame({"something_else": [True, False]}))
+    with pytest.raises(CrowellError, match="not logical"):
+        qc_pass_mask(pd.DataFrame({"fil": ["keep", "drop"]}))
+    with pytest.raises(CrowellError, match="missing values"):
+        qc_pass_mask(pd.DataFrame({"fil": [True, None]}))
 
 
 # ---------------------------------------------------------------------------
