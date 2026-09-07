@@ -663,3 +663,20 @@ def test_gene_columns_are_put_through_the_same_qc_mask_as_the_object(tmp_path):
     # and the surviving values are the right cells, not the first k of them
     expected = (matrix[:, panel_index["ACTB"]] >= 1)[keep]
     assert filtered["ACTB"].tolist() == expected.tolist()
+
+
+def test_per_domain_table_refuses_two_nones_rather_than_dereferencing_one():
+    """THE THIRD SECTION 110 FAILURE, at the callee.
+
+    The path in `main` was chosen by `adata.isbacked`, which is unreliable on a
+    view: after subsetting it reported False while `adata.X` was also None, so
+    both branches were skipped and this function got matrix=None with no
+    precomputed detection. It dereferenced the None. It should refuse.
+    """
+    obs = pd.DataFrame({"nFeature_negprobes": [0, 1, 0, 2],
+                        "nCount_negprobes": [0, 1, 0, 3]})
+    with pytest.raises((CrowellError, AttributeError)) as excinfo:
+        per_domain_table(None, {"ACTB": 0}, np.array(["REF"] * 4), obs=obs)
+    # the failure must not be an AttributeError on None deep inside the loop
+    assert isinstance(excinfo.value, CrowellError), (
+        f"expected a stated refusal, got {excinfo.value!r}")

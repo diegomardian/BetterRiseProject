@@ -158,6 +158,14 @@ def per_domain_table(matrix, panel_index: dict[str, int], domains,
     # non-zero as float64 -- 549M values, 4.39 GB, and it killed section 110.
     # The job needs five columns of 18,878 and a per-cell depth that obs
     # already carries, so both are read without the matrix and passed in.
+    if matrix is None and detection is None:
+        # The caller skipped both paths. `main` chose between them on
+        # `adata.isbacked`, which is unreliable on a subset view, and this
+        # function dereferenced the None instead of saying so.
+        raise CrowellError(
+            "no source of counts: matrix is None and no precomputed detection "
+            "was given. A table built from that would be a table about nothing."
+        )
     if detection is not None and matrix is None:
         if counts_per_cell is None or genes_per_cell is None:
             raise CrowellError(
@@ -556,17 +564,34 @@ def main(argv: list[str] | None = None) -> int:
     # non-zero as float64 -- 549M values and 4.39 GB on section 110, which is
     # what killed the first attempt. Five columns of 18,878 are read directly
     # from the sparse arrays, and the per-cell depth comes from obs.
+    # THE MATRIX IS NOT LOADED. `to_memory()` on a backed CSC materialises every
+    # non-zero as float64 -- 549M values and 4.39 GB on section 110, which is
+    # what killed the first attempt. Five columns of 18,878 are read directly
+    # from the sparse arrays, and the per-cell depth comes from obs.
+    #
+    # THE PATH IS NOT CHOSEN BY `adata.isbacked`. That was the first version and
+    # it is unreliable on a view: after `adata = adata[pass_qc]` it reported
+    # False while `adata.X` also came back None, so BOTH branches were skipped
+    # and per_domain_table was handed two Nones. The column reader either works
+    # on this file or raises, and that is the condition.
     matrix = None
     detection = counts_per_cell = genes_per_cell = None
     depth_check: dict[str, object] = {}
-    if adata.isbacked and not args.layer:
+    if not args.layer:
+        try:
+            detection = read_gene_columns(args.object, panel_index,
+                                          min_umi=DETECTION_MIN_UMI)
+        except CrowellError as exc:
+            log.info("column reader unavailable (%s); falling back to the "
+                     "matrix", exc)
+            detection = None
+
+    if detection is not None:
         # read_gene_columns reads the FILE, which is pre-QC; `adata` has
         # already been subset to obs['fil'] == True. The vectors must be put
         # through the same mask or they describe a different population --
         # 694,553 cells against 668,061 on section 110, which is how this was
         # found.
-        detection = read_gene_columns(args.object, panel_index,
-                                      min_umi=DETECTION_MIN_UMI)
         for gene, vector in detection.items():
             if vector.size != n_cells_before_qc:
                 raise CrowellError(
@@ -594,10 +619,24 @@ def main(argv: list[str] | None = None) -> int:
                  "(%d cells checked, %d inconsistent)", len(detection),
                  depth_check["cells_checked"], depth_check["violations"])
     else:
-        matrix = adata.layers[args.layer] if args.layer else adata.X
-        if adata.isbacked:
-            matrix = adata.to_memory().layers[args.layer]
+        matrix = (adata.to_memory().layers[args.layer] if args.layer
+                  else adata.to_memory().X)
+        if matrix is None:
+            raise CrowellError(
+                "the matrix fallback produced None. Neither the column reader "
+                "nor the object yielded counts, and a table built from that "
+                "would be a table about nothing."
+            )
         require_counts(check_counts_are_integers(matrix))
+
+    # Exactly one path must be live. The first version could skip both silently
+    # and hand per_domain_table a pair of Nones.
+    if (matrix is None) == (detection is None):
+        raise CrowellError(
+            f"expected exactly one source of counts; matrix is "
+            f"{'set' if matrix is not None else 'None'} and detection is "
+            f"{'set' if detection is not None else 'None'}."
+        )
 
     # POOLING, multisection Amendment 1. Several sub-domains of one class in one
     # block are one patient's observation, and §5 already fixed "pool the cells
