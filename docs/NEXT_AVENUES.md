@@ -372,9 +372,43 @@ feasibility check exists.
 
 ### C. The survivorship discriminators — consistent, and C2's target choice is corroborated
 
-**C1 (segmented spatial)** is the standing Tier 2 ranking unchanged, and the
-Visium caveat it carries is already this repo's (`docs/HANDOFF.md` §6e: a spot
-is still a mixture). Ruling Pelka's own GeoMx out as a primary is right —
+**C1 (segmented spatial) — LOOKUP DONE 2026-09-07, and it is not orderable off
+a catalogue.** `results/2026-09-07_eb58d79/panel_coverage.parquet`, job
+`src/reference/jobs/panel_coverage.py`, gene lists in `data/manifest.csv` with
+sha256.
+
+| gene | role | CosMx 1K Universal | CosMx 6K Discovery |
+|---|---|---|---|
+| **GUCA2A** | **target** | **absent** | **absent** |
+| MS4A12 | identity | absent | absent |
+| CDX2 | identity | absent | present |
+| EPCAM | epithelial | present | present |
+| KRT8 | control | present | present |
+| **ACTB** | **control** | **absent** | **absent** |
+| AXIN2 / NKD1 / RNF43 / NOTUM / TCF7 | Wnt (inv. 8) | 2 of 5 | 4 of 5 |
+
+**The target is absent from a 6,000-gene panel.** Its paralog `GUCA2B` is on the
+6K and `GUCA2A` is not. So is `ACTB`, the load-bearing control. **C1 needs custom
+probes for the genes the whole design rests on** — a different cost and lead
+time from "order the colon panel," and that is the fact the ranking was missing.
+
+*The tidy explanation is wrong, so do not repeat it.* Absence does not track
+abundance: `KRT8` is the **highest**-expressing gene in the panel (25.8 CP10K,
+normal arm) and it is on both, while `ACTB` at 19.5 is on neither. What the
+present genes have in common is that they are cell-typing markers, which is what
+these panels are built for — the CosMx 1K's own description is "robust cell
+typing." This project needs a housekeeping control (discriminates nothing, so a
+typing panel omits it) and functional maturity markers. That reading is an
+interpretation and is labelled one; the table above is the measurement.
+
+**Xenium is NOT CHECKED, which is not the same as absent.** 10x returned HTTP
+429/403 to every request on 2026-09-07. `XENIUM_SOURCES` in the job carries the
+two URLs; fetch the Human Colon (325-gene) and Prime 5K metadata CSVs from a
+browser, drop them in `data/raw/panels/`, add manifest rows, and extend `PANELS`.
+**That is the remaining half of this item and it is still nearly free.**
+
+The Visium caveat C1 carries is already this repo's (`docs/HANDOFF.md` §6e: a
+spot is still a mixture). Ruling Pelka's own GeoMx out as a primary is right —
 region-level, 3 samples.
 
 **C2's instinct to target CDX2 before GUCA2A is right, and a committed table
@@ -408,7 +442,9 @@ CDX2-down is established — consistent, but the two must not be quoted as one.
    under a nuclear protocol, per gene: MS4A12 at 0.363 is the floor and GUCA2A
    failing ends the replication.
 3. **C2**, on CDX2 rather than GUCA2A, with the 450k already in hand.
-4. C1, B3, B2 as supplementary.
+4. C1, B3, B2 as supplementary — **and C1's cost changed on 2026-09-07**: the
+   target is not on a stock CosMx panel at any plex, so it is custom probes, not
+   a catalogue order. See §C above.
 
 ---
 
@@ -497,9 +533,12 @@ each remaining level at k = 1.
    four donors (Becker Amendment 2) so it cannot replicate avenue A, but the
    GUCA2A/MS4A12-in-nuclei detection table bears on whether in-situ platforms
    can see these genes at all. Data is on disk; `--inspect` is the next command.
-7. **C1's panel lookup** — nearly free, and nobody has done it. Whether the six
-   panel genes are on a Xenium/CosMx probe set is a lookup, not a pipeline. If
-   they are not, C1 as conceived is dead and the long-term plan changes today.
+7. **C1's panel lookup** — **HALF DONE 2026-09-07.** CosMx answered and it is a
+   clean negative: **GUCA2A is on neither the 1K nor the 6K panel**, nor is
+   ACTB. C1 is not runnable on a stock CosMx panel; it needs custom probes for
+   the target itself. **Xenium is still open** — 10x rate-limited every request
+   — and it is the cheapest thing left on this list. Tier 1 §C above has the
+   table and the two URLs.
 8. **Zheng's gradient** (1c), descriptive, and **no interval may be reported
    from it**: at n=3 the percentile bootstrap is 25.1% and 0.372× the correct
    width.
