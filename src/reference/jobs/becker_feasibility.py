@@ -61,6 +61,7 @@ import numpy as np
 import pandas as pd
 
 from src.common.io import write_versioned_table
+from src.common.label_provenance import Measurement, check_no_circular_claim
 from src.common.provenance import DEFAULT_SEED
 from src.reference.jobs.coexpression_silencing import DETECTION_MIN_UMI, GENE_ROLES
 
@@ -95,6 +96,25 @@ CRITICAL_GENE = "GUCA2A"
 #: BEFORE the labelled gate is run, so the set cannot be tuned to the answer.
 MATURE_MARKERS: tuple[str, ...] = (
     "CA1", "CA2", "AQP8", "SLC26A3", "KRT20", "CEACAM7",
+)
+
+#: INVARIANT 11's declaration for this job, beside the label it describes.
+#: The mature label is transcript-derived, so the endpoint it may be used to
+#: claim has to be disjoint from it -- which is why the whole panel, not just
+#: the target, is excluded from MATURE_MARKERS above. Declared rather than
+#: argued: `validate_specification` refuses the job if the two ever overlap.
+LABEL_PROVENANCE = Measurement(
+    modality="transcript",
+    assay="Becker snRNA-seq mature-colonocyte marker call",
+    genes=MATURE_MARKERS,
+)
+
+#: The endpoint. Every panel gene is scored, controls included -- a control not
+#: measured in the same cells cannot bound anything.
+CLAIM_PROVENANCE = Measurement(
+    modality="transcript",
+    assay="Becker snRNA-seq (GSE201348)",
+    genes=tuple(GENE_ROLES),
 )
 
 #: A nucleus is called mature when it detects at least this many of them. Two,
@@ -141,6 +161,7 @@ def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
         read_series_matrix,
         read_triplet,
         sample_files,
+        tumour_lesion_counts,
     )
 
     metadata = read_series_matrix(series_matrix)
@@ -157,6 +178,7 @@ def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
     # which is the cross-donor comparison Becker Amendment 2 refuses.
     scored = metadata[metadata["arm"].isin(PAIRED_ARMS)]
     paired = paired_donors(metadata)
+    lesions = tumour_lesion_counts(metadata)
     report = {
         "tar": str(tar), "series_matrix": str(series_matrix),
         "n_samples_in_tar": int(len(files)),
@@ -178,6 +200,15 @@ def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
             - set(paired)),
         "samples_per_donor": scored.groupby(["donor", "arm"]).size()
                                    .unstack(fill_value=0).to_dict("index"),
+        "tumour_lesion_count_rule": (
+            "unique sample_id; technical replicate GSM rows collapse to one "
+            "physical lesion"
+        ),
+        "n_tumour_lesion_donors": int(len(lesions)),
+        "n_tumour_lesions": int(lesions["n_tumour_lesions"].sum()),
+        "n_paired_tumour_lesions": int(
+            lesions.loc[lesions["paired"], "n_tumour_lesions"].sum()),
+        "tumour_lesions_per_donor": lesions.to_dict("records"),
         "replicate_samples": metadata.loc[metadata["replicate"].notna(),
                                           "sample_id"].unique().tolist(),
         "first_sample_shape_cells_by_genes": list(counts.shape),
@@ -190,6 +221,20 @@ def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
         report["fap_donors"] = (metadata.drop_duplicates("donor")["fap"]
                                 .value_counts().to_dict())
     return report
+
+
+def lesion_inventory(series_matrix: Path) -> pd.DataFrame:
+    """The durable, metadata-only Becker lesion inventory.
+
+    This is deliberately separate from ``--inspect``: the question needs only
+    GEO's small series matrix, not the 1.2 GB count tar, and the answer is an
+    input inventory rather than a biological result.  One lesion is one unique
+    ``sample_id``; technical GSM replicates remain visible in ``n_tumour_rows``.
+    """
+    from src.reference.becker_io import read_series_matrix, tumour_lesion_counts
+
+    metadata = read_series_matrix(series_matrix)
+    return tumour_lesion_counts(metadata)
 
 
 def inspect(path: Path) -> dict:
@@ -279,8 +324,19 @@ def gate(detection: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values("detection", ascending=False, ignore_index=True)
 
 
+def validate_specification() -> tuple[str, ...]:
+    """Invariant 11, checked before the population is built rather than after.
+
+    Cheap and pure, so both ``main`` and :func:`verdict` call it: a guard the
+    API can be used around is a guard that reports success.
+    """
+    return check_no_circular_claim(
+        labels=LABEL_PROVENANCE, claim=CLAIM_PROVENANCE
+    )
+
+
 def verdict(gated: pd.DataFrame, *, mature_labelled: bool = False,
-            audit: "pd.DataFrame | None" = None) -> dict:
+            audit: pd.DataFrame | None = None) -> dict:
     """§3's outcome table, taken by code rather than by a reader.
 
     ``mature_labelled`` says whether the detection handed in is the one §3
@@ -294,6 +350,7 @@ def verdict(gated: pd.DataFrame, *, mature_labelled: bool = False,
     A PASS on a lower bound is safe in the other direction and is reported as a
     pass, which is the asymmetry §3 already relies on.
     """
+    validate_specification()
     passing = set(gated.loc[gated["passes"], "gene"])
     failing = sorted(set(gated["gene"]) - passing)
 
@@ -451,7 +508,8 @@ def enrichment_audit(whole: pd.DataFrame, mature: pd.DataFrame) -> pd.DataFrame:
     the label is built from marker DETECTION, which is a depth-correlated
     quantity by construction.
     """
-    mu = lambda p: -np.log1p(-np.clip(np.asarray(p, dtype=float), 0, 1 - 1e-12))
+    def mu(p):
+        return -np.log1p(-np.clip(np.asarray(p, dtype=float), 0, 1 - 1e-12))
     left = whole.set_index("gene")["detection"]
     right = mature.set_index("gene")["detection"]
     genes = [g for g in left.index if g in right.index]
@@ -576,6 +634,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--inspect", action="store_true",
                         help="report the file's structure and vocabulary, and "
                              "do nothing else. RUN THIS FIRST.")
+    parser.add_argument(
+        "--lesion-inventory", action="store_true",
+        help="write the per-donor polyp inventory from --series-matrix alone; "
+             "unique sample_id is a lesion and technical replicate rows remain visible",
+    )
     parser.add_argument("--gene-column", default=None,
                         help="var column holding gene symbols, from --inspect")
     parser.add_argument("--patient-column", default=None,
@@ -593,6 +656,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
+    if args.inspect and args.lesion_inventory:
+        raise SystemExit("choose --inspect or --lesion-inventory, not both")
     if args.tar and not args.series_matrix:
         raise SystemExit(
             "--tar needs --series-matrix. The tar carries NO metadata: a "
@@ -600,11 +665,35 @@ def main(argv: Sequence[str] | None = None) -> int:
             "about whether it is a polyp or unaffected mucosa. Without the "
             "series matrix there are no arms."
         )
-    if not args.tar and not args.object:
-        raise SystemExit("pass --tar (with --series-matrix) or --object")
+    if not args.tar and not args.object and not args.lesion_inventory:
+        raise SystemExit("pass --tar (with --series-matrix), --object, or --lesion-inventory")
+    if args.lesion_inventory and args.series_matrix is None:
+        raise SystemExit("--lesion-inventory requires --series-matrix")
     for candidate in (args.tar, args.series_matrix, args.object):
         if candidate is not None and not candidate.exists():
             raise SystemExit(f"{candidate} not found")
+
+    if args.lesion_inventory:
+        inventory = lesion_inventory(args.series_matrix)
+        path = write_versioned_table(
+            inventory,
+            "becker_lesion_inventory",
+            seed=args.seed,
+            results_dir=args.results_dir,
+            allow_dirty=args.allow_dirty,
+            notes=(
+                "GSE201348 metadata inventory. One lesion is one unique "
+                "sample_id; technical replicate GSM rows are retained separately."
+            ),
+            extra_meta={
+                "source": "GSE201348_series_matrix.txt.gz",
+                "source_kind": "GEO series metadata",
+                "unit": "unique polyp sample_id within donor",
+                "inference_unit": "donor; inventory does not promote lesions to n",
+            },
+        )
+        log.info("wrote %s", path)
+        return 0
 
     if args.inspect:
         report = (inspect_deposit(args.tar, args.series_matrix) if args.tar

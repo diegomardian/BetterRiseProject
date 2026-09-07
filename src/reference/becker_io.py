@@ -308,6 +308,43 @@ def paired_donors(metadata: pd.DataFrame) -> pd.Index:
     return counts[counts == len(PAIRED_ARMS)].index
 
 
+def tumour_lesion_counts(metadata: pd.DataFrame) -> pd.DataFrame:
+    """One durable accounting row per donor with a Becker polyp.
+
+    A lesion is a unique ``sample_id``, not a sequencing row.  The series
+    matrix contains a technical replicate pair for A002-C-010; counting GSMs
+    would turn that one physical polyp into two lesions.  The table retains the
+    row count beside the biological count so that collapse remains auditable.
+
+    This is an inventory only.  It neither estimates an expression contrast
+    nor promotes lesions to independent inferential units: the primary Becker
+    design remains pooled per donor.
+    """
+    needed = {"donor", "sample_id", "arm"}
+    missing = sorted(needed - set(metadata.columns))
+    if missing:
+        raise BeckerError(f"lesion inventory is missing columns {missing}")
+
+    tumour = metadata.loc[metadata["arm"] == "tumour"]
+    if tumour.empty:
+        return pd.DataFrame(columns=[
+            "donor", "n_tumour_lesions", "n_tumour_rows",
+            "n_normal_lesions", "paired",
+        ])
+
+    out = (tumour.groupby("donor", sort=True)
+           .agg(n_tumour_lesions=("sample_id", "nunique"),
+                n_tumour_rows=("sample_id", "size"))
+           .reset_index())
+    normals = (metadata.loc[metadata["arm"] == "normal"]
+               .groupby("donor")["sample_id"].nunique()
+               .rename("n_normal_lesions"))
+    out = out.join(normals, on="donor").fillna({"n_normal_lesions": 0})
+    out["n_normal_lesions"] = out["n_normal_lesions"].astype(int)
+    out["paired"] = out["donor"].isin(paired_donors(metadata))
+    return out
+
+
 def pooling_key(metadata: pd.DataFrame, *, pool_by: str) -> pd.Series:
     """The identifier samples are pooled on. NO DEFAULT, on purpose.
 

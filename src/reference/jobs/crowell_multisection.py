@@ -48,6 +48,7 @@ import pandas as pd
 from scipy import stats
 
 from src.common.io import write_versioned_table
+from src.common.label_provenance import Measurement, check_no_circular_claim
 from src.common.paths import RESULTS_DIR
 from src.harness.meta import MIN_STUDIES
 from src.reference.crowell_io import SECTION_TO_BLOCK, CrowellError
@@ -68,6 +69,30 @@ CONTROL_GENE = "KRT8"
 #: discriminates "a tier moved" from "this gene moved" (prereg §7).
 TARGET_GENE = "GUCA2A"
 DISCRIMINATOR_GENE = "CDX2"
+
+#: INVARIANT 11. The domains come from the deposit's pathologist annotation,
+#: not from expression, so no gene defines the population being compared and
+#: the DiD is free to be about any of them. This is what Amendment 1 §2 argued
+#: in prose; declaring it makes the argument fail loudly if the labelling ever
+#: moves to a transcript-derived call.
+LABEL_PROVENANCE = Measurement(
+    modality="morphology",
+    assay="Crowell histopathology domain annotation (deposited `typ`)",
+    genes=(),
+)
+
+CLAIM_PROVENANCE = Measurement(
+    modality="transcript",
+    assay="10x Xenium WTx (Crowell deposit)",
+    genes=tuple(GENE_ROLES),
+)
+
+
+def validate_specification() -> tuple[str, ...]:
+    """Invariant 11, before any block is read. See the Becker job's twin."""
+    return check_no_circular_claim(
+        labels=LABEL_PROVENANCE, claim=CLAIM_PROVENANCE
+    )
 
 
 def carcinoma_domains(present: set[str]) -> list[str]:
@@ -403,6 +428,7 @@ def secondary_verdict() -> dict:
 
 def verdict(summary: pd.DataFrame) -> dict:
     """Prereg §7, whose decisive row is the DISCRIMINATOR, not the target."""
+    validate_specification()
     if summary.empty:
         return {"verdict": "NOTHING TO AGGREGATE", "detail": "no block yielded a DiD."}
     by_gene = summary.set_index("gene")
