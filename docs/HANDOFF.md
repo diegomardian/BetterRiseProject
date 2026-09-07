@@ -720,6 +720,26 @@ gene's own CP10K units, so the share was chosen after the fact as the
 scale-free option. It is recorded as a gap, not papered over; a successor design
 should fix the statistic too.
 
+## 6i. What is next, after avenue A
+
+**A's open items are data properties except one, and that one is now
+pre-registered.** `best4`'s intrinsic arm, the three-point curve and
+survivorship are not fixable by re-analysis. The cross-gene statistic being
+post-hoc **is** fixable, and it closes by replication rather than by re-reading:
+the statistic is fixed in `ac7eca1` and
+`docs/prereg_becker_replication.md` is the design.
+
+| | |
+|---|---|
+| **B1 · Becker FAP replication** | The one closing path for A's largest open item, and the frozen axes file's own axis-3 substrate. **Blocked on §6 of its prereg**: accessions unverified, file format reported as Seurat rather than a GEO matrix, and **both cluster quotas were near full** after the ICBI fetch — run `pquota` before anything. |
+| **D1 · the Wnt mechanism test** | Cheap and in hand. Does the terminal-differentiation fall track a Wnt-target signature (AXIN2, NKD1, RNF43, NOTUM, TCF7 — invariant 8, and drop ASCL2/LGR5 when the stem axis is in play) **within the surviving mature cells** of the already-scored adenoma cohort? Needs no instrument, no premise, and no new data. It connects the two-block finding to a mechanism. |
+| **D2 / D3** | Laptop-cheap, mechanism-agnostic: marker→survival on committed TCGA (needs its own pre-specification — the Stage 4 lock excludes it), and whether iCMS subtype explains KRT8's I² = 87.6% across the 13 studies. |
+
+**Explicitly not worth doing:** more carcinoma single-cell data (the 13-study
+result closed that), repairing `best4`'s intrinsic arm or `crypt_position`
+(both are properties of the cells), and reviving the instrument question (§6g
+closed it, and it is the fifth closed route).
+
 ## 6e. Different data, not more of it — still true for survivorship
 
 Every design here conditions cell identity on transcription, which is circular,

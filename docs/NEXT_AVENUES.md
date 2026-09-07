@@ -396,9 +396,17 @@ CDX2-down is established — consistent, but the two must not be quoted as one.
 
 1. **A**, unchanged — the flagship, in hand, and the only one that produces the
    README's actual deliverable. Fix the three gaps above in the prereg.
-2. **B1**, raised — the frozen axes file's own week-13 substrate, unfetched,
-   and the only thing here that answers the circularity objection outright.
-   Gate on panel detection under a nuclear protocol.
+2. **B1**, raised, and **now pre-registered** —
+   `docs/prereg_becker_replication.md`. The frozen axes file's own week-13
+   substrate, unfetched, and the only thing here that answers the circularity
+   objection outright. It is also the **one closing path** for avenue A's
+   largest open item: the cross-gene statistic was post-hoc on Chen_2021 and is
+   fixed in `ac7eca1`, so a second substrate makes it confirmatory.
+   **Blocked on three things nobody has checked** — the accessions, the file
+   format (reported as Seurat objects, not a GEO matrix), and disk, since both
+   cluster quotas were near full after the ICBI fetch. Gate on panel detection
+   under a nuclear protocol, per gene: MS4A12 at 0.363 is the floor and GUCA2A
+   failing ends the replication.
 3. **C2**, on CDX2 rather than GUCA2A, with the 450k already in hand.
 4. C1, B3, B2 as supplementary.
 
