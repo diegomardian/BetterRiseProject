@@ -114,6 +114,51 @@ reference this document rather than restate it.
 
 ---
 
-## RESULT
+## RESULT — computed 2026-09-06, after this document was committed (`ac7eca1`)
 
-*Not computed. This document is committed before the run.*
+`results/2026-09-06_e68df69/`. §4's falsifier did **not** fire.
+
+| rung | `log_ratio` (pre-registered) | `share_abs` | `ratio` | `share_signed` |
+|---|---|---|---|---|
+| `lineage` | **8/8 cross, 0/7 within** | 8/8, 0/7 | 7/8, 0/7 | 6/8, **4/7** |
+| `best4` | **8/8 cross, 0/7 within** | 8/8, 0/7 | **1/8**, 0/7 | 3/8, 0/7 |
+
+**A pre-stated prediction held.** §2 said `log_ratio` would be undefined at
+`epithelial` for the whole panel, because the compositional term is exactly zero
+there by construction. It is defined on **0 of 792** rows at that rung, and on
+766/774, 751/756 and 323/324 at the others. That is not a result, but it is
+evidence the statistic was specified by someone who understood it rather than
+fitted to an answer.
+
+### But §2's own agreement rule is stricter than the headline, and it binds
+
+§2: *"a contrast on which `log_ratio` and at least one other statistic disagree
+carries no unqualified claim."* Applied to the eight cross-block contrasts:
+
+| rung | survive all four statistics |
+|---|---|
+| `lineage` | **6 of 8** |
+| `best4` | **1 of 8** |
+
+**At `lineage` the six that survive include all four GUCA2A contrasts** —
+`GUCA2A` against ACTB, CDX2, EPCAM and KRT8, unanimous on every statistic. The
+two that fail are `CDX2 − MS4A12` and `EPCAM − MS4A12`.
+
+**So the robust claim is narrower and more specific than "two blocks":
+GUCA2A separates from every member of the identity/housekeeping block on every
+statistic tried; MS4A12 does so on two of its four.** And `GUCA2A − MS4A12`
+contains zero on 3 of 4, so the two targets are still not distinguishable from
+each other. The tier reading survives; it is carried by GUCA2A.
+
+**At `best4` only `GUCA2A − KRT8` survives.** The load-bearing statistic says
+8/8 there and `ratio` says 1/8, so by this document's own rule almost nothing at
+that rung carries an unqualified claim. **This confirms the earlier retraction
+rather than reversing it** — and it confirms it on a statistic chosen before the
+numbers, which the retraction was not.
+
+### Standing, unchanged from §5
+
+For adenoma this remains a **fourth reading of an already-answered question**.
+What it buys is that the reading now survives a statistic nobody could have
+fitted to it, and that the surviving set is *smaller and better specified* than
+the one the RESULT first claimed. It is confirmatory only for the replication.
