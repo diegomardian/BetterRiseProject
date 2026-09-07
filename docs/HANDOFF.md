@@ -731,9 +731,23 @@ the statistic is fixed in `ac7eca1` and
 
 | | |
 |---|---|
-| **B1 · Becker FAP replication — PRE-REGISTERED, gate BUILT** | `docs/prereg_becker_replication.md`, and the one closing path for A's largest open item. **Disk measured 2026-09-06: 4.99 GB free on `/project`, 9.83 GB on `/projectnb`, separate filesystems — 9.83 GB usable.** The snRNA arm plausibly fits; **the scATAC arm does not**, so axis 3 is unaffordable at current occupancy rather than merely unscheduled. Still blocked on two unverified things: the accessions, and the file format (reported as Seurat objects, not a GEO matrix). **The format question is settled and the loader is built.** `GSE201348_RAW.tar` is 1.2 GB of **72 standard 10x triplets**, not Seurat — but it carries **no metadata at all**, so `GSE201348_series_matrix.txt.gz` is a required second input and `--tar` refuses without it. Arms read from `disease stage`: `Polyp`→tumour, `Unaffected`→normal, `CRC`→excluded (Amendment 1). Run `--inspect` first; it reports the cohort and maps nothing silently. The gate fits in existing headroom — **run it BEFORE deleting the atlas**. |
-| **D1 · the Wnt mechanism test — BUILT, needs one qsub** | `docs/prereg_wnt_mechanism.md`. Does the terminal-differentiation fall track a Wnt-target signature (AXIN2, NKD1, RNF43, NOTUM, TCF7 — invariant 8, ASCL2/LGR5 dropped because the stem axis IS in play) **within the surviving mature cells**? **Needs no new data and no download** — but it does need a cluster pass, because no committed table carries per-cell values. The estimand is a per-patient partial correlation conditioned on **maturity and log depth**, because without both it recovers maturity and reports it as Wnt. `qsub src/reference/jobs/wnt_mechanism.sh`. **Run it BEFORE freeing disk** — it reads the atlas. |
+| **B1 · Becker FAP replication — PRE-REGISTERED, gate and loader BUILT, data ON DISK** | `docs/prereg_becker_replication.md` + Amendment 1. The one closing path for avenue A's largest open item. **Format resolved 2026-09-06 and the §6 Seurat risk is dead:** `GSE201348_RAW.tar` is 1.2 GB of **72 standard 10x triplets**, downloaded and sha256-recorded. What it costs instead is that the tar carries **no metadata at all**, so `GSE201348_series_matrix.txt.gz` is a required second input and `--tar` refuses without it. Arms read from `disease stage` — `Polyp`→tumour, `Unaffected`→normal, `CRC`→excluded. **Next: `--inspect`, then the gate.** `GSE201349` (scATAC) is NOT verified and is out of scope. |
+| **D1 · the Wnt mechanism test — RAN 2026-09-06. TECHNICAL, a clean negative.** | `docs/prereg_wnt_mechanism.md` RESULT; tables `results/2026-09-06_0d73b33/`. **Do not queue it — it is done.** §5's second branch: GUCA2A's partial ρ is −0.038 in the polyp arm against a control floor of −0.049 to −0.032, *between* the controls rather than beyond them, and −0.045 in the normal arm where Wnt should be unstructured. The invariant-8 gate passed first (Wnt/maturity r = −0.060, SEPARABLE), so the score is not the maturity axis renamed. **It survives an over-conditioning objection raised after the run**: if maturity were a mediator rather than a confounder, conditioning would block the path — but `unconditioned_rho` shifts every gene by ≤0.016 and GUCA2A by 0.001, so there was no association to block. Does **not** say Wnt is uninvolved: a within-patient correlation removes between-lesion variation by construction, which is where a field-level mechanism would live. |
 | **D2 / D3** | Laptop-cheap, mechanism-agnostic: marker→survival on committed TCGA (needs its own pre-specification — the Stage 4 lock excludes it), and whether iCMS subtype explains KRT8's I² = 87.6% across the 13 studies. |
+
+**Disk, as of 2026-09-06.** `/project` 45.01/50 GB, `/projectnb` 40.17/50 —
+separate filesystems, so **9.83 GB usable**, which is where the 1.2 GB Becker
+snRNA object went. **D1 was the last job needing the 30 GB ICBI atlas and it has
+run**, so the atlas is now deletable on the analysis side: it is 100%
+re-fetchable (sha256 + live URL in `data/manifest.csv`, `fetch_icbi_atlas.sh`,
+~25 min). Deleting it frees ~32 GB and would make **axis 3 affordable**, which
+it is not at current occupancy. **Do not delete it yet** — B1's gate fits in
+existing headroom, and if the gate returns `CANNOT RUN` you will have spent
+32 GB and a re-fetch for nothing. Delete after the gate says B1 is worth it.
+
+**Never deletable:** `data/raw/GSE178341/colon10x_default_dDvec_*.csv.gz` —
+four files, 2.3 MB, `SOURCE_URL_UNCONFIRMED`, the only irreplaceable bytes in
+the tree.
 
 **Explicitly not worth doing:** more carcinoma single-cell data (the 13-study
 result closed that), repairing `best4`'s intrinsic arm or `crypt_position`
