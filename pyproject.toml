@@ -19,6 +19,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# A2's access-gated inventory.  This is deliberately separate from ``dev``:
+# the public repository must be testable without a Synapse account or client,
+# while the authenticated inventory needs the official read-only client.
+a2 = [
+    "synapseclient>=4,<5",
+]
+
 # What CI installs. It must be able to IMPORT every module under src/, or the
 # test run dies at collection rather than failing a test.
 #

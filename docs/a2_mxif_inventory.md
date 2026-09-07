@@ -115,6 +115,11 @@ Therefore:
    biological equivalence margin, patient aggregation, and treatment of AD
    versus SSL.
 
+The authenticated next step is specified in
+[A2 Synapse access and metadata inventory](a2_synapse_access_request.md). Its
+job requests entity metadata only and refuses to treat inaccessible descendants
+as absent products.
+
 Run the deterministic inventory locally with:
 
 ```bash
