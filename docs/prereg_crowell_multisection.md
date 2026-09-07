@@ -532,7 +532,85 @@ Written before block `242` is read.
 
 ---
 
-## RESULT — six of seven blocks, 2026-09-07
+## RESULT — SEVEN OF SEVEN BLOCKS, 2026-09-07. §3's sequence is complete.
+
+`results/2026-09-07_da1f46b/`. All earlier tables are superseded and must not be
+quoted. `242.h5ad` was fetched after Zenodo recovered.
+
+### Verdict: TARGET FALLS AND THE DISCRIMINATOR DOES NOT — §7's pass branch
+
+| gene | mean DiD | 95% CI | | blocks with the sign |
+|---|---|---|---|---|
+| **GUCA2A** | **−1.307** | **[−1.872, −0.741]** | **excludes zero** | **7 of 7 negative** |
+| **MS4A12** | **−1.241** | **[−1.874, −0.609]** | **excludes zero** | **7 of 7 negative** |
+| CDX2 | +0.327 | [−0.151, +0.805] | includes | 4 of 7 positive |
+| EPCAM | +0.234 | [−0.007, +0.475] | includes — by 0.007 | 5 of 7 positive |
+
+Per block, `Δ(gene) − Δ(KRT8)`:
+
+| gene | 23H29642 | 23H42952 | 24H12439 | B-1970164 | B-2080151 | B1891803 | B1914093 |
+|---|---|---|---|---|---|---|---|
+| GUCA2A | −1.577 | −0.880 | −1.513 | −0.548 | −0.838 | −2.373 | −1.417 |
+| MS4A12 | −0.839 | −1.056 | −1.371 | −0.724 | −0.759 | −2.687 | −1.256 |
+| CDX2 | +0.995 | −0.395 | −0.012 | +0.591 | +0.215 | −0.002 | +0.899 |
+
+### Amendment 7's state did not arrive, and the seventh block is why
+
+`DiD(CDX2)`'s lower bound ran **−0.251, −0.156, −0.020, −0.151** across four,
+five, six and seven blocks. At six it was **0.020** from clearing zero opposite
+the target; the seventh block's `CDX2` came in at **−0.395**, the only strongly
+negative value in that row, and pushed it back out.
+
+**This is the clearest argument in the whole analysis for §3's fixed order.**
+Six blocks looked one step from a stronger reading. Stopping there — at a point
+that felt complete — would have reported a discriminator on the edge of
+resolving, and the seventh moved it away. The order was fixed before any block
+was read precisely so that this could not be a choice.
+
+### The guards, all checked, none bypassed
+
+**§5 rule 3**: all **7** blocks pass; `KRT8`'s worst separation is +2.804
+against a bar of +1.099.
+
+**Amendment 4** (target): `GUCA2A` excludes zero with the below-floor block
+[−1.872, −0.741] **and without it** [−1.578, −0.680]. Not indeterminate. At
+four blocks it *was*.
+
+**Amendment 6** (discriminator): `CDX2` has **2** below-floor blocks and its
+conclusion is unchanged without them — [−0.151, +0.805] against [−0.156,
++0.832]. Amendment 6 predicted in advance that it would not fire, and said so
+before the numbers existed.
+
+**Amendment 5**: `CDX2`'s worst input is **−0.113** and `GUCA2A`'s is −0.348;
+both are on the record rather than in a footnote.
+
+**Width is 3.01× avenue A's** — the best this deposit can offer, and still three
+times the interval the flagship result carries.
+
+### What it is, stated once, in full
+
+**A patient-level pattern: the two terminal-differentiation markers fall
+relative to an epithelial control from reference mucosa to adenoma, in all seven
+blocks, while the identity marker does not.**
+
+**It is not silencing and not per-cell.** Feasibility §7: the negative probes
+bound false positives, not false negatives.
+
+**It does not separate compositional from intrinsic loss.** Amendment 2, at any
+n: `KRT8` is an epithelial keratin, so `DiD(GUCA2A) < 0` says the target did not
+rise with the epithelial signal — equally consistent with mature cells being a
+smaller share of the lesion and with them being present and silenced.
+
+**It is not a replication of avenue A.** Different platform, different estimand,
+n = 7 against 43.
+
+**And no multiplicity control was pre-specified.** Two of four informative genes
+clear zero in the same direction; both are mature markers and therefore
+correlated, so no family-wise number is quoted.
+
+---
+
+## RESULT — six of seven blocks, 2026-09-07 (SUPERSEDED by the seven-block table above)
 
 `results/2026-09-07_78cd0ff/`. Supersedes the five- and four-block tables, which
 are kept and must not be quoted.
