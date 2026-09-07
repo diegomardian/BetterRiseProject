@@ -298,6 +298,58 @@ written down where the claim is made, before an interval exists to over-read.
 
 ---
 
+## Amendment 3 — 2026-09-07, at three blocks: §7 has no branch for what happened
+
+At n = 3 the interval stops being refused, and the gene that excludes zero is
+**MS4A12, not GUCA2A**. §7's branch table is written entirely around
+`DiD(GUCA2A)` and `DiD(CDX2)`. It does not contain this outcome, and the
+verdict function returns `NO CLAIM` — correct, because §7's second branch keys
+on the target — while a different gene's interval sits clear of zero
+underneath it. Recorded before anyone quotes that.
+
+| gene | mean DiD | 95% CI | excludes zero |
+|---|---|---|---|
+| **MS4A12** | −0.951 | **[−1.855, −0.047]** | **yes** |
+| GUCA2A | −0.966 | [−2.195, +0.262] | no |
+| CDX2 | +0.265 | [−0.491, +1.021] | no |
+| EPCAM | +0.112 | [−0.468, +0.692] | no |
+
+### It is not a bigger effect. It is a tighter one.
+
+The two means are the same to within 0.015. `MS4A12` clears because its
+per-block spread is smaller — sd 0.364 against 0.495, so |mean|/sd is 2.61
+against 1.95. At n = 3 and `t = 4.303` that is the whole difference.
+
+### Why it must not be read as a positive result
+
+**Four informative genes, no multiplicity control, and none was pre-specified.**
+Under a global null at α = 0.05 with four genes, `P(at least one excludes
+zero)` is **0.19**. §7 fixes falsifiers for two named genes and says nothing
+about the family, so a single unanticipated gene clearing is inside what chance
+supplies.
+
+**n = 3 is the smallest this project reports anything at**, and §6 pre-committed
+that at 3 or 4 the interval "is reported and pre-committed to be uninformative;
+it is there so a reader sees the width, not so a claim can rest on it." The
+width here is **8.07×** avenue A's.
+
+**And MS4A12 is the secondary claim, not the primary.** In the adenoma work
+GUCA2A's contrasts are the claim and MS4A12 failing costs the secondary
+reading. A secondary marker clearing while the primary does not is not the
+primary claim arriving by another route.
+
+### What this changes
+
+**Nothing in the design.** No threshold, statistic, gene or falsifier moves, and
+`verdict()` continues to key on the target. §7 gains a row saying that a
+non-target gene excluding zero is **not** a branch of it, and that reporting it
+requires the three qualifiers above in the same breath.
+
+**The honest summary at three blocks is `NO CLAIM`**, and MS4A12 is a line in
+the table rather than a finding.
+
+---
+
 ## RESULT
 
 *Not run. Only section `231` has been read, and that under the feasibility
