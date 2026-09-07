@@ -139,6 +139,88 @@ most of why this is cheap to propose now.
 
 ---
 
-## RESULT
+## RESULT — run 2026-09-06. Nothing above was edited.
 
-*Not run. Requires a cluster pass over the ICBI atlas — no new data.*
+`results/2026-09-06_0d73b33/`. 43 patients, both arms, `lineage`.
+
+### The gate passed: the Wnt score is not the maturity score
+
+Mean partial r(Wnt, maturity) over 86 patient-arms = **−0.060**, against §5's
+0.70 ceiling. **SEPARABLE.** Invariant 8's required report is satisfied and the
+mechanism reading is not withheld on those grounds.
+
+### The answer is §5's second branch: TECHNICAL. No mechanism claim follows.
+
+Partial ρ, conditioned on maturity and log depth:
+
+| gene | role | polyp | normal |
+|---|---|---|---|
+| ACTB | control | −0.032 | −0.062 |
+| KRT8 | control | −0.049 | −0.038 |
+| EPCAM | epithelial | −0.041 | −0.027 |
+| CDX2 | identity | +0.007 | +0.005 |
+| MS4A12 | identity | −0.073 | −0.050 |
+| **GUCA2A** | **target** | **−0.038** | **−0.045** |
+
+**GUCA2A sits inside the technical floor.** The controls span −0.049 to −0.032
+in the polyp arm and GUCA2A is −0.038 — not beyond them, *between* them. And it
+is the same value in the **normal** arm (−0.045), where Wnt activity should be
+low and unstructured. §5 named that pattern in advance: everything weakly
+negative including the controls, in both arms, is a residual gradient the
+conditioners did not remove.
+
+**`excludes_zero` is true for almost every row and means almost nothing here.**
+Those intervals exclude zero because 43 patients with hundreds of cells each
+estimate a tiny correlation precisely, not because the correlation is large.
+|ρ| ≈ 0.04 is about 0.16% of variance. Precision without magnitude.
+
+### The over-conditioning objection, tested and dead
+
+**A real design risk, and it is not in §3 because I did not think of it before
+the run:** conditioning on maturity is correct if maturity is a *confounder*,
+but if the causal chain is Wnt → less maturity → less GUCA2A then maturity is a
+**mediator**, and conditioning on it blocks exactly the path being looked for. A
+null would then be an artefact of the design rather than a fact about the data.
+
+The job computed `unconditioned_rho` alongside, which settles it:
+
+| gene | unconditioned | conditioned | shift |
+|---|---|---|---|
+| **GUCA2A** | **−0.037** | **−0.038** | **−0.001** |
+| ACTB | −0.016 | −0.032 | −0.016 |
+| KRT8 | −0.043 | −0.049 | −0.007 |
+| MS4A12 | −0.065 | −0.073 | −0.008 |
+| CDX2 | +0.015 | +0.007 | −0.008 |
+
+**Every shift is at most 0.016 and GUCA2A's is 0.001. There was no association
+to block.** The unconditioned correlations are already at the floor, and
+unconditioned GUCA2A (−0.037) sits inside the unconditioned control range
+(−0.016 to −0.043) exactly as the conditioned one does. **The null is not an
+over-conditioning artefact**, and it survives an objection the design did not
+anticipate.
+
+### What this does and does not say
+
+**Does:** within the surviving mature cells of adenoma, per-cell Wnt-target tone
+does **not** track per-cell differentiation output beyond a technical floor.
+That is a real negative and it is §5's second row, taken.
+
+**Does not:** that Wnt is uninvolved. This is a *within-cell, within-patient*
+correlation among cells already labelled mature. A mechanism operating at the
+clone, crypt or tissue level — where whole lesions differ in Wnt tone and the
+mature cells inside them differ correspondingly — produces exactly this null,
+because the between-patient and between-lesion variation is what a within-patient
+correlation removes by construction. **This test was never able to see that**,
+and saying so is not a retreat: §6 already said direction was out of reach, and
+this is the same limit one level up.
+
+**The controls earned their place.** Without ACTB and KRT8 scored through the
+identical path, GUCA2A at −0.038 with an interval excluding zero would have read
+as a finding. The floor is the only reason it reads as nothing.
+
+### Standing
+
+**A clean negative on the first mechanism test this project has run**, on a
+statistic whose confound was measured rather than assumed, robust to an
+objection raised after the design was fixed. It removes one candidate mechanism
+at the per-cell level and leaves the tissue-level version untested.
