@@ -76,15 +76,25 @@ Rules:
 - Small PRs. A week-long branch is a merge conflict with a delay fuse.
 - Rebase on `main` before asking for review: `git fetch && git rebase origin/main`.
 - One approval to merge into `main` — **two** if the PR touches frozen code (§5).
-- **Stage explicitly. Never `git add -A` or `git add .`** — name the paths, or
-  use `git add -p`. Four people work this tree at once and a wildcard stage
-  takes whatever else is sitting in it. On 2026-09-07 it did so twice within
-  three commits: first 17 MB of `tmp/` investigation binaries (`4339fb7`, since
-  untracked in `88a7e1e`), then a complete 595-line A2 MxIF module belonging to
-  another line of work, committed under a message about Crowell section 110
-  (`6d14f2e`). The files were fine; the record was wrong, and a commit whose
-  message does not describe its diff is a commit nobody can bisect against.
-  `git status` before every commit, and read it.
+- **Commit named paths with `git commit --only <paths>`. Never `git add -A`,
+  and do not trust `git add <path>` either.** `git commit` commits **the whole
+  index**, not the paths you just added — so if anyone or anything else has
+  staged work in this tree, your commit takes it.
+
+  Both failure modes happened on 2026-09-07, within four commits:
+
+  1. `git add -A` swept 17 MB of `tmp/` investigation binaries into `4339fb7`
+     (untracked again in `88a7e1e`, and `tmp/` is now ignored).
+  2. `6d14f2e`, message about Crowell section 110, absorbed a complete 595-line
+     A2 MxIF module from a concurrently-active line of work.
+  3. `25344ce`, which added *this rule*, then did it again — `git add
+     CONTRIBUTING.md` staged one file and the commit took five, because the
+     other four were already in the shared index.
+
+  Staging discipline alone does not fix (3). **`--only` does**: it commits the
+  paths you name and leaves the rest of the index alone. Run `git status`
+  first and read it; if it shows work you did not do, someone else is live in
+  this tree and you should say so rather than commit it.
 
 ---
 
