@@ -414,6 +414,15 @@ file written by one job is invisible to the next. Same class as the login-node
 | in-situ panel lists | yes | — | `$BRP_DATA_DIR/raw/panels/` — CosMx 1K and 6K xlsx, sha256 in the manifest. §6i C1. |
 | `results/` | yes | yes | in git |
 
+**`BRP_DATA_DIR` is a SIBLING of the repo, not `repo/data`.** On the cluster it
+is `/projectnb/rise-batteries/bode/guanylin/data`, while the checkout is
+`/projectnb/rise-batteries/bode/guanylin/BetterRiseProject`. Every path in this
+table is relative to that variable, so `export BRP_DATA_DIR=$PWD/data` from
+inside the repo points one directory too deep and every file reads as missing.
+It is set in `~/.bashrc`; a fresh shell already has it, and the failure mode is
+**overwriting** it rather than forgetting to. Recorded because it cost a
+round-trip on 2026-09-07.
+
 `data/manifest.csv` carries every file's url and sha256 and is the only record
 that travels — verify downloads against it.
 
