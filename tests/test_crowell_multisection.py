@@ -6,6 +6,7 @@ Pre-registration: ``docs/prereg_crowell_multisection.md`` + Amendments 1–2.
 from __future__ import annotations
 
 import json
+import pathlib
 
 import numpy as np
 import pandas as pd
@@ -24,14 +25,35 @@ from src.reference.jobs.crowell_multisection import (
 )
 
 
-def _write_section(root, run, section, adenoma, reference, seps):
+def _write_section(root, run, section, adenoma, reference, seps,
+                   detections=None, depths=None):
+    """A per-section table in the shape the real job emits.
+
+    `detection` and `median_counts_per_cell` are required columns: the
+    aggregator records Amendment 2's dlog(mu) and depth ratio from them rather
+    than leaving them to be recomputed by hand, which is how Becker's KRT8 got
+    into a Crowell row.
+    """
     d = root / run
     d.mkdir(parents=True, exist_ok=True)
-    rows = [{"gene": g, "domain": dom, "log_separation": v,
-             "role": {"KRT8": "control", "EPCAM": "epithelial",
-                      "CDX2": "identity", "MS4A12": "identity",
-                      "GUCA2A": "target"}[g]}
-            for g, per in seps.items() for dom, v in per.items()]
+    default_depth = {dom: 600.0 for per in seps.values() for dom in per}
+    depths = {**default_depth, **(depths or {})}
+    rows = []
+    for g, per in seps.items():
+        for dom, v in per.items():
+            det = (detections or {}).get(g, {}).get(dom)
+            if det is None:
+                # a detection consistent with the separation, so dlog(mu) is
+                # not degenerate in the fixture
+                det = float(1 - np.exp(-np.exp(v) * 0.01))
+            rows.append({
+                "gene": g, "domain": dom, "log_separation": v,
+                "role": {"KRT8": "control", "EPCAM": "epithelial",
+                         "CDX2": "identity", "MS4A12": "identity",
+                         "GUCA2A": "target"}[g],
+                "detection": det,
+                "median_counts_per_cell": depths[dom],
+            })
     pd.DataFrame(rows).to_parquet(d / "crowell_feasibility.parquet")
     (d / "crowell_feasibility.meta.json").write_text(json.dumps({
         "section": f"{section}.h5ad", "adenoma_domain": adenoma,
@@ -133,3 +155,40 @@ def test_an_unmapped_section_stops_the_run(tmp_path):
         TARGET_GENE: {"999_REF": 2.0, "999_TVA": 0.9}})
     with pytest.raises(CrowellError, match="SECTION_TO_BLOCK"):
         per_block_did(tmp_path)
+
+
+def test_amendment_2s_diagnosis_is_recorded_not_re_derived():
+    """THE ERROR THIS COLUMN EXISTS TO PREVENT.
+
+    Amendment 2's table was computed by hand from the per-section parquets and
+    one row used Becker's normal-arm KRT8 (0.154186) in place of Crowell
+    231_REF's (0.360144), giving +1.746 where the truth is +0.766. Every input
+    was committed and re-derivable — that was never the gap. The gap was that
+    checking it required recomputing it, and the recomputation is where the
+    wrong number came from.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        _write_section(
+            root, "r1", "231", "231_TVA", "231_REF",
+            {"KRT8": {"231_REF": 3.281, "231_TVA": 3.923},
+             TARGET_GENE: {"231_REF": 1.571, "231_TVA": 0.700}},
+            detections={"KRT8": {"231_REF": 0.360144, "231_TVA": 0.617135},
+                        TARGET_GENE: {"231_REF": 0.077585, "231_TVA": 0.037539}},
+            depths={"231_REF": 575.0, "231_TVA": 821.0})
+        got = per_block_did(root).set_index("gene")
+
+    mu = lambda p: -np.log1p(-p)
+    assert got.loc["KRT8", "dlog_mu"] == pytest.approx(
+        float(np.log(mu(0.617135) / mu(0.360144))), abs=1e-6)
+    assert got.loc["KRT8", "dlog_mu"] == pytest.approx(0.766, abs=1e-3)
+    # and NOT the value the hand computation produced from Becker's number
+    assert abs(got.loc["KRT8", "dlog_mu"] - 1.746) > 0.9
+
+    assert got.loc["KRT8", "log_depth_ratio"] == pytest.approx(
+        float(np.log(821 / 575)), abs=1e-6)
+    # Amendment 2's split: the epithelial control outruns depth, the target does not
+    assert bool(got.loc["KRT8", "rises_faster_than_depth"])
+    assert not bool(got.loc[TARGET_GENE, "rises_faster_than_depth"])
