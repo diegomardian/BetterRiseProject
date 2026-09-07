@@ -32,6 +32,17 @@ results/**/scratch/
 results/**/*.tmp
 
 # ---------------------------------------------------------------------------
+# Working scratch. Investigation artifacts — extracted archive members, fetched
+# supplements, half-parsed binaries. They are neither code nor a result and the
+# provenance record for anything worth keeping is data/manifest.csv, which
+# carries a URL and a sha256. 17 MB of these reached `4339fb7` because a commit
+# used `git add -A` without reading what it staged; the untracking is in the
+# same commit as this rule.
+# ---------------------------------------------------------------------------
+tmp/
+scratch/
+
+# ---------------------------------------------------------------------------
 # Scheduler logs. Per-run, large, and not a result — the provenance sidecar
 # beside each parquet is the durable record, not the SGE stdout. Job scripts
 # write here via `#$ -o logs/`, so it fills up on every submission.
