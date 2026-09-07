@@ -101,7 +101,9 @@ def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
     """
     from src.reference.becker_io import (
         DISEASE_STAGE_MAP,
+        PAIRED_ARMS,
         gene_symbols,
+        paired_donors,
         read_series_matrix,
         read_triplet,
         sample_files,
@@ -115,7 +117,12 @@ def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
     symbols = gene_symbols(features)
     panel = set(GENE_ROLES)
 
-    scored = metadata[metadata["arm"].notna()]
+    # PAIRED, not merely "has an arm". `healthy_donor` is an arm and is not a
+    # reference for a paired design -- those donors have no polyps at all.
+    # Counting arm.nunique()==2 would call a tumour+healthy_donor pair "paired",
+    # which is the cross-donor comparison Becker Amendment 2 refuses.
+    scored = metadata[metadata["arm"].isin(PAIRED_ARMS)]
+    paired = paired_donors(metadata)
     report = {
         "tar": str(tar), "series_matrix": str(series_matrix),
         "n_samples_in_tar": int(len(files)),
@@ -127,8 +134,14 @@ def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
         "arm_counts": metadata["arm"].value_counts(dropna=False).to_dict(),
         "arm_map_used": {k: v for k, v in DISEASE_STAGE_MAP.items()},
         "n_donors": int(metadata["donor"].nunique()),
-        "n_donors_with_both_arms": int(
-            scored.groupby("donor")["arm"].nunique().eq(2).sum()),
+        "n_donors_PAIRED": int(len(paired)),
+        "paired_donors": sorted(paired),
+        "paired_arms": sorted(PAIRED_ARMS),
+        "donors_with_polyps_but_no_same_donor_reference": sorted(
+            set(metadata.loc[metadata["arm"] == "tumour", "donor"]) - set(paired)),
+        "healthy_donor_only": sorted(
+            set(metadata.loc[metadata["arm"] == "healthy_donor", "donor"])
+            - set(paired)),
         "samples_per_donor": scored.groupby(["donor", "arm"]).size()
                                    .unstack(fill_value=0).to_dict("index"),
         "replicate_samples": metadata.loc[metadata["replicate"].notna(),

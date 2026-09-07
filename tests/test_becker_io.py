@@ -143,16 +143,80 @@ def test_crc_is_excluded_by_a_recorded_decision_not_by_omission():
 
 
 def test_a_sample_whose_donor_cannot_be_read_stops_the_run():
+    """Guessing attributes every cell in a sample to the wrong person."""
     from src.reference import becker_io
+
     with tempfile.TemporaryDirectory() as d:
         path = _series_matrix(pathlib.Path(d))
-        original = becker_io._SAMPLE
+        original = becker_io._SAMPLE_PATTERNS
         try:
-            becker_io._SAMPLE = re.compile(r"^(?P<donor>ZZZ)-(?P<sample>.+)$")
-            with pytest.raises(BeckerError, match="donor-sample pattern"):
+            becker_io._SAMPLE_PATTERNS = (re.compile(r"^(?P<donor>ZZZ)$"),)
+            with pytest.raises(BeckerError, match="four known naming schemes"):
                 read_series_matrix(path)
         finally:
-            becker_io._SAMPLE = original
+            becker_io._SAMPLE_PATTERNS = original
+
+
+@pytest.mark.parametrize("sample_id, donor", [
+    ("A001-C-007", "A001"),     # FAP series
+    ("A015-C-202", "A015"),
+    ("A008-E-008", "A008"),     # the E-series, same donor scheme
+    ("B001-A-301", "B001"),     # healthy donors
+    ("B004-A-204", "B004"),
+    ("F007", "F007"),           # single polyps: the sample IS the donor
+    ("F072B", "F072B"),         # with a letter suffix
+    ("CRC1_8810", "CRC1"),      # sporadic carcinoma, excluded downstream
+    ("CRC2_15564", "CRC2"),
+])
+def test_all_four_naming_schemes_resolve_to_a_donor(sample_id, donor):
+    """Verified against the real sample table on 2026-09-06.
+
+    The first version of the parser carried only the A001-C-007 scheme and
+    REFUSED the other seven samples rather than dropping them — which is how
+    the other three schemes were found at all.
+    """
+    from src.reference.becker_io import parse_sample_id
+
+    assert parse_sample_id(sample_id) == donor
+
+
+def test_an_unrecognised_scheme_returns_none_rather_than_a_guess():
+    from src.reference.becker_io import parse_sample_id
+
+    assert parse_sample_id("wat-is-this") is None
+
+
+def test_normal_is_its_own_arm_and_never_merges_with_unaffected():
+    """THE ONE THAT PROTECTS THE PAIRED DESIGN.
+
+    `Normal` is B001/B004 — FAP=N donors with NO polyps, i.e. a different
+    person's healthy tissue. `Unaffected` is a FAP patient's own uninvolved
+    mucosa from the same colon as their polyps. Merging them silently converts
+    a paired within-patient design into a cross-donor one.
+    """
+    from src.reference.becker_io import DISEASE_STAGE_MAP, PAIRED_ARMS
+
+    assert DISEASE_STAGE_MAP["Unaffected"] == "normal"
+    assert DISEASE_STAGE_MAP["Normal"] == "healthy_donor"
+    assert DISEASE_STAGE_MAP["Normal"] != DISEASE_STAGE_MAP["Unaffected"]
+    assert "healthy_donor" not in PAIRED_ARMS, (
+        "pairing a polyp against a different person's normal tissue is "
+        "cross-donor by construction; Becker Amendment 2 refuses that rescue"
+    )
+
+
+def test_the_paired_cohort_is_only_donors_carrying_both_arms():
+    """Becker Amendment 2's number, computed rather than asserted."""
+    from src.reference.becker_io import paired_donors
+
+    metadata = pd.DataFrame({
+        "donor":  ["A001", "A001", "A008", "B001", "CRC1", "F007"],
+        "arm":    ["tumour", "normal", "tumour", "healthy_donor", None, "tumour"],
+    })
+    assert list(paired_donors(metadata)) == ["A001"], (
+        "A008 and F007 have polyps with no same-donor reference; B001 has "
+        "healthy tissue and no polyps; CRC is excluded"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -227,7 +291,7 @@ def test_inspect_reports_the_cohort_without_applying_the_mapping_silently():
     assert report["arm_counts"]["normal"] == 2      # 2 Unaffected
     assert report["disease_stage_counts"]["CRC"] == 1
     assert report["n_donors"] == 2
-    assert report["n_donors_with_both_arms"] == 2
+    assert report["n_donors_PAIRED"] == 2
     assert report["replicate_samples"] == ["A002-C-010"]
     assert report["first_sample_shape_cells_by_genes"] == [5, 6]
     assert set(report["panel_genes_found"]) == {

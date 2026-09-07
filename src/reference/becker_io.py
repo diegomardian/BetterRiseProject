@@ -47,7 +47,21 @@ DISEASE_STAGE_MAP: dict[str, str | None] = {
     "Polyp": "tumour",
     "Unaffected": "normal",
     "CRC": None,
+    # A FIFTH VALUE, found in the deposit on 2026-09-06 and NOT merged with
+    # `Unaffected`. `Normal` appears only in B001/B004 -- donors with FAP=N and
+    # NO POLYPS. It is a separate healthy person's tissue, where `Unaffected` is
+    # a FAP patient's own uninvolved mucosa from the same colon as their polyps.
+    #
+    # Merging them would silently convert a paired within-patient design into a
+    # cross-donor one, which is the estimand drift Amendment 1 exists to
+    # prevent. It maps to its own arm so that anything wanting it has to ask.
+    "Normal": "healthy_donor",
 }
+
+#: The arms a PAIRED reading may use. `healthy_donor` is deliberately absent:
+#: those donors have no polyps, so pairing against them is cross-donor by
+#: construction. Becker Amendment 2 refuses that rescue explicitly.
+PAIRED_ARMS: frozenset[str] = frozenset({"tumour", "normal"})
 
 #: Characteristics the series matrix carries, and the column each becomes.
 CHARACTERISTIC_FIELDS: dict[str, str] = {
@@ -57,9 +71,37 @@ CHARACTERISTIC_FIELDS: dict[str, str] = {
     "tissue": "tissue",
 }
 
-#: `A001-C-007` -> donor `A001`. The donor is the unit of inference under
-#: invariant 5 and Amendment 1, so this is load-bearing rather than cosmetic.
-_SAMPLE = re.compile(r"^(?P<donor>[A-Z]\d+)-(?P<sample>.+)$")
+#: FOUR naming schemes, verified against the sample table on 2026-09-06. The
+#: donor is the unit of inference under invariant 5 and Amendment 1, so reading
+#: it wrong misassigns every cell in a sample.
+#:
+#:   A001-C-007    FAP series          -> donor A001
+#:   B001-A-301    healthy donors      -> donor B001
+#:   F007          single polyps       -> donor F007 (the sample IS the donor)
+#:   CRC1_8810     sporadic carcinoma  -> donor CRC1  (excluded anyway)
+#:
+#: Tried in order, first match wins. The first version of this carried only the
+#: first pattern and REFUSED the other seven samples rather than dropping them,
+#: which is why they were found at all.
+_SAMPLE_PATTERNS: tuple[re.Pattern, ...] = (
+    re.compile(r"^(?P<donor>[AB]\d+)-(?P<sample>[A-Z]-\d+)$"),
+    re.compile(r"^(?P<donor>CRC\d+)_(?P<sample>\d+)$"),
+    re.compile(r"^(?P<donor>F\d+[A-Z]?)$"),
+)
+
+
+def parse_sample_id(sample_id: str) -> str | None:
+    """The donor a sample belongs to, or ``None`` if no scheme matches.
+
+    ``None`` is not a fallback -- the caller raises on it. A sample whose donor
+    cannot be read cannot be placed in a paired design, and guessing is how
+    every cell in it gets attributed to the wrong person.
+    """
+    for pattern in _SAMPLE_PATTERNS:
+        match = pattern.match(sample_id)
+        if match:
+            return match.group("donor")
+    return None
 
 
 class BeckerError(ValueError):
@@ -143,15 +185,16 @@ def read_series_matrix(path: str | Path) -> pd.DataFrame:
         lambda p: next((x for x in p[1:] if x.lower().startswith("replicate")), None)
     )
 
-    matched = frame["sample_id"].str.extract(_SAMPLE)
-    unparsed = frame.loc[matched["donor"].isna(), "sample_id"].tolist()
+    frame["donor"] = frame["sample_id"].map(parse_sample_id)
+    unparsed = frame.loc[frame["donor"].isna(), "sample_id"].tolist()
     if unparsed:
         raise BeckerError(
-            f"{unparsed} do not match the donor-sample pattern 'A001-C-007'. "
-            f"The donor is the unit of inference (invariant 5, Amendment 1), so "
-            f"a sample whose donor cannot be read cannot be placed."
+            f"{unparsed} match none of the four known naming schemes "
+            f"(A001-C-007, B001-A-301, F007, CRC1_8810). The donor is the unit "
+            f"of inference (invariant 5, Amendment 1), so a sample whose donor "
+            f"cannot be read cannot be placed — and guessing attributes every "
+            f"cell in it to the wrong person."
         )
-    frame["donor"] = matched["donor"]
 
     unknown = sorted(set(frame["disease_stage"]) - set(DISEASE_STAGE_MAP))
     if unknown:
@@ -249,6 +292,20 @@ def gene_symbols(features: pd.DataFrame) -> np.ndarray:
             f"using it would report every panel gene as absent."
         )
     return features.iloc[:, 1].astype(str).to_numpy()
+
+
+def paired_donors(metadata: pd.DataFrame) -> pd.Index:
+    """Donors carrying BOTH a tumour and a normal arm. The real cohort size.
+
+    THE NUMBER BECKER AMENDMENT 2 IS ABOUT. 72 samples across the deposit, and
+    four donors with both arms — the rest are polyps with no same-donor
+    reference, or healthy donors with no polyps. ``healthy_donor`` does not
+    count: pairing a polyp against a different person's normal tissue is
+    cross-donor by construction, and Amendment 2 refuses that rescue.
+    """
+    paired = metadata[metadata["arm"].isin(PAIRED_ARMS)]
+    counts = paired.groupby("donor")["arm"].nunique()
+    return counts[counts == len(PAIRED_ARMS)].index
 
 
 def pooling_key(metadata: pd.DataFrame, *, pool_by: str) -> pd.Series:
