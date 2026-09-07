@@ -1280,3 +1280,60 @@ def test_at_least_one_prereg_has_a_filled_in_result():
         f"only {filled} carry a completed RESULT; the staleness check would be "
         f"vacuous on a repository with none"
     )
+
+
+# ---------------------------------------------------------------------------
+# A heterogeneity verdict quoted without the null it was read against
+# ---------------------------------------------------------------------------
+
+def test_a_heterogeneity_verdict_without_its_null_is_refused():
+    """`I^2 = 87.6%, exceeds the 75% ceiling` is not readable on its own.
+
+    At the ICBI patient counts, EXACT homogeneity produces a median I^2 of 0.269
+    and clears the ceiling 6.9% of the time; at six larger studies it produces a
+    median of 0.000. The same number means opposite things at the two, and a
+    frame stating the verdict without the null lets a threshold nobody
+    calibrated read as one somebody did.
+    """
+    from src.reference.meta_calibration import (
+        MetaCalibrationError,
+        check_heterogeneity_carries_its_own_null,
+    )
+
+    bare = pd.DataFrame([{"gene": "KRT8", "patient_floor": 3,
+                          "i_squared": 0.876, "verdict": "UNRESOLVED"}])
+    with pytest.raises(MetaCalibrationError, match="without any of"):
+        check_heterogeneity_carries_its_own_null(bare)
+
+
+def test_half_a_calibration_beside_a_heterogeneity_verdict_is_refused():
+    from src.reference.meta_calibration import (
+        MetaCalibrationError,
+        check_heterogeneity_carries_its_own_null,
+    )
+
+    partial = pd.DataFrame([{"gene": "KRT8", "patient_floor": 3,
+                             "i_squared": 0.876, "verdict": "UNRESOLVED",
+                             "null_i_squared_median": 0.269}])
+    with pytest.raises(MetaCalibrationError, match="only part of its calibration"):
+        check_heterogeneity_carries_its_own_null(partial)
+
+
+def test_a_missing_null_beside_a_verdict_is_not_a_null_of_zero():
+    """Invariant 1 at the meta layer. NaN is not 0.0, and 0.0 here would make a
+    calibrated p of 0.269 read as a decisive one."""
+    from src.reference.meta_calibration import (
+        MetaCalibrationError,
+        check_heterogeneity_carries_its_own_null,
+    )
+
+    holed = pd.DataFrame([
+        {"gene": "ACTB", "patient_floor": 3, "i_squared": 0.628,
+         "verdict": "HOLDS", "null_i_squared_median": 0.269,
+         "null_p_of_observed": 0.157},
+        {"gene": "KRT8", "patient_floor": 6, "i_squared": 0.715,
+         "verdict": "UNRESOLVED", "null_i_squared_median": 0.0,
+         "null_p_of_observed": float("nan")},
+    ])
+    with pytest.raises(MetaCalibrationError, match="Invariant 1"):
+        check_heterogeneity_carries_its_own_null(holed)
