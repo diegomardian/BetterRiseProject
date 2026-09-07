@@ -410,7 +410,54 @@ before the number it governs exists.
 
 ---
 
-## RESULT
+## RESULT — four of seven blocks, 2026-09-07
 
-*Not run. Only section `231` has been read, and that under the feasibility
-document.*
+`results/2026-09-07_a9b3d6d/`. Blocks `24H12439_A4` (231), `B-2080151-01-18`
+(110), `B-1970164-01-04` (120), `B1891803_1-5` (210).
+
+### Verdict: INDETERMINATE — the sign turns on below-floor blocks
+
+| gene | per-block DiD | mean | 95% CI | |
+|---|---|---|---|---|
+| **GUCA2A** | −1.513, −0.838, −0.548, **−2.373** | −1.318 | **[−2.609, −0.027]** | excludes zero |
+| GUCA2A, floored block dropped | −1.513, −0.838, −0.548 | −0.966 | **[−2.195, +0.262]** | includes zero |
+| MS4A12 | −1.371, −0.759, −0.724, −2.687 | −1.385 | [−2.845, +0.075] | includes |
+| CDX2 | −0.012, +0.215, +0.591, +0.404 | +0.198 | [−0.251, +0.647] | includes |
+| EPCAM | −0.033, +0.381, −0.012, +0.052 | +0.097 | [−0.210, +0.404] | includes |
+
+**Amendment 4 fired.** The four-block interval excludes zero; drop the one block
+where the target sits below the negative-probe floor and it does not. That
+block's DiD is a **bound, not a point** — its observed detection (0.0118) is
+below what the noise process alone supplies (0.0167) — and a mean mixing bounds
+with points estimates neither. **Neither interval is the answer.**
+
+The rule was fixed and pushed in `db1664b` **before this aggregate was
+computed**, precisely because the three-block result already showed which way
+210 would push it.
+
+### Amendment 3's caution was right, and one more block proved it
+
+At three blocks **MS4A12 excluded zero** and GUCA2A did not. Amendment 3 said
+that was a line in a table and not a finding: four informative genes, no
+multiplicity control, `P(≥1 excludes | global null) = 0.19`, and a secondary
+marker clearing while the primary does not is not the primary claim arriving by
+another route.
+
+**At four blocks MS4A12 includes zero** — [−2.845, +0.075]. The finding that was
+not quoted has evaporated, which is what the caution was for.
+
+### What holds across all four blocks
+
+`GUCA2A` and `MS4A12` are negative in every block; `CDX2` and `EPCAM` are not
+consistently signed. That is the two-block pattern surviving to four, and it is
+**sign agreement, not an effect size** — §6's width at n=4 is 5.17× avenue A's.
+
+### What this does not say
+
+Everything in §8, unchanged, plus Amendment 2: the control is an epithelial
+keratin, so **this statistic does not separate compositional from intrinsic**.
+And §7's per-cell limit is untouched — no block licenses a "GUCA2A-low =
+silenced" claim about any cell.
+
+**Three blocks remain**: `221`, `222`, `242`. §3's order and its
+one-at-a-time disk protocol are unchanged.
