@@ -375,12 +375,39 @@ def verdict(summary: pd.DataFrame) -> dict:
                     f"row — a target falling alone is consistent with a whole "
                     f"tier moving — so there is nothing to conclude."
                 )}
+    # Amendment 7. The branch above requires the discriminator to clear zero in
+    # the SAME direction as the target, so this one is reached in two different
+    # states: the discriminator not clearing zero, and the discriminator
+    # clearing it in the OPPOSITE direction. The first version asserted "does
+    # not exclude zero" in both, which is false in the second — and CDX2's
+    # lower bound has run -0.251, -0.156, -0.020 across four, five and six
+    # blocks, so the second state is one block away.
+    if bool(disc.get("excludes_zero", False)):
+        return {"verdict": "TARGET FALLS AND THE DISCRIMINATOR MOVES THE OTHER WAY",
+                "detail": (
+                    f"{TARGET_GENE} DiD {target['mean_did']:+.3f} "
+                    f"[{target['ci_low']:+.3f}, {target['ci_high']:+.3f}] over "
+                    f"{n} blocks; {DISCRIMINATOR_GENE} "
+                    f"{disc['mean_did']:+.3f} "
+                    f"[{disc['ci_low']:+.3f}, {disc['ci_high']:+.3f}] excludes "
+                    f"zero in the OPPOSITE direction. §7 asks whether a tier "
+                    f"moved; a discriminator moving against the target is a "
+                    f"stronger answer to that than one merely failing to clear "
+                    f"zero. **It is not a stronger claim about mechanism** — "
+                    f"Amendment 2 still applies, and a rising "
+                    f"{DISCRIMINATOR_GENE} is equally consistent with more "
+                    f"{DISCRIMINATOR_GENE}-positive cells in the lesion. "
+                    f"Amendment 7."
+                )}
+
     return {"verdict": "TARGET FALLS AND THE DISCRIMINATOR DOES NOT",
             "detail": (
                 f"{TARGET_GENE} DiD {target['mean_did']:+.3f} "
                 f"[{target['ci_low']:+.3f}, {target['ci_high']:+.3f}] over {n} "
                 f"blocks; {DISCRIMINATOR_GENE} "
-                f"{disc['mean_did']:+.3f} does not exclude zero. "
+                f"{disc['mean_did']:+.3f} "
+                f"[{disc['ci_low']:+.3f}, {disc['ci_high']:+.3f}] does not "
+                f"exclude zero. "
                 f"**Still not silencing and still not per-cell** — feasibility "
                 f"§7 is untouched, and §8 of this document lists what remains "
                 f"undecided."

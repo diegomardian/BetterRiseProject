@@ -486,6 +486,52 @@ to one that already exists, before the aggregate it governs is computed.
 
 ---
 
+## Amendment 7 — 2026-09-07, before the seventh block: §7 has no third state
+
+`DiD(CDX2)`'s lower bound has run **−0.251, −0.156, −0.020** across four, five
+and six blocks. At six it is **0.02 from excluding zero**, in the direction
+opposite to the target.
+
+§7's table has two states for the discriminator: it clears zero *with* the
+target (a tier moved), or it does not clear zero (the target's fall is
+gene-specific). **It has no state for the discriminator clearing zero in the
+opposite direction**, and one more block may produce it.
+
+### The code asserted something that would have been false
+
+`verdict()`'s final branch is reached whenever the discriminator does not clear
+zero **in the same direction as the target** — which includes clearing it in the
+other direction. Its message said *"CDX2 … does not exclude zero"* in both
+cases. At seven blocks that could have printed a false statement into a
+committed sidecar. Both branches now print the discriminator's interval.
+
+### The third state, and what it does and does not mean
+
+> **`TARGET FALLS AND THE DISCRIMINATOR MOVES THE OTHER WAY`** — the target's
+> DiD excludes zero negative and the discriminator's excludes zero positive.
+
+**What it strengthens.** §7 asks whether a tier moved. A discriminator moving
+*against* the target answers that more firmly than one merely failing to clear
+zero, and it is consistent with published work reporting CDX2 **gain** in
+colorectal adenomas.
+
+**What it does not strengthen — and this is the part that will be dropped if it
+is not written here.** It is **not** a stronger claim about mechanism.
+Amendment 2 is unchanged: `KRT8` is an epithelial keratin, and a rising `CDX2`
+is equally consistent with **more CDX2-positive cells in the lesion** as with
+anything intrinsic. A cleaner separation between two genes is not a separation
+between composition and silencing.
+
+**And it is not a new falsifier.** §7's prediction was and remains
+`DiD(GUCA2A) < 0` with `DiD(CDX2)` not tracking it. This names a state that was
+already inside "the discriminator does not track the target" and gives it its
+own words, because a verdict that cannot say what it saw will be paraphrased by
+someone who was not there.
+
+Written before block `242` is read.
+
+---
+
 ## RESULT — five of seven blocks, 2026-09-07
 
 `results/2026-09-07_daa3cbd/`. Supersedes the four-block table

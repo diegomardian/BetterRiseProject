@@ -319,3 +319,54 @@ def test_the_discriminators_conclusion_turning_on_a_bound_is_also_indeterminate(
     assert out["verdict"] == ("INDETERMINATE — THE DISCRIMINATOR TURNS ON "
                              "BELOW-FLOOR BLOCKS")
     assert "rests on the discriminator as much as on the target" in out["detail"]
+
+
+def test_a_discriminator_clearing_zero_the_other_way_gets_its_own_verdict():
+    """Amendment 7. The final branch is reached in TWO states — the
+    discriminator not clearing zero, and clearing it in the opposite direction
+    — and the first version asserted "does not exclude zero" in both."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        for i, pre in enumerate(("110", "120", "210", "221")):
+            _write_section(root, f"r{i}", pre, f"{pre}_TVA", f"{pre}_REF",
+                           {"KRT8": {f"{pre}_REF": 3.0, f"{pre}_TVA": 3.5},
+                            TARGET_GENE: {f"{pre}_REF": 2.0, f"{pre}_TVA": 0.4 + 0.02 * i},
+                            # discriminator rises well clear of zero, opposite sign
+                            DISCRIMINATOR_GENE: {f"{pre}_REF": 1.0,
+                                                 f"{pre}_TVA": 3.5 + 0.02 * i}})
+        summary = aggregate(per_block_did(root))
+
+    disc = summary.set_index("gene").loc[DISCRIMINATOR_GENE]
+    tgt = summary.set_index("gene").loc[TARGET_GENE]
+    assert bool(disc["excludes_zero"]) and disc["mean_did"] > 0
+    assert bool(tgt["excludes_zero"]) and tgt["mean_did"] < 0
+
+    out = verdict(summary)
+    assert out["verdict"] == "TARGET FALLS AND THE DISCRIMINATOR MOVES THE OTHER WAY"
+    assert "OPPOSITE direction" in out["detail"]
+    # and it must refuse to be read as a mechanism claim
+    assert "not a stronger claim about mechanism" in out["detail"]
+    assert "more CDX2-positive cells" in out["detail"]
+
+
+def test_the_does_not_exclude_zero_branch_prints_the_interval_it_claims():
+    """A verdict that states a conclusion must show the interval behind it."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        rng = np.random.default_rng(5)
+        for i, pre in enumerate(("110", "120", "210", "221")):
+            _write_section(root, f"r{i}", pre, f"{pre}_TVA", f"{pre}_REF",
+                           {"KRT8": {f"{pre}_REF": 3.0, f"{pre}_TVA": 3.5},
+                            TARGET_GENE: {f"{pre}_REF": 2.0, f"{pre}_TVA": 0.4 + 0.02 * i},
+                            DISCRIMINATOR_GENE: {f"{pre}_REF": 2.0,
+                                                 f"{pre}_TVA": 2.5 + float(rng.normal(0, 0.9))}})
+        summary = aggregate(per_block_did(root))
+
+    out = verdict(summary)
+    assert out["verdict"] == "TARGET FALLS AND THE DISCRIMINATOR DOES NOT"
+    assert "does not exclude zero" in out["detail"]
+    assert "[" in out["detail"].split(DISCRIMINATOR_GENE)[-1], "show the interval"
