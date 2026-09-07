@@ -1,0 +1,52 @@
+{
+  "date": "2026-09-06",
+  "utc_timestamp": "2026-09-07T02:04:22+00:00",
+  "git_sha": "705dd5be5da726a47259e7df78435345a029cfa8",
+  "git_sha_short": "705dd5b",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "disval_stability_assignment",
+  "n_rows": 44,
+  "columns": [
+    "patient_id",
+    "collection",
+    "shared",
+    "found"
+  ],
+  "table_kind": "harness",
+  "prereg": "docs/prereg_disval_stability.md",
+  "source": "2026-09-06_5791c01/adenoma_decomposition.parquet",
+  "what_this_is_not": "an independent replication. Same lab, same platform, same population, and the same cells whose pooled answer is already known \u2014 a split of analysed data cannot confirm it. The single-cohort qualifier on the adenoma result STAYS.",
+  "what_this_is": "a test of one failure mode: that the finding is an artefact of a single collection batch",
+  "load_bearing_statistic": "log_ratio",
+  "statistic_fixed_in": "ac7eca1, before any of this",
+  "primary_halves": [
+    "VUMC_HTAN_discovery",
+    "VUMC_HTAN_validation"
+  ],
+  "excluded_cross_collection": [
+    "Chen_2021_Cell.HTA11_866"
+  ],
+  "half_sizes": {
+    "VUMC_HTAN_validation": 15,
+    "VUMC_HTAN_discovery": 15,
+    "VUMC_HTAN_cohort3": 13
+  },
+  "width_penalty_vs_n43": {
+    "n=15": 1.8,
+    "n=13": 1.96
+  },
+  "reading_asymmetry": "a half-miss is weak evidence (width), a sign reversal is strong (width does not flip signs). Fixed in \u00a75/\u00a76 before the numbers.",
+  "verdict": {
+    "verdict": "AMBIGUOUS AT THIS N",
+    "detail": "holds in {'VUMC_HTAN_discovery': 1, 'VUMC_HTAN_validation': 4} of 4. \u00a75 fixed this as ambiguous BY DESIGN and it must not be read as a failure: at n=15 the interval is 1.80x its width at n=43, so a real effect can miss. Report both halves and the pooled result; claim nothing new."
+  },
+  "exploratory": false,
+  "pre_registered": true
+}

@@ -119,6 +119,63 @@ being wrong, and that is worth having and worth not overselling.
 
 ---
 
-## RESULT
+## RESULT — computed 2026-09-06, after this document was committed
 
-*Not computed. This document is committed before the split.*
+`results/2026-09-06_705dd5b/`. The split came out **15 / 15 / 13** exactly as §1
+predicted, with `HTA11_866` excluded from both halves per §3.
+
+### Verdict: AMBIGUOUS AT THIS N — §5's third branch
+
+`log_ratio` (load-bearing, fixed in `ac7eca1`), GUCA2A against each control:
+
+| contrast | discovery (15) | validation (15) | cohort3 (12) | pooled (42) |
+|---|---|---|---|---|
+| − ACTB | **+0.881 \*** | **+0.952 \*** | **+0.899 \*** | **+0.912 \*** |
+| − CDX2 | +0.648 | **+1.442 \*** | +1.149 | **+1.075 \*** |
+| − EPCAM | +0.833 | **+1.520 \*** | +0.834 | **+1.079 \*** |
+| − KRT8 | +1.004 | **+1.027 \*** | +0.545 | **+0.881 \*** |
+
+`*` excludes zero. Validation holds 4 of 4; discovery and cohort3 hold 1 of 4.
+
+### The strong falsifier did not fire, and that is the substantive result
+
+**Zero sign reversals, on all four statistics, in all three collections.** §5
+reserved that branch as the one width cannot explain, and nothing tripped it.
+
+**Every point estimate is positive and they are mutually consistent** —
+discovery 0.648 to 1.004, validation 0.952 to 1.520, cohort3 0.545 to 1.149,
+against a pooled 0.881 to 1.079. The halves agree on direction and on rough
+magnitude. What they differ on is whether the interval clears zero, which is
+exactly what §6 said to expect at 1.80× the width.
+
+**`GUCA2A − ACTB` holds independently in all three collections.** That is the
+only contrast to do so, and it is the one with the least between-half spread.
+
+### What this does and does not establish
+
+**Does:** the four contrasts are not carried by one collection batch. Two
+independent collections a year apart, plus a third, all give the same sign and
+comparable magnitude, and no half contradicts the pooled reading.
+
+**Does not:** exclude batch-drivenness *formally*. §5's first branch required 4
+of 4 in both halves and that did not happen. On the pre-registered reading this
+is **ambiguous, not confirmed** — and §5 fixed in advance that it must not be
+read as a failure either.
+
+**And it remains what §1 said it was.** Not an independent replication: same
+lab, same platform, same population, same cells. **The single-cohort qualifier
+on the adenoma result stays.**
+
+### One inconsistency this run exposed, fixed before the numbers above
+
+The first version applied a Student-t interval to every statistic, including
+`ratio` — which `adenoma_decomposition_scales.py` summarises by the **median
+with a rank-based interval**, because it is heavy-tailed and one patient with a
+near-zero compositional term sends its mean anywhere. That mismatch produced
+**the only two sign flips in the first run**, both on `ratio`, both artefacts of
+the summary rather than properties of the data. With the pre-registered
+treatment applied consistently, **all four statistics show zero flips.**
+
+Worth recording because a sign flip is §5's *strongest* branch: an inconsistent
+summary in the reading job would have tripped the one verdict that width cannot
+explain.
