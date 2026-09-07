@@ -773,6 +773,11 @@ def main(argv: list[str] | None = None) -> int:
         "n_patients_in_deposit": 7,
         "patient_n_this_run": args.patient_n,
         "reference_domain": args.reference_domain,
+        # The RESOLVED labels, which is what the table carries. `*_domain`
+        # above is the CLI request and the two are not the same object once
+        # sub-domains are pooled.
+        "adenoma_domain_label": adenoma_label,
+        "reference_domain_label": reference_label,
         "pooled_subdomains": pooled_names or None,
         "pooling_rule": (
             "multisection Amendment 1 — same-class sub-domains are pooled at "

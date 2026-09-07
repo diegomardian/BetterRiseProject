@@ -63,6 +63,23 @@ SECTIONS: dict[str, dict[str, object]] = {
             "role": "fallback, named in prereg §2 before any read"},
 }
 
+#: Section -> tissue block, from `metadata.txt` (Zenodo 10.5281/zenodo.15550908),
+#: read 2026-09-07. **Blocks are the unit, not files** — 231 and 232 are FOV
+#: ranges 1-146 and 147-217 of one block and contribute ONE observation
+#: (invariant 5, multisection prereg §5). `241` is in the metadata and has no
+#: h5ad in the deposit.
+SECTION_TO_BLOCK: dict[str, str] = {
+    "110": "B-2080151-01-18",
+    "120": "B-1970164-01-04",
+    "210": "B1891803_1-5",
+    "221": "B1914093_B1-2",
+    "222": "23H29642_A4",
+    "231": "24H12439_A4",
+    "232": "24H12439_A4",
+    "242": "23H42952_A19",
+}
+
+
 #: obs columns that might carry the pathologist's domain. Candidates, not a
 #: mapping: the job prints what it finds and a human chooses.
 DOMAIN_COLUMN_CANDIDATES: tuple[str, ...] = (

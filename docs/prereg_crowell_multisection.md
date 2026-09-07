@@ -243,6 +243,46 @@ are untouched. **No threshold moved.**
 
 ---
 
+## Amendment 2 — 2026-09-07, after two blocks: the control is also epithelial
+
+§4 takes the DiD against `KRT8` because ACTB is absent and it is the only
+`control`-role gene in the deposit. **`KRT8` is an epithelial keratin, and it
+does not behave like a capture control here.**
+
+| block | depth ratio REF→adenoma | `log(depth)` | `KRT8` `dlog(mu)` | `GUCA2A` `dlog(mu)` |
+|---|---|---|---|---|
+| 24H12439_A4 (231) | 1.43× | +0.356 | **+1.746** | −0.747 |
+| B-2080151-01-18 (110) | 1.97× | +0.676 | **+0.941** | +0.102 |
+
+**`KRT8` rises far more than depth does** — five times the depth term in 231.
+It is tracking epithelial *fraction*, which is higher in a lesion than in
+mucosa, as well as capture. `EPCAM` does the same and is `epithelial` by role.
+
+### What that costs, stated plainly
+
+**The DiD does not separate compositional from intrinsic.** A negative
+`DiD(GUCA2A)` says the target did not rise with the epithelial signal, and that
+is equally consistent with:
+
+- **compositional** — the mature cells that carry GUCA2A are a smaller share of
+  the epithelium in the lesion, or
+- **intrinsic** — mature cells are present and the gene is off in them.
+
+Separating them needs a maturity label. Feasibility prereg §4 requires that
+label be **histological**, and this deposit has no histological maturity
+annotation — only lesion domains. The transcript-defined `lv2` labels
+(`epi.entero` and the rest) are barred by multisection Amendment 1 §2 for the
+circularity reason.
+
+**So §7's falsifiers stand and §8 gains a line**: whichever way the DiD comes
+out, this design cannot say which of the two mechanisms produced it. It can say
+whether the target moves against its control across patients, and that is all.
+
+**No threshold, statistic or falsifier changes.** This is a limitation being
+written down where the claim is made, before an interval exists to over-read.
+
+---
+
 ## RESULT
 
 *Not run. Only section `231` has been read, and that under the feasibility
