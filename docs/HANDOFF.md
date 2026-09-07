@@ -732,7 +732,7 @@ the statistic is fixed in `ac7eca1` and
 | | |
 |---|---|
 | **B1 · Becker FAP replication — PRE-REGISTERED** | `docs/prereg_becker_replication.md`, and the one closing path for A's largest open item. **Disk measured 2026-09-06: 4.99 GB free on `/project`, 9.83 GB on `/projectnb`, separate filesystems — 9.83 GB usable.** The snRNA arm plausibly fits; **the scATAC arm does not**, so axis 3 is unaffordable at current occupancy rather than merely unscheduled. Still blocked on two unverified things: the accessions, and the file format (reported as Seurat objects, not a GEO matrix). |
-| **D1 · the Wnt mechanism test — PRE-REGISTERED** | `docs/prereg_wnt_mechanism.md`. Does the terminal-differentiation fall track a Wnt-target signature (AXIN2, NKD1, RNF43, NOTUM, TCF7 — invariant 8, ASCL2/LGR5 dropped because the stem axis IS in play) **within the surviving mature cells**? **Needs no new data and no download** — but it does need a cluster pass, because no committed table carries per-cell values. The estimand is a per-patient partial correlation conditioned on **maturity and log depth**, because without both it recovers maturity and reports it as Wnt. |
+| **D1 · the Wnt mechanism test — BUILT, needs one qsub** | `docs/prereg_wnt_mechanism.md`. Does the terminal-differentiation fall track a Wnt-target signature (AXIN2, NKD1, RNF43, NOTUM, TCF7 — invariant 8, ASCL2/LGR5 dropped because the stem axis IS in play) **within the surviving mature cells**? **Needs no new data and no download** — but it does need a cluster pass, because no committed table carries per-cell values. The estimand is a per-patient partial correlation conditioned on **maturity and log depth**, because without both it recovers maturity and reports it as Wnt. `qsub src/reference/jobs/wnt_mechanism.sh`. **Run it BEFORE freeing disk** — it reads the atlas. |
 | **D2 / D3** | Laptop-cheap, mechanism-agnostic: marker→survival on committed TCGA (needs its own pre-specification — the Stage 4 lock excludes it), and whether iCMS subtype explains KRT8's I² = 87.6% across the 13 studies. |
 
 **Explicitly not worth doing:** more carcinoma single-cell data (the 13-study
@@ -899,7 +899,7 @@ the n=10 arm.
 
 ## 7. Running things
 
-    pytest -q                      # expect 1494 passed, 22 env-only failures
+    pytest -q                      # expect 1509 passed, 22 env-only failures
     ruff check src tests submission
 
 The 22 are `anndata`, `diptest`, `lifelines` absent locally. That count is the
