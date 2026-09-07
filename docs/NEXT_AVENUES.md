@@ -582,6 +582,25 @@ each remaining level at k = 1.
 4. ~~**The DIS/VAL stability split.**~~ **RAN 2026-09-06 — AMBIGUOUS**, with
    zero sign reversals across three specimen collections. §6j.
 
+### Where it stands at the end of 2026-09-07 — read this first
+
+**Nothing is half-finished except three things, and all three are named below.**
+
+| open | what it needs |
+|---|---|
+| **The write-up** | Eight days. ~15 results across 2026-09-06/07 in neither paper, and `neurips_2026.sty` still unvendored so `./build.sh` has never run. **This outranks everything.** |
+| **D2 survival** | `docs/prereg_d2_survival.md` is **proposed, not locked**. Its gate PASSED (n=624, IQR 2.96). §6a lists three decisions it leaves open. Needs the lock, then implementation. |
+| **Invariant 11** | `docs/invariant_11_proposal.md` drafted with a guard design, unimplemented. Needs a PR and two approvals per invariant 3. |
+
+**Closed on 2026-09-07 and not worth reopening:** Crowell (7 of 7, §6l),
+Becker/B1 (not licensed), C1's panel lookup (no stock panel carries a target and
+a control together), the meta-layer weights (§6k), and the carcinoma `best4`
+denominator.
+
+**The one avenue with an unexplored substrate** is lesion-level Wnt — item 4
+below — and its audit came back thin: 2 of 6 Crowell blocks have multiple
+adenoma sub-regions, and Becker's per-donor lesion counts were never committed.
+
 ### Roadmap amendment, 2026-09-07 — six items, after the Crowell run
 
 Supersedes the corresponding entries above where they conflict. Each item names

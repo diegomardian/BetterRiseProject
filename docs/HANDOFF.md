@@ -43,12 +43,40 @@ after seeing output**; it was re-run on one fixed in advance (`ac7eca1`) and
 held, which is partial closure, not full. And **survivorship is untouched** and
 not transcript-detectable, here or anywhere in this project.
 
+**AND ON 2026-09-07 THE ADENOMA READING GAINED AN INDEPENDENT SUBSTRATE.**
+Crowell 2025 is whole-transcriptome CosMx spatial imaging with reference
+mucosa, adenoma and carcinoma **in the same section from the same patient**.
+Across all **seven** blocks, GUCA2A and MS4A12 fall relative to an epithelial
+control from reference to adenoma while CDX2 does not — `DiD(GUCA2A)` **−1.307
+[−1.872, −0.741]**, negative in 7 of 7. Different platform, different patients,
+different chemistry, and the same two-block shape avenue A found. **§6l.**
+
+**It does not upgrade the claim, and the reason is structural.** Its only
+control-role gene is `KRT8`, an epithelial keratin, so the statistic cannot
+separate compositional from intrinsic loss at any n. It is a **patient-level
+pattern**, not silencing and not per-cell. Read `docs/prereg_crowell_multisection.md`
+Amendment 2 before quoting it.
+
 **Two papers exist.** The ICBI-NB one argues the decomposition is empirically
 unverifiable — avenue A is the branch where it is verifiable, and that arc is
 not yet written into it. The WMHS one is a methods paper about validation
-statistics that cannot fail, **deadline 15 September 2026**, and today handed it
-three new instances (§3, §3a, §3a-bis). **Neither paper carries any 2026-09-06
-result.** That is the largest outstanding gap and §6f is the list.
+statistics that cannot fail, **deadline 15 September 2026**. **Neither paper
+carries any 2026-09-06 or 2026-09-07 result**, and that is now roughly fifteen
+results across two days. It is the largest outstanding gap by a wide margin and
+§6f is the list.
+
+### What happened on 2026-09-07, in order — 61 commits
+
+| | outcome |
+|---|---|
+| **Crowell WTx spatial** (§6l) | **COMPLETE, 7 of 7 blocks.** §7's pass branch. The independent substrate above. Seven amendments, every guard checked, none bypassed. |
+| **Becker / B1** (§6i) | **NOT LICENSED, and closed.** GUCA2A clears the gate by *depth*, not identity. §3's physical premise refuted: on the detection scale GUCA2A and MS4A12 are the two **best**-preserved genes under snRNA-seq. |
+| **C1 panel lookup** | **COMPLETE and negative.** No stock CosMx or Xenium panel carries a target and a control together — Xenium Colon has both targets and no control, CosMx 6K the reverse. C1 needs custom probes. |
+| **The meta layer** (§6k) | The 13-study KRT8 verdict **keeps its word and changes its reason**. Inverse-variance weights have no finite mean at n=3, and `MAX_I_SQUARED` is a rule of thumb whose null nobody computed. |
+| **D2** | Gate **PASS** — n=624, IQR 2.96 log2-CPM, clean median split. `docs/prereg_d2_survival.md` drafted, **proposed not locked**. |
+| **Carcinoma `best4` zeros** | Denominator corrected everywhere: **1,314/1,350 rows**, **641/675 tumours** under both methods. A resolvability diagnostic, never a mature-cell fraction. |
+| **Roadmap** | Six avenues re-scoped; five were one class stronger than the data supports. `docs/NEXT_AVENUES.md`. |
+| **Process** | `CONTRIBUTING` §3 (never `git add -A`; `git commit --only`) and §6 (ML is measurement infrastructure). `docs/invariant_11_proposal.md` drafted, **needs a PR and two approvals**. |
 
 ### What happened on 2026-09-06, in order
 
@@ -470,17 +498,18 @@ been renumbered.
 | 2 | §6d | Path C — the adenoma *detection* reading, the independent estimand that agrees with §6h |
 | 3 | §6j | DIS/VAL — is §6h driven by one specimen collection? Ambiguous, no reversals |
 | 4 | §6g | MLH1 — the instrument's only positive control. UNINTERPRETABLE, and unavailable on any data |
-| 5 | **§6k** | **The meta layer's weights. §2's KRT8 verdict keeps its word and changes its reason** |
-| 6 | §6i | **What to do next, ranked**, with what is explicitly not worth doing |
-| 7 | §6a, §6b, §6c | Stage 4, the 13-study meta, housekeeping — all terminated, nothing to resume |
-| 8 | §6e | Why "different data, not more of it" is still true for survivorship |
-| 9 | §6f | **The write-up — the one thing with a deadline** |
+| 5 | **§6l** | **Crowell — the independent spatial substrate. 7 of 7 blocks, §7's pass, heavily qualified** |
+| 6 | **§6k** | **The meta layer's weights. §2's KRT8 verdict keeps its word and changes its reason** |
+| 7 | §6i | **What to do next, ranked**, with what is explicitly not worth doing |
+| 8 | §6a, §6b, §6c | Stage 4, the 13-study meta, housekeeping — all terminated, nothing to resume |
+| 9 | §6e | Why "different data, not more of it" is still true for survivorship |
+| 10 | §6f | **The write-up — the one thing with a deadline** |
 
 ### The single most important thing for a new agent
 
-**Every result from 2026-09-06 is missing from both papers**, and the WMHS
-deadline is **15 September 2026**. That is six results, four of them produced
-after the last paper edit. §6f lists them. If you do one thing, do that.
+**Every result from 2026-09-06 AND 2026-09-07 is missing from both papers** —
+roughly fifteen across two days — and the WMHS deadline is **15 September
+2026**, eight days out. §6f lists them. If you do one thing, do that.
 
 **And read §3, §3a and §3a-bis before trusting any interval in this repo.** The
 percentile bootstrap used throughout is narrower than it claims at small n, by a
@@ -927,6 +956,50 @@ is a property of the data, not of the weighting`, which is backwards.
   `src/harness/meta.py` (CONTRIBUTING §2). Replacing the fixed ceiling with the
   calibrated null is a W2 PR with two approvals. This work applies the floor at
   the job layer and changes nothing in the harness.
+
+## 6l. Crowell WTx spatial — RAN 2026-09-07. COMPLETE, 7 of 7 blocks.
+
+`docs/prereg_crowell_feasibility.md` (+ Amendments 1–2),
+`docs/prereg_crowell_multisection.md` (+ Amendments 1–7);
+`results/2026-09-07_da1f46b/` is the one to quote. Public CC-BY, Zenodo
+`10.5281/zenodo.15574384`.
+
+**What it is.** Whole-transcriptome CosMx (19,867 genes) with reference mucosa,
+tubulovillous adenoma and carcinoma **in the same section from the same
+patient**, seven patients. `DiD(gene) = Δ(gene) − Δ(KRT8)` on the detection
+scale, one observation per tissue block, Student-t over blocks.
+
+| gene | mean DiD | 95% CI | |
+|---|---|---|---|
+| **GUCA2A** | **−1.307** | **[−1.872, −0.741]** | 7 of 7 negative |
+| **MS4A12** | **−1.241** | **[−1.874, −0.609]** | 7 of 7 negative |
+| CDX2 | +0.327 | [−0.151, +0.805] | includes zero |
+| EPCAM | +0.234 | [−0.007, +0.475] | includes zero |
+
+**Amendment 2 is the ceiling and it does not lift with n.** `ACTB` is absent
+from this deposit, so `KRT8` is the only control-role gene — and it is an
+**epithelial keratin**, rising with epithelial *fraction* as well as capture. So
+`DiD(GUCA2A) < 0` says the target did not rise with the epithelial signal, which
+is equally consistent with mature cells being a smaller share of the lesion and
+with them being present and silenced. **The carcinoma contrast (secondary, §5)
+sharpens this**: `EPCAM` excludes zero there at +0.438 [+0.270, +0.605], so the
+two epithelial markers do not even track each other.
+
+**Not silencing, not per-cell.** Feasibility §7: the negative probes bound false
+positives, not false negatives, so §6g stands.
+
+**The seventh block is the argument for a fixed order.** `DiD(CDX2)`'s lower
+bound ran −0.251, −0.156, **−0.020**, −0.151. At six blocks it was twenty
+thousandths from clearing zero opposite the target; the seventh pushed it back.
+Stopping at six would have felt complete.
+
+**Secondary carcinoma contrast**: `results/2026-09-07_1dc7624/`, 6 of 7 blocks
+(222 has no carcinoma domain). **Not comparable to the adenoma numbers** — same
+reference arm, so correlated, different blocks, different n, no paired analysis
+pre-registered. The verdict says so itself.
+
+**Nothing is pending.** All seven blocks read, the h5ads deleted per §3's disk
+protocol and re-downloadable from recorded md5s in `data/manifest.csv`.
 
 ## 6i. What is next, after avenue A
 
