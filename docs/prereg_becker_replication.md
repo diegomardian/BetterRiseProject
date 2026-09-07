@@ -133,10 +133,21 @@ below has been confirmed against GEO from this session:
 2. **The file format.** Reported as Seurat objects on Google Drive rather than a
    standard GEO supplementary matrix. If so, the loader is real work and not a
    variation on `icbi_slice`.
-3. **Disk.** `docs/HANDOFF.md` §5: `/project` was at 45/50 GB and `/projectnb` at
-   40/50 GB after the ICBI fetch. **Both are near full.** A two-object Becker
-   fetch may not have anywhere to land. Run `pquota` first; this may be a
-   storage decision before it is a science one.
+3. **Disk — MEASURED 2026-09-06, and it scopes this design.** `pquota`:
+
+       /project/rise-batteries      45.01 / 50 GB   ->  4.99 GB free
+       /projectnb/rise-batteries    40.17 / 50 GB   ->  9.83 GB free
+
+   They are separate filesystems, so the usable figure is **9.83 GB**, not the
+   sum. That is the constraint this document already lives within by covering
+   **the snRNA arm only**: a 200k-nucleus matrix plausibly fits, and the scATAC
+   arm (447k cells, fragment files) does not — not by a little.
+
+   **So axis 3 is not merely unscheduled, it is unaffordable at current
+   occupancy.** The chromatin arm needs space freed or another filesystem before
+   it can be designed, and that is a storage decision rather than a science one.
+   The 30 GB ICBI atlas on `/project` is the obvious candidate to move or drop,
+   and it should not be dropped while §6g and avenue A still read from it.
 
 **No download job is written in this commit**, because writing one against an
 unverified layout is how a cluster job dies at 3am.
