@@ -133,6 +133,12 @@ ML may produce segmentation, geometry, or anatomical measurements. Biological
 claims remain patient-level estimates with explicit abstention rules; an ML
 output does not replace a sensitivity control or license a per-cell state claim.
 
+The testable half of this policy is now **`CLAUDE.md` invariant 11**, enforced in
+`src/common/label_provenance.py`: declare what defined your population and what
+you are claiming, at specification time. The rest of this section stays a policy
+because it is not testable, which is the reason it is written here rather than
+there.
+
 ---
 
 ## 7. Before you open a PR

@@ -309,13 +309,18 @@ def paired_donors(metadata: pd.DataFrame) -> pd.Index:
 
 
 def tumour_lesion_counts(metadata: pd.DataFrame) -> pd.DataFrame:
-    """Return the auditable per-donor inventory of Becker polyp lesions.
+    """The auditable per-donor inventory of Becker polyp lesions.
 
-    The GEO series matrix has one row per sequencing GSM, not necessarily one
-    row per physical lesion: ``A002-C-010`` appears twice as technical
-    replicates. A lesion is therefore one unique ``sample_id`` in the
-    ``tumour`` arm. ``n_tumour_rows`` is retained beside the biological count
-    so the replicate collapse is visible rather than silently inflating n.
+    The GEO series matrix has one row per sequencing GSM, not one row per
+    physical lesion: ``A002-C-010`` appears twice as technical replicates. A
+    lesion is therefore one unique ``sample_id`` in the ``tumour`` arm, and
+    ``n_tumour_rows`` stays beside it so the collapse is visible rather than
+    silently inflating n.
+
+    ``n_normal_lesions`` and ``paired`` are here because the number this
+    inventory exists to make durable is *31 lesions in the four donors that
+    carry a reference arm* -- and that number cannot be recovered from a table
+    of tumour counts alone.
 
     This is an input inventory, not an analysis table. Its rows are not
     independent inference units; the donor remains the unit under invariant 5
@@ -326,25 +331,38 @@ def tumour_lesion_counts(metadata: pd.DataFrame) -> pd.DataFrame:
     if missing:
         raise BeckerError(f"lesion inventory is missing columns {missing}")
 
-    tumours = metadata.loc[metadata["arm"] == "tumour",
-                           ["donor", "sample_id"]].copy()
+    tumours = metadata.loc[metadata["arm"] == "tumour", ["donor", "sample_id"]]
     if tumours.empty:
         raise BeckerError(
             "lesion inventory found no tumour-arm rows. The series matrix "
             "must be parsed before this function, including its fixed "
-            "disease-stage mapping."
+            "disease-stage mapping. An empty inventory returned quietly here "
+            "would read as a cohort with no polyps."
         )
 
     inventory = (tumours.groupby("donor", as_index=False)
-                 .agg(n_lesions=("sample_id", "nunique"),
+                 .agg(n_tumour_lesions=("sample_id", "nunique"),
                       n_tumour_rows=("sample_id", "size"))
                  .sort_values("donor", kind="stable")
                  .reset_index(drop=True))
-    if (inventory["n_lesions"] > inventory["n_tumour_rows"]).any():
+
+    # NOT `n_tumour_lesions > n_tumour_rows`: nunique <= size is an identity,
+    # so that comparison can never be true and the check would report success
+    # on every input. This one can fail -- a null or unparsed donor is dropped
+    # by groupby, and the rows would go missing without a word.
+    if int(inventory["n_tumour_rows"].sum()) != len(tumours):
         raise BeckerError(
-            "a donor has more unique lesions than tumour sequencing rows; "
-            "the inventory cannot be reconciled with its source metadata"
+            f"{len(tumours)} tumour rows went in and "
+            f"{int(inventory['n_tumour_rows'].sum())} came out; a donor label "
+            f"was dropped in grouping."
         )
+
+    normals = (metadata.loc[metadata["arm"] == "normal"]
+               .groupby("donor")["sample_id"].nunique()
+               .rename("n_normal_lesions"))
+    inventory = inventory.join(normals, on="donor").fillna({"n_normal_lesions": 0})
+    inventory["n_normal_lesions"] = inventory["n_normal_lesions"].astype(int)
+    inventory["paired"] = inventory["donor"].isin(paired_donors(metadata))
     return inventory
 
 

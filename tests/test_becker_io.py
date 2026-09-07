@@ -128,17 +128,6 @@ def test_replicates_are_identified_and_share_a_sample_id():
     )
 
 
-def test_tumour_lesion_inventory_collapses_technical_replicates_not_lesions():
-    with tempfile.TemporaryDirectory() as d:
-        metadata = read_series_matrix(_series_matrix(pathlib.Path(d)))
-
-    got = tumour_lesion_counts(metadata).set_index("donor")
-    assert got.loc["A001", "n_lesions"] == 1
-    assert got.loc["A001", "n_tumour_rows"] == 1
-    assert got.loc["A002", "n_lesions"] == 1
-    assert got.loc["A002", "n_tumour_rows"] == 2
-
-
 def test_lesion_inventory_cli_writes_a_versioned_table(tmp_path):
     """The durable artifact must use the metadata-only path, not ``--inspect``."""
     from src.reference.jobs.becker_feasibility import main
@@ -153,9 +142,17 @@ def test_lesion_inventory_cli_writes_a_versioned_table(tmp_path):
     tables = list(results.rglob("becker_lesion_inventory.parquet"))
     assert len(tables) == 1
     got = pd.read_parquet(tables[0]).set_index("donor")
-    assert got.loc["A001", "n_lesions"] == 1
-    assert got.loc["A002", "n_lesions"] == 1
+    assert got.loc["A001", "n_tumour_lesions"] == 1
+    assert got.loc["A002", "n_tumour_lesions"] == 1
     assert got.loc["A002", "n_tumour_rows"] == 2
+
+    # The artifact must carry the reference arm, not only the polyp counts.
+    # "31 lesions in the four donors that carry a reference arm" is the number
+    # this table exists to make durable, and a tumour-only table cannot answer
+    # it -- the figure would live in a commit message again.
+    assert got.loc["A001", "n_normal_lesions"] == 1
+    assert bool(got.loc["A001", "paired"]) is True
+    assert int(got.loc[got["paired"], "n_tumour_lesions"].sum()) == 2
 
 
 def test_an_unknown_disease_stage_stops_the_run():
@@ -250,6 +247,28 @@ def test_the_paired_cohort_is_only_donors_carrying_both_arms():
     )
 
 
+def test_tumour_lesion_inventory_collapses_technical_replicates_not_lesions():
+    """A002-C-010 has two GSM rows but is one physical polyp."""
+    with tempfile.TemporaryDirectory() as d:
+        metadata = read_series_matrix(_series_matrix(pathlib.Path(d)))
+    got = tumour_lesion_counts(metadata).set_index("donor")
+
+    assert got.loc["A001", "n_tumour_lesions"] == 1
+    assert got.loc["A001", "n_tumour_rows"] == 1
+    assert got.loc["A002", "n_tumour_lesions"] == 1
+    assert got.loc["A002", "n_tumour_rows"] == 2
+    assert got["paired"].all()
+
+
+def test_metadata_only_inventory_needs_no_count_tar():
+    from src.reference.jobs.becker_feasibility import lesion_inventory
+
+    with tempfile.TemporaryDirectory() as d:
+        got = lesion_inventory(_series_matrix(pathlib.Path(d))).set_index("donor")
+    assert got.loc["A001", "n_tumour_lesions"] == 1
+    assert got.loc["A002", "n_tumour_rows"] == 2
+
+
 # ---------------------------------------------------------------------------
 # The matrices
 # ---------------------------------------------------------------------------
@@ -323,6 +342,14 @@ def test_inspect_reports_the_cohort_without_applying_the_mapping_silently():
     assert report["disease_stage_counts"]["CRC"] == 1
     assert report["n_donors"] == 2
     assert report["n_donors_PAIRED"] == 2
+    assert report["n_tumour_lesions"] == 2
+    assert report["n_paired_tumour_lesions"] == 2
+    assert report["tumour_lesions_per_donor"] == [
+        {"donor": "A001", "n_tumour_lesions": 1, "n_tumour_rows": 1,
+         "n_normal_lesions": 1, "paired": True},
+        {"donor": "A002", "n_tumour_lesions": 1, "n_tumour_rows": 2,
+         "n_normal_lesions": 1, "paired": True},
+    ]
     assert report["replicate_samples"] == ["A002-C-010"]
     assert report["first_sample_shape_cells_by_genes"] == [5, 6]
     assert set(report["panel_genes_found"]) == {

@@ -27,6 +27,7 @@ against the data with the dead options marked, in
 8. **CTNNB1 / TCF7L2 transcript level is not Wnt activity.** Use a target signature (AXIN2, NKD1, RNF43, NOTUM, TCF7); drop ASCL2/LGR5 when the stem axis is in play.
 9. **Survival endpoints are DSS and PFI from TCGA-CDR.** OS is secondary — COAD OS is contaminated by non-cancer death.
 10. **Every result carries the git sha and a fixed random seed.** Results are versioned parquet under `results/`.
+11. **No transcript-derived label may claim the state of its own defining programme.** Every analysis declares `label_provenance` and `claim_provenance`; omitting a declaration is refused exactly as a circular one is, because unstated is not none. An overlap is permitted only when the endpoint was *independently measured* — a different assay, in a different modality, that the labels are not derived from. Naming an assay does not buy the exception. Enforced at analysis-specification validation in `src/common/label_provenance.py`, not in the results writer: by the time a table exists the population is already chosen. Invariant 2 is the special case for the panel targets; this is the general rule.
 
 ## Repo layout
 

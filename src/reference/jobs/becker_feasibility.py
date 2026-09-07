@@ -61,6 +61,11 @@ import numpy as np
 import pandas as pd
 
 from src.common.io import write_versioned_table
+from src.common.label_provenance import (
+    Measurement,
+    check_no_circular_claim,
+    provenance_meta,
+)
 from src.common.provenance import DEFAULT_SEED
 from src.reference.jobs.coexpression_silencing import DETECTION_MIN_UMI, GENE_ROLES
 
@@ -95,6 +100,25 @@ CRITICAL_GENE = "GUCA2A"
 #: BEFORE the labelled gate is run, so the set cannot be tuned to the answer.
 MATURE_MARKERS: tuple[str, ...] = (
     "CA1", "CA2", "AQP8", "SLC26A3", "KRT20", "CEACAM7",
+)
+
+#: INVARIANT 11's declaration for this job, beside the label it describes.
+#: The mature label is transcript-derived, so the endpoint it may be used to
+#: claim has to be disjoint from it -- which is why the whole panel, not just
+#: the target, is excluded from MATURE_MARKERS above. Declared rather than
+#: argued: `validate_specification` refuses the job if the two ever overlap.
+LABEL_PROVENANCE = Measurement(
+    modality="transcript",
+    assay="Becker snRNA-seq mature-colonocyte marker call",
+    genes=MATURE_MARKERS,
+)
+
+#: The endpoint. Every panel gene is scored, controls included -- a control not
+#: measured in the same cells cannot bound anything.
+CLAIM_PROVENANCE = Measurement(
+    modality="transcript",
+    assay="Becker snRNA-seq (GSE201348)",
+    genes=tuple(GENE_ROLES),
 )
 
 #: A nucleus is called mature when it detects at least this many of them. Two,
@@ -141,6 +165,7 @@ def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
         read_series_matrix,
         read_triplet,
         sample_files,
+        tumour_lesion_counts,
     )
 
     metadata = read_series_matrix(series_matrix)
@@ -157,6 +182,7 @@ def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
     # which is the cross-donor comparison Becker Amendment 2 refuses.
     scored = metadata[metadata["arm"].isin(PAIRED_ARMS)]
     paired = paired_donors(metadata)
+    lesions = tumour_lesion_counts(metadata)
     report = {
         "tar": str(tar), "series_matrix": str(series_matrix),
         "n_samples_in_tar": int(len(files)),
@@ -178,6 +204,15 @@ def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
             - set(paired)),
         "samples_per_donor": scored.groupby(["donor", "arm"]).size()
                                    .unstack(fill_value=0).to_dict("index"),
+        "tumour_lesion_count_rule": (
+            "unique sample_id; technical replicate GSM rows collapse to one "
+            "physical lesion"
+        ),
+        "n_tumour_lesion_donors": int(len(lesions)),
+        "n_tumour_lesions": int(lesions["n_tumour_lesions"].sum()),
+        "n_paired_tumour_lesions": int(
+            lesions.loc[lesions["paired"], "n_tumour_lesions"].sum()),
+        "tumour_lesions_per_donor": lesions.to_dict("records"),
         "replicate_samples": metadata.loc[metadata["replicate"].notna(),
                                           "sample_id"].unique().tolist(),
         "first_sample_shape_cells_by_genes": list(counts.shape),
@@ -190,6 +225,20 @@ def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
         report["fap_donors"] = (metadata.drop_duplicates("donor")["fap"]
                                 .value_counts().to_dict())
     return report
+
+
+def lesion_inventory(series_matrix: Path) -> pd.DataFrame:
+    """The durable, metadata-only Becker lesion inventory.
+
+    This is deliberately separate from ``--inspect``: the question needs only
+    GEO's small series matrix, not the 1.2 GB count tar, and the answer is an
+    input inventory rather than a biological result.  One lesion is one unique
+    ``sample_id``; technical GSM replicates remain visible in ``n_tumour_rows``.
+    """
+    from src.reference.becker_io import read_series_matrix, tumour_lesion_counts
+
+    metadata = read_series_matrix(series_matrix)
+    return tumour_lesion_counts(metadata)
 
 
 def inspect(path: Path) -> dict:
@@ -279,8 +328,19 @@ def gate(detection: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values("detection", ascending=False, ignore_index=True)
 
 
+def validate_specification() -> tuple[str, ...]:
+    """Invariant 11, checked before the population is built rather than after.
+
+    Cheap and pure, so both ``main`` and :func:`verdict` call it: a guard the
+    API can be used around is a guard that reports success.
+    """
+    return check_no_circular_claim(
+        labels=LABEL_PROVENANCE, claim=CLAIM_PROVENANCE
+    )
+
+
 def verdict(gated: pd.DataFrame, *, mature_labelled: bool = False,
-            audit: "pd.DataFrame | None" = None) -> dict:
+            audit: pd.DataFrame | None = None) -> dict:
     """§3's outcome table, taken by code rather than by a reader.
 
     ``mature_labelled`` says whether the detection handed in is the one §3
@@ -294,6 +354,7 @@ def verdict(gated: pd.DataFrame, *, mature_labelled: bool = False,
     A PASS on a lower bound is safe in the other direction and is reported as a
     pass, which is the asymmetry §3 already relies on.
     """
+    validate_specification()
     passing = set(gated.loc[gated["passes"], "gene"])
     failing = sorted(set(gated["gene"]) - passing)
 
@@ -451,7 +512,8 @@ def enrichment_audit(whole: pd.DataFrame, mature: pd.DataFrame) -> pd.DataFrame:
     the label is built from marker DETECTION, which is a depth-correlated
     quantity by construction.
     """
-    mu = lambda p: -np.log1p(-np.clip(np.asarray(p, dtype=float), 0, 1 - 1e-12))
+    def mu(p):
+        return -np.log1p(-np.clip(np.asarray(p, dtype=float), 0, 1 - 1e-12))
     left = whole.set_index("gene")["detection"]
     right = mature.set_index("gene")["detection"]
     genes = [g for g in left.index if g in right.index]
@@ -610,6 +672,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+    # INVARIANT 11 FIRST, before a path is checked or a byte is read. A guard
+    # that runs after the population is built can only object to work already
+    # done, and `verdict` is far too late to learn that the labels and the
+    # endpoint were the same genes. `verdict` keeps its own call for callers
+    # who use the API rather than the CLI.
+    validate_specification()
 
     if args.inspect and args.lesion_inventory:
         raise SystemExit("choose --inspect or --lesion-inventory, not both")
@@ -929,6 +998,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         "exploratory": False,
         "pre_registered": True,
+        **provenance_meta(LABEL_PROVENANCE, CLAIM_PROVENANCE),
     }
     tables = [(gated, "becker_feasibility"),
               (by_arm, "becker_feasibility_by_arm")]

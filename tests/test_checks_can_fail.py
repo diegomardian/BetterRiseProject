@@ -1337,3 +1337,247 @@ def test_a_missing_null_beside_a_verdict_is_not_a_null_of_zero():
     ])
     with pytest.raises(MetaCalibrationError, match="Invariant 1"):
         check_heterogeneity_carries_its_own_null(holed)
+
+
+# ---------------------------------------------------------------------------
+# Invariant 11 — no transcript-derived label may claim its own programme
+#
+# Every branch of the guard, against the input that forces it. The exception is
+# the part worth attacking: it must not be satisfiable by supplying a name.
+# ---------------------------------------------------------------------------
+
+
+def test_the_proposal_s_failing_fixture_guca2a_defines_the_label_and_is_claimed():
+    """The circular claim this invariant exists for, refused by name."""
+    from src.common.label_provenance import (
+        CircularClaimError,
+        Measurement,
+        check_no_circular_claim,
+    )
+
+    with pytest.raises(CircularClaimError, match="CIRCULAR CLAIM") as excinfo:
+        check_no_circular_claim(
+            labels=Measurement(
+                modality="transcript", assay="snRNA-seq",
+                genes=("GUCA2A", "CA1", "AQP8"),
+            ),
+            claim=Measurement(
+                modality="transcript", assay="snRNA-seq", genes=("GUCA2A",),
+            ),
+        )
+    assert "GUCA2A" in str(excinfo.value)
+
+
+def test_an_undeclared_population_definition_is_not_an_empty_one():
+    """Invariant 1's rule in another place: unstated is not none.
+
+    Omitting the declaration is the easy failure -- a job that never thought
+    about its labels looks exactly like a job whose labels use no genes.
+    """
+    from src.common.label_provenance import (
+        Measurement,
+        ProvenanceDeclarationError,
+        check_no_circular_claim,
+        check_spec_declares_provenance,
+    )
+
+    with pytest.raises(ProvenanceDeclarationError, match="no label provenance"):
+        check_no_circular_claim(
+            labels=None,
+            claim=Measurement(modality="transcript", assay="x", genes=("GUCA2A",)),
+        )
+    with pytest.raises(ProvenanceDeclarationError, match="has no default"):
+        check_spec_declares_provenance(
+            {"claim_provenance": {"modality": "transcript", "assay": "x",
+                                  "genes": ["GUCA2A"]}}
+        )
+
+
+def test_naming_an_assay_does_not_buy_the_exception():
+    """The reviewer's condition: an overlap needs an independent MEASUREMENT.
+
+    Here the endpoint and the labels come off one instrument and the analyst
+    declares an independent endpoint anyway. A guard that accepted this would
+    check that a field was filled in, not that anything independent happened.
+    """
+    from src.common.label_provenance import (
+        CircularClaimError,
+        IndependentEndpoint,
+        Measurement,
+        check_no_circular_claim,
+    )
+
+    one_instrument = Measurement(
+        modality="transcript", assay="Xenium 5K", genes=("CDX2",)
+    )
+    with pytest.raises(CircularClaimError, match="not an independent measurement"):
+        check_no_circular_claim(
+            labels=one_instrument,
+            claim=Measurement(modality="transcript", assay="Xenium 5K",
+                              genes=("CDX2",)),
+            independent_endpoint=IndependentEndpoint(
+                assay="Xenium 5K", reason="the panel also carries CDX2",
+            ),
+        )
+
+
+def test_a_second_instrument_in_the_same_channel_does_not_break_the_circle():
+    from src.common.label_provenance import (
+        CircularClaimError,
+        IndependentEndpoint,
+        Measurement,
+        check_no_circular_claim,
+    )
+
+    with pytest.raises(CircularClaimError, match="same channel|failure"):
+        check_no_circular_claim(
+            labels=Measurement(modality="transcript", assay="Xenium 5K",
+                               genes=("CDX2",)),
+            claim=Measurement(modality="transcript", assay="CosMx 6K",
+                              genes=("CDX2",)),
+            independent_endpoint=IndependentEndpoint(
+                assay="CosMx 6K", reason="a different vendor's panel",
+            ),
+        )
+
+
+def test_the_exception_must_be_about_the_measurement_actually_made():
+    """The declaration names one assay; the endpoint was measured on another."""
+    from src.common.label_provenance import (
+        CircularClaimError,
+        IndependentEndpoint,
+        Measurement,
+        check_no_circular_claim,
+    )
+
+    with pytest.raises(CircularClaimError, match="actually made"):
+        check_no_circular_claim(
+            labels=Measurement(modality="transcript", assay="scRNA-seq",
+                               genes=("CDX2",)),
+            claim=Measurement(modality="protein", assay="IHC CDX2",
+                              genes=("CDX2",)),
+            independent_endpoint=IndependentEndpoint(
+                assay="MxIF CDX2", reason="protein, measured on the section",
+            ),
+        )
+
+
+def test_a_label_derived_from_the_endpoint_s_own_assay_is_still_circular():
+    """Different modality, different assay, and circular anyway.
+
+    Segment on MxIF CDX2 protein, call those regions mature, then report CDX2
+    protein in them. The modality check passes because the label is recorded as
+    morphology; `derived_from` is what catches it.
+    """
+    from src.common.label_provenance import (
+        CircularClaimError,
+        IndependentEndpoint,
+        Measurement,
+        check_no_circular_claim,
+    )
+
+    with pytest.raises(CircularClaimError, match="derived from"):
+        check_no_circular_claim(
+            labels=Measurement(
+                modality="morphology", assay="crypt segmentation",
+                genes=("CDX2",), derived_from=("MxIF CDX2",),
+            ),
+            claim=Measurement(modality="protein", assay="MxIF CDX2",
+                              genes=("CDX2",)),
+            independent_endpoint=IndependentEndpoint(
+                assay="MxIF CDX2", reason="protein on the section",
+            ),
+        )
+
+
+def test_both_live_reference_jobs_declare_a_provenance_the_guard_can_read():
+    """A guard nothing calls is a guard that reports success.
+
+    Becker and Crowell are the two analyses the invariant was written from. If
+    either stops declaring, this fails rather than the invariant quietly
+    becoming documentation.
+    """
+    from src.common.label_provenance import check_no_circular_claim
+    from src.reference.jobs.becker_feasibility import (
+        CLAIM_PROVENANCE as BECKER_CLAIM,
+        LABEL_PROVENANCE as BECKER_LABELS,
+    )
+    from src.reference.jobs.crowell_multisection import (
+        CLAIM_PROVENANCE as CROWELL_CLAIM,
+        LABEL_PROVENANCE as CROWELL_LABELS,
+    )
+
+    assert check_no_circular_claim(labels=BECKER_LABELS, claim=BECKER_CLAIM) == ()
+    assert check_no_circular_claim(labels=CROWELL_LABELS, claim=CROWELL_CLAIM) == ()
+
+
+def test_both_jobs_refuse_a_circular_specification_before_reading_anything():
+    """The guard must fire at argument-parse time, not at verdict time.
+
+    A declaration test proves the constants are readable. It does not prove the
+    live job consults them, and a check that runs after the population is built
+    can only object to work already done. Here each job is pointed at a path
+    that does not exist and given a circular declaration: the circularity must
+    be what stops it, which is only true if the guard runs before the read.
+    """
+    from src.common.label_provenance import CircularClaimError, Measurement
+    from src.reference.jobs import becker_feasibility, crowell_multisection
+
+    circular = Measurement(
+        modality="transcript", assay="same instrument", genes=("GUCA2A",),
+    )
+    for module, argv in (
+        (becker_feasibility,
+         ["--lesion-inventory", "--series-matrix", "/nonexistent/series.txt.gz"]),
+        (crowell_multisection, ["--contrast", "adenoma",
+                                "--results-dir", "/nonexistent/results"]),
+    ):
+        saved = (module.LABEL_PROVENANCE, module.CLAIM_PROVENANCE)
+        module.LABEL_PROVENANCE, module.CLAIM_PROVENANCE = circular, circular
+        try:
+            with pytest.raises(CircularClaimError, match="CIRCULAR CLAIM"):
+                module.main(argv)
+        finally:
+            module.LABEL_PROVENANCE, module.CLAIM_PROVENANCE = saved
+
+
+def test_a_result_sidecar_says_what_defined_the_population():
+    """Invariant 11 is unreadable from a result unless the job writes it down.
+
+    The guard stops a circular analysis; it does nothing for a reader holding a
+    parquet. Both jobs fold `provenance_meta` into the sidecar, and this is the
+    test that fails if either stops.
+    """
+    import inspect as _inspect
+
+    from src.reference.jobs import becker_feasibility, crowell_multisection
+
+    for module in (becker_feasibility, crowell_multisection):
+        source = _inspect.getsource(module.main)
+        assert "provenance_meta(LABEL_PROVENANCE, CLAIM_PROVENANCE)" in source, (
+            f"{module.__name__}.main does not write the population definition "
+            f"into its result sidecar"
+        )
+
+    # ... and that what it writes survives the writer and is readable as JSON,
+    # rather than being a dict that only looks right in Python.
+    import tempfile
+
+    from src.common.label_provenance import provenance_meta
+
+    with tempfile.TemporaryDirectory() as tmp:
+        written = write_versioned_table(
+            pd.DataFrame([{"gene": "GUCA2A"}]), "provenance_roundtrip",
+            seed=1, results_dir=Path(tmp), allow_dirty=True,
+            extra_meta=provenance_meta(
+                crowell_multisection.LABEL_PROVENANCE,
+                crowell_multisection.CLAIM_PROVENANCE,
+            ),
+        )
+        sidecar = json.loads(
+            Path(str(written).replace(".parquet", ".meta.json")).read_text()
+        )
+    assert sidecar["label_provenance"]["modality"] == "morphology"
+    assert sidecar["label_provenance"]["genes"] == ""      # declared, not omitted
+    assert "GUCA2A" in sidecar["claim_provenance"]["genes"]
+    assert sidecar["overlapping_genes"] == ""
