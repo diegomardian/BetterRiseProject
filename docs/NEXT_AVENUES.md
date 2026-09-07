@@ -439,11 +439,26 @@ which is a legitimate result and mechanism-agnostic. Laptop-runnable.
 (`not_prespecified`), and a directional prediction reported after the fact is a
 story.
 
-### Explaining the 13-study heterogeneity
-KRT8's I² of 87.6% is the reason the meta premise did not resolve. If that
-disagreement tracks iCMS subtype — and Joanito 2022, the iCMS paper, is one of
-the 13 — then the negative gets an explanation rather than staying a shrug.
-Cheap: the per-study estimates are already committed.
+### ~~Explaining the 13-study heterogeneity~~ **ANSWERED 2026-09-07 — and not by iCMS.**
+
+**`docs/prereg_meta_weight_calibration.md` RESULT; `docs/HANDOFF.md` §6k;
+tables `results/2026-09-07_40515ce/`. Do not queue this.**
+
+The heterogeneity is not a subtype story. **57% of Cochran's Q is one study,
+Khaliq_2022, at n = 3** — holding 20.4% of the fixed-effect weight against
+Pelka's 10.0% at n = 29. At a patient floor where the inverse-variance weight
+has a finite mean (n ≥ 4; `E[w]/w = (n-1)/(n-3)`, no mean below that) the
+studies are **homogeneous**, I² falls to 0.63 and 0.71, and KRT8 stays
+UNRESOLVED for the opposite reason: they agree the control fell 0.41–0.48 log2
+and the ±0.5 tolerance straddles it.
+
+**The iCMS version was not runnable anyway**, which is worth recording since
+this page recommended it. The atlas obs carries no iCMS column, and the
+covariates it does carry cannot support a meta-regression at k = 11:
+`matrix_type`, `suspension_type` and `enrichment_cell_types` are **constants**
+across all eleven — a covariate that cannot vary is a check that cannot fail —
+`tissue_cell_state` is fresh for 9 of 11, and `platform` is 8 of 11 10x with
+each remaining level at k = 1.
 
 ---
 
@@ -488,8 +503,18 @@ Cheap: the per-study estimates are already committed.
 8. **Zheng's gradient** (1c), descriptive, and **no interval may be reported
    from it**: at n=3 the percentile bootstrap is 25.1% and 0.372× the correct
    width.
-9. Tier 3's heterogeneity explanation — cheap, and it strengthens a result
-   already in hand.
+9. ~~Tier 3's heterogeneity explanation.~~ **RAN 2026-09-07 — the heterogeneity
+   is one n=3 study and an uncalibrated ceiling, not a subtype.** It did not
+   strengthen the result in hand; it changed the reason behind it, which §2 of
+   `docs/HANDOFF.md` now carries. See §6k. **Do not queue it.**
+
+10. **The remaining half of §6k, and it is W2's not W1's.** `MAX_I_SQUARED = 0.75`
+   is Higgins' rule of thumb with no null behind it: at k = 11 homogeneity alone
+   gives a median I² of 0.270, at k = 6 it gives 0.000, and Cochran's Q rejects
+   **32.5%** of the time at the committed patient counts against a nominal 5%.
+   `src/reference/meta_calibration.py` computes the null; wiring it into
+   `src/harness/meta.py` in place of the fixed ceiling is a **PR with two
+   approvals** under CONTRIBUTING §2 and was deliberately not done here.
 
 ~~Tier 2 only after the MLH1 control says whether the instrument can see
 silencing at all.~~ **That gate is now permanently open, and not the way anyone

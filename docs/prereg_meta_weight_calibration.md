@@ -187,3 +187,127 @@ premise.
 is applied at the job layer, which is W1's. If the result argues for changing
 `MIN_STUDIES` or `MAX_I_SQUARED` themselves, that is a W2 PR with two approvals
 and is out of scope here.
+
+---
+
+## RESULT — computed 2026-09-07, after this document was committed in `a9dc874`
+
+`results/2026-09-07_40515ce/`. Job `src/reference/jobs/meta_floor_sensitivity.py`,
+a local re-read of the committed per-study table. No new data.
+
+### Verdict: FLOOR-UNSTABLE — and §5's branch table could not express the outcome
+
+| gene | floor | k | pooled [95% CI] | I² | null median I² | calibrated p | verdict | **cause** |
+|---|---|---|---|---|---|---|---|---|
+| ACTB | n≥3 | 11 | +0.152 [−0.013, +0.317] | 0.628 | 0.270 | 0.159 | HOLDS | within tolerance |
+| ACTB | n≥4 | 9 | **+0.201 [+0.061, +0.341]** | 0.458 | 0.137 | 0.225 | HOLDS | within tolerance |
+| ACTB | n≥6 | 6 | **+0.212 [+0.040, +0.383]** | 0.607 | 0.000 | 0.062 | HOLDS | within tolerance |
+| KRT8 | n≥3 | 11 | −0.453 [−0.711, −0.194] | **0.876** | 0.270 | 0.016 | UNRESOLVED | **I² over the ceiling** |
+| KRT8 | n≥4 | 9 | −0.412 [−0.590, −0.235] | 0.625 | 0.137 | 0.090 | UNRESOLVED | **homogeneous, straddles tolerance** |
+| KRT8 | n≥6 | 6 | −0.482 [−0.685, −0.280] | 0.715 | 0.000 | **0.018** | UNRESOLVED | **homogeneous, straddles tolerance** |
+
+**KRT8 is UNRESOLVED at all three floors and it is not the same UNRESOLVED.**
+At the committed floor the studies are declared *not to be estimating a common
+quantity* and the pooled value is called "substantively meaningless." At both
+floors where the weight has a mean, the studies **are** homogeneous by the
+project's own ceiling, the pooled value is readable, and what it says is that
+KRT8 fell by 0.41–0.48 log2 — close enough to the ±0.5 tolerance that the
+interval straddles it.
+
+**So the committed finding does not survive, but not in the direction §6
+predicted.** §6 guessed KRT8 would "probably move to a readable pooled
+estimate." It moved off heterogeneity and landed on the tolerance instead. The
+substantive change is real and it is this: *"the thirteen studies disagree"*
+becomes *"the studies agree, and what they agree on is a control shift the
+tolerance cannot clear."* The first is a statement that no reading is possible.
+The second is a reading, and it is worse for the premise.
+
+### §5's branch table had the defect it was written to catch
+
+Its four branches are phrased in verdict **labels** — "stays UNRESOLVED",
+"becomes readable". `premise_verdict` reaches UNRESOLVED down two routes, so
+"stays UNRESOLVED" was satisfied by an outcome that means the opposite of what
+that branch says it means. **The pre-registration's own falsifier could not
+distinguish the result that occurred.**
+
+The job's first draft shipped the same mistake in code: `read_verdict` compared
+labels and printed **STABLE — "the heterogeneity is a property of the data, not
+of the weighting"**, which is precisely backwards. `verdict_cause` now compares
+the route; the input that forces the failure is
+`test_read_verdict_does_not_call_a_changed_cause_stable`.
+
+**Recorded rather than quietly fixed, because it is the twentieth instance of
+this repository's thesis and the first found inside a pre-registration.** A
+three-valued verdict whose states are multiply-caused is a check that cannot
+fail on the distinction that matters. §5 of any future prereg must name the
+cause, not the label.
+
+### The ceiling disagrees with its own null, and it does so in both directions
+
+| k | null median I² | null 95th pct | P(I² > 0.75) | Q rejects at 0.05 |
+|---|---|---|---|---|
+| 11 (n≥3) | **0.270** | 0.787 | 6.97% | **32.5%** |
+| 9 (n≥4) | 0.137 | 0.694 | 2.78% | 20.1% |
+| 6 (n≥6) | **0.000** | 0.630 | 0.97% | 9.7% |
+
+All three rows are under **exact homogeneity** — between-study variance is zero
+by construction, so every value is manufactured by estimating the weights.
+
+**At k=11 the fixed 0.75 is too strict**: homogeneity alone gives a median I² of
+0.270 and clears the ceiling 7% of the time, so a reader seeing "I² = 62.8%,
+within the ceiling" for ACTB is looking at the 84th percentile of no
+heterogeneity at all.
+
+**At k=6 it is too lax, and this one bites.** KRT8's I² = 0.715 sits *below* the
+ceiling — reported as homogeneous — while its calibrated **p = 0.018**, because
+at six studies of n≥6 the null median is 0.000. `ceiling_and_null_agree` is
+`False` on exactly that row. The one number does opposite things at the two
+`k`s, and nothing in `meta.py` knew, because `MAX_I_SQUARED` is Higgins' rule of
+thumb for trials with hundreds of subjects each.
+
+**Cochran's Q is worse and is quoted in the committed detail string.** "Q =
+80.92 on 10 df" appears in `results/2026-09-05_61ba221/`'s verdict text. At
+these patient counts Q rejects **32.5%** of the time against a nominal 5%.
+
+### The closed form, on the real studies
+
+| study | n | weight share | patient share | share of Q | E[ŵ]/w |
+|---|---|---|---|---|---|
+| Khaliq_2022 | **3** | **20.4%** | 2.5% | **57.1%** | **no finite mean** |
+| Chen_2024 | 20 | 33.3% | 16.9% | 16.7% | 1.12× |
+| Pelka_2021 | **29** | **10.0%** | 24.6% | 5.5% | 1.08× |
+| Joanito_2022 | 4 | 1.6% | 3.4% | 4.8% | 3.00× |
+| Lee_2020 | 15 | 3.3% | 12.7% | 0.0% | 1.17× |
+
+**A three-patient study carries twice the weight of a twenty-nine-patient one**
+and contributes 57% of the heterogeneity that terminated the reading. Its
+per-patient SD on KRT8 is 0.159, the smallest of the eleven — its three patients
+came in at −1.235, −1.300 and −0.997. That is not an error in that study; it is
+three draws agreeing, which at 2 degrees of freedom happens, and inverse-variance
+weighting squares the consequence.
+
+**No study was dropped by name, at any point.** The floors are the chi-square df
+conditions and they were fixed in §4 before the curve was run.
+
+### What this changes, and what it does not
+
+**Changes.** `docs/NEXT_AVENUES.md` listed "more carcinoma single-cell data" as
+explicitly not worth doing because *"the 13-study result closed that."* The
+closure was an UNRESOLVED-by-heterogeneity verdict, and that verdict holds only
+at a floor where the weights are not integrable. **The carcinoma question is
+closed by a different and stronger route** — §2 of `docs/HANDOFF.md`, five
+independent ones — but not by this one, and NEXT_AVENUES is corrected.
+
+**Does not change.** ACTB HOLDS at every floor; the premise's own control is not
+disturbed. The **adenoma** results (avenue A, §6h, §6j) never touch `meta.py`
+and are untouched here. And at no floor does KRT8 hold: the premise is not
+rescued, it is refused for a better-stated reason.
+
+**One observation flagged post-hoc, because §5 did not pre-specify it.** ACTB's
+pooled interval includes zero at the committed floor (+0.152 [−0.013, +0.317])
+and excludes it at both others (+0.201, +0.212). So the two controls move in
+**opposite** directions — ACTB up ~0.21, KRT8 down ~0.48 — which is not a global
+detection-scale drift, since drift moves them together. §2 already recorded that
+the across-study ACTB/KRT8 correlation is `r = −0.176` without Khaliq. Both
+readings say the same thing and neither was pre-registered; they are hypotheses
+for a future design, not results.

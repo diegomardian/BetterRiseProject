@@ -101,14 +101,24 @@ it was taken to the ICBI atlas: **13 studies, 122 patients**
 | ACTB | +0.152 [−0.013, +0.317] | 62.8% | HOLDS |
 | KRT8 | −0.453 | **87.6%** | UNRESOLVED |
 
-Every control must hold, so the premise does not. **KRT8's per-study estimates
-run from −1.177 to +0.088 — the studies disagree about whether their own two
-arms are comparable.** That is not a precision problem that more patients fix.
-Per-study verdicts agree: 3 HOLDS, 1 REFUSED, 7 UNRESOLVED, 2 UNDEFINED.
+Every control must hold, so the premise does not. Per-study verdicts agree:
+3 HOLDS, 1 REFUSED, 7 UNRESOLVED, 2 UNDEFINED.
 
-**This closes the "more data" question.** It was the one blocker that looked
-like a power problem, and at four times the studies and four times the patients
-it is a disagreement problem instead.
+> **The REASON in this table did not survive 2026-09-07 — the verdict did.
+> Read §6k before quoting the row.** This paragraph used to continue *"KRT8's
+> per-study estimates run from −1.177 to +0.088 — the studies disagree about
+> whether their own two arms are comparable."* At a patient floor where the
+> inverse-variance weights have a finite mean, **the studies do not disagree**:
+> I² falls to 0.63 (k=9) and 0.71 (k=6), inside the ceiling, and KRT8 stays
+> UNRESOLVED for the opposite reason — the studies **agree** the control fell
+> by 0.41–0.48 log2, which the ±0.5 tolerance cannot clear. The −1.177 end of
+> that range is Khaliq_2022 at **n=3**, holding 20.4% of the weight against
+> Pelka's 10.0% at n=29 and contributing **57% of Q**.
+
+**This closes the "more data" question — but by the second reason, not the
+first.** It was the one blocker that looked like a power problem, and at four
+times the studies and four times the patients the controls agree on a shift the
+tolerance cannot accept. More patients do not move a tolerance.
 
 *A correction worth knowing, because it is the kind of inference to avoid.* On
 the three original cohorts ACTB pooled to +0.487 with I² = 0.0%, and that was
@@ -257,9 +267,14 @@ interval is calibrated at every n measured**: 0 of 20 cells, worst 5.9%.
   (GRADIENT IS ABUNDANCE, 68.7% variance explained), so the block structure
   there was already resting on the load-bearing scale alone. **Quote `best4`
   contrasts as ~7% tests, not 5% ones.**
-- **The 13-study meta-analysis is unaffected.** `src/harness/meta.py` is
-  DerSimonian–Laird with a Higgins–Thompson prediction interval; it is not a
-  percentile bootstrap over patients.
+- **The 13-study meta-analysis is not affected by *this* defect — it has its
+  own, of the same family. See §6k.** `src/harness/meta.py` is
+  DerSimonian–Laird with a Higgins–Thompson prediction interval, so the
+  percentile bootstrap's width error genuinely does not reach it. **This
+  sentence used to stop there, and it read as "the meta layer is fine."** It is
+  not: DL weights by `1/se²` with `se` estimated from as few as three patients,
+  and that weight is an inverse chi-square whose mean does not exist below n=4.
+  Same shape — a factor that is a function of `n` alone — one layer up.
 - **`premise_holds` is the one to think about, and it goes the wrong way.** It is
   an *equivalence* test — it asks whether the interval fits *inside* a tolerance
   — so a **narrower** interval fits more easily and the check is
@@ -434,10 +449,11 @@ been renumbered.
 | 2 | §6d | Path C — the adenoma *detection* reading, the independent estimand that agrees with §6h |
 | 3 | §6j | DIS/VAL — is §6h driven by one specimen collection? Ambiguous, no reversals |
 | 4 | §6g | MLH1 — the instrument's only positive control. UNINTERPRETABLE, and unavailable on any data |
-| 5 | §6i | **What to do next, ranked**, with what is explicitly not worth doing |
-| 6 | §6a, §6b, §6c | Stage 4, the 13-study meta, housekeeping — all terminated, nothing to resume |
-| 7 | §6e | Why "different data, not more of it" is still true for survivorship |
-| 8 | §6f | **The write-up — the one thing with a deadline** |
+| 5 | **§6k** | **The meta layer's weights. §2's KRT8 verdict keeps its word and changes its reason** |
+| 6 | §6i | **What to do next, ranked**, with what is explicitly not worth doing |
+| 7 | §6a, §6b, §6c | Stage 4, the 13-study meta, housekeeping — all terminated, nothing to resume |
+| 8 | §6e | Why "different data, not more of it" is still true for survivorship |
+| 9 | §6f | **The write-up — the one thing with a deadline** |
 
 ### The single most important thing for a new agent
 
@@ -799,6 +815,98 @@ a sign flip is §5's *strongest* branch. An inconsistent summary in a reading jo
 would have manufactured the most consequential verdict available. Fixed before
 the numbers above.
 
+## 6k. The meta layer's weights — RAN 2026-09-07. The §2 verdict changed its reason.
+
+`docs/prereg_meta_weight_calibration.md` (committed `a9dc874`, before the job);
+tables `results/2026-09-07_40515ce/`; module `src/reference/meta_calibration.py`;
+job `src/reference/jobs/meta_floor_sensitivity.py`. **Laptop-local, no new
+data** — it re-reads `results/2026-09-05_61ba221/`.
+
+### The arithmetic
+
+DerSimonian–Laird weights by `1/se²` and treats `se` as known. It is estimated,
+from as few as **three patients**, so the weight is an inverse chi-square:
+
+    E[w_hat]/w_true = (n-1)/(n-3)      finite only for n >= 4
+    Var[w_hat]                          finite only for n >= 6
+
+**At n=3 the weight has no finite mean** — `E[1/χ²(2)]` diverges, and a
+simulation of it does not converge (running mean 9.7 → 22.2 → 13.0 → 16.5 across
+10⁴→10⁷ draws). `MIN_PREMISE_PATIENTS = 3` was set by whether the **estimate** is
+computable; nothing asked whether the **weight** built from it is integrable.
+
+**Same shape as §3a, one layer up**, and the reason §3a's "the meta is
+unaffected" bullet is now corrected rather than deleted: that bullet was right
+about the percentile bootstrap and wrong about the conclusion a reader drew.
+
+### What it did to §2
+
+| gene | floor | k | pooled [95% CI] | I² | null median I² | calib. p | verdict | **cause** |
+|---|---|---|---|---|---|---|---|---|
+| ACTB | n≥3 | 11 | +0.152 [−0.013, +0.317] | 0.628 | 0.270 | 0.159 | HOLDS | within tolerance |
+| ACTB | n≥6 | 6 | +0.212 [+0.040, +0.383] | 0.607 | 0.000 | 0.062 | HOLDS | within tolerance |
+| KRT8 | n≥3 | 11 | −0.453 [−0.711, −0.194] | **0.876** | 0.270 | 0.016 | UNRESOLVED | **I² over ceiling** |
+| KRT8 | n≥4 | 9 | −0.412 [−0.590, −0.235] | 0.625 | 0.137 | 0.090 | UNRESOLVED | **homogeneous, straddles tolerance** |
+| KRT8 | n≥6 | 6 | −0.482 [−0.685, −0.280] | 0.715 | 0.000 | **0.018** | UNRESOLVED | **homogeneous, straddles tolerance** |
+
+**KRT8 is UNRESOLVED at every floor and it is not the same UNRESOLVED.** The
+committed reading says the studies are not estimating a common quantity and the
+pooled value is meaningless. At both floors where the weight has a mean, they
+**are** estimating a common quantity, the pooled value is readable, and it says
+the control fell by 0.41–0.48 log2 — which the ±0.5 tolerance straddles.
+
+**That is worse for the premise, not better.** "No reading is possible" became
+"here is the reading, and it does not clear the bar."
+
+**ACTB holds at every floor**, so the premise's own control is undisturbed.
+
+### The ceiling has no null, and its error changes sign with k
+
+All under **exact** homogeneity — between-study variance zero by construction,
+so everything below is manufactured by estimating the weights.
+
+| k | null median I² | P(I² > 0.75) | Cochran's Q rejects at 0.05 |
+|---|---|---|---|
+| 11 (n≥3) | **0.270** | 7.0% | **32.5%** |
+| 9 (n≥4) | 0.137 | 2.8% | 20.1% |
+| 6 (n≥6) | **0.000** | 1.0% | 9.7% |
+
+**At k=11 the fixed 0.75 is too strict** — ACTB's "I² = 62.8%, within the
+ceiling" is the 84th percentile of no heterogeneity at all. **At k=6 it is too
+lax**: KRT8's 0.715 passes the ceiling while its calibrated p is **0.018**.
+`MAX_I_SQUARED` is Higgins' rule of thumb for trials with hundreds of subjects
+each, and nothing computed what it does at these n.
+
+**And "Q = 80.92 on 10 df" is quoted in the committed verdict string.** Q
+rejects **32.5%** of the time here against a nominal 5%.
+
+### Defect nineteen→twenty, and the first one found inside a pre-registration
+
+`premise_verdict` reaches UNRESOLVED down **two** routes — I² over the ceiling,
+and a homogeneous interval straddling the tolerance. The prereg's own §5 branch
+table was phrased in verdict *labels* ("stays UNRESOLVED"), so it was satisfied
+by an outcome meaning the opposite of what the branch said. **The job's first
+draft shipped the same mistake in code** and printed `STABLE — the heterogeneity
+is a property of the data, not of the weighting`, which is backwards.
+
+`verdict_cause` compares the route; the forcing input is
+`tests/test_meta_calibration.py::test_read_verdict_does_not_call_a_changed_cause_stable`.
+**Rule for future preregs: name the cause, not the label.**
+
+### What is and is not settled
+
+- **No study was dropped by name**, at any point. The floors are the chi-square
+  df conditions, fixed in §4 before the curve ran.
+- **The adenoma results (§6h, §6j) never touch `meta.py`** and are untouched.
+- **`NEXT_AVENUES` is corrected**: "more carcinoma data — the 13-study result
+  closed that" rested on the heterogeneity reading. The closure stands on the
+  other four routes in §2 and on the tolerance reading here; it does not stand
+  on "the studies disagree."
+- **Open, and W2's, not W1's.** `MAX_I_SQUARED` and `MIN_STUDIES` live in
+  `src/harness/meta.py` (CONTRIBUTING §2). Replacing the fixed ceiling with the
+  calibrated null is a W2 PR with two approvals. This work applies the floor at
+  the job layer and changes nothing in the harness.
+
 ## 6i. What is next, after avenue A
 
 **A's open items are data properties except one, and that one is now
@@ -812,7 +920,8 @@ the statistic is fixed in `ac7eca1` and
 |---|---|
 | **B1 · Becker FAP replication — PRE-REGISTERED, gate and loader BUILT, data ON DISK** | `docs/prereg_becker_replication.md` + Amendment 1. The one closing path for avenue A's largest open item. **Format resolved 2026-09-06 and the §6 Seurat risk is dead:** `GSE201348_RAW.tar` is 1.2 GB of **72 standard 10x triplets**, downloaded and sha256-recorded. What it costs instead is that the tar carries **no metadata at all**, so `GSE201348_series_matrix.txt.gz` is a required second input and `--tar` refuses without it. Arms read from `disease stage` — `Polyp`→tumour, `Unaffected`→normal, `CRC`→excluded. **Next: `--inspect`, then the gate.** `GSE201349` (scATAC) is NOT verified and is out of scope. |
 | **D1 · the Wnt mechanism test — RAN 2026-09-06. TECHNICAL, a clean negative.** | `docs/prereg_wnt_mechanism.md` RESULT; tables `results/2026-09-06_0d73b33/`. **Do not queue it — it is done.** §5's second branch: GUCA2A's partial ρ is −0.038 in the polyp arm against a control floor of −0.049 to −0.032, *between* the controls rather than beyond them, and −0.045 in the normal arm where Wnt should be unstructured. The invariant-8 gate passed first (Wnt/maturity r = −0.060, SEPARABLE), so the score is not the maturity axis renamed. **It survives an over-conditioning objection raised after the run**: if maturity were a mediator rather than a confounder, conditioning would block the path — but `unconditioned_rho` shifts every gene by ≤0.016 and GUCA2A by 0.001, so there was no association to block. Does **not** say Wnt is uninvolved: a within-patient correlation removes between-lesion variation by construction, which is where a field-level mechanism would live. |
-| **D2 / D3** | Laptop-cheap, mechanism-agnostic: marker→survival on committed TCGA (needs its own pre-specification — the Stage 4 lock excludes it), and whether iCMS subtype explains KRT8's I² = 87.6% across the 13 studies. |
+| **D2** | Marker→survival on committed TCGA, laptop-cheap and mechanism-agnostic. **Needs its own pre-specification** — the Stage 4 lock excludes it (`not_prespecified`). |
+| ~~**D3** · does iCMS subtype explain KRT8's I² = 87.6%?~~ | **ANSWERED 2026-09-07 without iCMS — §6k.** The heterogeneity is not a subtype story: 57% of Q is one study at n=3, and at a floor where the weights have a finite mean the studies are homogeneous. The atlas also carries no iCMS column, and the covariates it does carry cannot support a meta-regression at k=11 — `matrix_type`, `suspension_type` and `enrichment` are constants, and `platform` is 8 of 11 10x with each other level at k=1. **Do not queue it.** |
 
 **Disk, as of 2026-09-06.** `/project` 45.01/50 GB, `/projectnb` 40.17/50 —
 separate filesystems, so **9.83 GB usable**, which is where the 1.2 GB Becker
@@ -829,7 +938,10 @@ four files, 2.3 MB, `SOURCE_URL_UNCONFIRMED`, the only irreplaceable bytes in
 the tree.
 
 **Explicitly not worth doing:** more carcinoma single-cell data (the 13-study
-result closed that), repairing `best4`'s intrinsic arm or `crypt_position`
+result closed that — **though not for the reason it used to say; see §6k.** The
+closure now rests on the pooled control shift being one the tolerance cannot
+clear, which more patients do not move, rather than on the studies disagreeing,
+which was floor-unstable), repairing `best4`'s intrinsic arm or `crypt_position`
 (both are properties of the cells), and reviving the instrument question (§6g
 closed it, and it is the fifth closed route).
 

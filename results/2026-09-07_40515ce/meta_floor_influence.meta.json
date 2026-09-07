@@ -1,0 +1,52 @@
+{
+  "date": "2026-09-07",
+  "utc_timestamp": "2026-09-07T05:22:08+00:00",
+  "git_sha": "40515ce54386c0728ba3a7ea56d867be9d82743e",
+  "git_sha_short": "40515ce",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260907,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "meta_floor_influence",
+  "n_rows": 22,
+  "columns": [
+    "gene",
+    "study_id",
+    "n_patients",
+    "estimate",
+    "se",
+    "sd_over_patients",
+    "weight_share",
+    "patient_share",
+    "q_contribution",
+    "q_share",
+    "expected_weight_inflation",
+    "exploratory"
+  ],
+  "table_kind": "harness",
+  "prereg": "docs/prereg_meta_weight_calibration.md",
+  "prereg_committed_in": "a9dc874, before this job existed",
+  "source": "2026-09-05_61ba221/icbi_coexpression_meta_per_study.parquet",
+  "what_this_is": "a sensitivity of the 13-study heterogeneity verdict to the patient floor, where each floor is the smallest n at which a named moment of the inverse-variance weight exists",
+  "what_this_is_not": "a threshold search, and not a licence to drop a study. The three floors are fixed by the chi-square df condition (E[w] finite iff n>=4, Var[w] finite iff n>=6) and were written down before the curve was run.",
+  "closed_form": "E[w_hat]/w_true = (n-1)/(n-3); no finite mean at n<=3",
+  "primary_floor": 6,
+  "floors_reported": [
+    3,
+    4,
+    6
+  ],
+  "ceiling": 0.75,
+  "null_is_per_row": true,
+  "does_not_touch": "the adenoma results (avenue A, \u00a76h, \u00a76j) \u2014 they do not go through meta.py at all",
+  "verdict": {
+    "verdict": "FLOOR-UNSTABLE",
+    "detail": "KRT8: heterogeneity_over_ceiling -> homogeneous_straddles_tolerance once studies whose weights are not integrable are excluded, and n>=4 and n>=6 agree. The verdict was carried by those studies. This says the instrument was unstable to a criterion nobody had applied; it does NOT say the controls hold. And the fixed 75% ceiling disagrees with its own calibrated null for KRT8 at one or more floors \u2014 the ceiling calls them homogeneous where the null does not."
+  },
+  "exploratory": false,
+  "pre_registered": true
+}
