@@ -444,7 +444,70 @@ sits clear of zero on the strength of block 221, that is a statement about where
 
 ---
 
-## RESULT — four of seven blocks, 2026-09-07
+## RESULT — five of seven blocks, 2026-09-07
+
+`results/2026-09-07_daa3cbd/`. Supersedes the four-block table
+(`results/2026-09-07_a9b3d6d/`), which is kept and must not be quoted.
+
+### Verdict: TARGET FALLS AND THE DISCRIMINATOR DOES NOT — §7's pass branch
+
+| gene | per-block DiD | mean | 95% CI | |
+|---|---|---|---|---|
+| **GUCA2A** | −1.513, −0.838, −0.548, −2.373, −1.417 | **−1.338** | **[−2.212, −0.464]** | **excludes zero** |
+| **MS4A12** | −1.371, −0.759, −0.724, −2.687, −1.256 | **−1.359** | **[−2.348, −0.370]** | **excludes zero** |
+| CDX2 | −0.012, +0.215, +0.591, −0.002, +0.899 | +0.338 | [−0.156, +0.832] | includes |
+| EPCAM | −0.033, +0.381, −0.012, +0.052, +0.387 | +0.155 | [−0.108, +0.417] | includes |
+
+**GUCA2A and MS4A12 are negative in all five blocks; CDX2 and EPCAM are not
+consistently signed and neither clears zero.** That is §7's pass: the target
+falls and the discriminator does not, so the effect is not simply a tier moving.
+
+### Every guard was checked, and none of them was bypassed
+
+**Amendment 4's leave-out holds.** GUCA2A excludes zero with the below-floor
+block (`B1891803_1-5`) at [−2.212, −0.464] **and without it** at
+[−1.815, −0.343]. The sign does not turn on a bound, so the INDETERMINATE branch
+correctly did not fire. At four blocks it did.
+
+**Amendment 5's near-floor block does not manufacture it.** `B1914093_B1-2`'s
+CDX2 reference sat **+0.003** above the noise floor, which inflates its CDX2 DiD
+upward and therefore *helps* "the discriminator does not fall". Dropping that
+block entirely: CDX2 **+0.198 [−0.251, +0.647]**, still including zero; GUCA2A
+**−1.318 [−2.609, −0.027]**, still excluding it. **The verdict survives removing
+the block that biased toward it.**
+
+**`n_blocks_within_0p1_of_floor` is 1 for CDX2 and 1 for GUCA2A**, and both are
+named above rather than left in a column.
+
+### What it is not — and this is most of what there is to say
+
+**Not silencing, and not per-cell.** Feasibility §7 is untouched: the negative
+probes bound false positives, not false negatives, so no block licenses a
+"GUCA2A-low = silenced" claim about any cell.
+
+**Not a separation of compositional from intrinsic.** Amendment 2 caps this at
+any n: `KRT8` is the only control-role gene and it is an epithelial keratin, so
+`DiD(GUCA2A) < 0` says *the target did not rise with the epithelial signal*.
+That is equally consistent with the mature cells being a smaller share of the
+lesion's epithelium and with them being present and silenced.
+
+**Not endorsed by §6 either.** §6 pre-commits n=3 and n=4 to be uninformative.
+It says nothing about n=5, which is **not** the same as calling it informative —
+the width is still **4.03×** avenue A's.
+
+**No multiplicity control, and none was pre-specified.** Two of four informative
+genes clear zero in the same direction, which is a stronger pattern than
+Amendment 3's single gene at n=3 — and the two that clear are both mature
+markers and therefore correlated, so the naive family-wise arithmetic does not
+apply and no adjusted number is quoted here.
+
+**And it is five of seven.** §3 fixes the remaining blocks (`222`, `242`) and
+its order. Stopping here would be stopping at the first pass, which is what §3
+exists to prevent.
+
+---
+
+## RESULT — four of seven blocks, 2026-09-07 (SUPERSEDED by the five-block table above)
 
 `results/2026-09-07_a9b3d6d/`. Blocks `24H12439_A4` (231), `B-2080151-01-18`
 (110), `B-1970164-01-04` (120), `B1891803_1-5` (210).
