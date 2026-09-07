@@ -12,6 +12,63 @@ and [prereg_adenoma_decomposition.md](prereg_adenoma_decomposition.md).
 > design on a second substrate with the statistic already fixed. It was fixed in
 > `ac7eca1`, before this document and before the substrate has been fetched.
 
+> ### Amendment 2 — 2026-09-06, from the sample table, before any gate runs
+>
+> **The paired cohort is FOUR donors, and B1 cannot serve as this design's
+> replication.** The 72 samples are real; they are not paired within donor.
+> Counting donors carrying **both** `Polyp` and `Unaffected`:
+>
+> | donor | polyps | unaffected | paired |
+> |---|---|---|---|
+> | A001 | 7 | 3 | ✓ |
+> | A002 | 11 | 4 | ✓ |
+> | A014 | 6 | 5 | ✓ |
+> | A015 | 8 | 4 | ✓ |
+> | A008 / A010 / A018 / A022 | 2 / 2 / 2 / 1 | **0** | ✗ |
+> | F007 / F034 / F072B / F091 | 1 each | **0** | ✗ |
+> | B001 / B004 | 0 | — (`Normal`) | ✗ |
+> | CRC1–3 | — | — | excluded |
+>
+> 43 polyps + 16 `Unaffected` + 8 `Normal` + 5 `CRC` = 72. **Only A001, A002,
+> A014 and A015 have both arms.**
+>
+> This is the MLH1 difference-in-differences failure repeating: a proposal's
+> cohort description ("8 FAP + 7 non-FAP donors, 48 polyps, 27 matched
+> normals") that does not survive the sample table. **At n=4 this project's own
+> interval fires 18.8% under a true null** — the arm
+> `docs/prereg_g2_mlh1_within_stratum.md` refused to take any verdict from.
+>
+> **Pre-committed consequence, on the MLH1 precedent: no verdict is taken from
+> the paired Becker reading at n=4, in either direction.** Its numbers are
+> emitted, because suppressing them would make the table's shape depend on the
+> result, and a reader could not check the claim that it is uninformative.
+>
+> **The cross-donor rescue is REFUSED on this document's own grounds.** Using
+> `B001`/`B004` as a reference arm would compare polyps in one person to normal
+> tissue in another, abandoning the pairing that made this a replication of
+> Chen_2021 at all. That is the estimand drift Amendment 1 exists to prevent,
+> and it is not made acceptable by the cohort being disappointing.
+>
+> **A fifth `disease stage` value exists and is its own arm.** `Normal` —
+> `B001`/`B004`, FAP=N, **no polyps**. It is a separate healthy donor's tissue,
+> not a FAP patient's own uninvolved mucosa. Merging it with `Unaffected` would
+> silently convert a paired design into a cross-donor one, so it maps to its own
+> value and never to `normal`.
+>
+> **Four naming schemes, not one.** `A001-C-007`, `F007`, `CRC1_8810`,
+> `B001-A-301`. The parser handles all four; the donor-pattern guard caught this
+> by refusing rather than dropping seven samples, which is the behaviour it was
+> written for.
+>
+> **What B1 is still worth running for.** The feasibility gate's detection
+> table — GUCA2A and MS4A12 in nuclear RNA — is decision-relevant for **C1**
+> regardless of B1's fate, because in-situ platforms have their own per-gene
+> sensitivity and a gene marginal in nuclei is one to check in a Xenium probe
+> set. **Run the gate as C1 evidence. Never as a B1 green light.**
+>
+> **The statistic gap now closes elsewhere:**
+> `docs/prereg_disval_stability.md`.
+
 > ### Amendment 1 — 2026-09-06, from the GEO metadata, before any download completes
 >
 > `GSE201348`'s series matrix resolves §6's unverified items and raises two
