@@ -444,6 +444,48 @@ sits clear of zero on the strength of block 221, that is a statement about where
 
 ---
 
+## Amendment 6 — 2026-09-07, before the six-block aggregate: the rule was asymmetric
+
+Block `23H29642_A4` (section 222) has **`CDX2` below the negative-probe floor in
+its reference** — separation −0.113. Amendment 4's consequence is written only
+for the **target**: *"If the target's interval excludes zero, and does NOT
+exclude zero once blocks with `target_below_floor` are dropped…"*. Nothing
+covers the discriminator.
+
+**That is an asymmetry and it is not defensible.** §7's verdict rests on two
+conclusions, not one — the target excluding zero *and* the discriminator not
+excluding it. If either turns on a value that is a bound rather than a point,
+the verdict turns on a bound.
+
+### The rule, extended symmetrically
+
+> **If `DiD(CDX2)`'s conclusion — excludes zero or does not — changes when the
+> blocks where `CDX2` is below the floor are dropped, the result is
+> `INDETERMINATE`**, on the same terms and with the same wording as Amendment 4.
+
+### Declared: I can see which way this one points, and it is being written anyway
+
+A below-floor **reference** inflates that block's DiD **upward**. `CDX2`'s DiD
+in 222 is +0.995, its largest but one, and dropping it would pull `CDX2`'s mean
+**down** — away from excluding zero, which is the direction §7's pass already
+needs. So this rule is unlikely to fire at six blocks, and I am not pretending
+otherwise.
+
+It is written regardless, for two reasons. **A rule added only when it might
+bite is the tuning this document exists to prevent** — the test of a symmetric
+rule is that it goes in when it is inconvenient *and* when it is idle. And
+block `242` is not yet read: `CDX2`'s floored blocks could look different at
+seven.
+
+### What does not change
+
+No threshold, statistic, gene, inclusion rule or width table moves. Amendment 5
+stands: the flag is a hard `< 0` and near-floor values are reported through
+`min_separation`, not folded into the flag. This adds **one branch**, symmetric
+to one that already exists, before the aggregate it governs is computed.
+
+---
+
 ## RESULT — five of seven blocks, 2026-09-07
 
 `results/2026-09-07_daa3cbd/`. Supersedes the four-block table

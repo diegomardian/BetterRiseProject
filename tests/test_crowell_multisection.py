@@ -285,3 +285,37 @@ def test_a_value_just_above_the_floor_is_reported_and_does_not_move_the_flag():
     assert per_block.loc[TARGET_GENE, "min_separation"] == pytest.approx(0.439)
     # and the discriminator's change is the largest, almost all of it the floor
     assert per_block.loc[DISCRIMINATOR_GENE, "did"] > per_block.loc[TARGET_GENE, "did"]
+
+
+def test_the_discriminators_conclusion_turning_on_a_bound_is_also_indeterminate():
+    """Amendment 6. §7 rests on TWO conclusions and Amendment 4 protected one.
+
+    Block 222 has CDX2 below the floor in its reference, and a below-floor
+    reference inflates that block's DiD upward — toward the direction §7's pass
+    needs. The rule is symmetric whether or not it fires.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        # target falls cleanly in all four; discriminator only clears zero
+        # BECAUSE of the block where its reference is below the floor
+        for i, pre in enumerate(("110", "120", "210")):
+            _write_section(root, f"r{i}", pre, f"{pre}_TVA", f"{pre}_REF",
+                           {"KRT8": {f"{pre}_REF": 3.0, f"{pre}_TVA": 3.5},
+                            TARGET_GENE: {f"{pre}_REF": 2.0, f"{pre}_TVA": 0.4},
+                            DISCRIMINATOR_GENE: {f"{pre}_REF": 2.0,
+                                                 f"{pre}_TVA": 2.55 + 0.02 * i}})
+        _write_section(root, "r9", "222", "222_TVA", "222_REF",
+                       {"KRT8": {"222_REF": 3.0, "222_TVA": 3.5},
+                        TARGET_GENE: {"222_REF": 2.0, "222_TVA": 0.4},
+                        DISCRIMINATOR_GENE: {"222_REF": -0.113, "222_TVA": 2.4}})
+        summary = aggregate(per_block_did(root))
+
+    row = summary.set_index("gene").loc[DISCRIMINATOR_GENE]
+    assert row["n_blocks_below_floor"] == 1
+    assert bool(row["excludes_zero"]) != bool(row["excludes_zero_excluding_floored"])
+    out = verdict(summary)
+    assert out["verdict"] == ("INDETERMINATE — THE DISCRIMINATOR TURNS ON "
+                             "BELOW-FLOOR BLOCKS")
+    assert "rests on the discriminator as much as on the target" in out["detail"]

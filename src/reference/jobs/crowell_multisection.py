@@ -320,6 +320,27 @@ def verdict(summary: pd.DataFrame) -> dict:
                     f"**Neither interval is the answer.**"
                 )}
 
+    # Amendment 6: the same rule for the discriminator. §7 rests on TWO
+    # conclusions and Amendment 4 protected only one of them.
+    if disc is not None:
+        d_floored = int(disc.get("n_blocks_below_floor", 0) or 0)
+        d_with = bool(disc.get("excludes_zero", False))
+        d_without = disc.get("excludes_zero_excluding_floored")
+        if d_floored and d_without is not None and d_with != d_without:
+            return {"verdict": "INDETERMINATE — THE DISCRIMINATOR TURNS ON "
+                               "BELOW-FLOOR BLOCKS",
+                    "detail": (
+                        f"{DISCRIMINATOR_GENE} {disc['mean_did']:+.3f} "
+                        f"[{disc['ci_low']:+.3f}, {disc['ci_high']:+.3f}] "
+                        f"{'excludes' if d_with else 'includes'} zero; dropping "
+                        f"the {d_floored} block(s) where it sits below the "
+                        f"negative-probe floor it "
+                        f"{'excludes' if d_without else 'includes'} it. §7's "
+                        f"verdict rests on the discriminator as much as on the "
+                        f"target, so a discriminator resting on a bound is the "
+                        f"same defect. Amendment 6."
+                    )}
+
     if not bool(target.get("excludes_zero", False)):
         return {"verdict": "NO CLAIM",
                 "detail": (
