@@ -148,13 +148,19 @@ def per_domain_table(matrix, panel_index: dict[str, int], domains,
             "give either control_indices (probes in var) or obs (probes "
             "summarised per cell). A floor of zero is a gate every gene clears."
         )
-    domains = np.asarray([str(d) for d in domains])
+    # Missing histopathology is not a fourth domain. The first QC-corrected
+    # Crowell run stringified missing `typ` values into the literal label
+    # "nan" and emitted 20,393 cells under it. That row did not affect the TVA
+    # verdict, but it is not a biological group and must not enter the table.
+    domain_values = pd.Series(domains, dtype="object")
+    has_domain = domain_values.notna().to_numpy()
+    domain_labels = domain_values.astype("string")
     counts_per_cell = np.asarray(matrix.sum(axis=1)).ravel()
     genes_per_cell = np.asarray((matrix > 0).sum(axis=1)).ravel()
 
     rows = []
-    for domain in sorted(set(domains)):
-        mask = domains == domain
+    for domain in sorted(domain_labels.loc[has_domain].unique()):
+        mask = domain_labels.eq(domain).fillna(False).to_numpy(dtype=bool)
         n_cells = int(mask.sum())
         if n_cells < MIN_CELLS_PER_DOMAIN:
             log.info("  %s: %d cells, below %d — not scored",
@@ -370,6 +376,10 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(
             f"{args.domain_column!r} is not an obs column; got "
             f"{list(adata.obs.columns)}")
+    n_cells_missing_domain = int(adata.obs[args.domain_column].isna().sum())
+    if n_cells_missing_domain:
+        log.info("domain: excluding %d QC-passing cells with missing obs[%r]",
+                 n_cells_missing_domain, args.domain_column)
     # WHERE THE FLOOR COMES FROM. Section 232 carries no control probes in var
     # -- they were summarised into obs before the object was written. Both
     # paths are real; neither may be skipped, because a floor of zero is a gate
@@ -444,6 +454,7 @@ def main(argv: list[str] | None = None) -> int:
         "n_cells_before_qc": n_cells_before_qc,
         "n_cells_after_qc": n_cells_after_qc,
         "n_cells_qc_failed_excluded": n_cells_before_qc - n_cells_after_qc,
+        "n_cells_missing_domain_excluded": n_cells_missing_domain,
         "negative_probes_are_specificity_only": True,
         "does_not_license": (
             "any per-cell 'GUCA2A-low = silenced' claim. The false-negative "

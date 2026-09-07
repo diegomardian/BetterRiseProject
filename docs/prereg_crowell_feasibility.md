@@ -205,8 +205,18 @@ field, refuses non-logical or missing values, filters before computing either
 detection or the negative-probe floor, and records the before/after counts in
 the sidecar. This correction was made before reading a filtered result.
 
-The invalidated table and its `NOT ASKABLE IN THE ADENOMA` verdict must not be
-quoted. Rerun the same pre-registered gate on the corrected population:
+The first QC-corrected rerun retained 278,691 cells and confirmed that all
+19,460 QC failures lacked a `typ` assignment: every annotated REF/TVA/CRC row
+was bit-for-bit unchanged. It also exposed a second output defect before the
+table was committed: 20,393 QC-passing cells with missing `typ` were
+stringified into a literal `"nan"` domain and scored. Missing histopathology is
+not a fourth domain. The runner now excludes those cells from the per-domain
+table and records their count in the sidecar. This does not change any named
+domain or the gate verdict, but the table is rerun once more so the published
+artifact contains only real histopathological domains.
+
+Neither superseded table nor its verdict should be quoted. Rerun the same
+pre-registered gate on the corrected population and domain set:
 
 ```bash
 python -m src.reference.jobs.crowell_feasibility \

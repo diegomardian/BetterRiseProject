@@ -143,6 +143,18 @@ def test_a_domain_below_the_cell_floor_is_not_scored():
     assert table.empty, "a detection rate over a handful of cells is not one"
 
 
+def test_missing_histopathology_is_not_stringified_into_a_nan_domain():
+    """Missing `typ` values are unassigned cells, not a fourth tissue domain."""
+    matrix, names, domains = _section(
+        {"REF": {"ACTB": 0.5}, "TVA": {"ACTB": 0.5}}, seed=31)
+    domains = domains.astype(object)
+    domains[:MIN_CELLS_PER_DOMAIN] = np.nan
+    table = per_domain_table(matrix, find_panel(names)[0], domains,
+                             control_features(names)["negative_indices"])
+    assert set(table["domain"]) == {"REF", "TVA"}
+    assert "nan" not in set(table["domain"])
+
+
 def test_depth_is_reported_per_domain():
     """The confound that already fooled this project once: Becker's mature
     label carried 2.04x the arm's median UMIs and lifted every gene."""
