@@ -169,6 +169,14 @@ def per_block_did(results_dir: Path) -> pd.DataFrame:
                 "log_depth_ratio": float(np.log(depth[adenoma] / depth[reference])),
                 "rises_faster_than_depth": bool(
                     dlog_mu > np.log(depth[adenoma] / depth[reference])),
+                # Amendment 4: below the negative-probe floor the observed
+                # signal is smaller than what noise alone supplies, so the true
+                # rate is consistent with ZERO and this DiD is a bound, not a
+                # point. Flagged per block; the consequence is in `aggregate`.
+                "below_floor_adenoma": bool(sep[(gene, adenoma)] < 0),
+                "below_floor_reference": bool(sep[(gene, reference)] < 0),
+                "target_below_floor": bool(
+                    sep[(gene, adenoma)] < 0 or sep[(gene, reference)] < 0),
                 # The floor cancels here: log_sep is log(mu_gene) - log(mu_floor),
                 # so this is dlog(mu_gene) - dlog(mu_control).
                 "did": float(delta - control_delta),
@@ -180,6 +188,16 @@ def per_block_did(results_dir: Path) -> pd.DataFrame:
     # One row per block: a block re-run supersedes its earlier run.
     frame = frame.sort_values("run").drop_duplicates(["block", "gene"], keep="last")
     return frame.sort_values(["gene", "block"], ignore_index=True)
+
+
+def _interval(values: np.ndarray) -> tuple[float, float] | None:
+    """Student-t, or None below ``MIN_STUDIES``."""
+    n = int(values.size)
+    if n < MIN_STUDIES:
+        return None
+    se = float(values.std(ddof=1) / np.sqrt(n))
+    crit = float(stats.t.ppf(0.975, n - 1))
+    return float(values.mean() - crit * se), float(values.mean() + crit * se)
 
 
 def aggregate(per_block: pd.DataFrame) -> pd.DataFrame:
@@ -198,6 +216,14 @@ def aggregate(per_block: pd.DataFrame) -> pd.DataFrame:
             "blocks": "; ".join(sorted(group["block"])),
             "all_same_sign": bool(n and (np.sign(values) == np.sign(values[0])).all()),
         }
+        # Amendment 4's leave-out sensitivity, computed for every gene so the
+        # consequence cannot be applied selectively.
+        clean = group.loc[~group["target_below_floor"].fillna(False), "did"].to_numpy(float)
+        row["n_blocks_below_floor"] = int(n - clean.size)
+        clean_ci = _interval(clean)
+        row["ci_low_excluding_floored"] = clean_ci[0] if clean_ci else None
+        row["ci_high_excluding_floored"] = clean_ci[1] if clean_ci else None
+
         if n < MIN_STUDIES:
             # Invariant 1 one layer out: an interval that was refused is not an
             # interval of zero width.
@@ -219,6 +245,8 @@ def aggregate(per_block: pd.DataFrame) -> pd.DataFrame:
                     (crit / np.sqrt(n)) / (stats.t.ppf(0.975, 42) / np.sqrt(43))),
                 "excludes_zero": bool(
                     (values.mean() - crit * se) * (values.mean() + crit * se) > 0),
+                "excludes_zero_excluding_floored": (
+                    bool(clean_ci[0] * clean_ci[1] > 0) if clean_ci else None),
                 "why": ("pre-committed to be uninformative at n<5; the width "
                         "column is there so a reader sees it" if n < 5 else ""),
             })
@@ -254,6 +282,32 @@ def verdict(summary: pd.DataFrame) -> dict:
             ),
         }
 
+    # Amendment 4: an interval whose sign turns on blocks where the target is
+    # below the noise floor is INDETERMINATE, not a positive. Binding, not a
+    # caveat — the Becker prereg records a check that warned and did not bind,
+    # and it returned the most optimistic verdict in its table.
+    floored = int(target.get("n_blocks_below_floor", 0) or 0)
+    with_floored = bool(target.get("excludes_zero", False))
+    without_floored = target.get("excludes_zero_excluding_floored")
+    if floored and without_floored is not None and with_floored != without_floored:
+        return {"verdict": "INDETERMINATE — THE SIGN TURNS ON BELOW-FLOOR BLOCKS",
+                "detail": (
+                    f"{TARGET_GENE} DiD {target['mean_did']:+.3f} "
+                    f"[{target['ci_low']:+.3f}, {target['ci_high']:+.3f}] over "
+                    f"{n} blocks "
+                    f"{'excludes' if with_floored else 'includes'} zero; "
+                    f"dropping the {floored} block(s) where the target sits "
+                    f"below the negative-probe floor it "
+                    f"{'excludes' if without_floored else 'includes'} it "
+                    f"[{target['ci_low_excluding_floored']:+.3f}, "
+                    f"{target['ci_high_excluding_floored']:+.3f}]. Below the "
+                    f"floor the observed signal is smaller than what noise "
+                    f"alone supplies, so that DiD is a BOUND and not a point, "
+                    f"and a mean mixing bounds with points estimates neither. "
+                    f"Amendment 4, fixed before this aggregate was computed. "
+                    f"**Neither interval is the answer.**"
+                )}
+
     if not bool(target.get("excludes_zero", False)):
         return {"verdict": "NO CLAIM",
                 "detail": (
@@ -275,6 +329,19 @@ def verdict(summary: pd.DataFrame) -> dict:
                     f"used, and it has fired."
                 )}
 
+    if disc is None:
+        # The branch below reads the discriminator, and §7 makes it the decisive
+        # row. Without it there is no verdict to give, and dereferencing None
+        # here is what the first version did.
+        return {"verdict": "TARGET FALLS, DISCRIMINATOR ABSENT — NO VERDICT",
+                "detail": (
+                    f"{TARGET_GENE} DiD {target['mean_did']:+.3f} "
+                    f"[{target['ci_low']:+.3f}, {target['ci_high']:+.3f}] over "
+                    f"{n} blocks excludes zero, but {DISCRIMINATOR_GENE} has no "
+                    f"DiD in this run. §7 makes the discriminator the decisive "
+                    f"row — a target falling alone is consistent with a whole "
+                    f"tier moving — so there is nothing to conclude."
+                )}
     return {"verdict": "TARGET FALLS AND THE DISCRIMINATOR DOES NOT",
             "detail": (
                 f"{TARGET_GENE} DiD {target['mean_did']:+.3f} "

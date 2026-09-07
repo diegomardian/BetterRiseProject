@@ -350,6 +350,66 @@ the table rather than a finding.
 
 ---
 
+## Amendment 4 — 2026-09-07, written BEFORE the four-block aggregate is computed
+
+Block `B1891803_1-5` (section 210) has `GUCA2A` **below the negative-probe
+floor** in both lesion domains — detection 0.0118 against a floor of 0.0167 in
+the adenoma, 0.0176 against 0.0236 in the carcinoma. `log_separation` is
+negative there. That is new: in every previous block the target was below the
+usability *bar* but still above the *floor*.
+
+**This is being written down before the aggregate is run, because the aggregate
+turns on it.** Three blocks give `DiD(GUCA2A)` = −0.966 [−2.196, +0.264],
+including zero. Adding 210's −2.373 gives −1.318 [−2.609, −0.027], **excluding
+zero** — and the block that flips it is the one whose target value is not a
+measurement.
+
+### 1 · The block is included. Excluding it would select on the outcome.
+
+§5's rule 3 gates on the **control**, and `KRT8` clears the bar in both of
+210's domains (3.121 and 4.077). §5 says in terms that a block where the target
+is low still enters. Dropping 210 because its target is inconveniently low is
+the move §5 exists to forbid, and the fact that dropping it changes the answer
+is exactly why the rule was written in advance.
+
+### 2 · But a below-floor observation is a BOUND, not a point
+
+At detection below the false-positive floor, the observed signal is smaller than
+what the noise process alone supplies. The true rate is consistent with **zero**,
+and the DiD computed from it is limited by where the floor sits, not by the
+biology. It **understates** the fall — the same conservative direction as §6 —
+but its magnitude is not an effect size, and a mean over a mixture of bounds and
+points estimates neither.
+
+### 3 · The rule, fixed here
+
+**Each block is flagged `target_below_floor`, and the summary carries
+`n_blocks_below_floor`.** Then:
+
+> **If the target's interval excludes zero, and does NOT exclude zero once
+> blocks with `target_below_floor` are dropped, the result is
+> `INDETERMINATE`** — not a positive. The converse holds too: an interval that
+> excludes zero only *without* the floored blocks is equally indeterminate.
+
+This is a leave-out sensitivity with a **pre-committed consequence**, applied
+mechanically to whatever comes out. It is not an outcome-based exclusion: both
+intervals are computed and reported, and neither is "the" answer when they
+disagree.
+
+**Why a consequence rather than a caveat.** `docs/prereg_becker_replication.md`
+RESULT records a check that warned and did not bind, and it returned the most
+optimistic verdict in its table. A caveat beside a number that excludes zero
+gets dropped the first time the number is quoted.
+
+### 4 · What this does not change
+
+No threshold, statistic, gene or inclusion rule moves. `MIN_LOG_SEPARATION`,
+the control, §7's falsifiers and §6's width table are untouched. Amendment 4
+adds a **flag, a count, and one branch** to the verdict — and it is written
+before the number it governs exists.
+
+---
+
 ## RESULT
 
 *Not run. Only section `231` has been read, and that under the feasibility

@@ -192,3 +192,69 @@ def test_amendment_2s_diagnosis_is_recorded_not_re_derived():
     # Amendment 2's split: the epithelial control outruns depth, the target does not
     assert bool(got.loc["KRT8", "rises_faster_than_depth"])
     assert not bool(got.loc[TARGET_GENE, "rises_faster_than_depth"])
+
+
+def test_an_interval_whose_sign_turns_on_below_floor_blocks_is_indeterminate():
+    """Amendment 4, fixed before the four-block aggregate existed.
+
+    Block 210 has GUCA2A below the negative-probe floor in its lesion — the
+    observed signal is smaller than what noise alone supplies, so the true rate
+    is consistent with zero and the DiD is a BOUND. Including it flips the
+    target's interval from including zero to excluding it. That is not a
+    positive; it is indeterminate, and the check BINDS rather than warning.
+
+    The three clean blocks must SPAN zero on their own or the branch is never
+    reached — the first version of this fixture had them already excluding it.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        # DiD = (tva - ref) - (k_tva - k_ref); ref 2.0, control delta 0.5
+        # -> DiDs of -0.9, -0.3, -0.6: mean -0.60, and at n=3 the interval spans 0
+        for i, (pre, tva) in enumerate((("110", 1.6), ("120", 2.2), ("221", 1.9))):
+            _write_section(root, f"r{i}", pre, f"{pre}_TVA", f"{pre}_REF",
+                           {"KRT8": {f"{pre}_REF": 3.0, f"{pre}_TVA": 3.5},
+                            TARGET_GENE: {f"{pre}_REF": 2.0, f"{pre}_TVA": tva}})
+        # 210: target BELOW the floor in the lesion (negative separation),
+        # DiD = (-0.35 - 0.6) - 0.55 = -1.50
+        _write_section(root, "r9", "210", "210_TVA", "210_REF",
+                       {"KRT8": {"210_REF": 3.0, "210_TVA": 3.55},
+                        TARGET_GENE: {"210_REF": 0.6, "210_TVA": -0.35}})
+        per_block = per_block_did(root)
+        summary = aggregate(per_block)
+
+    assert bool(per_block.set_index(["gene", "block"]).loc[
+        (TARGET_GENE, SECTION_TO_BLOCK["210"]), "below_floor_adenoma"])
+    row = summary.set_index("gene").loc[TARGET_GENE]
+    assert row["n_blocks_below_floor"] == 1
+    assert bool(row["excludes_zero"]), "the floored block flips it"
+    assert not bool(row["excludes_zero_excluding_floored"]), "without it, zero is in"
+
+    out = verdict(summary)
+    assert out["verdict"].startswith("INDETERMINATE")
+    assert "BOUND and not a point" in out["detail"]
+    assert "Neither interval is the answer" in out["detail"]
+
+
+def test_below_floor_blocks_that_do_not_change_the_sign_do_not_trigger_it():
+    """The other half: the rule must not fire on every floored block, or it is
+    an exclusion rule wearing a sensitivity's clothes."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        # three blocks that already exclude zero on their own
+        for i, (pre, tva) in enumerate((("110", 1.3), ("120", 1.55), ("221", 1.05))):
+            _write_section(root, f"r{i}", pre, f"{pre}_TVA", f"{pre}_REF",
+                           {"KRT8": {f"{pre}_REF": 3.0, f"{pre}_TVA": 3.5},
+                            TARGET_GENE: {f"{pre}_REF": 2.0, f"{pre}_TVA": tva}})
+        _write_section(root, "r9", "210", "210_TVA", "210_REF",
+                       {"KRT8": {"210_REF": 3.0, "210_TVA": 3.55},
+                        TARGET_GENE: {"210_REF": 0.6, "210_TVA": -0.35}})
+        summary = aggregate(per_block_did(root))
+
+    row = summary.set_index("gene").loc[TARGET_GENE]
+    assert row["n_blocks_below_floor"] == 1
+    assert bool(row["excludes_zero"]) == bool(row["excludes_zero_excluding_floored"])
+    assert not verdict(summary)["verdict"].startswith("INDETERMINATE")
