@@ -279,6 +279,84 @@ single-cohort observation.
 
 ---
 
-## RESULT
+## RESULT — the gate ran 2026-09-07. B1 is NOT LICENSED.
 
-*Not run. Blocked on §6 — accession verification, file format, and disk.*
+`results/2026-09-07_2305f23/` (three tables). §6's three blockers all cleared on
+2026-09-06: accessions verified, format resolved (72 standard 10x triplets, not
+Seurat), disk found. The gate then ran three times, and each run was wrong in a
+way the next one fixed. All three are in the log deliberately.
+
+| run | scope | verdict | what was wrong with it |
+|---|---|---|---|
+| `d51e5b5` | every arm pooled | CANNOT RUN | compared a **polyp-dominated** object to a normal-arm baseline, and reported `fold_vs_chen` as a ratio of probabilities |
+| `e3f9e09` | mature cells, normal arm | FULL DESIGN | the depth audit **warned and did not bind** |
+| `2305f23` | same, audit binding | **CLEARED BY DEPTH — NOT LICENSED** | — |
+
+### The verdict, and why it is not CANNOT RUN either
+
+GUCA2A clears §3's floor in the mature label — **0.079 → 0.148** against 0.10.
+It does not clear it for the right reason. The label is built from marker
+*detection*, which rises with library size (median 1,505 UMIs/nucleus inside the
+label against 739 in the arm, **2.04×**), so every gene rose. The question is
+whether the target rose *further than the controls in the same cells*, and it
+did not: **+0.669 against a control band of +0.517 (ACTB) to +0.739 (KRT8)** —
+between the two housekeeping genes.
+
+### §3's physical premise is refuted, and that part is a real finding
+
+§3 gated on the risk that GUCA2A and MS4A12, being cytoplasmic, would be lost by
+nuclear sampling. On the detection scale against this document's own Chen
+baselines, in Becker's `healthy_donor` arm, **they are the two best-preserved
+genes on the panel** — GUCA2A −0.258 (82% of Chen's rate) and MS4A12 −0.478,
+against ACTB −1.246, EPCAM −1.477, KRT8 −2.171 and CDX2 **−3.182**. The
+worst-hit gene is a nuclear transcription factor. **snRNA-seq is not why this
+failed.**
+
+### The label works. That is what makes the negative solid.
+
+Run on all three arms with the same markers and threshold — exploratory outside
+the gate arm, and flagged so in the table:
+
+| gene | healthy_donor | normal | tumour |
+|---|---|---|---|
+| control band | +0.093 to +0.359 | +0.517 to +0.739 | +1.175 to +1.663 |
+| **MS4A12** | **+0.527 beyond** | **+1.110 beyond** | **+2.618 beyond** |
+| **GUCA2A** | +0.250 inside | +0.669 inside | +2.464 beyond |
+| CDX2 | +0.320 inside | +0.660 inside | +1.601 inside |
+
+**MS4A12 outruns its controls in every arm.** So the label is not measuring
+depth — it finds mature colonocytes, and a genuine mature-colonocyte marker
+tracks them everywhere. That was the alternative explanation and it is dead.
+
+**And on a label that provably works, GUCA2A does not concentrate in mature
+cells** — not in FAP-unaffected mucosa, and not in healthy donor colon either,
+where it sits at 0.358 detection. In this deposit GUCA2A is distributed across
+the epithelium rather than concentrated where the mature markers are.
+
+### The one arm where GUCA2A does outrun its controls cannot be read
+
+`tumour`, +2.464 against a +1.663 top control. **It is uninterpretable, and the
+reason is a limitation of this design rather than a property of the data.** The
+label is built from CA1, CA2, AQP8, SLC26A3, KRT20 and CEACAM7 — the mature
+colonocyte program, *which GUCA2A is part of*. In a polyp where most cells have
+lost that program, selecting cells that kept the markers selects cells that kept
+GUCA2A. Both the compositional and the intrinsic reading predict it.
+
+**Invariant 2's letter is satisfied and its spirit is not.** No target gene is in
+the label. But a label built from genes co-regulated *with* the target is nearly
+as circular, and the invariant does not currently say so. **Recorded as a
+proposed amendment to invariant 2, which is a `src/schema.py`-adjacent change
+and therefore a PR with two approvals — not taken here.**
+
+### What this closes
+
+**B1 does not replicate avenue A**, and now for three independent reasons: four
+paired donors (Amendment 2), a reference arm contaminated by the phenomenon
+being measured (`docs/NEXT_AVENUES.md` §B), and a target that will not separate
+from housekeeping in the population the estimand is defined on.
+
+**No further reading of this deposit is pre-committed.** Every option §3 named
+has been taken. Anything past this point is post-hoc and must be pre-registered
+as a new question, on a substrate named by the criterion in `NEXT_AVENUES` §B:
+**sporadic adenoma, paired with the same patient's normal mucosa, at nuclear
+sensitivity or better.**

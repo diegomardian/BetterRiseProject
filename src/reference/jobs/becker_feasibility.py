@@ -311,8 +311,14 @@ def verdict(gated: pd.DataFrame, *, mature_labelled: bool = False,
         row = audit.loc[audit["gene"] == CRITICAL_GENE]
         if len(row) and not bool(row["beyond_control_band"].iloc[0]):
             r = row.iloc[0]
-            others = audit.loc[audit["beyond_control_band"]
-                               & (audit["gene"] != CRITICAL_GENE), "gene"].tolist()
+            # The audit now carries every arm, so restrict the contrast to the
+            # arm the gate was taken on. Without this it prints one name per
+            # arm and reads as three genes.
+            same_arm = (audit["arm"] == r["arm"] if "arm" in audit.columns
+                        else pd.Series(True, index=audit.index))
+            others = sorted(set(audit.loc[
+                audit["beyond_control_band"] & same_arm
+                & (audit["gene"] != CRITICAL_GENE), "gene"]))
             return {
                 "verdict": "CLEARED BY DEPTH — NOT LICENSED",
                 "detail": (

@@ -357,9 +357,22 @@ direction.
 > in this repository, post-hoc, and not pre-registered. **It is an observation
 > that motivates a design and it may never carry an interval.**
 >
-> **The gate itself is still open.** §3 names the mature cells of the reference
-> arm; the run measured every cell in it, which is a lower bound. GUCA2A misses
-> the 0.10 floor by **1.27×** there. See §B1-next below.
+> **The gate closed the same day. B1 is NOT LICENSED.**
+> `results/2026-09-07_2305f23/`. On §3's own quantity — mature cells of the
+> reference arm — GUCA2A clears the 0.10 floor (0.079 → 0.148) **by depth**: its
+> enrichment is +0.669 against a control band of +0.517 to +0.739, between the
+> two housekeeping genes. The label is not at fault: **MS4A12 outruns its
+> controls in all three arms**, so the markers do find mature colonocytes.
+> GUCA2A does not concentrate in them — not in FAP mucosa and not in healthy
+> donor colon. **Nothing further on this deposit is pre-committed**; the prereg's
+> RESULT has the full account, including why the `tumour` arm's apparent
+> enrichment cannot be read.
+>
+> **One methodological finding worth carrying forward.** The label was built
+> from the mature-colonocyte program, which GUCA2A belongs to. Invariant 2 bars
+> a *target* from its own label; it does not bar genes **co-regulated with** the
+> target, and that is nearly as circular. Proposed as an amendment to invariant
+> 2 — `src/schema.py`-adjacent, so a PR with two approvals, not taken unilaterally.
 
 #### The substrate criterion, stated sharply enough to search on
 
