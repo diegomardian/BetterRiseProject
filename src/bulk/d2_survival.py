@@ -1,0 +1,199 @@
+"""D2's locked design assembly, before the survival runner reads outcomes.
+
+The survival specification is in ``docs/prereg_d2_survival.md``.  This module
+does not choose covariates: it turns the already-locked expression-model
+context into the exact D2 design, adding the pre-specified plate stratum and
+continuous GUCA2A predictor.  The runner belongs in a separate change so this
+module can be tested without writing or interpreting a survival result.
+"""
+
+from __future__ import annotations
+
+from copy import deepcopy
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+
+from src.bulk.covariates import (
+    PRIMARY_TUMOUR,
+    build_design,
+    covariate_names,
+    purity_column,
+    require_locked,
+    total_df,
+)
+from src.bulk.d2_feasibility_gate import GENE, primary_tumour_values
+from src.common.paths import REPO_ROOT
+
+D2_CONTEXT = "expression_models"
+D2_ENDPOINTS = ("PFI", "DSS", "OS")
+D2_PREREG = REPO_ROOT / "docs" / "prereg_d2_survival.md"
+LEAD_ENDPOINT = "PFI"
+
+
+class D2SurvivalError(RuntimeError):
+    """The locked D2 design cannot be assembled honestly."""
+
+
+def require_d2_locked(path: Path = D2_PREREG) -> None:
+    """Refuse execution while the separate D2 contract is still a draft."""
+    if not path.exists():
+        raise D2SurvivalError(f"D2 pre-registration is missing: {path}")
+    header = path.read_text(encoding="utf-8").splitlines()[:8]
+    if not any(line.startswith("**Status:** locked") for line in header):
+        raise D2SurvivalError(
+            f"{path} is not locked. D2 may not read or fit survival outcomes."
+        )
+
+
+def d2_spec(spec: dict[str, Any]) -> dict[str, Any]:
+    """Validate the inherited lock and add D2's pre-specified plate stratum."""
+    require_locked(spec)
+    require_d2_locked()
+    endpoints = spec["endpoints"]
+    required_roles = {"PFI": "primary", "DSS": "primary", "OS": "secondary"}
+    for endpoint, role in required_roles.items():
+        if endpoints.get(endpoint, {}).get("role") != role:
+            raise D2SurvivalError(f"{endpoint} must remain {role!r} for D2")
+    if not endpoints[LEAD_ENDPOINT].get("lead"):
+        raise D2SurvivalError("PFI must remain D2's lead endpoint")
+    if purity_column(spec) != "absolute":
+        raise D2SurvivalError("D2 primary purity must be ABSOLUTE")
+    if purity_column(spec, sensitivity=True) != "estimate_affy_extrapolated":
+        raise D2SurvivalError("D2 sensitivity purity must be ESTIMATE")
+    if "purity" not in covariate_names(spec, endpoint="PFI", context=D2_CONTEXT):
+        raise D2SurvivalError("expression-model context must include purity")
+    additional = spec.get("contexts", {}).get(D2_CONTEXT, {}).get("additional_required", [])
+    if not any(item.get("name") == "plate" for item in additional):
+        raise D2SurvivalError("expression-model context must require plate")
+
+    out = deepcopy(spec)
+    strata = list(out["model"].get("strata") or [])
+    if "plate" not in strata:
+        strata.append("plate")
+    out["model"]["strata"] = strata
+    return out
+
+
+def primary_tumour_annotations(manifest: pd.DataFrame) -> pd.DataFrame:
+    """One pre-selected primary aliquot and its plate per participant."""
+    required = {"barcode", "patient_id", "sample_type", "plate"}
+    missing = sorted(required - set(manifest.columns))
+    if missing:
+        raise D2SurvivalError(f"sample manifest is missing {missing}")
+    tumour = manifest.loc[manifest["sample_type"] == PRIMARY_TUMOUR,
+                           ["patient_id", "barcode", "plate"]].copy()
+    if tumour.empty:
+        raise D2SurvivalError("sample manifest has no primary-tumour rows")
+    if tumour["patient_id"].duplicated().any():
+        raise D2SurvivalError(
+            "primary-tumour manifest has duplicate participants; ingest must "
+            "deduplicate aliquots before D2"
+        )
+    # Missing plate is a complete-case exclusion, not a malformed manifest.
+    # It must reach ``build_design`` so the attrition table names and counts it.
+    return tumour
+
+
+def prepare_design(
+    clinical: pd.DataFrame,
+    purity: pd.DataFrame,
+    manifest: pd.DataFrame,
+    expression: pd.DataFrame,
+    gene_id: str,
+    spec: dict[str, Any],
+    *,
+    endpoint: str,
+    sensitivity: bool = False,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Build one endpoint/purity-source D2 design and record expression loss."""
+    if endpoint not in D2_ENDPOINTS:
+        raise D2SurvivalError(f"D2 endpoint {endpoint!r} is not pre-specified")
+    locked = d2_spec(spec)
+    annotations = primary_tumour_annotations(manifest)
+    values = primary_tumour_values(expression, manifest, gene_id).rename(GENE)
+    if values.index.has_duplicates:
+        raise D2SurvivalError("GUCA2A values are not one row per participant")
+
+    # LEFT join deliberately: ``build_design`` must see every clinical row and
+    # record the plate loss as ``complete plate``. An inner join here would
+    # discard patients before its first attrition row and mislabel the smaller
+    # frame as the clinical table.
+    clinical_with_plate = clinical.merge(
+        annotations[["patient_id", "plate"]], on="patient_id", how="left",
+        validate="one_to_one",
+    )
+    design, attrition = build_design(
+        clinical_with_plate, purity, locked, endpoint=endpoint,
+        context=D2_CONTEXT, sensitivity=sensitivity,
+    )
+    before = len(design)
+    design = design.merge(values.rename(GENE), left_on="patient_id", right_index=True,
+                          how="inner", validate="one_to_one")
+    if design[GENE].isna().any() or not np.isfinite(design[GENE].to_numpy()).all():
+        raise D2SurvivalError("final D2 design has non-finite GUCA2A")
+    method = purity_column(locked, sensitivity=sensitivity)
+    attrition = pd.concat([
+        attrition,
+        pd.DataFrame([{
+            "step": "has mapped GUCA2A expression",
+            "n": int(len(design)),
+            "n_events": int(design[endpoint].sum()),
+            "endpoint": endpoint,
+            "context": D2_CONTEXT,
+            "purity_method": method,
+            "dropped": int(before - len(design)),
+        }]),
+    ], ignore_index=True)
+    return design.reset_index(drop=True), attrition
+
+
+def d2_events_per_df(
+    design: pd.DataFrame, spec: dict[str, Any], *, endpoint: str
+) -> dict[str, Any]:
+    """The pre-specified 10-events-per-df lead-endpoint gate, including GUCA2A."""
+    names = covariate_names(spec, endpoint=endpoint, context=D2_CONTEXT)
+    df = total_df(spec, names) + 1  # continuous GUCA2A predictor
+    events = int(design[endpoint].sum())
+    ratio = events / df if df else float("nan")
+    return {
+        "endpoint": endpoint,
+        "n": int(len(design)),
+        "n_events": events,
+        "non_stratum_df": df,
+        "events_per_df": round(ratio, 2),
+        "meets_lead_floor": bool(ratio >= 10) if endpoint == LEAD_ENDPOINT else None,
+    }
+
+
+def retained_vs_dropped(
+    clinical: pd.DataFrame,
+    values: pd.Series,
+    design: pd.DataFrame,
+    *,
+    endpoint: str,
+    purity_method: str,
+) -> pd.DataFrame:
+    """Required §6a outcome-adjacent attrition audit for GUCA2A distribution."""
+    usable = clinical.loc[clinical[f"usable_{endpoint}"], ["patient_id"]]
+    base = usable.merge(values.rename(GENE), left_on="patient_id", right_index=True,
+                        how="inner", validate="one_to_one")
+    base["retained"] = base["patient_id"].isin(set(design["patient_id"]))
+    rows = []
+    for retained, part in base.groupby("retained", sort=True):
+        x = part[GENE].to_numpy(dtype=float)
+        rows.append({
+            "endpoint": endpoint,
+            "purity_method": purity_method,
+            "membership": "retained" if retained else "dropped",
+            "n_participants": int(len(x)),
+            "minimum": float(np.min(x)) if len(x) else np.nan,
+            "q25": float(np.percentile(x, 25)) if len(x) else np.nan,
+            "median": float(np.median(x)) if len(x) else np.nan,
+            "q75": float(np.percentile(x, 75)) if len(x) else np.nan,
+            "maximum": float(np.max(x)) if len(x) else np.nan,
+            "iqr": float(np.percentile(x, 75) - np.percentile(x, 25)) if len(x) else np.nan,
+        })
+    return pd.DataFrame(rows)
