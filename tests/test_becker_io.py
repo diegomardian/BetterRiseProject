@@ -35,6 +35,7 @@ from src.reference.becker_io import (
     read_series_matrix,
     read_triplet,
     sample_files,
+    tumour_lesion_counts,
 )
 
 SAMPLES = [
@@ -125,6 +126,36 @@ def test_replicates_are_identified_and_share_a_sample_id():
         "the two replicates are one physical sample and must collapse under "
         "sample_id — Amendment 1 pools them"
     )
+
+
+def test_tumour_lesion_inventory_collapses_technical_replicates_not_lesions():
+    with tempfile.TemporaryDirectory() as d:
+        metadata = read_series_matrix(_series_matrix(pathlib.Path(d)))
+
+    got = tumour_lesion_counts(metadata).set_index("donor")
+    assert got.loc["A001", "n_lesions"] == 1
+    assert got.loc["A001", "n_tumour_rows"] == 1
+    assert got.loc["A002", "n_lesions"] == 1
+    assert got.loc["A002", "n_tumour_rows"] == 2
+
+
+def test_lesion_inventory_cli_writes_a_versioned_table(tmp_path):
+    """The durable artifact must use the metadata-only path, not ``--inspect``."""
+    from src.reference.jobs.becker_feasibility import main
+
+    matrix = _series_matrix(tmp_path)
+    results = tmp_path / "results"
+    assert main([
+        "--lesion-inventory", "--series-matrix", str(matrix),
+        "--results-dir", str(results), "--allow-dirty",
+    ]) == 0
+
+    tables = list(results.rglob("becker_lesion_inventory.parquet"))
+    assert len(tables) == 1
+    got = pd.read_parquet(tables[0]).set_index("donor")
+    assert got.loc["A001", "n_lesions"] == 1
+    assert got.loc["A002", "n_lesions"] == 1
+    assert got.loc["A002", "n_tumour_rows"] == 2
 
 
 def test_an_unknown_disease_stage_stops_the_run():

@@ -564,6 +564,19 @@ def _read_deposit(tar: Path, series_matrix: Path, *, pool_by: str):
             np.asarray(arms), absent)
 
 
+def lesion_inventory(series_matrix: Path) -> pd.DataFrame:
+    """The durable, metadata-only Becker lesion inventory.
+
+    This is deliberately separate from ``--inspect``: the question needs only
+    GEO's small series matrix, not the 1.2 GB count tar, and the answer is an
+    input inventory rather than a biological result. One lesion is one unique
+    ``sample_id``; technical GSM replicates remain visible in ``n_tumour_rows``.
+    """
+    from src.reference.becker_io import read_series_matrix, tumour_lesion_counts
+
+    return tumour_lesion_counts(read_series_matrix(series_matrix))
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--object", type=Path, default=None,
@@ -576,6 +589,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--inspect", action="store_true",
                         help="report the file's structure and vocabulary, and "
                              "do nothing else. RUN THIS FIRST.")
+    parser.add_argument(
+        "--lesion-inventory", action="store_true",
+        help="write the per-donor polyp inventory from --series-matrix alone; "
+             "unique sample_id is a lesion and technical replicate rows remain visible",
+    )
     parser.add_argument("--gene-column", default=None,
                         help="var column holding gene symbols, from --inspect")
     parser.add_argument("--patient-column", default=None,
@@ -593,6 +611,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
+    if args.inspect and args.lesion_inventory:
+        raise SystemExit("choose --inspect or --lesion-inventory, not both")
     if args.tar and not args.series_matrix:
         raise SystemExit(
             "--tar needs --series-matrix. The tar carries NO metadata: a "
@@ -600,11 +620,35 @@ def main(argv: Sequence[str] | None = None) -> int:
             "about whether it is a polyp or unaffected mucosa. Without the "
             "series matrix there are no arms."
         )
-    if not args.tar and not args.object:
-        raise SystemExit("pass --tar (with --series-matrix) or --object")
+    if not args.tar and not args.object and not args.lesion_inventory:
+        raise SystemExit("pass --tar (with --series-matrix), --object, or --lesion-inventory")
+    if args.lesion_inventory and args.series_matrix is None:
+        raise SystemExit("--lesion-inventory requires --series-matrix")
     for candidate in (args.tar, args.series_matrix, args.object):
         if candidate is not None and not candidate.exists():
             raise SystemExit(f"{candidate} not found")
+
+    if args.lesion_inventory:
+        inventory = lesion_inventory(args.series_matrix)
+        path = write_versioned_table(
+            inventory,
+            "becker_lesion_inventory",
+            seed=args.seed,
+            results_dir=args.results_dir,
+            allow_dirty=args.allow_dirty,
+            notes=(
+                "GSE201348 metadata inventory. One lesion is one unique "
+                "sample_id; technical replicate GSM rows are retained separately."
+            ),
+            extra_meta={
+                "source": "GSE201348_series_matrix.txt.gz",
+                "source_kind": "GEO series metadata",
+                "unit": "unique polyp sample_id within donor",
+                "inference_unit": "donor; inventory does not promote lesions to n",
+            },
+        )
+        log.info("wrote %s", path)
+        return 0
 
     if args.inspect:
         report = (inspect_deposit(args.tar, args.series_matrix) if args.tar
