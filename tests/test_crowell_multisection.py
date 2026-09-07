@@ -26,7 +26,7 @@ from src.reference.jobs.crowell_multisection import (
 
 
 def _write_section(root, run, section, adenoma, reference, seps,
-                   detections=None, depths=None):
+                   detections=None, depths=None, n_cells=None, floors=None):
     """A per-section table in the shape the real job emits.
 
     `detection` and `median_counts_per_cell` are required columns: the
@@ -38,6 +38,10 @@ def _write_section(root, run, section, adenoma, reference, seps,
     d.mkdir(parents=True, exist_ok=True)
     default_depth = {dom: 600.0 for per in seps.values() for dom in per}
     depths = {**default_depth, **(depths or {})}
+    default_cells = {dom: 500 for per in seps.values() for dom in per}
+    n_cells = {**default_cells, **(n_cells or {})}
+    default_floors = {dom: 0.01 for per in seps.values() for dom in per}
+    floors = {**default_floors, **(floors or {})}
     rows = []
     for g, per in seps.items():
         for dom, v in per.items():
@@ -51,7 +55,9 @@ def _write_section(root, run, section, adenoma, reference, seps,
                 "role": {"KRT8": "control", "EPCAM": "epithelial",
                          "CDX2": "identity", "MS4A12": "identity",
                          "GUCA2A": "target"}[g],
+                "n_cells": n_cells[dom],
                 "detection": det,
+                "floor_per_probe_mean": floors[dom],
                 "median_counts_per_cell": depths[dom],
             })
     pd.DataFrame(rows).to_parquet(d / "crowell_feasibility.parquet")
@@ -180,7 +186,8 @@ def test_amendment_2s_diagnosis_is_recorded_not_re_derived():
             depths={"231_REF": 575.0, "231_TVA": 821.0})
         got = per_block_did(root).set_index("gene")
 
-    mu = lambda p: -np.log1p(-p)
+    def mu(p):
+        return -np.log1p(-p)
     assert got.loc["KRT8", "dlog_mu"] == pytest.approx(
         float(np.log(mu(0.617135) / mu(0.360144))), abs=1e-6)
     assert got.loc["KRT8", "dlog_mu"] == pytest.approx(0.766, abs=1e-3)
@@ -464,3 +471,73 @@ def test_the_control_gene_is_pinned_and_changing_it_changes_the_estimand():
     assert GENE_ROLES["EPCAM"] == "epithelial", "not a control, by the frozen roles"
     assert "ACTB" not in (CONTROL_GENE, DISCRIMINATOR_GENE, TARGET_GENE)
     assert TARGET_GENE == "GUCA2A" and DISCRIMINATOR_GENE == "CDX2"
+
+
+def test_carcinoma_is_secondary_and_pools_same_class_domains_at_cell_level(tmp_path):
+    """§5 secondary contrast: no invented seventh CRC, no post-pool average.
+
+    Section 120 has two CRC regions. The pooled detection is the cell-count
+    weighted fraction before log separation, not an average of two log
+    separations. Section 222 has no CRC label and must therefore not contribute
+    a made-up carcinoma observation.
+    """
+    floor = 0.01
+
+    def separation(p):
+        return float(np.log((-np.log1p(-p)) / (-np.log1p(-floor))))
+
+    detections = {
+        "KRT8": {"120_REF": 0.50, "120_TVA": 0.55,
+                 "120_CRC1": 0.40, "120_CRC2": 0.80},
+        TARGET_GENE: {"120_REF": 0.30, "120_TVA": 0.20,
+                      "120_CRC1": 0.20, "120_CRC2": 0.10},
+        DISCRIMINATOR_GENE: {"120_REF": 0.30, "120_TVA": 0.32,
+                             "120_CRC1": 0.20, "120_CRC2": 0.40},
+    }
+    seps = {
+        gene: {domain: separation(value) for domain, value in values.items()}
+        for gene, values in detections.items()
+    }
+    _write_section(
+        tmp_path, "r1", "120", "120_TVA", "120_REF", seps,
+        detections=detections,
+        n_cells={"120_REF": 500, "120_TVA": 500, "120_CRC1": 300, "120_CRC2": 900},
+    )
+    _write_section(
+        tmp_path, "r2", "222", "222_TVA", "222_REF",
+        {"KRT8": {"222_REF": 3.0, "222_TVA": 3.5},
+         TARGET_GENE: {"222_REF": 2.0, "222_TVA": 0.5}},
+    )
+
+    got = per_block_did(tmp_path, lesion_class="carcinoma")
+
+    assert set(got["block"]) == {SECTION_TO_BLOCK["120"]}
+    target = got.set_index("gene").loc[TARGET_GENE]
+    pooled_target = (300 * 0.20 + 900 * 0.10) / 1200
+    pooled_control = (300 * 0.40 + 900 * 0.80) / 1200
+    expected = (
+        separation(pooled_target) - separation(0.30)
+        - (separation(pooled_control) - separation(0.50))
+    )
+    assert target["detection_carcinoma"] == pytest.approx(pooled_target)
+    assert target["did"] == pytest.approx(expected)
+    assert target["carcinoma_domain"] == "120_CRC1+120_CRC2"
+    assert not bool(target["depth_summary_available"])
+
+
+def test_the_carcinoma_verdict_refuses_comparison_with_the_adenoma_numbers():
+    """The predictable misreading. GUCA2A is −1.307 in the adenoma contrast and
+    −1.061 in the carcinoma one, and someone will read that as progression.
+
+    They share a reference domain, so they are correlated rather than
+    independent; they run over different blocks (222 has no carcinoma domain)
+    and different n. The verdict has to say so, because the two tables sit next
+    to each other in the same results directory.
+    """
+    from src.reference.jobs.crowell_multisection import secondary_verdict
+
+    out = secondary_verdict()
+    assert out["verdict"].startswith("SECONDARY")
+    assert "NOT comparable to the adenoma numbers" in out["detail"]
+    assert "same reference" in out["detail"].lower()
+    assert "pre-registered" in out["detail"]

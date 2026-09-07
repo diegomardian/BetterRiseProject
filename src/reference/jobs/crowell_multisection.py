@@ -52,7 +52,7 @@ from src.common.paths import RESULTS_DIR
 from src.harness.meta import MIN_STUDIES
 from src.reference.crowell_io import SECTION_TO_BLOCK, CrowellError
 from src.reference.jobs.coexpression_silencing import GENE_ROLES
-from src.reference.jobs.crowell_feasibility import MIN_LOG_SEPARATION
+from src.reference.jobs.crowell_feasibility import MIN_CELLS_PER_DOMAIN, MIN_LOG_SEPARATION
 
 log = logging.getLogger(__name__)
 
@@ -68,6 +68,72 @@ CONTROL_GENE = "KRT8"
 #: discriminates "a tier moved" from "this gene moved" (prereg §7).
 TARGET_GENE = "GUCA2A"
 DISCRIMINATOR_GENE = "CDX2"
+
+
+def carcinoma_domains(present: set[str]) -> list[str]:
+    """Pathologist-labelled CRC domains, refusing a fuzzy string match.
+
+    The feasibility sidecars predate the secondary read and therefore record
+    REF/TVA but not CRC selections. The deposited `typ` labels have the fixed
+    ``<section>_CRC`` / ``<section>_CRC1`` form. Match that vocabulary exactly;
+    a new or nonconforming label must be named explicitly rather than silently
+    treated as carcinoma.
+    """
+    out = [domain for domain in present if str(domain).rsplit("_", 1)[-1].startswith("CRC")]
+    malformed = [domain for domain in out if not str(domain).rsplit("_", 1)[-1][3:].isdigit()
+                 and str(domain).rsplit("_", 1)[-1] != "CRC"]
+    if malformed:
+        raise CrowellError(
+            f"unrecognised carcinoma domain label(s) {sorted(malformed)}; do not guess."
+        )
+    return sorted(out)
+
+
+def append_pooled_domain(
+    frame: pd.DataFrame, domains: list[str], label: str
+) -> pd.DataFrame:
+    """Pool same-class domains at the cell-fraction level before separation.
+
+    The feasibility tables retain detection fractions, per-probe floors, and
+    cell counts, which are sufficient to reconstruct a pooled detection and
+    pooled floor exactly. A median-depth value cannot be pooled from medians,
+    so it remains missing rather than being presented as a median.
+    """
+    if len(domains) == 1:
+        return frame
+    required = {"domain", "gene", "n_cells", "detection", "floor_per_probe_mean"}
+    missing = required - set(frame.columns)
+    if missing:
+        raise CrowellError(
+            f"cannot pool {domains}: feasibility table lacks {sorted(missing)}"
+        )
+    rows: list[dict] = []
+    for gene, group in frame[frame["domain"].isin(domains)].groupby("gene", sort=False):
+        if set(group["domain"]) != set(domains):
+            raise CrowellError(
+                f"cannot pool {domains}: {gene} is missing from one carcinoma domain"
+            )
+        weights = group["n_cells"].to_numpy(float)
+        if (weights < MIN_CELLS_PER_DOMAIN).any():
+            raise CrowellError(
+                f"cannot pool {domains}: a component is below "
+                f"MIN_CELLS_PER_DOMAIN={MIN_CELLS_PER_DOMAIN}"
+            )
+        detection = float(np.average(group["detection"].to_numpy(float), weights=weights))
+        floor = float(np.average(group["floor_per_probe_mean"].to_numpy(float), weights=weights))
+        rows.append({
+            "domain": label,
+            "gene": gene,
+            "role": group["role"].iloc[0],
+            "n_cells": int(weights.sum()),
+            "detection": detection,
+            "floor_per_probe_mean": floor,
+            "log_separation": float(np.log(_mu(detection) / _mu(floor))),
+            # Do not call an average of domain medians a pooled median.
+            "median_counts_per_cell": np.nan,
+            "pooled_at_cell_fraction_level": True,
+        })
+    return pd.concat([frame, pd.DataFrame(rows)], ignore_index=True, sort=False)
 
 
 def resolve_label(recorded, present: set[str]) -> str | None:
@@ -112,14 +178,21 @@ def _sections(results_dir: Path) -> list[tuple[Path, dict]]:
     return out
 
 
-def per_block_did(results_dir: Path) -> pd.DataFrame:
-    """§4's DiD, one row per (block, gene). Supersedes runs of the same block."""
+def per_block_did(results_dir: Path, *, lesion_class: str = "adenoma") -> pd.DataFrame:
+    """§4's DiD, one row per (block, gene), for one lesion class.
+
+    Adenoma is the pre-registered primary contrast. Carcinoma is §5's stated
+    secondary contrast, reported alongside it without invoking §7's adenoma
+    verdict logic.
+    """
+    if lesion_class not in {"adenoma", "carcinoma"}:
+        raise ValueError("lesion_class must be 'adenoma' or 'carcinoma'")
     rows = []
     for table, meta in _sections(results_dir):
         section = str(meta.get("section", "")).replace(".h5ad", "")
         block = SECTION_TO_BLOCK.get(section)
-        adenoma, reference = meta.get("adenoma_domain"), meta.get("reference_domain")
-        if not (adenoma and reference):
+        lesion, reference = meta.get("adenoma_domain"), meta.get("reference_domain")
+        if lesion_class == "adenoma" and not (lesion and reference):
             log.info("  %s: no reference/adenoma pair recorded — skipped",
                      table.parent.name)
             continue
@@ -131,20 +204,31 @@ def per_block_did(results_dir: Path) -> pd.DataFrame:
             )
         frame = pd.read_parquet(table)
         present = set(frame["domain"].astype(str))
+        if lesion_class == "adenoma":
+            lesion = resolve_label(lesion, present)
+        else:
+            carcinoma = carcinoma_domains(present)
+            if not carcinoma:
+                log.info("  %s: no pathologist-labelled CRC domain — secondary skipped",
+                         table.parent.name)
+                continue
+            lesion = "+".join(carcinoma)
+            frame = append_pooled_domain(frame, carcinoma, lesion)
+            present = set(frame["domain"].astype(str))
+        reference = resolve_label(reference, present)
+        if not (lesion and reference):
+            continue
         # Amendment 2's diagnosis, RECORDED rather than re-derived. Every value
         # is already implied by `detection` and `median_counts_per_cell` in the
         # per-section table, but a number that has to be recomputed by hand to
         # be checked is a number that gets recomputed wrong: this document's
-        # first version of it used Becker's KRT8 in place of Crowell's.
+        # first version of it used Becker's KRT8 in place of Crowell's. This is
+        # deliberately below optional CRC pooling so the pooled row is included.
         detection = frame.set_index(["gene", "domain"])["detection"]
         depth = frame.drop_duplicates("domain").set_index("domain")[
             "median_counts_per_cell"]
-        adenoma = resolve_label(adenoma, present)
-        reference = resolve_label(reference, present)
-        if not (adenoma and reference):
-            continue
         sep = frame.set_index(["gene", "domain"])["log_separation"]
-        if (CONTROL_GENE, adenoma) not in sep or (CONTROL_GENE, reference) not in sep:
+        if (CONTROL_GENE, lesion) not in sep or (CONTROL_GENE, reference) not in sep:
             log.warning("  %s: %s missing in one domain — skipped",
                         table.parent.name, CONTROL_GENE)
             continue
@@ -156,7 +240,7 @@ def per_block_did(results_dir: Path) -> pd.DataFrame:
         # of 1.099), but a pre-registered rule the code does not enforce is
         # this repository's own defect class, and an inclusion rule that cannot
         # exclude is a check that cannot fail.
-        control_seps = (sep[(CONTROL_GENE, reference)], sep[(CONTROL_GENE, adenoma)])
+        control_seps = (sep[(CONTROL_GENE, reference)], sep[(CONTROL_GENE, lesion)])
         if min(control_seps) < MIN_LOG_SEPARATION:
             log.warning(
                 "  %s: EXCLUDED by §5 rule 3 — %s separates at %+.3f / %+.3f "
@@ -165,36 +249,46 @@ def per_block_did(results_dir: Path) -> pd.DataFrame:
                 table.parent.name, CONTROL_GENE, control_seps[0],
                 control_seps[1], MIN_LOG_SEPARATION)
             continue
-        control_delta = sep[(CONTROL_GENE, adenoma)] - sep[(CONTROL_GENE, reference)]
+        control_delta = sep[(CONTROL_GENE, lesion)] - sep[(CONTROL_GENE, reference)]
+        n_cells = frame.drop_duplicates("domain").set_index("domain")["n_cells"]
+        if n_cells[reference] < MIN_CELLS_PER_DOMAIN or n_cells[lesion] < MIN_CELLS_PER_DOMAIN:
+            log.warning("  %s: EXCLUDED by §5 cell-count rule", table.parent.name)
+            continue
         for gene in frame["gene"].unique():
-            if (gene, adenoma) not in sep or (gene, reference) not in sep:
+            if (gene, lesion) not in sep or (gene, reference) not in sep:
                 continue
-            delta = sep[(gene, adenoma)] - sep[(gene, reference)]
-            dlog_mu = float(np.log(_mu(detection[(gene, adenoma)])
+            delta = sep[(gene, lesion)] - sep[(gene, reference)]
+            dlog_mu = float(np.log(_mu(detection[(gene, lesion)])
                                    / _mu(detection[(gene, reference)])))
+            depth_reference = float(depth[reference])
+            depth_lesion = float(depth[lesion])
+            depth_available = bool(np.isfinite(depth_reference) and np.isfinite(depth_lesion))
             rows.append({
                 "block": block, "section": section, "run": table.parent.name,
-                "gene": gene, "role": GENE_ROLES.get(gene),
+                "gene": gene, "role": GENE_ROLES.get(gene), "lesion_class": lesion_class,
                 "delta": float(delta),
                 "control_delta": float(control_delta),
                 # Amendment 2: the epithelial group rises at or above the depth
                 # term and the targets do not. Compare dlog_mu with log_depth.
                 "detection_reference": float(detection[(gene, reference)]),
-                "detection_adenoma": float(detection[(gene, adenoma)]),
+                f"detection_{lesion_class}": float(detection[(gene, lesion)]),
                 "dlog_mu": dlog_mu,
-                "median_depth_reference": float(depth[reference]),
-                "median_depth_adenoma": float(depth[adenoma]),
-                "log_depth_ratio": float(np.log(depth[adenoma] / depth[reference])),
-                "rises_faster_than_depth": bool(
-                    dlog_mu > np.log(depth[adenoma] / depth[reference])),
+                "median_depth_reference": depth_reference if depth_available else None,
+                f"median_depth_{lesion_class}": depth_lesion if depth_available else None,
+                "depth_summary_available": depth_available,
+                "log_depth_ratio": (
+                    float(np.log(depth_lesion / depth_reference)) if depth_available else None),
+                "rises_faster_than_depth": (
+                    bool(dlog_mu > np.log(depth_lesion / depth_reference))
+                    if depth_available else None),
                 # Amendment 4: below the negative-probe floor the observed
                 # signal is smaller than what noise alone supplies, so the true
                 # rate is consistent with ZERO and this DiD is a bound, not a
                 # point. Flagged per block; the consequence is in `aggregate`.
-                "below_floor_adenoma": bool(sep[(gene, adenoma)] < 0),
+                f"below_floor_{lesion_class}": bool(sep[(gene, lesion)] < 0),
                 "below_floor_reference": bool(sep[(gene, reference)] < 0),
                 "target_below_floor": bool(
-                    sep[(gene, adenoma)] < 0 or sep[(gene, reference)] < 0),
+                    sep[(gene, lesion)] < 0 or sep[(gene, reference)] < 0),
                 # Amendment 5: how close to the floor the WORSE of the two
                 # inputs sat. The flag above is a hard `< 0` and no threshold
                 # moves after seeing data — this is reported so a reader can
@@ -202,12 +296,12 @@ def per_block_did(results_dir: Path) -> pd.DataFrame:
                 # floor and practically at it. Block 221's CDX2 reference is
                 # +0.003, a signal 0.3% above noise, and CDX2 is §7's decisive
                 # row.
-                "min_separation": float(min(sep[(gene, adenoma)],
+                "min_separation": float(min(sep[(gene, lesion)],
                                             sep[(gene, reference)])),
                 # The floor cancels here: log_sep is log(mu_gene) - log(mu_floor),
                 # so this is dlog(mu_gene) - dlog(mu_control).
                 "did": float(delta - control_delta),
-                "adenoma_domain": adenoma, "reference_domain": reference,
+                f"{lesion_class}_domain": lesion, "reference_domain": reference,
             })
     frame = pd.DataFrame(rows)
     if frame.empty:
@@ -282,6 +376,29 @@ def aggregate(per_block: pd.DataFrame) -> pd.DataFrame:
             })
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+def secondary_verdict() -> dict:
+    """§5's carcinoma reading, which is reported beside the adenoma and never as it.
+
+    Extracted from ``main`` so it can be tested. It was an inline literal, and
+    an inline literal is a statement nothing can assert against — the sentence
+    below is the one thing standing between two adjacent tables and a
+    progression claim nobody pre-registered.
+    """
+    return {
+        "verdict": "SECONDARY — REPORTED BESIDE THE ADENOMA CONTRAST",
+        "detail": (
+            "§5 defines carcinoma as secondary. These values do not invoke "
+            "§7's adenoma verdict or change avenue A's estimand. "
+            "**They are also NOT comparable to the adenoma numbers as "
+            "printed**: both contrasts are taken against the SAME reference "
+            "domain, so they are correlated rather than independent, they run "
+            "over different blocks (222 has no carcinoma domain) and different "
+            "n. Reading a smaller carcinoma fall as progression, or a larger "
+            "one, needs a paired analysis nobody has pre-registered."
+        ),
+    }
 
 
 def verdict(summary: pd.DataFrame) -> dict:
@@ -381,7 +498,8 @@ def verdict(summary: pd.DataFrame) -> dict:
                 "detail": (
                     f"{TARGET_GENE} DiD {target['mean_did']:+.3f} "
                     f"[{target['ci_low']:+.3f}, {target['ci_high']:+.3f}] over "
-                    f"{n} blocks, includes zero. At {target.get('width_vs_avenue_a_n43', float('nan')):.2f}x "
+                    f"{n} blocks, includes zero. At "
+                    f"{target.get('width_vs_avenue_a_n43', float('nan')):.2f}x "
                     f"avenue A's width this is WEAK evidence and **must not be "
                     f"quoted as a negative** (§7)."
                 )}
@@ -451,40 +569,45 @@ def verdict(summary: pd.DataFrame) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--contrast", choices=("adenoma", "carcinoma", "both"), default="adenoma",
+        help="adenoma is primary; carcinoma is §5's reported secondary contrast",
+    )
     parser.add_argument("--results-dir", type=Path, default=RESULTS_DIR)
     parser.add_argument("--seed", type=int, default=20260907)
     parser.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    per_block = per_block_did(args.results_dir)
-    if per_block.empty:
-        log.error("no committed per-section table carried both a reference and "
-                  "an adenoma domain.")
-        return 4
+    contrasts = ("adenoma", "carcinoma") if args.contrast == "both" else (args.contrast,)
+    any_written = False
+    for lesion_class in contrasts:
+        per_block = per_block_did(args.results_dir, lesion_class=lesion_class)
+        if per_block.empty:
+            log.warning("no committed per-section table carried both a reference and %s domain.",
+                        lesion_class)
+            continue
+        any_written = True
+        label = "PRIMARY" if lesion_class == "adenoma" else "§5 SECONDARY"
+        log.info("\n%s\n%s %s DiD, PER BLOCK — Delta(gene) - Delta(%s)\n%s",
+                 "=" * 72, label, lesion_class.upper(), CONTROL_GENE, "=" * 72)
+        wide = per_block.pivot(index="gene", columns="block", values="did")
+        log.info("%s", wide.to_string(float_format=lambda v: f"{v:+8.3f}"))
 
-    log.info("\n%s\n§4's DiD, PER BLOCK — Delta(gene) - Delta(%s)\n%s",
-             "=" * 72, CONTROL_GENE, "=" * 72)
-    wide = per_block.pivot(index="gene", columns="block", values="did")
-    log.info("%s", wide.to_string(float_format=lambda v: f"{v:+8.3f}"))
+        summary = aggregate(per_block)
+        log.info("\n%s\nOVER BLOCKS\n%s", "=" * 72, "=" * 72)
+        cols = [c for c in ("gene", "role", "n_blocks", "mean_did", "ci_low",
+                            "ci_high", "interval", "all_same_sign") if c in summary]
+        log.info("%s", summary[cols].to_string(index=False))
 
-    summary = aggregate(per_block)
-    log.info("\n%s\nOVER BLOCKS\n%s", "=" * 72, "=" * 72)
-    cols = [c for c in ("gene", "role", "n_blocks", "mean_did", "ci_low",
-                        "ci_high", "interval", "all_same_sign") if c in summary]
-    log.info("%s", summary[cols].to_string(index=False))
+        outcome = (verdict(summary) if lesion_class == "adenoma"
+                   else secondary_verdict())
+        log.info("\n%s\n%s\n%s", "=" * 72,
+                 "VERDICT" if lesion_class == "adenoma" else "SECONDARY STATUS",
+                 "=" * 72)
+        log.info("  %s\n  %s", outcome["verdict"], outcome["detail"])
 
-    outcome = verdict(summary)
-    log.info("\n%s\nVERDICT\n%s", "=" * 72, "=" * 72)
-    log.info("  %s\n  %s", outcome["verdict"], outcome["detail"])
-    log.info(
-        "\n  §4's control is %s, the ONLY control-role gene in this deposit, "
-        "and it is an\n  epithelial keratin — it rises with epithelial FRACTION "
-        "as well as with capture.\n  So this statistic does not separate "
-        "'mature cells are gone' from 'mature cells\n  are present and "
-        "silenced'. See multisection Amendment 2.", CONTROL_GENE)
-
-    meta = {
+        meta = {
         "prereg": "docs/prereg_crowell_multisection.md",
         "statistic": f"DiD(gene) = Delta(gene) - Delta({CONTROL_GENE}), "
                      f"on log_separation; the false-positive floor cancels",
@@ -497,16 +620,21 @@ def main(argv: list[str] | None = None) -> int:
             "compositional from intrinsic — the control rises with epithelial "
             "fraction. Amendment 2."
         ),
+        "lesion_class": lesion_class,
+        "analysis_role": "primary" if lesion_class == "adenoma" else "secondary",
         "verdict": outcome,
         "exploratory": False,
         "pre_registered": True,
-    }
-    for frame, name in ((per_block, "crowell_multisection_per_block"),
-                        (summary, "crowell_multisection_summary")):
-        log.info("wrote %s", write_versioned_table(
-            frame, name, seed=args.seed, results_dir=args.results_dir,
-            allow_dirty=args.allow_dirty, extra_meta=meta,
-        ))
+        }
+        suffix = "" if lesion_class == "adenoma" else "_carcinoma"
+        for frame, name in ((per_block, f"crowell_multisection{suffix}_per_block"),
+                            (summary, f"crowell_multisection{suffix}_summary")):
+            log.info("wrote %s", write_versioned_table(
+                frame, name, seed=args.seed, results_dir=args.results_dir,
+                allow_dirty=args.allow_dirty, extra_meta=meta,
+            ))
+    if not any_written:
+        return 4
     return 0
 
 
