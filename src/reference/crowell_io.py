@@ -54,13 +54,21 @@ class CrowellError(RuntimeError):
     """The deposit does not have the shape this module verified."""
 
 
-#: The section named in the pre-registration, and its fallback. Sizes and md5s
-#: are from the Zenodo API listing, recorded so a re-download is checkable.
+#: Every section in the deposit, with the size and md5 the Zenodo API lists.
+#: `open_section` checks the size before opening and the md5 on request: on
+#: 2026-09-07 Zenodo returned a 92-byte error body for 242.h5ad and curl
+#: reported success, so the failure surfaced as an HDF5 signature error, which
+#: names the wrong problem. A truncated but structurally valid file would not
+#: have failed at all.
 SECTIONS: dict[str, dict[str, object]] = {
-    "232": {"bytes": 226_800_000, "md5": "f2271485bae235439267c1bd13f1a7c9",
-            "role": "primary — smallest of eight"},
-    "231": {"bytes": 534_800_000, "md5": "fdd226ec7632a3d45a4f9dd46c24a981",
-            "role": "fallback, named in prereg §2 before any read"},
+    "110": {"bytes": 1510855571, "md5": "3bfdc590cd567b229a632465b7068abe"},
+    "120": {"bytes": 2284476326, "md5": "f66c23f9b21d5e06f6621d380a9b88a9"},
+    "210": {"bytes": 1129119431, "md5": "786856324f2aa519fc76a16e2c6a6875"},
+    "221": {"bytes": 701603393, "md5": "aaf8865f0d33fe416bd0247f30d9e3b6"},
+    "222": {"bytes": 240342720, "md5": "08daa705f2fb960bcd0cf0dcddc749a3"},
+    "231": {"bytes": 534800377, "md5": "fdd226ec7632a3d45a4f9dd46c24a981"},
+    "232": {"bytes": 226754597, "md5": "f2271485bae235439267c1bd13f1a7c9"},
+    "242": {"bytes": 1101144497, "md5": "a596868fe72d59407b45c72995017a1a"},
 }
 
 #: Section -> tissue block, from `metadata.txt` (Zenodo 10.5281/zenodo.15550908),
@@ -105,7 +113,8 @@ FALSE_CODE_PATTERNS: tuple[str, ...] = (
 )
 
 
-def open_section(path: str | Path, *, backed: bool = True):
+def open_section(path: str | Path, *, backed: bool = True,
+                 verify_checksum: bool = False):
     """Open one section's ``.h5ad``. Backed by default — these are 227 MB up."""
     # The path is checked FIRST. Importing anndata first made a missing file
     # report "anndata is required", which sends the reader to fix an
@@ -118,6 +127,30 @@ def open_section(path: str | Path, *, backed: bool = True):
             f"10.5281/zenodo.15574384; record it in data/manifest.csv on "
             f"download."
         )
+    # THE FILE IS CHECKED BEFORE IT IS OPENED. Zenodo returned a 92-byte error
+    # body for 242.h5ad on 2026-09-07 and curl reported success; the reader got
+    # as far as h5py before failing with "file signature not found", which
+    # names the wrong problem. A TRUNCATED but structurally valid h5ad would
+    # not have failed at all — it would have produced a detection rate over a
+    # prefix of the cells. Size is checked always; the md5 only when asked,
+    # because hashing 2.3 GB is not free.
+    expected = SECTIONS.get(path.stem)
+    if expected is not None:
+        actual = path.stat().st_size
+        if actual != expected["bytes"]:
+            raise CrowellError(
+                f"{path} is {actual:,} bytes; Zenodo record 10.5281/zenodo."
+                f"15574384 lists {expected['bytes']:,} for {path.name}. "
+                f"The download is incomplete or is an error body — "
+                f"{'it is small enough to be an HTTP error page; cat it' if actual < 10_000 else 'refetch it'}. "
+                f"Expected md5 {expected['md5']}."
+            )
+        if verify_checksum and checksum(path) != expected["md5"]:
+            raise CrowellError(
+                f"{path} is the right size and the wrong file: md5 does not "
+                f"match {expected['md5']}."
+            )
+
     try:
         import anndata
     except ImportError as exc:  # pragma: no cover - environment dependent
@@ -129,6 +162,17 @@ def open_section(path: str | Path, *, backed: bool = True):
     if adata.n_obs == 0 or adata.n_vars == 0:
         raise CrowellError(f"{path} is {adata.shape}; nothing to read.")
     return adata
+
+
+def checksum(path: Path, *, chunk: int = 1 << 20) -> str:
+    """md5 of a file, streamed. Zenodo publishes md5, so md5 is what is checked."""
+    import hashlib
+
+    digest = hashlib.md5()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(chunk), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _match_any(names: np.ndarray | list[str], patterns: tuple[str, ...]) -> dict[str, np.ndarray]:

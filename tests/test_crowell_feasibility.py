@@ -719,3 +719,54 @@ def test_the_fully_precomputed_path_produces_a_table_without_a_matrix():
     # and the target's fall is visible, which is the whole point of the path
     sep = table.set_index(["gene", "domain"])["log_separation"]
     assert sep[(CRITICAL_GENE, "TVA")] < sep[(CRITICAL_GENE, "REF")]
+
+
+# ---------------------------------------------------------------------------
+# The download that reported success and returned 92 bytes
+# ---------------------------------------------------------------------------
+
+
+def test_a_truncated_download_is_caught_before_it_reaches_the_reader(tmp_path):
+    """THE 242 FAILURE, 2026-09-07.
+
+    Zenodo returned a 92-byte error body and curl reported success. The reader
+    got as far as h5py, which said "file signature not found" — the wrong
+    problem named. A truncated but structurally valid h5ad would not have
+    failed at all: it would have produced a detection rate over a prefix of the
+    cells and no exception.
+    """
+    from src.reference.crowell_io import SECTIONS, open_section
+
+    stub = tmp_path / "242.h5ad"
+    stub.write_bytes(b'{"status": 404}' * 6)          # 90 bytes, like the real one
+    with pytest.raises(CrowellError, match="incomplete or is an error body"):
+        open_section(stub)
+    # and it must say it is small enough to read, rather than "refetch"
+    try:
+        open_section(stub)
+    except CrowellError as exc:
+        assert "cat it" in str(exc)
+        assert SECTIONS["242"]["md5"] in str(exc)
+
+
+def test_a_right_sized_wrong_file_is_caught_when_the_checksum_is_asked_for(tmp_path):
+    from src.reference.crowell_io import SECTIONS, checksum, open_section
+
+    fake = tmp_path / "232.h5ad"
+    fake.write_bytes(b"\0" * SECTIONS["232"]["bytes"])
+    # size alone passes
+    with pytest.raises(CrowellError, match="right size and the wrong file"):
+        open_section(fake, verify_checksum=True)
+    assert checksum(fake) != SECTIONS["232"]["md5"]
+
+
+def test_every_section_in_the_deposit_has_a_size_and_a_checksum():
+    """Eight h5ads, and `241` is deliberately absent — it is in the deposit's
+    metadata.txt and has no file."""
+    from src.reference.crowell_io import SECTION_TO_BLOCK, SECTIONS
+
+    assert set(SECTIONS) == set(SECTION_TO_BLOCK)
+    assert "241" not in SECTIONS
+    for name, spec in SECTIONS.items():
+        assert spec["bytes"] > 200_000_000, name
+        assert len(spec["md5"]) == 32, name
