@@ -624,3 +624,42 @@ def test_the_precomputed_path_needs_its_depth_and_will_not_default_it():
                          obs=pd.DataFrame({"nFeature_negprobes": [0] * len(domains),
                                            "nCount_negprobes": [0] * len(domains)}),
                          detection=detection)
+
+
+def test_gene_columns_are_put_through_the_same_qc_mask_as_the_object(tmp_path):
+    """THE SECOND SECTION 110 FAILURE.
+
+    `read_gene_columns` reads the FILE, which is pre-QC, while the AnnData has
+    already been subset to obs['fil'] == True. On 110 that is 694,553 cells
+    against 668,061, and the two describe different populations. Aligning them
+    by truncation would silently mis-assign every cell after the first QC
+    failure.
+    """
+    anndata = pytest.importorskip("anndata")
+    from scipy.sparse import csc_matrix
+
+    from src.reference.crowell_io import qc_pass_mask, read_gene_columns
+
+    matrix, names, domains = _section(
+        {"REF": {g: 0.4 for g in PANEL}, "TVA": {g: 0.2 for g in PANEL}}, seed=24)
+    n = matrix.shape[0]
+    keep = np.ones(n, dtype=bool)
+    keep[::7] = False                      # a scattered QC failure, not a prefix
+    adata = anndata.AnnData(
+        X=csc_matrix(matrix),
+        obs=pd.DataFrame({"region": domains, "fil": keep},
+                         index=[f"c{i}" for i in range(n)]),
+        var=pd.DataFrame(index=names))
+    path = tmp_path / "110.h5ad"
+    adata.write_h5ad(path)
+
+    panel_index, _ = find_panel(names)
+    raw = read_gene_columns(path, panel_index)
+    assert raw["ACTB"].size == n, "the reader sees the whole file"
+
+    mask = qc_pass_mask(adata.obs)
+    filtered = {g: v[mask] for g, v in raw.items()}
+    assert filtered["ACTB"].size == int(keep.sum())
+    # and the surviving values are the right cells, not the first k of them
+    expected = (matrix[:, panel_index["ACTB"]] >= 1)[keep]
+    assert filtered["ACTB"].tolist() == expected.tolist()

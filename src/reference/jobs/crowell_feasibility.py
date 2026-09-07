@@ -560,9 +560,28 @@ def main(argv: list[str] | None = None) -> int:
     detection = counts_per_cell = genes_per_cell = None
     depth_check: dict[str, object] = {}
     if adata.isbacked and not args.layer:
+        # read_gene_columns reads the FILE, which is pre-QC; `adata` has
+        # already been subset to obs['fil'] == True. The vectors must be put
+        # through the same mask or they describe a different population --
+        # 694,553 cells against 668,061 on section 110, which is how this was
+        # found.
         detection = read_gene_columns(args.object, panel_index,
                                       min_umi=DETECTION_MIN_UMI)
+        for gene, vector in detection.items():
+            if vector.size != n_cells_before_qc:
+                raise CrowellError(
+                    f"{gene}'s column is {vector.size} cells and the file holds "
+                    f"{n_cells_before_qc}. The column reader and the object "
+                    f"disagree about the population; do not align them by "
+                    f"truncating."
+                )
+        detection = {gene: vector[pass_qc] for gene, vector in detection.items()}
         counts_per_cell, genes_per_cell = depth_from_obs(adata.obs)
+        if any(v.size != counts_per_cell.size for v in detection.values()):
+            raise CrowellError(
+                "detection vectors and the depth arrays describe different "
+                "numbers of cells after QC."
+            )
         depth_check = check_depth_is_consistent(detection, genes_per_cell)
         if not depth_check["consistent"]:
             raise CrowellError(
