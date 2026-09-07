@@ -1,7 +1,8 @@
 # Pre-registration — D2: bulk GUCA2A and survival after purity adjustment
 
-**Status:** proposed analysis contract. No D2 survival model, outcome table,
-or survival-derived result has been fitted or inspected under this contract.
+**Status:** locked 2026-09-07, after the outcome-blind D2 feasibility `PASS`
+and before any D2 survival model, outcome table, or survival-derived result was
+fitted or inspected under this contract.
 
 ## 1. Question and boundary
 
@@ -129,10 +130,11 @@ No p-value, subgroup, stage-specific model, interaction, or survival-derived
 cut point outside these rules changes the D2 verdict. Such work, if ever
 desired, is exploratory and separately labelled.
 
-## 6a. Three things this document does not currently fix
+## 6a. Lock conditions and stated limitations
 
-Added on review, before the lock in §7, because each is a decision that will
-otherwise be made silently at execution time.
+Added on review before the lock in §7. The first is an artifact requirement;
+the second fixes the multiplicity strategy; the third is a limitation reported
+rather than hidden or re-tuned after fitting.
 
 **Purity missingness is not missing-at-random, and complete-case drops the
 wrong participants.** `config/covariate_set.yaml` records ABSOLUTE purity
@@ -147,7 +149,7 @@ participant count in the dropped set beside the retained set, per endpoint and
 per purity source. That is outcome-blind and it is the only way the bias
 becomes visible.
 
-**Multiplicity is handled by structure and the document does not say so.**
+**Multiplicity is handled by structure, stated here in advance.**
 Three endpoints and two purity sources is up to six intervals, and a reader will
 count them. The hierarchy in §3 — PFI lead, DSS a pre-specified consistency
 endpoint, OS descriptive only — together with §6 treating the purity re-run as a
