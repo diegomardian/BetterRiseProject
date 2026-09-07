@@ -586,6 +586,14 @@ each remaining level at k = 1.
 
 **Nothing is half-finished except three things, and all three are named below.**
 
+**This block outranks every dated section under it.** Those sections each say
+they supersede what came before them, which is true of their own date and no
+later one — so when one of them says an item is open and this table does not,
+this table is right. On 2026-09-07 a reader of the ranked list below was sent to
+retry Crowell `242` and to chase the Xenium panel, both of which had closed
+hours earlier. Those entries are now corrected in place, but the precedence rule
+is what stops the next one.
+
 | open | what it needs |
 |---|---|
 | **The write-up** | Eight days. ~15 results across 2026-09-06/07 in neither paper, and `neurips_2026.sty` still unvendored so `./build.sh` has never run. **This outranks everything.** |
@@ -607,16 +615,24 @@ Supersedes the corresponding entries above where they conflict. Each item names
 what it is *not* as tightly as what it is, because five of the six were
 originally written one class stronger than the data supports.
 
-**1 · Crowell — retry `242`, and report six of seven if it stays blocked.**
-`docs/prereg_crowell_multisection.md` RESULT. The result is a **patient-level
-target-versus-epithelial-domain pattern**: GUCA2A −1.378 [−2.046, −0.709] and
-MS4A12 −1.272 [−2.053, −0.492] over six blocks, CDX2 and EPCAM not clearing
-zero. It is **not** evidence separating compositional from intrinsic loss
+**1 · Crowell — CLOSED 2026-09-07, seven of seven.** The 504 cleared on a
+retry; `242.h5ad` is `results/2026-09-07_da1f46b/` and the aggregate is
+`7336e02`. `docs/prereg_crowell_multisection.md` RESULT. The result is a
+**patient-level target-versus-epithelial-domain pattern**: GUCA2A −1.307
+[−1.872, −0.741] and MS4A12 −1.241 [−1.874, −0.609] exclude zero and are
+negative in 7 of 7 blocks; CDX2 +0.327 [−0.151, +0.805] and EPCAM +0.234 do not.
+Section 7's pass branch, at 3.01× avenue A's width.
+
+**The seventh block is the argument for §3's fixed order.** CDX2's lower bound
+ran −0.251, −0.156, −0.020, −0.151 across four, five, six and seven blocks — at
+six it was 0.020 from clearing zero *opposite* the target, and 242's CDX2 came
+in at −0.395 and pushed it back out. Stopping at six, which felt complete, would
+have reported a discriminator on the edge of resolving.
+
+It is **not** evidence separating compositional from intrinsic loss
 (Amendment 2 — the only control-role gene is an epithelial keratin) and **not** a
 per-cell silencing result (feasibility §7). Below-floor observations are bounds,
-not effect-size points (Amendment 4). `242.h5ad` returned HTTP 504 from every
-Zenodo endpoint on 2026-09-07; §3's order was followed exactly, so a missing
-seventh is a **named server failure, not a stopping rule**.
+not effect-size points (Amendment 4). **Nothing here is open.**
 
 **2 · A2 / ML — contingent infrastructure only.** The public MxIF product is 42
 pixel NPZ regions with **no cell segmentation and no cell-by-marker table**; the
@@ -638,9 +654,10 @@ metadata, and a patient-level n that is not 3.**
 
 **4 · Lesion-level Wnt — feasibility-gated, and the gate is partly answered.**
 D1 was within-patient and explicitly conceded between-lesion variation. The
-substrate now exists but is thin: **Crowell gives 2 of 6 blocks with multiple
-adenoma sub-regions** (`110` and `221`, three each — audited from
-`crowell_subdomains_exploratory.parquet`). Becker has 43 polyps across 12
+substrate now exists but is thin: **Crowell gives 2 of the 6 blocks that were
+audited for sub-regions with multiple adenoma sub-regions** (`110` and `221`,
+three each — from `crowell_subdomains_exploratory.parquet`; `242` arrived after
+that audit and has not been read for sub-regions). Becker has 43 polyps across 12
 donors, seven of them with ≥2, but **only four donors carry a reference arm and
 those per-donor counts were never committed** — they exist only in a
 `--inspect` log and need the 8.8 KB series matrix re-read to become an artifact.
@@ -649,7 +666,16 @@ patient-clustered or mixed-model, with the Wnt score and adjustment set fixed
 first, and read as association. Crowell's sub-domains stay `exploratory` under
 its own pre-registration and cannot be borrowed.
 
-**5 · D2 survival — a feasibility gate before the pre-specification.**
+**5 · D2 survival — the gate PASSED 2026-09-07; the pre-specification is
+proposed, not locked.** `results/2026-09-07_1dc7624/`: n=624, IQR 2.9607, 312
+below and 312 above the median — so the "GUCA2A is at floor in most tumours"
+worry is refuted for bulk TCGA, and the gate licenses a pre-specification and
+nothing else. `docs/prereg_d2_survival.md` is written and **unlocked**; its §6a
+names three decisions it leaves open (purity missingness is not MAR and drops
+~106 participants preferentially at low purity; multiplicity handled by
+structure; ten-events-per-df uncalibrated). **What is open is the lock and the
+implementation, not the gate.** The original text follows.
+
 Assess GUCA2A's distribution and usable variation in the committed TCGA
 matrices **without touching outcomes**; record the gate and its threshold; model
 only if it passes. If the marker is at floor in most tumours there is no
@@ -662,10 +688,15 @@ outcome-blind pass conditions before the cluster run.
 `best4` returns exactly-zero mature fraction on **1,314 of 1,350
 method-by-sample rows (97.3%)**; that is **641 of 675 tumours zero under both
 methods**. Every row is marked `estimability='estimated'` with an empty reason
-field. **Never present it as a biological mature-cell fraction.** The source
-artifact's denominator and semantics must be audited before quoting either
-number; the only supported carcinoma conclusion is "not estimable at this
-resolution".
+field. **Never present it as a biological mature-cell fraction.**
+
+**The denominator audit ran 2026-09-07 (`a51f4af`) and the number above was
+being quoted wrongly, here included.** 1,350 is method-by-sample rows, not
+samples. The correct statements: **1,314/1,350 rows (97.3%)** and **641/675
+tumours zero under both methods (95.0%)**, with 673/675 zero under at least one
+— so exactly two tumours are non-zero under both. `docs/stage4_carcinoma_audit.md`
+records it as a resolvability diagnostic. The only supported carcinoma
+conclusion is "not estimable at this resolution". **Closed.**
 
 **Policy, not an invariant.** *ML produces segmentation, geometry or anatomical
 measurements; biological claims are patient-level estimates with explicit
@@ -682,16 +713,22 @@ PR, two approvals, and a guard that can fail. It is already applied in practice
 5. **The write-up.** Six results from 2026-09-06 are in neither paper and the
    WMHS deadline is **15 September 2026**. This outranks everything below it.
    `docs/HANDOFF.md` §6f.
-6. **B1's feasibility gate** — as **C1 evidence only**. Its paired cohort is
-   four donors (Becker Amendment 2) so it cannot replicate avenue A, but the
-   GUCA2A/MS4A12-in-nuclei detection table bears on whether in-situ platforms
-   can see these genes at all. Data is on disk; `--inspect` is the next command.
-7. **C1's panel lookup** — **HALF DONE 2026-09-07.** CosMx answered and it is a
-   clean negative: **GUCA2A is on neither the 1K nor the 6K panel**, nor is
-   ACTB. C1 is not runnable on a stock CosMx panel; it needs custom probes for
-   the target itself. **Xenium is still open** — 10x rate-limited every request
-   — and it is the cheapest thing left on this list. Tier 1 §C above has the
-   table and the two URLs.
+6. ~~**B1's feasibility gate.**~~ **RAN 2026-09-07 — NOT LICENSED.**
+   `docs/prereg_becker_replication.md` RESULT, table
+   `results/2026-09-07_2305f23/`. The gate is **CLEARED BY DEPTH — NOT
+   LICENSED**: the arm-threaded read passes only because Becker's depth exceeds
+   Chen's, and §3's physical premise — that these genes are visible in nuclei at
+   in-situ depth — is refuted rather than supported. **Do not queue it.**
+7. ~~**C1's panel lookup.**~~ **CLOSED 2026-09-07 on both vendors (`a51f4af`),
+   and the answer is sharper than the CosMx-only reading.** The panels are
+   **complementary and disjoint** on what this design needs:
+   Xenium Colon v1 (322) carries GUCA2A and MS4A12 and **no control at all**;
+   CosMx 6K (6415) carries KRT8/EPCAM/CDX2 and **neither target**; Xenium Prime
+   5K carries EPCAM/CDX2 and no KRT8; CosMx 1K carries KRT8/EPCAM only.
+   **No stock panel carries a target and a control together**, so C1 needs
+   custom probes or a different design. Parses verified clean (322/322,
+   5001/5001) so the absences are real, and the panel files are checksum-pinned
+   in `data/manifest.csv`. **Do not queue it.**
 8. **Zheng's gradient** (1c), descriptive, and **no interval may be reported
    from it**: at n=3 the percentile bootstrap is 25.1% and 0.372× the correct
    width.
