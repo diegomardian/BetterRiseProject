@@ -513,6 +513,21 @@ that the new mature-fraction code is right. It is also why §2 refused a
 `best4`-only reading: a curve whose lower bound is absent cannot show it is a
 curve.
 
+### The curve has THREE distinct points, not four
+
+**`crypt_position` collapsed onto `lineage`.** Its mature fraction and mature
+cell count are *identical* for **41 of 44 patients**. The run log says why, once
+per patient: *"supports only 2 of 3 bins — scores are tied across a quantile
+boundary. Using ('crypt_bottom', 'crypt_top')."* The tertile split could not be
+formed on this data, so it degenerated to a two-bin split — which is
+`lineage`'s median split.
+
+So the granularity curve §2 required is **epithelial → lineage(≈crypt_position)
+→ best4**, three points, and this document should not be quoted as reporting
+four. It does not weaken the curve's purpose — the split still moves with
+annotation resolution, which is what the frozen axes file demands be shown —
+but a reader counting rungs would otherwise over-count the evidence.
+
 ### §3.3's separation paid, on its first use
 
 **Compositional estimability is `ok` for 20 of 20 patients at `best4`**, where

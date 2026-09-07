@@ -678,6 +678,12 @@ interaction of **exactly 0.000** for all six genes. Δf is identically zero at
 that rung, so it must. It is the cheapest test that the mature-fraction code is
 right, and it is why a `best4`-only reading was refused.
 
+**The curve is THREE points, not four.** `crypt_position` collapsed onto
+`lineage` — identical mature fraction and cell count for **41 of 44 patients**,
+because the tertile split could not be formed and degenerated to a two-bin one
+(*"supports only 2 of 3 bins"*, once per patient in the log). Read the curve as
+epithelial → lineage(≈crypt_position) → best4.
+
 **§3.3's two-rule separation paid on its first use.** Compositional estimability
 is `ok` for **20 of 20** at `best4`, where the intrinsic arm is 4 `ok` on
 provisional cutpoints and **0 `ok` on either calibrated candidate** (§3a-bis).
