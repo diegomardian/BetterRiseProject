@@ -68,7 +68,17 @@ log = logging.getLogger(__name__)
 PANEL: tuple[str, ...] = ("KRT8", "ACTB", "EPCAM", "CDX2", "MS4A12", "GUCA2A")
 TARGET_BLOCK: frozenset[str] = frozenset({"MS4A12", "GUCA2A"})
 
+#: LOAD-BEARING, pre-registered in docs/prereg_decomposition_statistic.md and
+#: committed BEFORE it was computed on anything. Chosen because the project
+#: already made this decision one estimand over: detection_scale.py moved to a
+#: LOG FOLD CHANGE because a difference of two proportions is not comparable
+#: across genes at different baselines, and the decomposition presents the same
+#: problem. It is also the only candidate unbounded in both directions, where
+#: the shares compress at exactly the end the two targets occupy.
+LOAD_BEARING = "log_ratio"
+
 STATISTICS: dict[str, str] = {
+    "log_ratio": "log(|i| / |c|) — LOAD-BEARING, pre-registered before computing",
     "share_abs": "|i| / (|i| + |c|), bounded [0,1] — what the RESULT quoted",
     "share_signed": "i / (|i| + |c|), bounded [-1,1] — keeps the sign",
     "ratio": "i / c — NEXT_AVENUES §1a's form; median, rank-based interval",
@@ -112,6 +122,15 @@ def scale_free(split: pd.DataFrame) -> pd.DataFrame:
     out["share_signed"] = out["intrinsic"] / finite
     out["ratio"] = (out["intrinsic"] / out["compositional"].where(
         out["compositional"] != 0)).replace([np.inf, -np.inf], np.nan)
+    # The load-bearing one. Undefined where either term is exactly zero -- those
+    # rows drop out and are counted, never floored to a small constant. At the
+    # `epithelial` rung the compositional term is exactly zero for every gene by
+    # construction, so log_ratio is undefined there for the whole panel. That is
+    # stated in the prereg rather than discovered here.
+    out["log_ratio"] = np.log(
+        out["intrinsic"].abs().where(out["intrinsic"] != 0)
+        / out["compositional"].abs().where(out["compositional"] != 0)
+    ).replace([np.inf, -np.inf], np.nan)
     return out
 
 
@@ -247,6 +266,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                      r["ci_low"], r["ci_high"],
                      "EXCLUDES ZERO" if r["excludes_zero"] else "contains zero")
 
+    defined = values.groupby("granularity_rung")["log_ratio"].apply(
+        lambda v: f"{v.notna().sum()}/{len(v)}")
+    log.info("\n  log_ratio defined on (gene x patient) rows per rung: %s",
+             defined.to_dict())
+
     disputed = disagreements(everything)
     log.info("\n%s\nWHERE THE STATISTICS DISAGREE\n%s", "=" * 72, "=" * 72)
     if disputed.empty:
@@ -273,6 +297,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         "source": f"{path.parent.name}/{path.name}",
         "statistics": STATISTICS,
+        "load_bearing": LOAD_BEARING,
+        "load_bearing_prereg": "docs/prereg_decomposition_statistic.md",
         "median_statistics": sorted(MEDIAN_STATISTICS),
         "rejected_statistic": (
             "intrinsic / total — the total passes through zero whenever the two "
