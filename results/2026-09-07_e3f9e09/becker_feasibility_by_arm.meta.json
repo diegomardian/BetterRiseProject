@@ -1,0 +1,85 @@
+{
+  "date": "2026-09-07",
+  "utc_timestamp": "2026-09-07T06:12:02+00:00",
+  "git_sha": "e3f9e0983bec6e00b682f8e852989ad6ecfeed45",
+  "git_sha_short": "e3f9e09",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.11.15",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "scanpy_version": "1.10.2",
+  "anndata_version": "0.10.8",
+  "name": "becker_feasibility_by_arm",
+  "n_rows": 24,
+  "columns": [
+    "arm",
+    "gene",
+    "n_cells",
+    "n_patients",
+    "detection",
+    "mean_cp10k_proxy",
+    "share_patients_nonzero",
+    "chen_baseline",
+    "mu_becker",
+    "mu_chen",
+    "log_fc_vs_chen",
+    "fold_mu_vs_chen",
+    "naive_ratio_of_p",
+    "clears_detection",
+    "clears_patient_share",
+    "passes",
+    "role",
+    "logfc_healthy_donor_vs_normal",
+    "logfc_normal_vs_tumour"
+  ],
+  "table_kind": "harness",
+  "prereg": "docs/prereg_becker_replication.md",
+  "gate": {
+    "min_detection": 0.1,
+    "min_patient_share_nonzero": 0.75
+  },
+  "critical_gene": "GUCA2A",
+  "verdict": {
+    "verdict": "FULL DESIGN",
+    "detail": "every panel gene clears the gate; the replication runs as pre-registered."
+  },
+  "chen_baseline": {
+    "ACTB": 0.984,
+    "KRT8": 0.958,
+    "EPCAM": 0.9,
+    "CDX2": 0.822,
+    "GUCA2A": 0.437,
+    "MS4A12": 0.363
+  },
+  "mature_label": {
+    "markers": [
+      "CA1",
+      "CA2",
+      "AQP8",
+      "SLC26A3",
+      "KRT20",
+      "CEACAM7"
+    ],
+    "min_markers": 2,
+    "min_cells": 200,
+    "none_is_on_the_panel": true,
+    "why": "invariant 2 \u2014 a target gene in the label returns the threshold it was given. The whole panel is excluded so the controls stay usable inside the label.",
+    "taken": true,
+    "depth_audit_controls": [
+      "ACTB",
+      "KRT8",
+      "EPCAM"
+    ]
+  },
+  "gene_column": null,
+  "patient_column": null,
+  "layer": "X",
+  "genes_absent_from_object": [],
+  "scope": "the normal arm, but not its mature cells, which is what the prereg names. Mature cells enrich for these markers, so this is still a lower bound on the pre-registered gate. Detection for every arm is in the by_arm table.",
+  "exploratory": false,
+  "pre_registered": true
+}
