@@ -589,6 +589,79 @@ each remaining level at k = 1.
 4. ~~**The DIS/VAL stability split.**~~ **RAN 2026-09-06 — AMBIGUOUS**, with
    zero sign reversals across three specimen collections. §6j.
 
+### Roadmap amendment, 2026-09-07 — six items, after the Crowell run
+
+Supersedes the corresponding entries above where they conflict. Each item names
+what it is *not* as tightly as what it is, because five of the six were
+originally written one class stronger than the data supports.
+
+**1 · Crowell — retry `242`, and report six of seven if it stays blocked.**
+`docs/prereg_crowell_multisection.md` RESULT. The result is a **patient-level
+target-versus-epithelial-domain pattern**: GUCA2A −1.378 [−2.046, −0.709] and
+MS4A12 −1.272 [−2.053, −0.492] over six blocks, CDX2 and EPCAM not clearing
+zero. It is **not** evidence separating compositional from intrinsic loss
+(Amendment 2 — the only control-role gene is an epithelial keratin) and **not** a
+per-cell silencing result (feasibility §7). Below-floor observations are bounds,
+not effect-size points (Amendment 4). `242.h5ad` returned HTTP 504 from every
+Zenodo endpoint on 2026-09-07; §3's order was followed exactly, so a missing
+seventh is a **named server failure, not a stopping rule**.
+
+**2 · A2 / ML — contingent infrastructure only.** The public MxIF product is 42
+pixel NPZ regions with **no cell segmentation and no cell-by-marker table**; the
+three Synapse entities refuse anonymous read. **No biological analysis proceeds
+from it alone.** Crypt-position assignment needs independently annotated
+anatomical ground truth, patient-held-out evaluation, and a
+morphology-or-geometry-derived label — and it still does not touch the per-cell
+false-negative problem (`docs/HANDOFF.md` §6g).
+
+**3 · AD versus SSL — a DATA HUNT, not a pre-registrable analysis.**
+**No transcriptomic substrate exists in hand.** The ICBI atlas carries `polyp`
+with no subtype, from two studies only; Crowell is **entirely TVA**. The sole
+AD/SSL source is A2's pixel inventory — `config/a2_mxif_regions.csv`, 7 AD and 8
+SSL patients, of which **only 8 have a labelled normal/tumour pair: 3 AD against
+5 SSL** — and item 2 rules that product out for biological claims. At 3 patients
+the AD arm sits exactly on `MIN_STUDIES` and 8.07× avenue A's width.
+**Requirement: a cohort with paired reference, both lesion types, subtype
+metadata, and a patient-level n that is not 3.**
+
+**4 · Lesion-level Wnt — feasibility-gated, and the gate is partly answered.**
+D1 was within-patient and explicitly conceded between-lesion variation. The
+substrate now exists but is thin: **Crowell gives 2 of 6 blocks with multiple
+adenoma sub-regions** (`110` and `221`, three each — audited from
+`crowell_subdomains_exploratory.parquet`). Becker has 43 polyps across 12
+donors, seven of them with ≥2, but **only four donors carry a reference arm and
+those per-donor counts were never committed** — they exist only in a
+`--inspect` log and need the 8.8 KB series matrix re-read to become an artifact.
+Sub-regions and lesions are **not independent patients**; any analysis is
+patient-clustered or mixed-model, with the Wnt score and adjustment set fixed
+first, and read as association. Crowell's sub-domains stay `exploratory` under
+its own pre-registration and cannot be borrowed.
+
+**5 · D2 survival — a feasibility gate before the pre-specification.**
+Assess GUCA2A's distribution and usable variation in the committed TCGA
+matrices **without touching outcomes**; record the gate and its threshold; model
+only if it passes. If the marker is at floor in most tumours there is no
+variation to regress on and the prespec would be written for a study that cannot
+produce a non-null. Same shape as B1's detection gate, and B1 is why this
+sentence exists.
+
+**6 · Carcinoma — a candidate resolvability diagnostic, not a fraction.**
+`best4` returns exactly-zero mature fraction on **97.3% of 1,350** TCGA rows
+with `estimability='estimated'` and an **empty reason field**. Audit the source
+artifact, denominator, estimability status and those reasons before quoting the
+number. **Never present it as a biological mature-cell fraction.** The
+conclusion carcinoma supports is "not estimable at this resolution".
+
+**Policy, not an invariant.** *ML produces segmentation, geometry or anatomical
+measurements; biological claims are patient-level estimates with explicit
+abstention rules.* That belongs in `CONTRIBUTING`, because the standing
+invariants are enforced by assertions and this one is not testable. The
+**testable** half — *no transcript-derived label may define a population and
+then be used to claim the state of its own defining programme* — is a candidate
+**invariant 11**, and it reaches `CLAUDE.md` only through invariant 3's route: a
+PR, two approvals, and a guard that can fail. It is already applied in practice
+(Becker RESULT, Crowell multisection Amendment 1 §2) and unenforced in code.
+
 ### Still open, ranked
 
 5. **The write-up.** Six results from 2026-09-06 are in neither paper and the
