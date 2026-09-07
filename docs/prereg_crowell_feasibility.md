@@ -358,8 +358,7 @@ python -m src.reference.jobs.crowell_feasibility \
 
 ### What the superseded numbers say, replayed through the corrected verdict
 
-Not a result — `results/2026-09-07_d3d1369/` is superseded three times over and
-the rerun above is what will be quoted. Recorded so the rerun is not the first
+Not a result. **Three tables exist for section `231` and two are superseded**: `results/2026-09-07_d3d1369/` (pre-QC, pre-`nan`-exclusion, old verdict) and `results/2026-09-07_194b669/` (post-QC, old verdict). **`results/2026-09-07_6e7e93e/` is the one to quote.** Its named-domain numbers are bit-identical to both, which confirms that neither the QC filter nor the `nan` exclusion moved a real domain — only the verdict changed. Recorded so the rerun is not the first
 time anyone sees the shape of it.
 
 | field | value |
