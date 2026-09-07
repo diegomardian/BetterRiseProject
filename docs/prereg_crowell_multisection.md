@@ -249,14 +249,29 @@ are untouched. **No threshold moved.**
 `control`-role gene in the deposit. **`KRT8` is an epithelial keratin, and it
 does not behave like a capture control here.**
 
-| block | depth ratio REF→adenoma | `log(depth)` | `KRT8` `dlog(mu)` | `GUCA2A` `dlog(mu)` |
-|---|---|---|---|---|
-| 24H12439_A4 (231) | 1.43× | +0.356 | **+1.746** | −0.747 |
-| B-2080151-01-18 (110) | 1.97× | +0.676 | **+0.941** | +0.102 |
+> **Corrected 2026-09-07.** The first version of this table gave `KRT8` as
+> **+1.746** in block 231. That was **0.154186** — Becker's normal-arm KRT8
+> detection — used in place of Crowell 231_REF's **0.360144**: a number from
+> another dataset, in a scratch calculation, propagated into a
+> pre-registration. Found by re-deriving the table from the committed parquet,
+> which is where every value below now comes from. The correction changes the
+> magnitude and not the direction.
 
-**`KRT8` rises far more than depth does** — five times the depth term in 231.
-It is tracking epithelial *fraction*, which is higher in a lesion than in
-mucosa, as well as capture. `EPCAM` does the same and is `epithelial` by role.
+`dlog(mu)` from reference to adenoma, per block. Every value is re-derivable
+from the committed `crowell_feasibility.parquet` — `detection` and
+`median_counts_per_cell` are columns in it.
+
+| block | depth | `log(depth)` | KRT8 | CDX2 | EPCAM | MS4A12 | GUCA2A |
+|---|---|---|---|---|---|---|---|
+| 24H12439_A4 (231) | 1.43× | **+0.356** | +0.766 | +0.754 | +0.733 | −0.605 | −0.747 |
+| B-2080151-01-18 (110) | 1.97× | **+0.676** | +0.941 | +1.156 | +1.322 | +0.182 | +0.102 |
+
+**The whole epithelial group rises at or above the depth term and the two
+targets do not.** KRT8, CDX2 and EPCAM come in at 2.1–2.2× the log-depth in
+231 and 1.4–2.0× in 110; MS4A12 and GUCA2A **fall** in 231 and rise a fifth of
+the depth term in 110. So `KRT8` is tracking epithelial *fraction*, which is
+higher in a lesion than in mucosa, as well as capture — and so are `CDX2` and
+`EPCAM`, the latter `epithelial` by role.
 
 ### What that costs, stated plainly
 

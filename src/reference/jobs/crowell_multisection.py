@@ -55,6 +55,10 @@ from src.reference.jobs.coexpression_silencing import GENE_ROLES
 
 log = logging.getLogger(__name__)
 
+
+def _mu(p):
+    return -np.log1p(-np.clip(np.asarray(p, dtype=float), 0.0, 1 - 1e-12))
+
 #: The control the DiD is taken against. ACTB is absent from this deposit, so
 #: this is the only `control`-role gene present — feasibility Amendment 1 §3.
 CONTROL_GENE = "KRT8"
@@ -126,6 +130,14 @@ def per_block_did(results_dir: Path) -> pd.DataFrame:
             )
         frame = pd.read_parquet(table)
         present = set(frame["domain"].astype(str))
+        # Amendment 2's diagnosis, RECORDED rather than re-derived. Every value
+        # is already implied by `detection` and `median_counts_per_cell` in the
+        # per-section table, but a number that has to be recomputed by hand to
+        # be checked is a number that gets recomputed wrong: this document's
+        # first version of it used Becker's KRT8 in place of Crowell's.
+        detection = frame.set_index(["gene", "domain"])["detection"]
+        depth = frame.drop_duplicates("domain").set_index("domain")[
+            "median_counts_per_cell"]
         adenoma = resolve_label(adenoma, present)
         reference = resolve_label(reference, present)
         if not (adenoma and reference):
@@ -140,11 +152,23 @@ def per_block_did(results_dir: Path) -> pd.DataFrame:
             if (gene, adenoma) not in sep or (gene, reference) not in sep:
                 continue
             delta = sep[(gene, adenoma)] - sep[(gene, reference)]
+            dlog_mu = float(np.log(_mu(detection[(gene, adenoma)])
+                                   / _mu(detection[(gene, reference)])))
             rows.append({
                 "block": block, "section": section, "run": table.parent.name,
                 "gene": gene, "role": GENE_ROLES.get(gene),
                 "delta": float(delta),
                 "control_delta": float(control_delta),
+                # Amendment 2: the epithelial group rises at or above the depth
+                # term and the targets do not. Compare dlog_mu with log_depth.
+                "detection_reference": float(detection[(gene, reference)]),
+                "detection_adenoma": float(detection[(gene, adenoma)]),
+                "dlog_mu": dlog_mu,
+                "median_depth_reference": float(depth[reference]),
+                "median_depth_adenoma": float(depth[adenoma]),
+                "log_depth_ratio": float(np.log(depth[adenoma] / depth[reference])),
+                "rises_faster_than_depth": bool(
+                    dlog_mu > np.log(depth[adenoma] / depth[reference])),
                 # The floor cancels here: log_sep is log(mu_gene) - log(mu_floor),
                 # so this is dlog(mu_gene) - dlog(mu_control).
                 "did": float(delta - control_delta),
