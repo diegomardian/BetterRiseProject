@@ -42,5 +42,11 @@ retuned after seeing the distribution.
 ## Execution boundary
 
 The local checkout has no committed TCGA processed matrix, so execution belongs
-to W3 on the cluster. It should write a versioned result through the standard
-results writer and cite this document as the gate contract.
+to W3 on the cluster. Run, from a clean checkout with `BRP_DATA_DIR` exported:
+
+```bash
+python -m src.bulk.d2_feasibility_gate
+```
+
+It writes `d2_guca2a_feasibility.parquet` through the standard results writer
+and cites this document as the gate contract.
