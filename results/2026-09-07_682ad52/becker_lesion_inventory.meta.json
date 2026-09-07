@@ -1,0 +1,29 @@
+{
+  "date": "2026-09-07",
+  "utc_timestamp": "2026-09-07T23:45:13+00:00",
+  "git_sha": "682ad5252a028b0e683ec46532e4533072dc5bee",
+  "git_sha_short": "682ad52",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "notes": "GSE201348 metadata inventory. One lesion is one unique sample_id; technical replicate GSM rows are retained separately.",
+  "name": "becker_lesion_inventory",
+  "n_rows": 12,
+  "columns": [
+    "donor",
+    "n_tumour_lesions",
+    "n_tumour_rows",
+    "n_normal_lesions",
+    "paired"
+  ],
+  "table_kind": "harness",
+  "source": "GSE201348_series_matrix.txt.gz",
+  "source_kind": "GEO series metadata",
+  "unit": "unique polyp sample_id within donor",
+  "inference_unit": "donor; inventory does not promote lesions to n"
+}

@@ -705,9 +705,12 @@ collapses replicates by `sample_id` and keeps the row count beside the
 biological count so the collapse stays auditable.
 **The independent unit is still 4 donors, not 31 lesions** (invariant 5, Becker
 Amendment 2), so this needs a lesion-within-donor pre-specification before any
-analysis. The metadata-only `--lesion-inventory` writer is committed and tested;
-**the remaining mechanical step is to run it from a clean tree and commit its
-versioned parquet plus sidecar.**
+analysis. **The inventory is now an artifact:**
+`results/2026-09-07_682ad52/becker_lesion_inventory.parquet`, written from a
+clean tree by `--lesion-inventory` off the 8.8 KB series matrix alone. Twelve
+donors, 42 lesions, 43 sequencing rows, and A002 carries the replicate in the
+open at 10 lesions against 11 rows. `paired` is True for A001, A002, A014 and
+A015 and sums to 31.
 Sub-regions and lesions are **not independent patients**; any analysis is
 patient-clustered or mixed-model, with the Wnt score and adjustment set fixed
 first, and read as association. Crowell's sub-domains stay `exploratory` under
