@@ -680,3 +680,42 @@ def test_per_domain_table_refuses_two_nones_rather_than_dereferencing_one():
     # the failure must not be an AttributeError on None deep inside the loop
     assert isinstance(excinfo.value, CrowellError), (
         f"expected a stated refusal, got {excinfo.value!r}")
+
+
+def test_the_fully_precomputed_path_produces_a_table_without_a_matrix():
+    """THE TEST THAT WAS MISSING FOR THREE ATTEMPTS.
+
+    Every other precomputed test supplies a PARTIAL set and asserts a refusal,
+    so none reached the body. The depth lines there were unconditional — an
+    edit meant to guard them matched nothing and wrote unchanged content — so
+    `main` passed the arrays in and they were immediately overwritten by
+    `None.sum()`.
+    """
+    n = 900
+    rng = np.random.default_rng(41)
+    domains = np.array(["REF"] * (n // 2) + ["TVA"] * (n - n // 2))
+    detection = {"ACTB": rng.random(n) < 0.5,
+                 CRITICAL_GENE: np.where(domains == "REF",
+                                         rng.random(n) < 0.30,
+                                         rng.random(n) < 0.05)}
+    obs = pd.DataFrame({"nFeature_negprobes": rng.poisson(0.5, n),
+                        "nCount_negprobes": rng.poisson(0.6, n)})
+    counts = rng.integers(200, 900, n).astype(float)
+    genes = rng.integers(50, 400, n).astype(float)
+
+    table = per_domain_table(
+        None, {"ACTB": 0, CRITICAL_GENE: 1}, domains, obs=obs,
+        n_negative_probes=50, detection=detection,
+        counts_per_cell=counts, genes_per_cell=genes)
+
+    assert set(table["domain"]) == {"REF", "TVA"}
+    assert table["detection"].notna().all()
+    # the supplied depth is used, not recomputed and not zeroed
+    per_domain = table.drop_duplicates("domain").set_index("domain")
+    assert per_domain.loc["REF", "median_counts_per_cell"] == pytest.approx(
+        float(np.median(counts[domains == "REF"])))
+    assert per_domain.loc["TVA", "median_genes_per_cell"] == pytest.approx(
+        float(np.median(genes[domains == "TVA"])))
+    # and the target's fall is visible, which is the whole point of the path
+    sep = table.set_index(["gene", "domain"])["log_separation"]
+    assert sep[(CRITICAL_GENE, "TVA")] < sep[(CRITICAL_GENE, "REF")]

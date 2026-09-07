@@ -180,8 +180,14 @@ def per_domain_table(matrix, panel_index: dict[str, int], domains,
     domain_values = pd.Series(domains, dtype="object")
     has_domain = domain_values.notna().to_numpy()
     domain_labels = domain_values.astype("string")
-    counts_per_cell = np.asarray(matrix.sum(axis=1)).ravel()
-    genes_per_cell = np.asarray((matrix > 0).sum(axis=1)).ravel()
+    # Only computed from the matrix when the caller did not supply them. This
+    # pair was unconditional for three attempts on section 110: an edit meant
+    # to guard it silently matched nothing, so `main` passed the precomputed
+    # arrays in and they were overwritten by `None.sum()` on the next line.
+    if counts_per_cell is None:
+        counts_per_cell = np.asarray(matrix.sum(axis=1)).ravel()
+    if genes_per_cell is None:
+        genes_per_cell = np.asarray((matrix > 0).sum(axis=1)).ravel()
 
     rows = []
     for domain in sorted(domain_labels.loc[has_domain].unique()):
