@@ -279,7 +279,8 @@ def gate(detection: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values("detection", ascending=False, ignore_index=True)
 
 
-def verdict(gated: pd.DataFrame, *, mature_labelled: bool = False) -> dict:
+def verdict(gated: pd.DataFrame, *, mature_labelled: bool = False,
+            audit: "pd.DataFrame | None" = None) -> dict:
     """§3's outcome table, taken by code rather than by a reader.
 
     ``mature_labelled`` says whether the detection handed in is the one §3
@@ -295,6 +296,39 @@ def verdict(gated: pd.DataFrame, *, mature_labelled: bool = False) -> dict:
     """
     passing = set(gated.loc[gated["passes"], "gene"])
     failing = sorted(set(gated["gene"]) - passing)
+
+    # A PASS BOUGHT BY DEPTH IS NOT A PASS. The mature label is built from
+    # marker DETECTION, which rises with library size, so the restriction lifts
+    # every gene. `enrichment_audit` asks whether the critical gene rose FURTHER
+    # than the controls did in the same cells. If it did not, the floor was
+    # cleared by sequencing depth and §3's design is not licensed.
+    #
+    # This used to log a warning beside a FULL DESIGN verdict. A check that
+    # warns and does not bind is a check that reports success, which is the
+    # defect this repository is named after. It binds now.
+    if (mature_labelled and audit is not None and not audit.empty
+            and CRITICAL_GENE in passing):
+        row = audit.loc[audit["gene"] == CRITICAL_GENE]
+        if len(row) and not bool(row["beyond_control_band"].iloc[0]):
+            r = row.iloc[0]
+            others = audit.loc[audit["beyond_control_band"]
+                               & (audit["gene"] != CRITICAL_GENE), "gene"].tolist()
+            return {
+                "verdict": "CLEARED BY DEPTH — NOT LICENSED",
+                "detail": (
+                    f"{CRITICAL_GENE} clears the floor "
+                    f"({r['detection_whole_arm']:.3f} -> "
+                    f"{r['detection_mature']:.3f}) but its enrichment "
+                    f"({r['log_enrichment']:+.3f}) sits INSIDE the band the "
+                    f"controls describe ({r['control_band_low']:+.3f} to "
+                    f"{r['control_band_high']:+.3f}). The label selected deeper "
+                    f"nuclei, not mature ones, so the gate was cleared by "
+                    f"library size. The replication is NOT licensed on this "
+                    f"reading."
+                    + (f" Genuinely enriched, for contrast: {', '.join(others)}."
+                       if others else "")
+                ),
+            }
 
     if failing and not mature_labelled:
         rows = gated.loc[gated["gene"].isin(failing)]
@@ -720,7 +754,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     float(critical["control_band_high"].iloc[0]))
             table, gated, mature_labelled = mature_table, gate(mature_table), True
 
-    outcome = verdict(gated, mature_labelled=mature_labelled)
+    outcome = verdict(gated, mature_labelled=mature_labelled,
+                      audit=audit if not audit.empty else None)
 
     log.info("\n%s\nDETECTION BY ARM — the gate reads the '%s' row\n%s",
              "=" * 72, gate_arm, "=" * 72)
@@ -756,14 +791,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     log.info("\n%s\nVERDICT\n%s", "=" * 72, "=" * 72)
     log.info("  %s", outcome["verdict"])
     log.info("  %s", outcome["detail"])
-    log.info(
-        "\n  NOTE: this is the normal arm but NOT its mature cells, which is "
-        "what the\n  prereg names. Mature cells ENRICH for these markers, so "
-        "this remains a LOWER\n  bound: a gene passing here passes the real "
-        "gate. A gene failing here needs\n  the labelled reading before it is "
-        "called dead — and B1 is UNDETERMINED until\n  that reading exists, "
-        "not refuted."
-    )
+    if mature_labelled:
+        log.info(
+            "\n  NOTE: this IS §3's quantity — mature cells of the reference "
+            "arm. Read the\n  enrichment audit above before reading the "
+            "verdict: the label is built from\n  marker detection, which rises "
+            "with depth, so a floor cleared without the\n  target outrunning "
+            "the controls was cleared by library size."
+        )
+    else:
+        log.info(
+            "\n  NOTE: this is the reference arm but NOT its mature cells, "
+            "which is what the\n  prereg names. Mature cells ENRICH for these "
+            "markers, so this remains a LOWER\n  bound: a gene passing here "
+            "passes the real gate. A gene failing here needs\n  the labelled "
+            "reading before it is called dead — and B1 is UNDETERMINED until\n"
+            "  that reading exists, not refuted."
+        )
 
     meta = {
         "prereg": "docs/prereg_becker_replication.md",

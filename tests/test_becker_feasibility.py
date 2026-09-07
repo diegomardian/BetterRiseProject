@@ -266,3 +266,45 @@ def test_the_audit_reports_the_control_band_it_judged_against():
     assert audit["control_band_low"].notna().all()
     assert audit["control_band_high"].notna().all()
     assert (audit["control_band_low"] <= audit["control_band_high"]).all()
+
+
+def test_a_pass_bought_by_depth_does_not_get_reported_as_full_design():
+    """THE DEFECT THE 2026-09-07 RUN SHIPPED, on that run's own numbers.
+
+    The labelled gate returned FULL DESIGN while the audit beside it said
+    GUCA2A's enrichment sat inside the control band. The audit warned and did
+    not bind, so a floor cleared by library size was reported as a design that
+    runs. A check that warns without binding is a check that reports success.
+    """
+    from src.reference.jobs.becker_feasibility import enrichment_audit
+
+    whole = _detection(ACTB=0.304561, KRT8=0.154186, EPCAM=0.269934,
+                       GUCA2A=0.078697, MS4A12=0.125358, CDX2=0.061325)
+    mature = _detection(ACTB=0.456126, KRT8=0.295804, EPCAM=0.473717,
+                        GUCA2A=0.147823, MS4A12=0.334034, CDX2=0.115213)
+    audit = enrichment_audit(whole, mature)
+    gated = gate(mature)
+
+    # every gene clears the floor, so the unaudited verdict is the optimistic one
+    assert gated["passes"].all()
+    assert verdict(gated, mature_labelled=True)["verdict"] == "FULL DESIGN"
+
+    # with the audit in hand it is refused, and it says why
+    out = verdict(gated, mature_labelled=True, audit=audit)
+    assert out["verdict"] == "CLEARED BY DEPTH — NOT LICENSED"
+    assert "library size" in out["detail"]
+    assert "MS4A12" in out["detail"], "the genuinely enriched gene is the contrast"
+
+
+def test_a_target_that_outruns_the_controls_still_passes():
+    """The other half, so the guard above is not simply a refusal machine."""
+    from src.reference.jobs.becker_feasibility import enrichment_audit
+
+    whole = _detection(ACTB=0.30, KRT8=0.15, EPCAM=0.27, GUCA2A=0.08,
+                       MS4A12=0.12, CDX2=0.06)
+    mature = whole.copy()
+    mature["detection"] = 1 - (1 - mature["detection"]) ** 2.0
+    mature.loc[mature.gene == CRITICAL_GENE, "detection"] = 0.55   # beyond depth
+    audit = enrichment_audit(whole, mature)
+    out = verdict(gate(mature), mature_labelled=True, audit=audit)
+    assert out["verdict"] == "FULL DESIGN"
