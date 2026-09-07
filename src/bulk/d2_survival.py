@@ -28,6 +28,7 @@ from src.bulk.d2_feasibility_gate import GENE, primary_tumour_values
 from src.common.paths import REPO_ROOT
 
 D2_CONTEXT = "expression_models"
+D2_DESCRIPTIVE_CONTEXT = "d2_clinical_adjusted"
 D2_ENDPOINTS = ("PFI", "DSS", "OS")
 D2_PREREG = REPO_ROOT / "docs" / "prereg_d2_survival.md"
 LEAD_ENDPOINT = "PFI"
@@ -77,6 +78,35 @@ def d2_spec(spec: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def d2_model_spec(spec: dict[str, Any], *, descriptive: bool = False) -> tuple[dict[str, Any], str]:
+    """Return D2's locked primary or clinical-adjusted model context.
+
+    The descriptive model omits purity by pre-registration §4, but it keeps
+    the expression predictor and plate stratum. It is not allowed to reuse
+    ``clinical_baseline``: that context is a different W3 estimand and does
+    not require plate. The primary lock is validated before this derivative
+    context is constructed, so the omission cannot be used to bypass D2's
+    purity requirements.
+    """
+    locked = d2_spec(spec)
+    if not descriptive:
+        return locked, D2_CONTEXT
+
+    out = deepcopy(locked)
+    context = deepcopy(out["contexts"][D2_CONTEXT])
+    context["exclude"] = sorted(set(context.get("exclude", [])) | {"purity"})
+    overrides = deepcopy(context.get("endpoint_overrides", {}))
+    for _endpoint, override in overrides.items():
+        override["exclude"] = sorted(set(override.get("exclude", [])) | {"purity"})
+    context["endpoint_overrides"] = overrides
+    context["description"] = (
+        "D2 pre-specified descriptive clinical-adjusted model: omits purity "
+        "to show compositional confounding; it cannot establish the D2 claim."
+    )
+    out["contexts"][D2_DESCRIPTIVE_CONTEXT] = context
+    return out, D2_DESCRIPTIVE_CONTEXT
+
+
 def primary_tumour_annotations(manifest: pd.DataFrame) -> pd.DataFrame:
     """One pre-selected primary aliquot and its plate per participant."""
     required = {"barcode", "patient_id", "sample_type", "plate"}
@@ -97,6 +127,13 @@ def primary_tumour_annotations(manifest: pd.DataFrame) -> pd.DataFrame:
     return tumour
 
 
+def _recompute_attrition_drops(attrition: pd.DataFrame) -> pd.DataFrame:
+    """Recompute drops after a caller prepends an upstream eligibility step."""
+    out = attrition.copy()
+    out["dropped"] = out["n"].shift(1).sub(out["n"]).fillna(0).astype(int)
+    return out
+
+
 def prepare_design(
     clinical: pd.DataFrame,
     purity: pd.DataFrame,
@@ -107,28 +144,47 @@ def prepare_design(
     *,
     endpoint: str,
     sensitivity: bool = False,
+    descriptive: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Build one endpoint/purity-source D2 design and record expression loss."""
     if endpoint not in D2_ENDPOINTS:
         raise D2SurvivalError(f"D2 endpoint {endpoint!r} is not pre-specified")
-    locked = d2_spec(spec)
+    locked, context = d2_model_spec(spec, descriptive=descriptive)
     annotations = primary_tumour_annotations(manifest)
     values = primary_tumour_values(expression, manifest, gene_id).rename(GENE)
     if values.index.has_duplicates:
         raise D2SurvivalError("GUCA2A values are not one row per participant")
 
-    # LEFT join deliberately: ``build_design`` must see every clinical row and
-    # record the plate loss as ``complete plate``. An inner join here would
-    # discard patients before its first attrition row and mislabel the smaller
-    # frame as the clinical table.
-    clinical_with_plate = clinical.merge(
-        annotations[["patient_id", "plate"]], on="patient_id", how="left",
+    if clinical["patient_id"].duplicated().any():
+        raise D2SurvivalError("clinical table has duplicate participants")
+    # A primary specimen is an eligibility condition separate from its plate:
+    # retaining the barcode lets the attrition record distinguish no RNA sample
+    # from a primary sample whose required plate annotation is missing.
+    clinical_with_sample = clinical.merge(
+        annotations[["patient_id", "barcode", "plate"]], on="patient_id", how="left",
         validate="one_to_one",
     )
+    start = pd.DataFrame([{
+        "step": "clinical table",
+        "n": int(len(clinical_with_sample)),
+        "n_events": int(clinical_with_sample[endpoint].sum()),
+        "endpoint": endpoint,
+        "context": context,
+        "purity_method": purity_column(locked, sensitivity=sensitivity),
+    }])
+    clinical_with_plate = clinical_with_sample.loc[
+        clinical_with_sample["barcode"].notna()
+    ].drop(columns="barcode")
     design, attrition = build_design(
         clinical_with_plate, purity, locked, endpoint=endpoint,
-        context=D2_CONTEXT, sensitivity=sensitivity,
+        context=context, sensitivity=sensitivity,
     )
+    # ``build_design``'s first row is this already-filtered frame. Rename it
+    # rather than presenting it as the original clinical table, then preserve
+    # the complete source table as the actual first row.
+    attrition = attrition.copy()
+    attrition.loc[attrition.index[0], "step"] = "has primary-tumour RNA sample"
+    attrition = _recompute_attrition_drops(pd.concat([start, attrition], ignore_index=True))
     before = len(design)
     design = design.merge(values.rename(GENE), left_on="patient_id", right_index=True,
                           how="inner", validate="one_to_one")
@@ -142,28 +198,41 @@ def prepare_design(
             "n": int(len(design)),
             "n_events": int(design[endpoint].sum()),
             "endpoint": endpoint,
-            "context": D2_CONTEXT,
+            "context": context,
             "purity_method": method,
             "dropped": int(before - len(design)),
         }]),
     ], ignore_index=True)
+    attrition = _recompute_attrition_drops(attrition)
     return design.reset_index(drop=True), attrition
 
 
 def d2_events_per_df(
-    design: pd.DataFrame, spec: dict[str, Any], *, endpoint: str
+    design: pd.DataFrame, spec: dict[str, Any], *, endpoint: str, descriptive: bool = False
 ) -> dict[str, Any]:
     """The pre-specified 10-events-per-df lead-endpoint gate, including GUCA2A."""
-    names = covariate_names(spec, endpoint=endpoint, context=D2_CONTEXT)
-    df = total_df(spec, names) + 1  # continuous GUCA2A predictor
+    locked, context = d2_model_spec(spec, descriptive=descriptive)
+    names = covariate_names(locked, endpoint=endpoint, context=context)
+    df = total_df(locked, names) + 1  # continuous GUCA2A predictor
     events = int(design[endpoint].sum())
     ratio = events / df if df else float("nan")
+    strata = list(locked["model"].get("strata") or [])
+    if strata:
+        n_strata = int(design.groupby(strata, dropna=False).ngroups)
+        event_strata = design.loc[design[endpoint] == 1]
+        n_event_strata = int(event_strata.groupby(strata, dropna=False).ngroups)
+    else:
+        n_strata = 1
+        n_event_strata = int(events > 0)
     return {
         "endpoint": endpoint,
+        "context": context,
         "n": int(len(design)),
         "n_events": events,
         "non_stratum_df": df,
         "events_per_df": round(ratio, 2),
+        "n_nonempty_strata": n_strata,
+        "n_event_contributing_strata": n_event_strata,
         "meets_lead_floor": bool(ratio >= 10) if endpoint == LEAD_ENDPOINT else None,
     }
 

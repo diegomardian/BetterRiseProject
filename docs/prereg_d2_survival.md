@@ -180,6 +180,36 @@ instinct to target CDX2 first is corroborated more strongly than its proposal
 claimed. D2 is defined as the GUCA2A question and stays that way. A reader
 should know the stronger bulk signal is in a different gene.
 
+## 6b. The order the labels resolve in
+
+§6 lists its labels as independent rules and a run must emit one verdict, so
+the order is fixed here — **before any model has been fitted**, which is the
+only time it can be fixed honestly.
+
+1. **NOT ESTIMABLE** — the §5 events-per-degree-of-freedom condition on the
+   lead endpoint. Nothing downstream is read.
+2. **PH VIOLATED** — a Schoenfeld violation for GUCA2A or purity *in the lead
+   endpoint's primary model*. §5 labels "the corresponding endpoint", so a
+   violation in DSS or OS does not silence PFI; OS in particular is descriptive
+   under §6 and cannot reverse the primary conclusion.
+3. **PURITY-SOURCE SENSITIVE** — direction reversed or the interval decision
+   changed between ABSOLUTE and ESTIMATE.
+4. **ENDPOINT DISCORDANCE** — DSS and PFI point estimates in opposite
+   directions. The verdict row also records whether the DSS interval includes
+   1, because §6 distinguishes a contradiction from an imprecise DSS interval
+   and a reader cannot tell them apart from the label alone.
+5. Then the lead result: **SUPPORTED ASSOCIATION** (HR < 1, interval excludes
+   1), else **NO SUPPORTED ASSOCIATION** (interval includes 1), else
+   **DIRECTION CONTRARY** (interval excludes 1 and lies above it).
+
+**The last two are ordered the way §6 writes them, and that ordering is the
+point.** §6 reads "if the PFI interval includes 1, no supported association"
+*before* "if the hazard ratio is at least 1, direction contrary" — so a null
+interval whose point estimate sits a little above 1 is a null result, not a
+contrary finding. Testing the sign first would turn an absence of evidence into
+a reported direction, which is the one error this document cannot afford to
+make in that direction.
+
 ## 7. Required artifact and lock
 
 Before execution, this proposed document must be locked as its own D2 change,

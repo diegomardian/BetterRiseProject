@@ -113,6 +113,23 @@ def test_continuous_covariates_pass_through_numerically(spec):
     assert frame["age"].dtype.kind == "f"
 
 
+def test_extra_continuous_predictor_is_explicit_and_finite(spec):
+    cohort = _cohort()
+    cohort["GUCA2A"] = np.linspace(0.0, 4.0, len(cohort))
+    frame = _design_matrix(
+        cohort, ["age"], spec, extra_continuous=("GUCA2A",)
+    )
+    assert frame["GUCA2A"].tolist() == pytest.approx(cohort["GUCA2A"].tolist())
+
+
+def test_non_finite_extra_predictor_stops_a_fit_before_lifelines(spec):
+    cohort = _cohort()
+    cohort["GUCA2A"] = 1.0
+    cohort.loc[0, "GUCA2A"] = np.nan
+    with pytest.raises(SurvivalError, match="not finite"):
+        _design_matrix(cohort, ["age"], spec, extra_continuous=("GUCA2A",))
+
+
 # ---------------------------------------------------------------------------
 # The sanity check itself
 # ---------------------------------------------------------------------------

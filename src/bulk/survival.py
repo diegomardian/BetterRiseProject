@@ -55,7 +55,11 @@ class SurvivalError(RuntimeError):
 
 
 def _design_matrix(
-    design: pd.DataFrame, names: list[str], spec: dict[str, Any]
+    design: pd.DataFrame,
+    names: list[str],
+    spec: dict[str, Any],
+    *,
+    extra_continuous: tuple[str, ...] = (),
 ) -> pd.DataFrame:
     """One-hot the categoricals at the reference levels the config names.
 
@@ -83,6 +87,17 @@ def _design_matrix(
             if level == reference:
                 continue
             frame[f"{name}[{level}]"] = (design[name] == level).astype(float)
+    for name in extra_continuous:
+        if name in frame.columns:
+            raise SurvivalError(
+                f"extra continuous predictor {name!r} duplicates a model term"
+            )
+        if name not in design.columns:
+            raise SurvivalError(f"design has no extra continuous predictor {name!r}")
+        values = pd.to_numeric(design[name], errors="coerce")
+        if values.isna().any() or not np.isfinite(values.to_numpy()).all():
+            raise SurvivalError(f"extra continuous predictor {name!r} is not finite")
+        frame[name] = values
     return frame
 
 
@@ -92,6 +107,7 @@ def fit_cox(
     *,
     endpoint: str,
     context: str = "clinical_baseline",
+    extra_continuous: tuple[str, ...] = (),
 ) -> tuple[Any, pd.DataFrame]:
     """Fit a stratified Cox model. Returns (fitter, tidy coefficient table).
 
@@ -99,13 +115,12 @@ def fit_cox(
     get separate baseline hazards. That is the config's answer to the
     pool-or-stratify question and it costs no degrees of freedom.
     """
-    from lifelines import CoxPHFitter
-
     require_locked(spec)
+    from lifelines import CoxPHFitter
     names = covariate_names(spec, endpoint=endpoint, context=context)
     strata = list(spec["model"].get("strata") or [])
 
-    frame = _design_matrix(design, names, spec)
+    frame = _design_matrix(design, names, spec, extra_continuous=extra_continuous)
     frame[f"{endpoint}.time"] = pd.to_numeric(design[f"{endpoint}.time"])
     frame[endpoint] = pd.to_numeric(design[endpoint]).astype(int)
     for stratum in strata:
@@ -139,13 +154,19 @@ def fit_cox(
 
 
 def proportional_hazards_check(
-    fitter: Any, design: pd.DataFrame, spec: dict[str, Any], *, endpoint: str, context: str
+    fitter: Any,
+    design: pd.DataFrame,
+    spec: dict[str, Any],
+    *,
+    endpoint: str,
+    context: str,
+    extra_continuous: tuple[str, ...] = (),
 ) -> pd.DataFrame:
     """Schoenfeld residual test per term. Reported whether or not it passes."""
     names = covariate_names(spec, endpoint=endpoint, context=context)
     strata = list(spec["model"].get("strata") or [])
 
-    frame = _design_matrix(design, names, spec)
+    frame = _design_matrix(design, names, spec, extra_continuous=extra_continuous)
     frame[f"{endpoint}.time"] = pd.to_numeric(design[f"{endpoint}.time"])
     frame[endpoint] = pd.to_numeric(design[endpoint]).astype(int)
     for stratum in strata:
