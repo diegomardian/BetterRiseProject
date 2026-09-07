@@ -474,3 +474,65 @@ def test_per_domain_table_refuses_when_neither_floor_source_is_given():
     matrix, names, domains = _section({"REF": {"ACTB": 0.5}}, seed=8)
     with pytest.raises(CrowellError, match="floor of zero"):
         per_domain_table(matrix, find_panel(names)[0], domains)
+
+
+# ---------------------------------------------------------------------------
+# Pooling same-class sub-domains — multisection Amendment 1
+# ---------------------------------------------------------------------------
+
+
+def test_pooled_subdomains_are_one_observation_weighted_by_cells():
+    """Section 110 carries three adenoma regions. Invariant 5 makes the patient
+    the unit, so they are ONE observation — and §5's rule is pool the cells,
+    never average the estimates after.
+
+    The consequence is that the largest region dominates, which Amendment 1
+    states rather than hides: TVA1 is 70.3% of 110's pooled adenoma cells.
+    """
+    rng = np.random.default_rng(11)
+    names = _var_names()
+    col = {g: i for i, g in enumerate(names)}
+    # three adenoma regions at different sizes and different target rates
+    spec = [("TVA1", 3000, 0.02), ("TVA2", 800, 0.20), ("TVA3", 500, 0.20)]
+    blocks, doms = [], []
+    for label, n, rate in spec:
+        b = np.zeros((n, len(names)))
+        b[:, col[CRITICAL_GENE]] = (rng.random(n) < rate).astype(float)
+        b[:, col["ACTB"]] = (rng.random(n) < 0.5).astype(float)
+        for j, nm in enumerate(names):
+            if nm.startswith(("NegPrb", "FalseCode")):
+                b[:, j] = (rng.random(n) < 0.01).astype(float)
+        blocks.append(b); doms += [label] * n
+    X = np.vstack(blocks); doms = np.array(doms, dtype=object)
+
+    pooled = np.where(np.isin(doms, ["TVA1", "TVA2", "TVA3"]), "TVA_POOLED", doms)
+    controls = control_features(names)["negative_indices"]
+    one = per_domain_table(X, find_panel(names)[0], pooled, controls)
+    parts = per_domain_table(X, find_panel(names)[0], doms, controls)
+
+    assert set(one["domain"]) == {"TVA_POOLED"}, "one patient, one observation"
+    pooled_det = one.set_index("gene").loc[CRITICAL_GENE, "detection"]
+    by_part = parts.pivot(index="gene", columns="domain", values="detection")
+
+    # cell-weighted, so the big low-rate region dominates the small high ones
+    unweighted_mean = by_part.loc[CRITICAL_GENE].mean()
+    assert pooled_det < unweighted_mean
+    assert pooled_det == pytest.approx(
+        (3000 * by_part.loc[CRITICAL_GENE, "TVA1"]
+         + 800 * by_part.loc[CRITICAL_GENE, "TVA2"]
+         + 500 * by_part.loc[CRITICAL_GENE, "TVA3"]) / 4300, abs=1e-9)
+
+
+def test_the_subdomain_parts_never_count_toward_n():
+    """They are reported so a reader can see whether the lesions agree. They
+    are one patient and must not become three."""
+    matrix, names, domains = _section(
+        {"REF": {"ACTB": 0.5, CRITICAL_GENE: 0.3},
+         "TVA1": {"ACTB": 0.5, CRITICAL_GENE: 0.1},
+         "TVA2": {"ACTB": 0.5, CRITICAL_GENE: 0.1}}, seed=12)
+    pooled = np.where(np.isin(domains, ["TVA1", "TVA2"]), "TVA1+TVA2", domains)
+    table = per_domain_table(matrix, find_panel(names)[0], pooled,
+                             control_features(names)["negative_indices"])
+    out = verdict(table, adenoma_domain="TVA1+TVA2", reference_domain="REF",
+                  patient_n=1)
+    assert out["patient_n"] == 1, "two lesions in one patient is still n=1"

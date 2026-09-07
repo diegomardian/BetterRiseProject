@@ -418,11 +418,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--domain-column", default=None,
                         help="obs column holding the domain, from --inspect. "
                              "No default, deliberately.")
-    parser.add_argument("--adenoma-domain", default=None,
-                        help="the value in that column naming the adenoma, "
-                             "from --inspect. Not guessed.")
-    parser.add_argument("--reference-domain", default=None,
-                        help="the value naming the reference mucosa, from "
+    parser.add_argument("--adenoma-domain", default=None, nargs="+",
+                        help="the value(s) naming the adenoma, from --inspect. "
+                             "Several are POOLED AT THE CELL LEVEL into one "
+                             "observation — multisection Amendment 1: one "
+                             "patient is one observation (invariant 5), and "
+                             "pooling weights by cell count. Not guessed.")
+    parser.add_argument("--reference-domain", default=None, nargs="+",
+                        help="the value(s) naming the reference mucosa, from "
                              "--inspect. Enables §6's pre-specified "
                              "directional read and the exploratory "
                              "control-referenced pattern. Not guessed.")
@@ -536,8 +539,28 @@ def main(argv: list[str] | None = None) -> int:
             else adata.to_memory().X
     require_counts(check_counts_are_integers(matrix))
 
+    # POOLING, multisection Amendment 1. Several sub-domains of one class in one
+    # block are one patient's observation, and §5 already fixed "pool the cells
+    # before log_separation, never average after". The parts are scored too and
+    # marked exploratory; they contribute nothing to n.
+    raw_domains = adata.obs[args.domain_column].to_numpy()
+    pooled_domains = raw_domains.astype(object).copy()
+    pooled_names: dict[str, str] = {}
+    for group in (args.reference_domain or [], args.adenoma_domain or []):
+        if len(group) > 1:
+            label = "+".join(sorted(group))
+            for member in group:
+                pooled_domains[raw_domains == member] = label
+                pooled_names[member] = label
+            log.info("pooling %s -> %r (Amendment 1: one patient, one "
+                     "observation)", sorted(group), label)
+    adenoma_label = ("+".join(sorted(args.adenoma_domain))
+                     if args.adenoma_domain else None)
+    reference_label = ("+".join(sorted(args.reference_domain))
+                       if args.reference_domain else None)
+
     table = per_domain_table(
-        matrix, panel_index, adata.obs[args.domain_column].to_numpy(),
+        matrix, panel_index, pooled_domains,
         control_indices=(None if floor_source == "obs"
                          else np.asarray(controls["negative_indices"], dtype=int)),
         obs=adata.obs if floor_source == "obs" else None,
@@ -554,18 +577,35 @@ def main(argv: list[str] | None = None) -> int:
             ["domain", "n_cells", "median_counts_per_cell",
              "median_genes_per_cell", "any_probe_union_rate"]].to_string(index=False))
 
-    outcome = verdict(table, adenoma_domain=args.adenoma_domain,
-                      reference_domain=args.reference_domain,
+    outcome = verdict(table, adenoma_domain=adenoma_label,
+                      reference_domain=reference_label,
                       patient_n=args.patient_n)
+
+    # The parts, separately, so a reader can see whether the lesions agree.
+    parts = pd.DataFrame()
+    if pooled_names:
+        parts = per_domain_table(
+            matrix, panel_index, raw_domains,
+            control_indices=(None if floor_source == "obs"
+                             else np.asarray(controls["negative_indices"], dtype=int)),
+            obs=adata.obs if floor_source == "obs" else None,
+            n_negative_probes=args.n_negative_probes)
+        parts = parts[parts["domain"].isin(pooled_names)].copy()
+        parts["pooled_into"] = parts["domain"].map(pooled_names)
+        parts["exploratory"] = True
+        parts["contributes_to_n"] = False
+        log.info("\n%s\nSUB-DOMAINS SEPARATELY — EXPLORATORY, NOT IN n\n%s",
+                 "=" * 72, "=" * 72)
+        log.info("%s", parts[["domain", "pooled_into", "gene", "n_cells",
+                              "detection", "log_separation"]].to_string(index=False))
 
     # EXPLORATORY, Amendment 2. Emitted separately, labelled in its own column,
     # and carrying no interval — the band is a min/max over the control-role
     # genes present (one, ACTB being absent) and holds no patient-level
     # uncertainty.
     pattern = pd.DataFrame()
-    if args.reference_domain and args.adenoma_domain:
-        pattern = control_referenced_change(table, args.reference_domain,
-                                            args.adenoma_domain)
+    if reference_label and adenoma_label:
+        pattern = control_referenced_change(table, reference_label, adenoma_label)
         if not pattern.empty:
             outcome["control_referenced_pattern"] = "exploratory_two_block" if (
                 pattern.loc[pattern.gene == CRITICAL_GENE,
@@ -623,6 +663,13 @@ def main(argv: list[str] | None = None) -> int:
         "n_patients_in_deposit": 7,
         "patient_n_this_run": args.patient_n,
         "reference_domain": args.reference_domain,
+        "pooled_subdomains": pooled_names or None,
+        "pooling_rule": (
+            "multisection Amendment 1 — same-class sub-domains are pooled at "
+            "the CELL level into one observation per block (invariant 5). "
+            "Pooling weights by cell count; the parts are scored separately "
+            "and marked exploratory."
+        ),
         "amendments": ["Amendment 1 — floor, obs controls, ACTB absent, the "
                        "§2 fallback DEVIATION, below-quantification not "
                        "censored", "Amendment 2 — verdict decomposed into "
@@ -636,6 +683,8 @@ def main(argv: list[str] | None = None) -> int:
         tables = [(table, "crowell_feasibility")]
         if not pattern.empty:
             tables.append((pattern, "crowell_control_referenced_exploratory"))
+        if not parts.empty:
+            tables.append((parts, "crowell_subdomains_exploratory"))
         for frame, name in tables:
             log.info("wrote %s", write_versioned_table(
                 frame, name, seed=args.seed, results_dir=args.results_dir,

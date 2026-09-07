@@ -185,6 +185,64 @@ stops it being quoted as one.
 
 ---
 
+## Amendment 1 — 2026-09-07, after inspecting `110` and before its gate is run
+
+§5 does not say what to do with **more than one lesion sub-domain of the same
+class in one block**, and section `110` has three: `110_TVA1` (328,901 cells),
+`110_TVA2` (81,948) and `110_TVA3` (57,207), beside `110_REF` (114,910) and
+`110_CRC` (36,893). Fixed here before any `110` gate output exists.
+
+### 1 · Same-class sub-domains are pooled at the cell level, one per block
+
+§5 already states the rule for `231`/`232`: *"where both carry the same domain
+the cells are pooled before `log_separation` is computed, never averaged
+after."* Three adenoma regions in one block are the same case — **one patient,
+one adenoma observation** — and invariant 5 makes the patient the unit
+regardless of how many lesions were sampled.
+
+**The consequence is stated rather than hidden: pooling weights by cell count,
+so `110_TVA1` supplies 70.3% of that patient's adenoma estimate**, against
+17.5% and 12.2%. Averaging the three would give each 33.3%. **Pooling is chosen
+because §5 already chose it**, not because it is obviously better — an average
+over three regions of one patient would be an unweighted mean of three
+quantities with very different precisions, and neither choice is a patient-level
+estimator of anything.
+
+**The sub-domains are also scored separately and reported `exploratory`**, so a
+reader can see whether the three lesions agree. They contribute nothing to `n`.
+
+### 2 · Transcript-defined labels are NOT domain candidates. Named, because one is tempting.
+
+`110` carries `lv1`, `lv2`, `jst` and `ist` — a full cell-type annotation
+including **`epi.entero` (11,943 cells)**, `epi.entero-like_ACSF2`,
+`epi.stem-like_LGR5` and `epi.fetal-like_MMP7`.
+
+**`epi.entero` is a mature-enterocyte label built from transcripts, and GUCA2A
+is part of that programme.** Using it to define "mature cells" and then
+measuring GUCA2A inside it is the exact circularity that made the Becker mature
+label's one positive arm unreadable (`prereg_becker_replication.md` RESULT), and
+it is what the proposed amendment to invariant 2 is about.
+
+**The domain column is `typ` and only `typ`.** It is histology. Feasibility
+prereg §4 is the whole reason this deposit was chosen and it is not negotiable
+per section.
+
+### 3 · The "expected words" line in `--inspect` is a substring matcher
+
+It reported `jst: ['ln']` and `lv2: ['lymph']` for section `110`. **There is no
+lymph-node tissue in `110`** — those matched immune cell-type names such as
+`DC.lymphoid`. The line reports where the pre-registration's vocabulary
+*appears as a substring*, nothing more, and it must not be read as a domain
+inventory. Recorded because a reader could take it for one.
+
+### 4 · What Amendment 1 does not change
+
+`n` is unchanged: `110` is one block and contributes one observation. The
+statistic, the control, the inclusion rules, the width table and §7's falsifiers
+are untouched. **No threshold moved.**
+
+---
+
 ## RESULT
 
 *Not run. Only section `231` has been read, and that under the feasibility
