@@ -20,6 +20,7 @@ from src.common.paths import CONFIG_DIR
 
 REGION_MANIFEST = CONFIG_DIR / "a2_mxif_regions.csv"
 AVENUE_A_DATASET = "VUMC_HTAN_validation"
+AVENUE_A_DISCOVERY_DATASET = "VUMC_HTAN_discovery"
 AVENUE_A_PATIENT_PREFIX = "Chen_2021_Cell."
 
 REGION_COLUMNS = (
@@ -159,6 +160,18 @@ def participant_inventory(regions: pd.DataFrame, obs: pd.DataFrame) -> pd.DataFr
     per_patient["avenue_a_has_both_arms"] = (
         per_patient["avenue_a_has_polyp"] & per_patient["avenue_a_has_healthy_normal"]
     )
+    discovery_patients = set(
+        obs.loc[obs["dataset"].eq(AVENUE_A_DISCOVERY_DATASET), "patient_id"]
+        .astype(str)
+        .str.removeprefix(AVENUE_A_PATIENT_PREFIX)
+    )
+    per_patient["avenue_a_in_discovery"] = per_patient.index.isin(discovery_patients)
+    # HTA11_866 is the Chen DIS/VAL shared patient. This metadata flag is not a
+    # split assignment and must never be used to promote A2's participant
+    # overlap into an independent replication.
+    per_patient["avenue_a_disval_shared"] = (
+        per_patient["avenue_a_patient_match"] & per_patient["avenue_a_in_discovery"]
+    )
     per_patient["crosswalk_level"] = "participant_only"
     per_patient["specimen_exact"] = False
     per_patient["conventional_ad_mxif_pair"] = (
@@ -179,4 +192,5 @@ def inventory_counts(regions: pd.DataFrame, participants: pd.DataFrame) -> dict[
         "conventional_ad_mxif_pairs": int(participants["conventional_ad_mxif_pair"].sum()),
         "avenue_a_patient_matches": int(participants["avenue_a_patient_match"].sum()),
         "avenue_a_both_arm_patients": int(participants["avenue_a_has_both_arms"].sum()),
+        "avenue_a_disval_shared_patients": int(participants["avenue_a_disval_shared"].sum()),
     }

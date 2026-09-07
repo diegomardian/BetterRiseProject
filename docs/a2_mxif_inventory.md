@@ -80,9 +80,11 @@ public processed subset. Multiple regions do not increase the inferential n.
 ## 4. Avenue-A crosswalk
 
 All 15 MxIF participant IDs match `Chen_2021_Cell` participants in the local
-`VUMC_HTAN_validation` metadata exactly. Eleven of those 15 have both a polyp
-and healthy-normal scRNA sample in that metadata; four are polyp-only there
-(`HTA11_10623`, `HTA11_10711`, `HTA11_7179`, `HTA11_9341`).
+`VUMC_HTAN_validation` metadata exactly. `HTA11_866` is additionally present in
+`VUMC_HTAN_discovery`: it is the original Chen DIS/VAL shared participant, not
+an extra A2 patient or an independent replication. Eleven of the 15 validation
+matches have both a polyp and healthy-normal scRNA sample; four are polyp-only
+there (`HTA11_10623`, `HTA11_10711`, `HTA11_7179`, `HTA11_9341`).
 
 This is an **exact participant-level crosswalk only**. The MxIF batches use
 identifiers such as `HTA11_10623_0000_01_01`, while the ICBI scRNA sample uses

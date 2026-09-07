@@ -75,6 +75,7 @@ def test_patient_not_region_is_the_crosswalk_unit():
     assert not bool(got.loc["HTA11_2", "avenue_a_has_both_arms"])
     assert set(got["crosswalk_level"]) == {"participant_only"}
     assert not got["specimen_exact"].any()
+    assert not got["avenue_a_disval_shared"].any()
 
 
 def test_an_unlabelled_archive_region_cannot_create_a_pair():
@@ -126,6 +127,11 @@ def test_committed_public_inventory_cardinalities_are_frozen():
                 "patient_id": f"Chen_2021_Cell.{patient}",
                 "sample_type": "healthy normal",
             })
+    obs_rows.append({
+        "dataset": "VUMC_HTAN_discovery",
+        "patient_id": "Chen_2021_Cell.HTA11_866",
+        "sample_type": "polyp",
+    })
     participants = participant_inventory(regions, pd.DataFrame(obs_rows))
     assert inventory_counts(regions, participants) == {
         "archive_regions": 42,
@@ -136,4 +142,8 @@ def test_committed_public_inventory_cardinalities_are_frozen():
         "conventional_ad_mxif_pairs": 3,
         "avenue_a_patient_matches": 15,
         "avenue_a_both_arm_patients": 11,
+        "avenue_a_disval_shared_patients": 1,
     }
+    shared = participants.set_index("participant_id").loc["HTA11_866"]
+    assert bool(shared["avenue_a_in_discovery"])
+    assert bool(shared["avenue_a_disval_shared"])
