@@ -177,6 +177,15 @@ def per_block_did(results_dir: Path) -> pd.DataFrame:
                 "below_floor_reference": bool(sep[(gene, reference)] < 0),
                 "target_below_floor": bool(
                     sep[(gene, adenoma)] < 0 or sep[(gene, reference)] < 0),
+                # Amendment 5: how close to the floor the WORSE of the two
+                # inputs sat. The flag above is a hard `< 0` and no threshold
+                # moves after seeing data — this is reported so a reader can
+                # see a DiD built on a value that is technically above the
+                # floor and practically at it. Block 221's CDX2 reference is
+                # +0.003, a signal 0.3% above noise, and CDX2 is §7's decisive
+                # row.
+                "min_separation": float(min(sep[(gene, adenoma)],
+                                            sep[(gene, reference)])),
                 # The floor cancels here: log_sep is log(mu_gene) - log(mu_floor),
                 # so this is dlog(mu_gene) - dlog(mu_control).
                 "did": float(delta - control_delta),
@@ -220,6 +229,9 @@ def aggregate(per_block: pd.DataFrame) -> pd.DataFrame:
         # consequence cannot be applied selectively.
         clean = group.loc[~group["target_below_floor"].fillna(False), "did"].to_numpy(float)
         row["n_blocks_below_floor"] = int(n - clean.size)
+        row["min_separation_any_block"] = float(group["min_separation"].min())
+        row["n_blocks_within_0p1_of_floor"] = int(
+            (group["min_separation"] < 0.1).sum())
         clean_ci = _interval(clean)
         row["ci_low_excluding_floored"] = clean_ci[0] if clean_ci else None
         row["ci_high_excluding_floored"] = clean_ci[1] if clean_ci else None

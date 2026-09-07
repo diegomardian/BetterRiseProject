@@ -410,6 +410,40 @@ before the number it governs exists.
 
 ---
 
+## Amendment 5 — 2026-09-07, before the five-block aggregate: at the floor is not below it
+
+Block `B1914093_B1-2` (section 221) has **no** below-floor value for the target
+— `GUCA2A` separates at +0.951 in the reference and +0.439 in the adenoma, both
+positive, so Amendment 4's flag does not fire. But **`CDX2`'s reference
+separation is +0.0033**: a signal **0.3% above the noise floor**. Its change is
++1.805, the largest of any gene in any block, and almost all of that is the
+reference sitting on the floor rather than the adenoma rising.
+
+**`CDX2` is §7's decisive row**, and a floor-inflated `CDX2` biases toward the
+*favourable* verdict — "the discriminator does not fall" is easier to reach when
+the discriminator's reference had nowhere to go but up.
+
+### No threshold moves. The flag stays `< 0`.
+
+Amendment 4's rule is a hard `log_separation < 0`, and **changing it to a margin
+now, having seen that 221's CDX2 sits just above it, is the tuning this whole
+document exists to prevent.** A rule that gets a tolerance added the first time a
+value lands near its edge is not a rule.
+
+### What is added is reporting, not a rule
+
+Each block/gene carries `min_separation` — the worse of its two inputs — and the
+summary carries `min_separation_any_block` and `n_blocks_within_0p1_of_floor`.
+A reader can then see which DiDs rest on a value that is technically above the
+floor and practically at it, and apply their own judgement, which is what a
+number is for.
+
+**Read `CDX2` at five blocks with this in front of it.** If `CDX2`'s interval
+sits clear of zero on the strength of block 221, that is a statement about where
+221's reference happened to sit.
+
+---
+
 ## RESULT — four of seven blocks, 2026-09-07
 
 `results/2026-09-07_a9b3d6d/`. Blocks `24H12439_A4` (231), `B-2080151-01-18`

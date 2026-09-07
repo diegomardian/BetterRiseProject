@@ -258,3 +258,30 @@ def test_below_floor_blocks_that_do_not_change_the_sign_do_not_trigger_it():
     assert row["n_blocks_below_floor"] == 1
     assert bool(row["excludes_zero"]) == bool(row["excludes_zero_excluding_floored"])
     assert not verdict(summary)["verdict"].startswith("INDETERMINATE")
+
+
+def test_a_value_just_above_the_floor_is_reported_and_does_not_move_the_flag():
+    """Amendment 5. Block 221's CDX2 reference separates at +0.0033 — a signal
+    0.3% above noise — and CDX2 is §7's decisive row.
+
+    The flag stays a hard `< 0`. Adding a tolerance the first time a value lands
+    near the edge is the tuning this design exists to prevent. What is added is
+    `min_separation`, so a reader can see it.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        _write_section(root, "r1", "221", "221_TVA", "221_REF",
+                       {"KRT8": {"221_REF": 2.804, "221_TVA": 3.710},
+                        DISCRIMINATOR_GENE: {"221_REF": 0.0033, "221_TVA": 1.808},
+                        TARGET_GENE: {"221_REF": 0.951, "221_TVA": 0.439}})
+        per_block = per_block_did(root).set_index("gene")
+
+    # above the floor, so the hard flag does NOT fire
+    assert not bool(per_block.loc[DISCRIMINATOR_GENE, "target_below_floor"])
+    # but how close it sat is on the record
+    assert per_block.loc[DISCRIMINATOR_GENE, "min_separation"] == pytest.approx(0.0033)
+    assert per_block.loc[TARGET_GENE, "min_separation"] == pytest.approx(0.439)
+    # and the discriminator's change is the largest, almost all of it the floor
+    assert per_block.loc[DISCRIMINATOR_GENE, "did"] > per_block.loc[TARGET_GENE, "did"]
