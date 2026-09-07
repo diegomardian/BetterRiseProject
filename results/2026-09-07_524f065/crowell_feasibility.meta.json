@@ -1,0 +1,106 @@
+{
+  "date": "2026-09-07",
+  "utc_timestamp": "2026-09-07T19:11:56+00:00",
+  "git_sha": "524f0652388eff2ac4a76f5ca8a7b7e779de957e",
+  "git_sha_short": "524f065",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260907,
+  "python": "3.11.15",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "scanpy_version": "1.10.2",
+  "anndata_version": "0.10.8",
+  "name": "crowell_feasibility",
+  "n_rows": 15,
+  "columns": [
+    "domain",
+    "gene",
+    "role",
+    "n_cells",
+    "detection",
+    "median_counts_per_cell",
+    "median_genes_per_cell",
+    "floor_per_probe_mean",
+    "n_control_probes",
+    "probe_count_source",
+    "probe_count_is_conservative",
+    "any_probe_union_rate",
+    "mean_negative_counts_per_cell",
+    "false_code_union_rate",
+    "log_separation",
+    "min_log_separation",
+    "usable"
+  ],
+  "table_kind": "harness",
+  "prereg": "docs/prereg_crowell_feasibility.md",
+  "prereg_committed_in": "cd7e4a5, before anything was downloaded",
+  "section": "110.h5ad",
+  "sections_named_in_prereg": {
+    "232": {
+      "bytes": 226800000,
+      "md5": "f2271485bae235439267c1bd13f1a7c9",
+      "role": "primary \u2014 smallest of eight"
+    },
+    "231": {
+      "bytes": 534800000,
+      "md5": "fdd226ec7632a3d45a4f9dd46c24a981",
+      "role": "fallback, named in prereg \u00a72 before any read"
+    }
+  },
+  "domain_column": "typ",
+  "adenoma_domain": [
+    "110_TVA1",
+    "110_TVA2",
+    "110_TVA3"
+  ],
+  "label_is_histological": "REF/TVA/CRC are pathologist-drawn shapes over H&E, not a function of any transcript, so the label cannot be circular with respect to GUCA2A. That is why this deposit is worth the time \u2014 see the Becker prereg RESULT for what a transcript label costs.",
+  "floor_is_per_probe": "mean over control probes of each probe's own detection rate. The union over all probes is reported separately as a contamination indicator and is NOT the comparable floor.",
+  "min_log_separation": 1.0986122886681096,
+  "floor_source": "obs",
+  "matrix_loaded": false,
+  "depth_source": "obs",
+  "depth_consistency_check": {
+    "cells_checked": 668061,
+    "violations": 0,
+    "consistent": true,
+    "max_panel_hits": 5
+  },
+  "n_negative_probes": 50,
+  "qc_filter_column": "fil",
+  "n_cells_before_qc": 694553,
+  "n_cells_after_qc": 668061,
+  "n_cells_qc_failed_excluded": 26492,
+  "n_cells_missing_domain_excluded": 48202,
+  "negative_probes_are_specificity_only": true,
+  "does_not_license": "any per-cell 'GUCA2A-low = silenced' claim. The false-negative rate is unmeasured here as everywhere else (\u00a76g).",
+  "n_patients_in_deposit": 7,
+  "patient_n_this_run": 1,
+  "reference_domain": [
+    "110_REF"
+  ],
+  "pooled_subdomains": {
+    "110_TVA1": "110_TVA1+110_TVA2+110_TVA3",
+    "110_TVA2": "110_TVA1+110_TVA2+110_TVA3",
+    "110_TVA3": "110_TVA1+110_TVA2+110_TVA3"
+  },
+  "pooling_rule": "multisection Amendment 1 \u2014 same-class sub-domains are pooled at the CELL level into one observation per block (invariant 5). Pooling weights by cell count; the parts are scored separately and marked exploratory.",
+  "amendments": [
+    "Amendment 1 \u2014 floor, obs controls, ACTB absent, the \u00a72 fallback DEVIATION, below-quantification not censored",
+    "Amendment 2 \u2014 verdict decomposed into fields; control-referenced pattern is exploratory"
+  ],
+  "width_penalty_vs_n43": 3.01,
+  "verdict": {
+    "per_cell_feasibility": "failed",
+    "prespecified_directional_read": "fall_observed",
+    "global_sensitivity_control": "not_worse",
+    "control_referenced_pattern": "exploratory_two_block",
+    "patient_n": 1,
+    "verdict": "TARGET BELOW THE ADENOMA USABILITY BAR \u2014 PER-CELL READING NOT LICENSED; DIRECTIONAL READ SUPPORTIVE, NOT CONFIRMATORY",
+    "detail": "GUCA2A clears the bar in ['110_REF'] and sits BELOW it in '110_TVA1+110_TVA2+110_TVA3' (+0.930 against +1.099). **Below the limit of quantification, NOT censored** \u2014 the bar is analyst-chosen (Amendment 1 \u00a76), and nothing here builds a background-adjusted bound. **The per-cell spatial reading is NOT licensed.** \u00a76's pre-specified direction: GUCA2A +1.358 in '110_REF' -> +0.930 in '110_TVA1+110_TVA2+110_TVA3' \u2014 a FALL, which \u00a76 fixed in advance as the safe direction because a field-affected reference understates it. Global capture in '110_TVA1+110_TVA2+110_TVA3' is not worse than in '110_REF', over 1 control-role gene(s). **That is global capture only. It does not establish GUCA2A-specific sensitivity or any false-negative rate** (prereg \u00a77), and with ACTB absent it rests on one gene (Amendment 1 \u00a73). n = 1 patient(s). Supportive, NOT confirmatory."
+  },
+  "exploratory": false,
+  "pre_registered": true
+}
