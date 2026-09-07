@@ -12,6 +12,65 @@ and [prereg_adenoma_decomposition.md](prereg_adenoma_decomposition.md).
 > design on a second substrate with the statistic already fixed. It was fixed in
 > `ac7eca1`, before this document and before the substrate has been fetched.
 
+> ### Amendment 1 — 2026-09-06, from the GEO metadata, before any download completes
+>
+> `GSE201348`'s series matrix resolves §6's unverified items and raises two
+> design questions the original text did not cover. Both are decided here,
+> **before the loader exists**, because both change the estimand.
+>
+> **The format risk is dead.** 72 samples, standard 10x triplets
+> (`barcodes.tsv.gz` / `features.tsv.gz` / `matrix.mtx.gz`), 1.2 GB in one
+> `_RAW.tar`. Not Seurat objects. The loader is small.
+>
+> **The arm vocabulary, read rather than assumed** — from
+> `Sample_characteristics_ch1`, `disease stage`:
+>
+> | value | maps to |
+> |---|---|
+> | `Polyp` | **tumour** (diseased arm) |
+> | `Unaffected` | **normal** (reference arm) |
+> | `CRC` | **excluded** — see below |
+>
+> Donor is the `Sample_title` prefix (`A001-C-007` → `A001`). FAP status is a
+> per-donor characteristic. **No metadata lives in the tar**, so the series
+> matrix is a required second download and the mapping above is the whole of
+> what §3's "decision for a human who has seen the list" amounts to.
+>
+> **1. Multiple polyps per donor — POOL PER DONOR, and the reason is that this
+> is a replication.** Donor A001 alone carries 6 polyps, 3 unaffected and 1 CRC.
+> Chen_2021 gave one polyp and one normal per patient, so invariant 5's "the
+> patient is the unit" was unambiguous there; here it is not.
+>
+> Two estimands are available and **they are not interchangeable**: pooling all
+> of a donor's polyps into one arm reproduces Chen_2021's shape exactly, while
+> computing per lesion and aggregating within donor preserves between-lesion
+> variation. The second is arguably the better *design* — between-lesion
+> variation is exactly where a field-effect or Wnt-tone mechanism would live.
+> **It is the wrong choice here anyway**, because a replication that changes the
+> estimand is not a replication, and B1's entire purpose is to test whether
+> Chen_2021's result holds with the statistic pre-fixed.
+>
+> So: **pooled-per-donor is primary and confirmatory. Per-lesion is secondary
+> and exploratory**, reported beside it and never substituted for it. If the two
+> disagree, that disagreement is a finding about lesion heterogeneity and not a
+> reason to prefer whichever replicates.
+>
+> **2. Technical replicates — POOLED.** `A002-C-010` appears as `Replicate1` and
+> `Replicate2`: one physical sample sequenced twice. Their cells are
+> concatenated, because they are the same biological unit and the unit of
+> inference is the donor. Dropping one discards data; averaging is wrong at the
+> cell level. **Which samples had replicates is recorded in the report**, since
+> a pooled replicate has more cells than its neighbours and that shows up in
+> every per-sample count.
+>
+> **3. `CRC` samples are excluded, and what that forgoes is worth naming.** This
+> is the adenoma reading; carcinoma is where four routes already terminated.
+> But Becker carries **CRC, polyp and unaffected tissue from the same donors**,
+> which is a normal→polyp→carcinoma gradient at better than the n=3 that
+> `docs/NEXT_AVENUES.md` §1c is limited to. That is a real bonus avenue and it
+> is **explicitly out of scope here** — it needs its own design, and folding it
+> in would be the estimand drift this amendment exists to prevent.
+
 ---
 
 ## 1 · What is being replicated, stated exactly
@@ -126,13 +185,12 @@ Nothing new is specified here. That is the point.
 **Stated as unverified rather than asserted.** No accession, file layout or size
 below has been confirmed against GEO from this session:
 
-1. **The accessions and their contents.** `GSE201348` / `GSE201349` and the cell
-   counts (201,884 / 447,829) come from the proposal, not from a fetch. Verify
-   before writing a download job — the repository has been bitten four times by
-   identifier-space assumptions, and an accession is one.
-2. **The file format.** Reported as Seurat objects on Google Drive rather than a
-   standard GEO supplementary matrix. If so, the loader is real work and not a
-   variation on `icbi_slice`.
+1. ~~**The accessions and their contents.**~~ **`GSE201348` VERIFIED 2026-09-06**
+   against the GEO FTP listing: 72 samples, 1.2 GB. The cell counts in the
+   proposal (201,884) are still unchecked and will be known when the tar is
+   read. `GSE201349` (scATAC) has NOT been verified and is out of scope.
+2. ~~**The file format.**~~ **RESOLVED 2026-09-06 — Amendment 1.** Standard 10x
+   triplets, 72 samples, 1.2 GB. Not Seurat. The loader is small.
 3. **Disk — MEASURED 2026-09-06, and it scopes this design.** `pquota`:
 
        /project/rise-batteries      45.01 / 50 GB   ->  4.99 GB free
