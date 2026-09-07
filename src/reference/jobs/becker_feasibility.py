@@ -245,10 +245,40 @@ def gate(detection: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values("detection", ascending=False, ignore_index=True)
 
 
-def verdict(gated: pd.DataFrame) -> dict:
-    """§3's outcome table, taken by code rather than by a reader."""
+def verdict(gated: pd.DataFrame, *, mature_labelled: bool = False) -> dict:
+    """§3's outcome table, taken by code rather than by a reader.
+
+    ``mature_labelled`` says whether the detection handed in is the one §3
+    actually names -- mature cells of the reference arm. When it is not, a FAIL
+    is a failure of a LOWER BOUND and does not license §3's "cannot run": the
+    quantity that failed is smaller than the quantity the gate is about, by an
+    unmeasured amount. Emitting a pre-registered verdict from an analysis that
+    is not the pre-registered one is the category error this argument exists to
+    prevent, and the first version of this job made it.
+
+    A PASS on a lower bound is safe in the other direction and is reported as a
+    pass, which is the asymmetry §3 already relies on.
+    """
     passing = set(gated.loc[gated["passes"], "gene"])
     failing = sorted(set(gated["gene"]) - passing)
+
+    if failing and not mature_labelled:
+        rows = gated.loc[gated["gene"].isin(failing)]
+        shortfall = ", ".join(
+            f"{r.gene} {r.detection:.3f} (needs {MIN_DETECTION / r.detection:.2f}x)"
+            for r in rows.itertuples())
+        return {
+            "verdict": "GATE NOT RUN — LOWER BOUND FAILS",
+            "detail": (
+                f"{shortfall}. This is NOT §3's gate: §3 names the mature cells "
+                f"of the reference arm and this is every cell in it. Mature "
+                f"cells enrich for these markers, so the pre-registered "
+                f"quantity is LARGER than what was measured, by an amount "
+                f"nobody has measured. B1 is UNDETERMINED. To close it, label "
+                f"the cells and re-run; to abandon it, say why the enrichment "
+                f"cannot cover the shortfall above."
+            ),
+        }
 
     if CRITICAL_GENE not in set(gated["gene"]):
         return {
@@ -516,6 +546,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     whole.insert(0, "arm", "ALL_ARMS_POOLED")
     per_arm.append(whole)
     by_arm = gate(pd.concat(per_arm, ignore_index=True))
+    # Arm-to-arm, on the detection scale. The reference arm's own health is not
+    # a detail here: `normal` is a FAP donor's uninvolved mucosa and
+    # `healthy_donor` is a different person's colon (becker_io's fifth arm), so
+    # the difference between them is a property of the REFERENCE, and the
+    # paired design leans on that reference entirely.
+    wide = by_arm.pivot(index="gene", columns="arm", values="mu_becker")
+    for a, b in (("healthy_donor", "normal"), ("normal", "tumour")):
+        if a in wide.columns and b in wide.columns:
+            by_arm[f"logfc_{a}_vs_{b}"] = by_arm["gene"].map(
+                np.log(wide[a] / wide[b]))
 
     gate_arm = "normal" if (cell_arms == "normal").any() else "ALL_ARMS_POOLED"
     if gate_arm != "normal":
@@ -525,7 +565,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                             patients[cell_arms == "normal"]) \
         if gate_arm == "normal" else whole.drop(columns="arm")
     gated = gate(table)
-    outcome = verdict(gated)
+    # §3 names the mature cells of the reference arm. Nothing here labels cells,
+    # so the pre-registered gate has not been run and `verdict` is told so.
+    outcome = verdict(gated, mature_labelled=False)
 
     log.info("\n%s\nDETECTION BY ARM — the gate reads the '%s' row\n%s",
              "=" * 72, gate_arm, "=" * 72)
@@ -540,6 +582,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                           "fold_mu_vs_chen", "log_fc_vs_chen",
                           "share_patients_nonzero", "passes"]]
              .to_string(index=False))
+    # A criterion that cannot fail on the data in hand has not been applied to
+    # it. At thousands of nuclei per donor, P(all zero) is e^-{n*p}: for the
+    # LOWEST detection in this table that is already astronomically small, so
+    # the patient-share arm of the gate is inert and the verdict rests entirely
+    # on the detection floor. Say so rather than let two criteria be read where
+    # only one discriminated.
+    cells_per_patient = gated["n_cells"].max() / max(gated["n_patients"].max(), 1)
+    weakest = gated["detection"].min()
+    log_p_all_zero = cells_per_patient * np.log1p(-weakest)
+    if (gated["share_patients_nonzero"] >= MIN_PATIENT_SHARE_NONZERO).all():
+        log.info(
+            "\n  NOTE: the patient-share criterion passed 6/6 at 100%% and was "
+            "INERT.\n  With ~%.0f nuclei per donor, the weakest gene here "
+            "(detection %.4f) has\n  P(all-zero in a donor) = e^%.0f. It could "
+            "not have fired. The verdict\n  rests on the detection floor "
+            "alone.", cells_per_patient, weakest, log_p_all_zero)
+
     log.info("\n%s\nVERDICT\n%s", "=" * 72, "=" * 72)
     log.info("  %s", outcome["verdict"])
     log.info("  %s", outcome["detail"])

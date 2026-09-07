@@ -47,34 +47,34 @@ def test_the_gate_stops_the_replication_when_the_critical_gene_fails():
     is a measurement about snRNA-seq rather than a negative about biology —
     that distinction is the whole reason the gate runs before the analysis.
     """
-    out = verdict(gate(_detection(GUCA2A=0.04)))
+    out = verdict(gate(_detection(GUCA2A=0.04)), mature_labelled=True)
     assert out["verdict"] == "CANNOT RUN"
     assert "not a negative result about the biology" in out["detail"]
 
 
 def test_a_missing_critical_gene_blames_the_identifier_space_first():
     frame = _detection()
-    out = verdict(gate(frame[frame.gene != CRITICAL_GENE]))
+    out = verdict(gate(frame[frame.gene != CRITICAL_GENE]), mature_labelled=True)
     assert out["verdict"] == "CANNOT RUN"
     assert "identifier space" in out["detail"]
 
 
 def test_ms4a12_alone_failing_costs_the_secondary_claim_only():
-    out = verdict(gate(_detection(MS4A12=0.05)))
+    out = verdict(gate(_detection(MS4A12=0.05)), mature_labelled=True)
     assert out["verdict"] == "PRIMARY ONLY"
     assert "not gene-specific" in out["detail"]
     assert "single-cohort" in out["detail"]
 
 
 def test_a_failing_control_shrinks_the_comparator_set():
-    out = verdict(gate(_detection(CDX2=0.02)))
+    out = verdict(gate(_detection(CDX2=0.02)), mature_labelled=True)
     assert out["verdict"] == "REDUCED PANEL"
     assert "fewer than 8" in out["detail"]
 
 
 def test_a_clean_panel_passes():
     """The other half: the gate must not refuse everything."""
-    assert verdict(gate(_detection()))["verdict"] == "FULL DESIGN"
+    assert verdict(gate(_detection()), mature_labelled=True)["verdict"] == "FULL DESIGN"
 
 
 def test_the_patient_share_gate_bites_independently_of_detection():
@@ -85,7 +85,7 @@ def test_the_patient_share_gate_bites_independently_of_detection():
     """
     frame = _detection()
     frame.loc[frame.gene == CRITICAL_GENE, "share_patients_nonzero"] = 0.4
-    out = verdict(gate(frame))
+    out = verdict(gate(frame), mature_labelled=True)
     assert out["verdict"] == "CANNOT RUN"
     assert f"{MIN_PATIENT_SHARE_NONZERO:.0%}" in out["detail"]
 
@@ -122,6 +122,34 @@ def test_the_ratio_of_probabilities_reverses_the_gene_ordering():
     assert actb["naive_ratio_of_p"] > guca["naive_ratio_of_p"]   # ACTB "better"
     assert guca["fold_mu_vs_chen"] > actb["fold_mu_vs_chen"]     # GUCA2A better
     assert guca["log_fc_vs_chen"] > actb["log_fc_vs_chen"]
+
+
+def test_a_failing_lower_bound_does_not_get_to_say_cannot_run():
+    """The defect this job shipped twice, as a test.
+
+    §3's gate is the mature cells of the reference arm. Nothing in this job
+    labels cells, so what it measures is strictly SMALLER than what §3 is
+    about. A failure there is a failure of a lower bound, and emitting §3's
+    pre-registered "CANNOT RUN" from it claims a verdict that was never taken.
+    """
+    unlabelled = verdict(gate(_detection(GUCA2A=0.04)), mature_labelled=False)
+    assert unlabelled["verdict"] == "GATE NOT RUN — LOWER BOUND FAILS"
+    assert "UNDETERMINED" in unlabelled["detail"]
+    # and it must say how far short, so the reader can judge the enrichment
+    assert "2.50x" in unlabelled["detail"]
+
+    labelled = verdict(gate(_detection(GUCA2A=0.04)), mature_labelled=True)
+    assert labelled["verdict"] == "CANNOT RUN"
+
+
+def test_a_passing_lower_bound_is_allowed_to_pass():
+    """The asymmetry §3 already relies on: enrichment only helps.
+
+    A gene clearing the floor WITHOUT the mature-cell restriction clears it
+    with one, so a pass needs no hedge. Only failure is one-sided.
+    """
+    out = verdict(gate(_detection()), mature_labelled=False)
+    assert out["verdict"] == "FULL DESIGN"
 
 
 def test_a_detection_table_without_its_columns_is_refused():
