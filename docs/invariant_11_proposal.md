@@ -53,6 +53,21 @@ against a CDX2-transcript label, are in `tests/test_checks_can_fail.py` and
 multisection) now carry declarations, and a test asserts the guard can read
 both, so the invariant cannot decay into documentation.
 
+**Review round two, 2026-09-07.** Two fixes, both about the gap between a
+guard that works and an invariant a reader can see:
+
+- **It fired too late.** `validate_specification()` was called inside
+  `verdict()`, after the sections were opened and the population-level
+  quantities computed — so it could only object to work already done. Both jobs
+  now call it immediately after `parse_args`, before a path is even checked.
+  `verdict()` keeps its own call for API callers. The forcing test points each
+  job at a nonexistent path with a circular declaration: the circularity must be
+  what stops it, which is only true if the guard runs first.
+- **The sidecars did not carry it.** `provenance_meta` existed and neither job
+  used it, so a reader holding a parquet could not see what defined the
+  population. Both now fold it into `extra_meta`, and the test asserts the
+  wiring and round-trips the JSON.
+
 **Known limit.** The guard binds where a job calls it. Nothing yet forces a
 *new* job to call it, because there is no shared analysis-specification object
 in this repository to hang it on — specifications are per-job constants. The

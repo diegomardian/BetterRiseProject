@@ -48,7 +48,11 @@ import pandas as pd
 from scipy import stats
 
 from src.common.io import write_versioned_table
-from src.common.label_provenance import Measurement, check_no_circular_claim
+from src.common.label_provenance import (
+    Measurement,
+    check_no_circular_claim,
+    provenance_meta,
+)
 from src.common.paths import RESULTS_DIR
 from src.harness.meta import MIN_STUDIES
 from src.reference.crowell_io import SECTION_TO_BLOCK, CrowellError
@@ -603,6 +607,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=20260907)
     parser.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args(argv)
+
+    # INVARIANT 11 FIRST — see the Becker job. Before any section is opened.
+    validate_specification()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     contrasts = ("adenoma", "carcinoma") if args.contrast == "both" else (args.contrast,)
@@ -651,6 +658,7 @@ def main(argv: list[str] | None = None) -> int:
         "verdict": outcome,
         "exploratory": False,
         "pre_registered": True,
+        **provenance_meta(LABEL_PROVENANCE, CLAIM_PROVENANCE),
         }
         suffix = "" if lesion_class == "adenoma" else "_carcinoma"
         for frame, name in ((per_block, f"crowell_multisection{suffix}_per_block"),

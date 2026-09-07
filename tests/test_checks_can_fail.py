@@ -1509,3 +1509,75 @@ def test_both_live_reference_jobs_declare_a_provenance_the_guard_can_read():
 
     assert check_no_circular_claim(labels=BECKER_LABELS, claim=BECKER_CLAIM) == ()
     assert check_no_circular_claim(labels=CROWELL_LABELS, claim=CROWELL_CLAIM) == ()
+
+
+def test_both_jobs_refuse_a_circular_specification_before_reading_anything():
+    """The guard must fire at argument-parse time, not at verdict time.
+
+    A declaration test proves the constants are readable. It does not prove the
+    live job consults them, and a check that runs after the population is built
+    can only object to work already done. Here each job is pointed at a path
+    that does not exist and given a circular declaration: the circularity must
+    be what stops it, which is only true if the guard runs before the read.
+    """
+    from src.common.label_provenance import CircularClaimError, Measurement
+    from src.reference.jobs import becker_feasibility, crowell_multisection
+
+    circular = Measurement(
+        modality="transcript", assay="same instrument", genes=("GUCA2A",),
+    )
+    for module, argv in (
+        (becker_feasibility,
+         ["--lesion-inventory", "--series-matrix", "/nonexistent/series.txt.gz"]),
+        (crowell_multisection, ["--contrast", "adenoma",
+                                "--results-dir", "/nonexistent/results"]),
+    ):
+        saved = (module.LABEL_PROVENANCE, module.CLAIM_PROVENANCE)
+        module.LABEL_PROVENANCE, module.CLAIM_PROVENANCE = circular, circular
+        try:
+            with pytest.raises(CircularClaimError, match="CIRCULAR CLAIM"):
+                module.main(argv)
+        finally:
+            module.LABEL_PROVENANCE, module.CLAIM_PROVENANCE = saved
+
+
+def test_a_result_sidecar_says_what_defined_the_population():
+    """Invariant 11 is unreadable from a result unless the job writes it down.
+
+    The guard stops a circular analysis; it does nothing for a reader holding a
+    parquet. Both jobs fold `provenance_meta` into the sidecar, and this is the
+    test that fails if either stops.
+    """
+    import inspect as _inspect
+
+    from src.reference.jobs import becker_feasibility, crowell_multisection
+
+    for module in (becker_feasibility, crowell_multisection):
+        source = _inspect.getsource(module.main)
+        assert "provenance_meta(LABEL_PROVENANCE, CLAIM_PROVENANCE)" in source, (
+            f"{module.__name__}.main does not write the population definition "
+            f"into its result sidecar"
+        )
+
+    # ... and that what it writes survives the writer and is readable as JSON,
+    # rather than being a dict that only looks right in Python.
+    import tempfile
+
+    from src.common.label_provenance import provenance_meta
+
+    with tempfile.TemporaryDirectory() as tmp:
+        written = write_versioned_table(
+            pd.DataFrame([{"gene": "GUCA2A"}]), "provenance_roundtrip",
+            seed=1, results_dir=Path(tmp), allow_dirty=True,
+            extra_meta=provenance_meta(
+                crowell_multisection.LABEL_PROVENANCE,
+                crowell_multisection.CLAIM_PROVENANCE,
+            ),
+        )
+        sidecar = json.loads(
+            Path(str(written).replace(".parquet", ".meta.json")).read_text()
+        )
+    assert sidecar["label_provenance"]["modality"] == "morphology"
+    assert sidecar["label_provenance"]["genes"] == ""      # declared, not omitted
+    assert "GUCA2A" in sidecar["claim_provenance"]["genes"]
+    assert sidecar["overlapping_genes"] == ""

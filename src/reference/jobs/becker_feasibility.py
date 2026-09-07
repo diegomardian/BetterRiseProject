@@ -61,7 +61,11 @@ import numpy as np
 import pandas as pd
 
 from src.common.io import write_versioned_table
-from src.common.label_provenance import Measurement, check_no_circular_claim
+from src.common.label_provenance import (
+    Measurement,
+    check_no_circular_claim,
+    provenance_meta,
+)
 from src.common.provenance import DEFAULT_SEED
 from src.reference.jobs.coexpression_silencing import DETECTION_MIN_UMI, GENE_ROLES
 
@@ -656,6 +660,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
+    # INVARIANT 11 FIRST, before a path is checked or a byte is read. A guard
+    # that runs after the population is built can only object to work already
+    # done, and `verdict` is far too late to learn that the labels and the
+    # endpoint were the same genes. `verdict` keeps its own call for callers
+    # who use the API rather than the CLI.
+    validate_specification()
+
     if args.inspect and args.lesion_inventory:
         raise SystemExit("choose --inspect or --lesion-inventory, not both")
     if args.tar and not args.series_matrix:
@@ -974,6 +985,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         "exploratory": False,
         "pre_registered": True,
+        **provenance_meta(LABEL_PROVENANCE, CLAIM_PROVENANCE),
     }
     tables = [(gated, "becker_feasibility"),
               (by_arm, "becker_feasibility_by_arm")]
