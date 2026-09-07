@@ -37,10 +37,16 @@ finding**. So this job reports how many panel genes match under each naming and
 **refuses to report a detection of zero without saying which space it looked
 in**.
 
-``--inspect`` does the second thing and nothing else. Run it first. The file
-format is the largest unknown in ``docs/prereg_becker_replication.md`` §6 — the
-deposit is reported as Seurat objects rather than a GEO matrix, and if that is
-right the loader is real work rather than a variation on ``icbi_slice``.
+``--inspect`` does both of those and nothing else. **Run it first.**
+
+THE FORMAT QUESTION IS SETTLED, and not the way §6 feared. Verified 2026-09-06
+against the GEO listing: ``GSE201348_RAW.tar``, 1.2 GB, **72 standard 10x
+triplets** — not Seurat objects. What that costs instead is that **the tar
+carries no metadata at all**. A filename gives a GSM, a donor and a sample and
+says nothing about whether it is a polyp or unaffected mucosa, so
+``GSE201348_series_matrix.txt.gz`` is a required second input and ``--tar``
+refuses to run without it. The mapping it reads
+(``Polyp``/``Unaffected``/``CRC``) is fixed in Amendment 1 of the prereg.
 """
 
 from __future__ import annotations
@@ -82,8 +88,65 @@ class FeasibilityError(ValueError):
     """The object cannot be read as a cohort this gate applies to."""
 
 
+def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
+    """Report what is in the GSE201348 deposit. Assume nothing, map nothing.
+
+    THE FIRST THING TO RUN. It needs BOTH files because the tar carries no
+    metadata at all: a filename gives a GSM, a donor and a sample, and says
+    nothing about whether the sample is a polyp or unaffected mucosa. That lives
+    only in the series matrix.
+
+    Reports the arm counts the mapping produces rather than applying it
+    silently, so a human sees the cohort before any analysis does.
+    """
+    from src.reference.becker_io import (
+        DISEASE_STAGE_MAP,
+        gene_symbols,
+        read_series_matrix,
+        read_triplet,
+        sample_files,
+    )
+
+    metadata = read_series_matrix(series_matrix)
+    files = sample_files(tar)
+    merged = files.merge(metadata, on="gsm", how="outer", suffixes=("", "_meta"))
+
+    counts, barcodes, features = read_triplet(tar, files.iloc[0])
+    symbols = gene_symbols(features)
+    panel = set(GENE_ROLES)
+
+    scored = metadata[metadata["arm"].notna()]
+    report = {
+        "tar": str(tar), "series_matrix": str(series_matrix),
+        "n_samples_in_tar": int(len(files)),
+        "n_samples_in_metadata": int(len(metadata)),
+        "incomplete_triplets": files.loc[~files["complete"], "gsm"].tolist(),
+        "in_tar_not_metadata": merged.loc[merged["title"].isna(), "gsm"].dropna().tolist(),
+        "in_metadata_not_tar": merged.loc[merged["matrix"].isna(), "gsm"].dropna().tolist(),
+        "disease_stage_counts": metadata["disease_stage"].value_counts().to_dict(),
+        "arm_counts": metadata["arm"].value_counts(dropna=False).to_dict(),
+        "arm_map_used": {k: v for k, v in DISEASE_STAGE_MAP.items()},
+        "n_donors": int(metadata["donor"].nunique()),
+        "n_donors_with_both_arms": int(
+            scored.groupby("donor")["arm"].nunique().eq(2).sum()),
+        "samples_per_donor": scored.groupby(["donor", "arm"]).size()
+                                   .unstack(fill_value=0).to_dict("index"),
+        "replicate_samples": metadata.loc[metadata["replicate"].notna(),
+                                          "sample_id"].unique().tolist(),
+        "first_sample_shape_cells_by_genes": list(counts.shape),
+        "n_genes": int(len(symbols)),
+        "panel_genes_found": sorted(panel & set(symbols)),
+        "panel_genes_missing": sorted(panel - set(symbols)),
+        "features_column_used": "column 1 (symbol); column 0 is Ensembl",
+    }
+    if "fap" in metadata.columns:
+        report["fap_donors"] = (metadata.drop_duplicates("donor")["fap"]
+                                .value_counts().to_dict())
+    return report
+
+
 def inspect(path: Path) -> dict:
-    """Report what is actually in the file. Assume nothing, map nothing.
+    """Report what is in an h5ad. Kept for a deposit that arrives as one.
 
     The first thing to run, and on a deposit whose format is unverified it may
     be the only thing that runs. Reports the obs vocabulary, the gene naming
@@ -240,10 +303,72 @@ def detection_table(
     return pd.DataFrame(rows)
 
 
+def _read_deposit(tar: Path, series_matrix: Path, *, pool_by: str):
+    """Stack every scored sample's cells into one matrix, with its pooling key.
+
+    ``CRC`` samples are dropped here because Amendment 1 excludes them, and the
+    count of what was dropped is logged rather than left implicit. The gene
+    index is taken from the FIRST sample's features and asserted identical on
+    every other — CellRanger writes the same reference for a series, and a
+    sample with a different one cannot share a column index. Concatenating
+    across a changed reference would misalign every gene silently.
+    """
+    from scipy.sparse import vstack
+
+    from src.reference.becker_io import (
+        gene_symbols,
+        pooling_key,
+        read_series_matrix,
+        read_triplet,
+        sample_files,
+    )
+
+    metadata = read_series_matrix(series_matrix)
+    metadata["pool_key"] = pooling_key(metadata, pool_by=pool_by)
+    files = sample_files(tar).merge(metadata, on="gsm", how="inner")
+
+    scored = files[files["arm"].notna()]
+    log.info("  %d of %d samples carry an arm; %d dropped (CRC, Amendment 1)",
+             len(scored), len(files), len(files) - len(scored))
+    if scored.empty:
+        raise FeasibilityError("no sample carries an arm after the CRC exclusion")
+
+    blocks, keys, reference = [], [], None
+    for _, row in scored.iterrows():
+        counts, _, features = read_triplet(tar, row)
+        symbols = gene_symbols(features)
+        if reference is None:
+            reference = symbols
+        elif not np.array_equal(symbols, reference):
+            raise FeasibilityError(
+                f"{row['gsm']} has a different gene index from the first "
+                f"sample. Concatenating across a changed reference misaligns "
+                f"every gene, and nothing about that raises on its own."
+            )
+        blocks.append(counts)
+        keys.extend([row["pool_key"]] * counts.shape[0])
+
+    gene_index = {}
+    for gene in GENE_ROLES:
+        hit = np.flatnonzero(reference == gene)
+        if hit.size:
+            gene_index[gene] = int(hit[0])
+    absent = sorted(set(GENE_ROLES) - set(gene_index))
+    log.info("  stacked %d samples -> %d cells, pooled by %s (%d units)",
+             len(blocks), sum(b.shape[0] for b in blocks), pool_by,
+             len(set(keys)))
+    return vstack(blocks).tocsr(), gene_index, np.asarray(keys), absent
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--object", type=Path, required=True,
-                        help="the Becker snRNA object")
+    parser.add_argument("--object", type=Path, default=None,
+                        help="an h5ad, if the deposit ever arrives as one")
+    parser.add_argument("--tar", type=Path, default=None,
+                        help="GSE201348_RAW.tar")
+    parser.add_argument("--series-matrix", type=Path, default=None,
+                        help="GSE201348_series_matrix.txt.gz — REQUIRED with "
+                             "--tar. The tar carries no arm labels at all.")
     parser.add_argument("--inspect", action="store_true",
                         help="report the file's structure and vocabulary, and "
                              "do nothing else. RUN THIS FIRST.")
@@ -252,17 +377,34 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--patient-column", default=None,
                         help="obs column holding the patient id, from --inspect")
     parser.add_argument("--layer", default=None, help="counts layer, if not X")
+    parser.add_argument(
+        "--pool-by", choices=("donor", "lesion"), default="donor",
+        help="the unit. Amendment 1: 'donor' is primary and confirmatory "
+             "because it reproduces Chen_2021's shape; 'lesion' is secondary "
+             "and exploratory. They are different estimands.",
+    )
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--results-dir", type=Path, default=None)
     parser.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    if not args.object.exists():
-        raise SystemExit(f"{args.object} not found")
+    if args.tar and not args.series_matrix:
+        raise SystemExit(
+            "--tar needs --series-matrix. The tar carries NO metadata: a "
+            "filename gives a GSM, a donor and a sample, and says nothing "
+            "about whether it is a polyp or unaffected mucosa. Without the "
+            "series matrix there are no arms."
+        )
+    if not args.tar and not args.object:
+        raise SystemExit("pass --tar (with --series-matrix) or --object")
+    for candidate in (args.tar, args.series_matrix, args.object):
+        if candidate is not None and not candidate.exists():
+            raise SystemExit(f"{candidate} not found")
 
     if args.inspect:
-        report = inspect(args.object)
+        report = (inspect_deposit(args.tar, args.series_matrix) if args.tar
+                  else inspect(args.object))
         log.info("%s\nINSPECTION — assume nothing, map nothing\n%s",
                  "=" * 72, "=" * 72)
         for key, value in report.items():
@@ -273,8 +415,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "rather than the\n  patient grouping once put Chen_2021's usable "
             "pairs at zero when the true\n  number was 44."
         )
-        if not report["panel_genes_in_var_names"] and not report[
-                "panel_genes_by_var_column"]:
+        found = (report.get("panel_genes_found")
+                 or report.get("panel_genes_in_var_names")
+                 or report.get("panel_genes_by_var_column"))
+        if not found:
             log.error(
                 "\n  NO PANEL GENE MATCHED IN ANY IDENTIFIER SPACE. Suspect the "
                 "identifier\n  space before concluding the genes are absent — "
@@ -283,7 +427,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 4
         return 0
 
-    if not args.gene_column or not args.patient_column:
+    if args.object and (not args.gene_column or not args.patient_column):
         raise SystemExit(
             "--gene-column and --patient-column are required and have no "
             "defaults. Run --inspect first and read them off its output. "
@@ -291,28 +435,37 @@ def main(argv: Sequence[str] | None = None) -> int:
             "finding."
         )
 
-    import anndata
+    if args.tar:
+        counts, gene_index, patients, absent = _read_deposit(
+            args.tar, args.series_matrix, pool_by=args.pool_by)
+        log.info("panel genes located in the features symbol column: %d of %d%s",
+                 len(gene_index), len(GENE_ROLES),
+                 f" (absent: {absent})" if absent else "")
+    else:
+        import anndata
 
-    adata = anndata.read_h5ad(str(args.object))
-    symbols = adata.var[args.gene_column].astype(str).to_numpy()
-    gene_index = {}
-    for gene in GENE_ROLES:
-        hit = np.flatnonzero(symbols == gene)
-        if hit.size:
-            gene_index[gene] = int(hit[0])
-    absent = sorted(set(GENE_ROLES) - set(gene_index))
-    log.info("panel genes located in var['%s']: %d of %d%s",
-             args.gene_column, len(gene_index), len(GENE_ROLES),
-             f" (absent: {absent})" if absent else "")
+        adata = anndata.read_h5ad(str(args.object))
+        symbols = adata.var[args.gene_column].astype(str).to_numpy()
+        gene_index = {}
+        for gene in GENE_ROLES:
+            hit = np.flatnonzero(symbols == gene)
+            if hit.size:
+                gene_index[gene] = int(hit[0])
+        absent = sorted(set(GENE_ROLES) - set(gene_index))
+        log.info("panel genes located in var['%s']: %d of %d%s",
+                 args.gene_column, len(gene_index), len(GENE_ROLES),
+                 f" (absent: {absent})" if absent else "")
+        counts = adata.layers[args.layer] if args.layer else adata.X
+        patients = adata.obs[args.patient_column].to_numpy()
+
     if not gene_index:
         raise FeasibilityError(
-            f"no panel gene matched var['{args.gene_column}']. Check the "
-            f"identifier space before concluding they are not measured."
+            "no panel gene matched. Check the identifier space before "
+            "concluding they are not measured — that error has been made four "
+            "times in this repository."
         )
 
-    counts = adata.layers[args.layer] if args.layer else adata.X
-    table = detection_table(counts, gene_index,
-                            adata.obs[args.patient_column].to_numpy())
+    table = detection_table(counts, gene_index, patients)
     gated = gate(table)
     outcome = verdict(gated)
 
