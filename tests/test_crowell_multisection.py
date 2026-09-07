@@ -370,3 +370,97 @@ def test_the_does_not_exclude_zero_branch_prints_the_interval_it_claims():
     assert out["verdict"] == "TARGET FALLS AND THE DISCRIMINATOR DOES NOT"
     assert "does not exclude zero" in out["detail"]
     assert "[" in out["detail"].split(DISCRIMINATOR_GENE)[-1], "show the interval"
+
+
+# ---------------------------------------------------------------------------
+# Pre-registered rules the code did not implement (found in review, 2026-09-07)
+# ---------------------------------------------------------------------------
+
+
+def test_rule_3_excludes_a_block_whose_control_fails_the_bar():
+    """§5 RULE 3, WHICH THE CODE DID NOT ENFORCE.
+
+    The rule is "a KRT8 separation clearing MIN_LOG_SEPARATION in BOTH" — the
+    sensitivity gate. The first version checked only that KRT8 EXISTS in both
+    domains. It never bit (KRT8's worst separation over six blocks is 2.804
+    against a bar of 1.099), but an inclusion rule that cannot exclude is a
+    check that cannot fail.
+    """
+    import tempfile
+
+    from src.reference.jobs.crowell_feasibility import MIN_LOG_SEPARATION
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        _write_section(root, "r1", "110", "110_TVA", "110_REF",
+                       {"KRT8": {"110_REF": 3.0, "110_TVA": 3.5},
+                        TARGET_GENE: {"110_REF": 2.0, "110_TVA": 0.5}})
+        # the control fails the bar in the reference: this block must not enter
+        _write_section(root, "r2", "120", "120_TVA", "120_REF",
+                       {"KRT8": {"120_REF": MIN_LOG_SEPARATION - 0.01,
+                                 "120_TVA": 3.5},
+                        TARGET_GENE: {"120_REF": 2.0, "120_TVA": 0.5}})
+        got = per_block_did(root)
+
+    assert set(got["block"]) == {SECTION_TO_BLOCK["110"]}
+    assert SECTION_TO_BLOCK["120"] not in set(got["block"])
+
+
+def test_rule_3_gates_on_the_control_and_never_on_the_target():
+    """A block whose TARGET is far below the bar still enters — that is the
+    expected outcome in lesion domains and excluding it would select on the
+    outcome. §5 says so in terms."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        _write_section(root, "r1", "210", "210_TVA", "210_REF",
+                       {"KRT8": {"210_REF": 3.0, "210_TVA": 3.9},
+                        TARGET_GENE: {"210_REF": -0.5, "210_TVA": -0.9}})
+        got = per_block_did(root)
+
+    assert SECTION_TO_BLOCK["210"] in set(got["block"]), "gated on the control only"
+
+
+def test_a_target_that_rises_gets_section_7s_third_row_not_a_pass():
+    """§7's third falsifier, which the code did not implement.
+
+    Without it a positive target falls through to "A TIER MOVED" or "TARGET
+    FALLS…", both false statements about the direction. Latent — GUCA2A is
+    negative in all six blocks — and a falsifier that cannot fire is not one.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        for i, pre in enumerate(("110", "120", "210", "221")):
+            _write_section(root, f"r{i}", pre, f"{pre}_TVA", f"{pre}_REF",
+                           {"KRT8": {f"{pre}_REF": 3.0, f"{pre}_TVA": 3.5},
+                            # target RISES against its control
+                            TARGET_GENE: {f"{pre}_REF": 1.0, f"{pre}_TVA": 3.6 + 0.02 * i},
+                            DISCRIMINATOR_GENE: {f"{pre}_REF": 2.0, f"{pre}_TVA": 2.4}})
+        summary = aggregate(per_block_did(root))
+
+    out = verdict(summary)
+    assert out["verdict"].startswith("TARGET RISES")
+    assert "opposite of §7's prediction" in out["detail"]
+    assert "report it and stop" in out["detail"].lower()
+
+
+def test_the_control_gene_is_pinned_and_changing_it_changes_the_estimand():
+    """M2. The only test touching CONTROL_GENE asserted its DiD is zero, which
+    is true of ANY control by construction — so swapping KRT8 for EPCAM would
+    have changed the estimand with a green suite.
+
+    ACTB is absent from this deposit (feasibility Amendment 1 §3), so KRT8 is
+    the only `control`-role gene present, and Amendment 2 turns on it being an
+    epithelial keratin. It is not interchangeable with EPCAM, which is
+    `epithelial` by role and is reported, never used as a control.
+    """
+    from src.reference.jobs.coexpression_silencing import GENE_ROLES
+
+    assert CONTROL_GENE == "KRT8"
+    assert GENE_ROLES[CONTROL_GENE] == "control"
+    assert GENE_ROLES["EPCAM"] == "epithelial", "not a control, by the frozen roles"
+    assert "ACTB" not in (CONTROL_GENE, DISCRIMINATOR_GENE, TARGET_GENE)
+    assert TARGET_GENE == "GUCA2A" and DISCRIMINATOR_GENE == "CDX2"

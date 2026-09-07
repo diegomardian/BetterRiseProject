@@ -52,6 +52,7 @@ from src.common.paths import RESULTS_DIR
 from src.harness.meta import MIN_STUDIES
 from src.reference.crowell_io import SECTION_TO_BLOCK, CrowellError
 from src.reference.jobs.coexpression_silencing import GENE_ROLES
+from src.reference.jobs.crowell_feasibility import MIN_LOG_SEPARATION
 
 log = logging.getLogger(__name__)
 
@@ -146,6 +147,23 @@ def per_block_did(results_dir: Path) -> pd.DataFrame:
         if (CONTROL_GENE, adenoma) not in sep or (CONTROL_GENE, reference) not in sep:
             log.warning("  %s: %s missing in one domain — skipped",
                         table.parent.name, CONTROL_GENE)
+            continue
+        # §5 RULE 3, WHICH THIS CODE DID NOT IMPLEMENT UNTIL NOW. The rule is
+        # "a KRT8 separation clearing MIN_LOG_SEPARATION in BOTH" — the
+        # sensitivity gate, and it is about the control, never the target. The
+        # first version checked only that KRT8 EXISTS in both domains. It never
+        # bit (KRT8's worst separation across six blocks is 2.804 against a bar
+        # of 1.099), but a pre-registered rule the code does not enforce is
+        # this repository's own defect class, and an inclusion rule that cannot
+        # exclude is a check that cannot fail.
+        control_seps = (sep[(CONTROL_GENE, reference)], sep[(CONTROL_GENE, adenoma)])
+        if min(control_seps) < MIN_LOG_SEPARATION:
+            log.warning(
+                "  %s: EXCLUDED by §5 rule 3 — %s separates at %+.3f / %+.3f "
+                "against a bar of %+.3f. The sensitivity gate is about the "
+                "control, and this block fails it.",
+                table.parent.name, CONTROL_GENE, control_seps[0],
+                control_seps[1], MIN_LOG_SEPARATION)
             continue
         control_delta = sep[(CONTROL_GENE, adenoma)] - sep[(CONTROL_GENE, reference)]
         for gene in frame["gene"].unique():
@@ -318,6 +336,23 @@ def verdict(summary: pd.DataFrame) -> dict:
                     f"and a mean mixing bounds with points estimates neither. "
                     f"Amendment 4, fixed before this aggregate was computed. "
                     f"**Neither interval is the answer.**"
+                )}
+
+    # §7's THIRD ROW, which the code did not implement: "DiD(GUCA2A) > 0 in
+    # most patients -> the single-block observation was an artefact. Report it
+    # and stop." Without this branch a positive target would fall through to
+    # "A TIER MOVED" or "TARGET FALLS...", both of which would be false
+    # statements about the direction. Latent -- GUCA2A is negative in all six
+    # blocks -- and a falsifier that cannot fire is not a falsifier.
+    if bool(target.get("excludes_zero", False)) and target["mean_did"] > 0:
+        return {"verdict": "TARGET RISES — §7's THIRD ROW; THE EARLIER BLOCKS WERE AN ARTEFACT",
+                "detail": (
+                    f"{TARGET_GENE} DiD {target['mean_did']:+.3f} "
+                    f"[{target['ci_low']:+.3f}, {target['ci_high']:+.3f}] over "
+                    f"{n} blocks excludes zero **POSITIVE** — the target rises "
+                    f"against its control from reference to adenoma, which is "
+                    f"the opposite of §7's prediction. §7: report it and stop. "
+                    f"Any earlier block-level fall was not the effect."
                 )}
 
     # Amendment 6: the same rule for the discriminator. §7 rests on TWO

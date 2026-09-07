@@ -532,7 +532,69 @@ Written before block `242` is read.
 
 ---
 
-## RESULT — five of seven blocks, 2026-09-07
+## RESULT — six of seven blocks, 2026-09-07
+
+`results/2026-09-07_78cd0ff/`. Supersedes the five- and four-block tables, which
+are kept and must not be quoted.
+
+### Verdict: TARGET FALLS AND THE DISCRIMINATOR DOES NOT — §7's pass branch
+
+| gene | mean DiD | 95% CI | |
+|---|---|---|---|
+| **GUCA2A** | **−1.378** | **[−2.046, −0.709]** | **excludes zero** |
+| **MS4A12** | **−1.272** | **[−2.053, −0.492]** | **excludes zero** |
+| CDX2 | +0.448 | **[−0.020, +0.915]** | includes — **by 0.020** |
+| EPCAM | +0.242 | [−0.057, +0.540] | includes |
+
+Per block, `Δ(gene) − Δ(KRT8)`:
+
+| gene | 23H29642 | 24H12439 | B-1970164 | B-2080151 | B1891803 | B1914093 |
+|---|---|---|---|---|---|---|
+| GUCA2A | −1.577 | −1.513 | −0.548 | −0.838 | −2.373 | −1.417 |
+| MS4A12 | −0.839 | −1.371 | −0.724 | −0.759 | −2.687 | −1.256 |
+| CDX2 | +0.995 | −0.012 | +0.591 | +0.215 | −0.002 | +0.899 |
+
+**Both targets negative in all six blocks. Neither CDX2 nor EPCAM clears zero.**
+
+### The guards, and the one that is about to matter
+
+**Amendment 4 holds** — GUCA2A excludes zero with and without the below-floor
+block. At four blocks it did not, and the verdict was INDETERMINATE.
+
+**Amendment 6 did not fire** — CDX2's below-floor block (222's reference) does
+not change its conclusion, exactly as that amendment predicted in advance.
+
+**Amendment 7 is live.** CDX2's lower bound has run **−0.251, −0.156, −0.020**
+across four, five and six blocks. It is **0.020** from excluding zero in the
+direction *opposite* the target — one block from
+`TARGET FALLS AND THE DISCRIMINATOR MOVES THE OTHER WAY`.
+
+### §5 rule 3 was enforced only from `fbc73b1` onward, and it changes nothing
+
+Review on 2026-09-07 found the aggregator checked that `KRT8` **existed** in
+both domains rather than that it **cleared** `MIN_LOG_SEPARATION`, which is what
+§5 rule 3 says. Now enforced. **All six blocks pass it** — `KRT8`'s worst
+separation is **2.804** against a bar of 1.099 — so no committed number changes,
+and the six-block table above is bit-identical either way. Recorded because a
+pre-registered rule the code does not implement is this project's own defect
+class whether or not it bites.
+
+### The seventh block: a download failure, not a stopping point
+
+`242.h5ad` (block `23H42952_A19`) **could not be fetched on 2026-09-07**.
+Zenodo returned **HTTP 504** from both the API and web endpoints, repeatedly;
+the record's own JSON endpoint 504'd too, and `222.h5ad` — which had downloaded
+successfully hours earlier — also 504'd. Zenodo was degraded, not selective: its
+front page took 27 s and an unrelated record served in 17 s.
+
+**§3's order was followed exactly** — 110, 120, 210, 221, 222 — and the seventh
+is absent because a server would not serve it, which is a different object from
+an unexplained n=6. **Retry it**: at seven blocks the width falls to 3.01× and
+Amendment 7's state is one block away.
+
+---
+
+## RESULT — five of seven blocks, 2026-09-07 (SUPERSEDED by the six-block table above)
 
 `results/2026-09-07_daa3cbd/`. Supersedes the four-block table
 (`results/2026-09-07_a9b3d6d/`), which is kept and must not be quoted.
