@@ -754,6 +754,44 @@ def main(argv: Sequence[str] | None = None) -> int:
                     float(critical["control_band_high"].iloc[0]))
             table, gated, mature_labelled = mature_table, gate(mature_table), True
 
+            # THE SAME RULE ON EVERY ARM. Descriptive, and labelled so: only
+            # the gate arm is pre-registered. It is here because it is the
+            # internal control this deposit can supply for free -- the same
+            # markers, the same threshold, the same protocol, different
+            # tissue. A target that enriches beyond its controls in one arm and
+            # not another is saying something about the arm; one that never
+            # outruns its controls anywhere is saying the label is depth.
+            audit["arm"] = gate_arm
+            audit["exploratory"] = False
+            extra = []
+            for other in sorted({a for a in cell_arms.tolist() if a is not None}):
+                if other == gate_arm:
+                    continue
+                other_mask = (cell_arms == other) & mature_mask
+                if int(other_mask.sum()) < MIN_MATURE_CELLS:
+                    log.info("  %s arm: %d mature nuclei, below %d — not audited",
+                             other, int(other_mask.sum()), MIN_MATURE_CELLS)
+                    continue
+                frame = enrichment_audit(
+                    detection_table(counts[cell_arms == other], panel_index,
+                                    patients[cell_arms == other]),
+                    detection_table(counts[other_mask], panel_index,
+                                    patients[other_mask]))
+                frame["arm"] = other
+                frame["exploratory"] = True
+                extra.append(frame)
+            if extra:
+                audit = pd.concat([audit] + extra, ignore_index=True)
+                log.info("\n  THE SAME AUDIT ON EVERY ARM — exploratory except "
+                         "'%s'", gate_arm)
+                log.info("%s", audit.pivot(index="gene", columns="arm",
+                                           values="log_enrichment")
+                         .to_string(float_format=lambda v: f"{v:+.3f}"))
+                beyond = audit.loc[audit["beyond_control_band"]]
+                log.info("  beyond its own arm's control band: %s",
+                         ", ".join(f"{r.gene}@{r.arm}" for r in beyond.itertuples())
+                         or "nothing, in any arm")
+
     outcome = verdict(gated, mature_labelled=mature_labelled,
                       audit=audit if not audit.empty else None)
 
