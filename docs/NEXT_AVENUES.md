@@ -460,14 +460,35 @@ Cheap: the per-study estimates are already committed.
    instrument can only be validated where the premise holds, the premise has
    held only on adenoma, adenoma carries no MLH1 annotation, and Pelka is the
    only study in the 49-study atlas that does. `docs/HANDOFF.md` §6g.
-2. **The decomposition at `best4` on Chen_2021** (1a). **NEXT after MLH1.** The
-   algebra has been re-checked and does not collapse, and estimability at
-   `best4` is 20/20 and 19/20 — better than at `lineage`. It is NOT a re-read
-   of committed tables: `frac_mature_*` was never emitted, so it needs the
-   adenoma job extended and a cluster run. Report the Student-t interval, not
-   the percentile bootstrap (7.1% at n=20).
-3. **Zheng's gradient** (1c), descriptive, alongside.
-4. Tier 3's heterogeneity explanation — cheap, and it strengthens a result
+2. ~~**The decomposition on Chen_2021** (1a).~~ **RAN 2026-09-06 — IDENTIFIABLE,
+   and it is the project's deliverable.** The `i/c` ratio runs 0.33 to 2.03
+   against carcinoma's collapse onto −5.85; the pre-registered falsifier did not
+   fire. Tier-level, not gene-specific. **Quote `lineage` only — `best4` is
+   retracted**, and note that this section's old "at `best4`" framing was wrong:
+   the frozen axes file requires a rung CURVE, not a point.
+   `docs/HANDOFF.md` §6h.
+3. ~~**The Wnt mechanism test** (D1).~~ **RAN 2026-09-06 — TECHNICAL**, a clean
+   negative. GUCA2A sits inside the control floor and it survives an
+   over-conditioning objection raised after the run. §6i.
+4. ~~**The DIS/VAL stability split.**~~ **RAN 2026-09-06 — AMBIGUOUS**, with
+   zero sign reversals across three specimen collections. §6j.
+
+### Still open, ranked
+
+5. **The write-up.** Six results from 2026-09-06 are in neither paper and the
+   WMHS deadline is **15 September 2026**. This outranks everything below it.
+   `docs/HANDOFF.md` §6f.
+6. **B1's feasibility gate** — as **C1 evidence only**. Its paired cohort is
+   four donors (Becker Amendment 2) so it cannot replicate avenue A, but the
+   GUCA2A/MS4A12-in-nuclei detection table bears on whether in-situ platforms
+   can see these genes at all. Data is on disk; `--inspect` is the next command.
+7. **C1's panel lookup** — nearly free, and nobody has done it. Whether the six
+   panel genes are on a Xenium/CosMx probe set is a lookup, not a pipeline. If
+   they are not, C1 as conceived is dead and the long-term plan changes today.
+8. **Zheng's gradient** (1c), descriptive, and **no interval may be reported
+   from it**: at n=3 the percentile bootstrap is 25.1% and 0.372× the correct
+   width.
+9. Tier 3's heterogeneity explanation — cheap, and it strengthens a result
    already in hand.
 
 ~~Tier 2 only after the MLH1 control says whether the instrument can see
