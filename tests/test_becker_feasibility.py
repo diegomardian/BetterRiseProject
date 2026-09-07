@@ -95,7 +95,33 @@ def test_the_gate_reports_the_fold_change_against_chen():
     gated = gate(_detection(GUCA2A=0.11))
     row = gated.loc[gated.gene == "GUCA2A"].iloc[0]
     assert row["passes"]
-    assert row["fold_vs_chen"] == pytest.approx(0.11 / 0.437, rel=1e-6)
+    # On the detection scale: cloglog(p) = log(mu), so the reported fold is a
+    # ratio of expected UMIs, not of probabilities.
+    mu = lambda p: -np.log1p(-p)
+    assert row["fold_mu_vs_chen"] == pytest.approx(mu(0.11) / mu(0.437), rel=1e-6)
+    assert row["log_fc_vs_chen"] == pytest.approx(
+        np.log(mu(0.11) / mu(0.437)), rel=1e-6)
+    # The old number is kept, under a name that says what it is.
+    assert row["naive_ratio_of_p"] == pytest.approx(0.11 / 0.437, rel=1e-6)
+
+
+def test_the_ratio_of_probabilities_reverses_the_gene_ordering():
+    """The defect, as a test — and it is not hypothetical, it is the run.
+
+    Detection is bounded at 1 and ACTB enters saturated at 0.984, so dividing
+    Becker's small number by it compresses the loss. On Becker's own measured
+    values the two scales disagree about which gene the nuclear protocol treated
+    worse, and they disagree about the pair the pre-registration is ABOUT:
+    the ratio scale says the housekeeping control was better retained than the
+    target, the detection scale says the opposite.
+    """
+    measured = _detection(ACTB=0.199808, GUCA2A=0.033845)
+    gated = gate(measured).set_index("gene")
+    actb, guca = gated.loc["ACTB"], gated.loc["GUCA2A"]
+
+    assert actb["naive_ratio_of_p"] > guca["naive_ratio_of_p"]   # ACTB "better"
+    assert guca["fold_mu_vs_chen"] > actb["fold_mu_vs_chen"]     # GUCA2A better
+    assert guca["log_fc_vs_chen"] > actb["log_fc_vs_chen"]
 
 
 def test_a_detection_table_without_its_columns_is_refused():

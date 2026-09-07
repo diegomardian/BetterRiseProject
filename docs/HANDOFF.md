@@ -145,7 +145,7 @@ a freshly downloaded 3.1 GB cohort against the Windows originals: 11 bit-identic
 
 ## 3. The recurring defect, which is also the paper's thesis
 
-**A check that cannot fail reports success.** It has now been found **nineteen**
+**A check that cannot fail reports success.** It has now been found **twenty**
 times, including six times inside guards written to prevent it, and twice
 inside guards written *during* this work. Assume the next one exists.
 

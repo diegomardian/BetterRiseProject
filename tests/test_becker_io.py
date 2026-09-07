@@ -306,13 +306,18 @@ def test_the_deposit_reader_drops_crc_and_pools_as_amendment_1_fixed():
     with tempfile.TemporaryDirectory() as d:
         root = pathlib.Path(d)
         tar, series = _tar(root), _series_matrix(root)
-        counts, index, keys, absent = _read_deposit(tar, series, pool_by="donor")
+        counts, index, keys, arms, absent = _read_deposit(
+            tar, series, pool_by="donor")
         # 5 scored samples (1 CRC dropped) x 5 cells
         assert counts.shape == (25, 6)
         assert absent == []
         assert set(keys) == {"A001", "A002"}, "pooled per donor"
+        # The arm rides with the cell. Without it the gate cannot be taken on
+        # the normal arm, which is the only arm CHEN_BASELINE is comparable to.
+        assert len(arms) == counts.shape[0]
+        assert set(arms) <= {"tumour", "normal", "healthy_donor"}
 
-        _, _, lesion_keys, _ = _read_deposit(tar, series, pool_by="lesion")
+        _, _, lesion_keys, _, _ = _read_deposit(tar, series, pool_by="lesion")
         assert len(set(lesion_keys)) == 4, (
             "per lesion, with the two replicates of A002-C-010 collapsing to "
             "one sample_id"

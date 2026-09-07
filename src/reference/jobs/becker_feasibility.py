@@ -219,7 +219,24 @@ def gate(detection: pd.DataFrame) -> pd.DataFrame:
 
     out = detection.copy()
     out["chen_baseline"] = out["gene"].map(CHEN_BASELINE)
-    out["fold_vs_chen"] = out["detection"] / out["chen_baseline"]
+    # THE SCALE. `detection / chen_baseline` is a ratio of PROBABILITIES and it
+    # is not comparable across genes, because detection is bounded at 1 and
+    # ACTB/KRT8/EPCAM enter saturated (0.984, 0.958, 0.900). Dividing a small
+    # number by a saturated one compresses the loss and makes a housekeeping
+    # gene look better retained than a target. It reversed the two here: on the
+    # ratio scale ACTB reads as retained 2.6x better than GUCA2A, and on the
+    # detection scale GUCA2A is retained 1.1x BETTER than ACTB.
+    #
+    # This repository already found and fixed this once -- `docs/HANDOFF.md`
+    # §6d, the cross-gene scale correction -- and the fix lived in another
+    # module, so this job reintroduced it. cloglog(p) = log(mu), so a difference
+    # on that scale is a log fold change in expected UMIs and IS comparable.
+    out["mu_becker"] = -np.log1p(-out["detection"].clip(upper=1 - 1e-12))
+    out["mu_chen"] = -np.log1p(-out["chen_baseline"].clip(upper=1 - 1e-12))
+    out["log_fc_vs_chen"] = np.log(out["mu_becker"] / out["mu_chen"])
+    out["fold_mu_vs_chen"] = out["mu_becker"] / out["mu_chen"]
+    # Kept under a name that says what it is, so the old number stays checkable.
+    out["naive_ratio_of_p"] = out["detection"] / out["chen_baseline"]
     out["clears_detection"] = out["detection"] >= MIN_DETECTION
     out["clears_patient_share"] = (
         out["share_patients_nonzero"] >= MIN_PATIENT_SHARE_NONZERO)
@@ -346,7 +363,7 @@ def _read_deposit(tar: Path, series_matrix: Path, *, pool_by: str):
     if scored.empty:
         raise FeasibilityError("no sample carries an arm after the CRC exclusion")
 
-    blocks, keys, reference = [], [], None
+    blocks, keys, arms, reference = [], [], [], None
     for _, row in scored.iterrows():
         counts, _, features = read_triplet(tar, row)
         symbols = gene_symbols(features)
@@ -360,6 +377,7 @@ def _read_deposit(tar: Path, series_matrix: Path, *, pool_by: str):
             )
         blocks.append(counts)
         keys.extend([row["pool_key"]] * counts.shape[0])
+        arms.extend([row["arm"]] * counts.shape[0])
 
     gene_index = {}
     for gene in GENE_ROLES:
@@ -370,7 +388,8 @@ def _read_deposit(tar: Path, series_matrix: Path, *, pool_by: str):
     log.info("  stacked %d samples -> %d cells, pooled by %s (%d units)",
              len(blocks), sum(b.shape[0] for b in blocks), pool_by,
              len(set(keys)))
-    return vstack(blocks).tocsr(), gene_index, np.asarray(keys), absent
+    return (vstack(blocks).tocsr(), gene_index, np.asarray(keys),
+            np.asarray(arms), absent)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -449,7 +468,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
 
     if args.tar:
-        counts, gene_index, patients, absent = _read_deposit(
+        counts, gene_index, patients, cell_arms, absent = _read_deposit(
             args.tar, args.series_matrix, pool_by=args.pool_by)
         log.info("panel genes located in the features symbol column: %d of %d%s",
                  len(gene_index), len(GENE_ROLES),
@@ -470,6 +489,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                  f" (absent: {absent})" if absent else "")
         counts = adata.layers[args.layer] if args.layer else adata.X
         patients = adata.obs[args.patient_column].to_numpy()
+        # Invariant 1: no arm vector is not an arm vector of one value.
+        cell_arms = np.full(counts.shape[0], None, dtype=object)
 
     if not gene_index:
         raise FeasibilityError(
@@ -478,25 +499,57 @@ def main(argv: Sequence[str] | None = None) -> int:
             "times in this repository."
         )
 
-    table = detection_table(counts, gene_index, patients)
+    # THE ARM. CHEN_BASELINE is Chen_2021's NORMAL-arm mature cells, and the
+    # prereg's gate is on the normal arm. The first version of this pooled every
+    # scored sample -- 43 polyps against 16 normals -- and compared that to a
+    # normal-arm baseline. The polyps are the arm where a maturity marker is
+    # EXPECTED to be low, so the hypothesis's own predicted effect was inside
+    # the feasibility baseline, biasing the gate toward CANNOT RUN. That is not
+    # a conservative choice; it is the wrong comparison.
+    per_arm = []
+    for arm in sorted({a for a in cell_arms.tolist() if a is not None}):
+        mask = cell_arms == arm
+        frame = detection_table(counts[mask], gene_index, patients[mask])
+        frame.insert(0, "arm", arm)
+        per_arm.append(frame)
+    whole = detection_table(counts, gene_index, patients)
+    whole.insert(0, "arm", "ALL_ARMS_POOLED")
+    per_arm.append(whole)
+    by_arm = gate(pd.concat(per_arm, ignore_index=True))
+
+    gate_arm = "normal" if (cell_arms == "normal").any() else "ALL_ARMS_POOLED"
+    if gate_arm != "normal":
+        log.warning("no normal arm in this object; gating on the pooled object, "
+                    "which is NOT the pre-registered gate.")
+    table = detection_table(counts[cell_arms == "normal"], gene_index,
+                            patients[cell_arms == "normal"]) \
+        if gate_arm == "normal" else whole.drop(columns="arm")
     gated = gate(table)
     outcome = verdict(gated)
 
-    log.info("\n%s\nTHE PRE-REGISTERED GATE — prereg §3\n%s", "=" * 72, "=" * 72)
+    log.info("\n%s\nDETECTION BY ARM — the gate reads the '%s' row\n%s",
+             "=" * 72, gate_arm, "=" * 72)
+    log.info("%s", by_arm.pivot(index=["gene", "role"], columns="arm",
+                                values="detection").to_string())
+
+    log.info("\n%s\nTHE PRE-REGISTERED GATE — prereg §3, on the %s arm\n%s",
+             "=" * 72, gate_arm, "=" * 72)
     log.info("  detection >= %.2f AND non-zero in >= %.0f%% of patients",
              MIN_DETECTION, 100 * MIN_PATIENT_SHARE_NONZERO)
     log.info("%s", gated[["gene", "role", "detection", "chen_baseline",
-                          "fold_vs_chen", "share_patients_nonzero",
-                          "passes"]].to_string(index=False))
+                          "fold_mu_vs_chen", "log_fc_vs_chen",
+                          "share_patients_nonzero", "passes"]]
+             .to_string(index=False))
     log.info("\n%s\nVERDICT\n%s", "=" * 72, "=" * 72)
     log.info("  %s", outcome["verdict"])
     log.info("  %s", outcome["detail"])
     log.info(
-        "\n  NOTE: this measures the WHOLE object, not the mature cells of the "
-        "normal arm\n  the prereg names. Mature cells ENRICH for these markers, "
-        "so this is a LOWER\n  bound: a gene passing here passes the real gate. "
-        "A gene failing here needs\n  the labelled reading before it is called "
-        "dead."
+        "\n  NOTE: this is the normal arm but NOT its mature cells, which is "
+        "what the\n  prereg names. Mature cells ENRICH for these markers, so "
+        "this remains a LOWER\n  bound: a gene passing here passes the real "
+        "gate. A gene failing here needs\n  the labelled reading before it is "
+        "called dead — and B1 is UNDETERMINED until\n  that reading exists, "
+        "not refuted."
     )
 
     meta = {
@@ -511,18 +564,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         "layer": args.layer or "X",
         "genes_absent_from_object": absent,
         "scope": (
-            "whole object, not the mature cells of the normal arm. Mature cells "
-            "enrich for these markers, so this is a lower bound on the "
-            "pre-registered gate."
+            f"the {gate_arm} arm, but not its mature cells, which is what the "
+            f"prereg names. Mature cells enrich for these markers, so this is "
+            f"still a lower bound on the pre-registered gate. Detection for "
+            f"every arm is in the by_arm table."
         ),
         "exploratory": False,
         "pre_registered": True,
     }
-    log.info("\nwrote %s", write_versioned_table(
-        gated, "becker_feasibility", seed=args.seed,
-        results_dir=args.results_dir, allow_dirty=args.allow_dirty,
-        extra_meta=meta,
-    ))
+    for frame, name in ((gated, "becker_feasibility"),
+                        (by_arm, "becker_feasibility_by_arm")):
+        log.info("wrote %s", write_versioned_table(
+            frame, name, seed=args.seed, results_dir=args.results_dir,
+            allow_dirty=args.allow_dirty, extra_meta=meta,
+        ))
     return 0 if outcome["verdict"] != "CANNOT RUN" else 5
 
 
