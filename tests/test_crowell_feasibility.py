@@ -536,3 +536,91 @@ def test_the_subdomain_parts_never_count_toward_n():
     out = verdict(table, adenoma_domain="TVA1+TVA2", reference_domain="REF",
                   patient_n=1)
     assert out["patient_n"] == 1, "two lesions in one patient is still n=1"
+
+
+# ---------------------------------------------------------------------------
+# Reading five columns instead of 549M non-zeros
+# ---------------------------------------------------------------------------
+
+
+def test_gene_columns_are_read_without_loading_the_matrix(tmp_path):
+    """THE FAILURE SECTION 110 PRODUCED.
+
+    `adata.to_memory()` on a backed CSC materialises every non-zero as float64
+    — 549M values, 4.39 GB — and the job needs five columns of 18,878. This
+    reads them from the sparse arrays directly and never allocates anything of
+    matrix size.
+    """
+    anndata = pytest.importorskip("anndata")
+    from scipy.sparse import csc_matrix
+
+    from src.reference.crowell_io import read_gene_columns
+
+    matrix, names, domains = _section(
+        {"REF": {g: 0.4 for g in PANEL}, "TVA": {g: 0.2 for g in PANEL}}, seed=21)
+    adata = anndata.AnnData(
+        X=csc_matrix(matrix),
+        obs=pd.DataFrame({"region": domains},
+                         index=[f"c{i}" for i in range(matrix.shape[0])]),
+        var=pd.DataFrame(index=names))
+    path = tmp_path / "110.h5ad"
+    adata.write_h5ad(path)
+
+    panel_index, _ = find_panel(names)
+    got = read_gene_columns(path, panel_index)
+    assert set(got) == set(PANEL)
+    for gene, column in panel_index.items():
+        expected = matrix[:, column] >= 1
+        assert got[gene].tolist() == expected.tolist(), gene
+
+
+def test_a_csr_matrix_is_refused_rather_than_served_slowly(tmp_path):
+    """Column extraction from CSR touches every row. A fallback that 'works'
+    would reintroduce the allocation this reader exists to avoid."""
+    anndata = pytest.importorskip("anndata")
+    from scipy.sparse import csr_matrix
+
+    from src.reference.crowell_io import read_gene_columns
+
+    matrix, names, domains = _section({"REF": {"ACTB": 0.5}}, seed=22)
+    adata = anndata.AnnData(
+        X=csr_matrix(matrix),
+        obs=pd.DataFrame(index=[f"c{i}" for i in range(matrix.shape[0])]),
+        var=pd.DataFrame(index=names))
+    path = tmp_path / "csr.h5ad"
+    adata.write_h5ad(path)
+    with pytest.raises(CrowellError, match="csc_matrix"):
+        read_gene_columns(path, {"ACTB": names.index("ACTB")})
+
+
+def test_depth_from_obs_refuses_rather_than_returning_zeros():
+    """A flat depth row reads as 'these domains have identical capture'."""
+    from src.reference.crowell_io import depth_from_obs
+
+    ok = pd.DataFrame({"nCount_RNA": [10, 20], "nFeature_RNA": [5, 8]})
+    counts, features = depth_from_obs(ok)
+    assert counts.tolist() == [10.0, 20.0] and features.tolist() == [5.0, 8.0]
+
+    with pytest.raises(CrowellError, match="identical capture"):
+        depth_from_obs(pd.DataFrame({"nCount_RNA": [1, 2]}))
+
+
+def test_the_depth_consistency_check_fires_on_a_mismatched_feature_space():
+    """A cell cannot detect more panel genes than it detects genes in total.
+    Cheap, and it fires if nFeature_RNA describes a different feature space."""
+    from src.reference.crowell_io import check_depth_is_consistent
+
+    detection = {"ACTB": np.array([True, True]), "KRT8": np.array([True, True])}
+    assert check_depth_is_consistent(detection, np.array([5.0, 9.0]))["consistent"]
+    bad = check_depth_is_consistent(detection, np.array([5.0, 1.0]))
+    assert not bad["consistent"] and bad["violations"] == 1
+
+
+def test_the_precomputed_path_needs_its_depth_and_will_not_default_it():
+    matrix, names, domains = _section({"REF": {"ACTB": 0.5}}, seed=23)
+    detection = {"ACTB": matrix[:, names.index("ACTB")] >= 1}
+    with pytest.raises(CrowellError, match="identical capture"):
+        per_domain_table(None, {"ACTB": 0}, domains,
+                         obs=pd.DataFrame({"nFeature_negprobes": [0] * len(domains),
+                                           "nCount_negprobes": [0] * len(domains)}),
+                         detection=detection)

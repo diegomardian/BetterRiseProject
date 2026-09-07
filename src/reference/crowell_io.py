@@ -260,6 +260,104 @@ def floor_from_obs(obs: pd.DataFrame, *, n_negative_probes: int | None = None
     return out
 
 
+#: Per-cell totals the deposit already carries. Used for the DEPTH ROW ONLY --
+#: never for detection and never for the floor, both of which are computed from
+#: the matrix itself.
+OBS_TOTAL_COUNTS = "nCount_RNA"
+OBS_TOTAL_FEATURES = "nFeature_RNA"
+
+
+def read_gene_columns(path: str | Path, col_indices: dict[str, int], *,
+                      min_umi: int = 1) -> dict[str, np.ndarray]:
+    """Per-cell detection for a handful of genes, read straight from the h5ad.
+
+    **Why this exists.** ``adata.to_memory()`` on a backed CSC materialises
+    every non-zero as float64: for Crowell section 110 that is 549M values,
+    4.39 GB of data plus 2.19 GB of indices, and it killed the run. The job
+    needs **five columns of 18,878** — 0.027% of the matrix — and CSC stores a
+    column contiguously, so reading five of them is cheap.
+
+    Returns one boolean vector per gene, length ``n_obs``. Nothing dense of
+    matrix size is ever allocated.
+
+    CSR is refused rather than served slowly: extracting columns from CSR means
+    touching every row, and the fallback that "works" would quietly reintroduce
+    the allocation this function exists to avoid.
+    """
+    import h5py
+
+    out: dict[str, np.ndarray] = {}
+    with h5py.File(str(path), "r") as handle:
+        node = handle["X"]
+        encoding = node.attrs.get("encoding-type", "")
+        if isinstance(encoding, bytes):
+            encoding = encoding.decode()
+        shape = tuple(node.attrs["shape"]) if "shape" in node.attrs else None
+        if encoding != "csc_matrix":
+            raise CrowellError(
+                f"X is {encoding!r}; this reader handles 'csc_matrix', where a "
+                f"column is contiguous and five of them are cheap. Extracting "
+                f"columns from CSR means touching every row, and a fallback "
+                f"that 'works' would reintroduce the multi-GB allocation this "
+                f"function exists to avoid."
+            )
+        n_obs = int(shape[0]) if shape else int(node["indptr"].shape[0])
+        indptr = node["indptr"][:]
+        for gene, column in col_indices.items():
+            start, stop = int(indptr[column]), int(indptr[column + 1])
+            hit = np.zeros(n_obs, dtype=bool)
+            if stop > start:
+                rows = node["indices"][start:stop]
+                vals = node["data"][start:stop]
+                hit[rows[np.asarray(vals) >= min_umi]] = True
+            out[gene] = hit
+    return out
+
+
+def depth_from_obs(obs: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Per-cell total counts and detected features, from the deposit's own obs.
+
+    **Descriptive only.** The depth row exists so a reader can see whether two
+    domains differ in capture before reading anything else; it never enters a
+    detection rate, a floor or a verdict. Taken from obs rather than by summing
+    the matrix because summing means loading it, and loading it is what
+    exhausted memory on section 110.
+
+    Raises if either column is absent — a depth row silently filled with zeros
+    would read as "these domains have identical capture", which is a claim.
+    """
+    missing = [c for c in (OBS_TOTAL_COUNTS, OBS_TOTAL_FEATURES)
+               if c not in obs.columns]
+    if missing:
+        raise CrowellError(
+            f"obs carries no {missing}, so the per-domain depth row cannot be "
+            f"built without loading the whole matrix. Do not substitute zeros: "
+            f"a flat depth row reads as 'these domains have identical capture'."
+        )
+    counts = pd.to_numeric(obs[OBS_TOTAL_COUNTS], errors="coerce").to_numpy(float)
+    features = pd.to_numeric(obs[OBS_TOTAL_FEATURES], errors="coerce").to_numpy(float)
+    return counts, features
+
+
+def check_depth_is_consistent(detection: dict[str, np.ndarray],
+                              features_per_cell: np.ndarray) -> dict[str, object]:
+    """A cell cannot detect more panel genes than it detects genes in total.
+
+    Weak, cheap and non-vacuous: it uses only the columns already read, and it
+    fires if ``nFeature_RNA`` describes a different feature space from ``X``.
+    A stronger check means summing the matrix, which is the thing being avoided.
+    """
+    stacked = np.vstack([v.astype(int) for v in detection.values()])
+    panel_hits = stacked.sum(axis=0)
+    violations = int((panel_hits > features_per_cell).sum())
+    return {
+        "cells_checked": int(panel_hits.size),
+        "violations": violations,
+        "consistent": violations == 0,
+        "max_panel_hits": int(panel_hits.max()) if panel_hits.size else 0,
+    }
+
+
 def domain_vocabulary(obs: pd.DataFrame, *, max_distinct: int = 50) -> dict[str, object]:
     """Every LOW-CARDINALITY obs column and its values. MAPS NOTHING.
 

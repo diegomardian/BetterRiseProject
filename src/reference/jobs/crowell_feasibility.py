@@ -51,6 +51,9 @@ from src.common.io import write_versioned_table
 from src.common.paths import RESULTS_DIR
 from src.reference.crowell_io import (
     OBS_NEGATIVE_FEATURES,
+    check_depth_is_consistent,
+    depth_from_obs,
+    read_gene_columns,
     OBS_QC_PASS,
     SECTIONS,
     CrowellError,
@@ -135,7 +138,10 @@ def per_domain_table(matrix, panel_index: dict[str, int], domains,
                      control_indices: np.ndarray | None = None, *,
                      obs: pd.DataFrame | None = None,
                      n_negative_probes: int | None = None,
-                     min_umi: int = DETECTION_MIN_UMI) -> pd.DataFrame:
+                     min_umi: int = DETECTION_MIN_UMI,
+                     detection: dict[str, np.ndarray] | None = None,
+                     counts_per_cell: np.ndarray | None = None,
+                     genes_per_cell: np.ndarray | None = None) -> pd.DataFrame:
     """One row per (domain, gene): detection, the floor, separation, depth.
 
     The floor comes from ``control_indices`` when the control probes are
@@ -148,6 +154,17 @@ def per_domain_table(matrix, panel_index: dict[str, int], domains,
             "give either control_indices (probes in var) or obs (probes "
             "summarised per cell). A floor of zero is a gate every gene clears."
         )
+    # PRECOMPUTED PATH. `to_memory()` on a backed CSC materialises every
+    # non-zero as float64 -- 549M values, 4.39 GB, and it killed section 110.
+    # The job needs five columns of 18,878 and a per-cell depth that obs
+    # already carries, so both are read without the matrix and passed in.
+    if detection is not None and matrix is None:
+        if counts_per_cell is None or genes_per_cell is None:
+            raise CrowellError(
+                "precomputed detection needs counts_per_cell and "
+                "genes_per_cell too; a depth row of zeros reads as 'these "
+                "domains have identical capture', which is a claim."
+            )
     # Missing histopathology is not a fourth domain. The first QC-corrected
     # Crowell run stringified missing `typ` values into the literal label
     # "nan" and emitted 20,393 cells under it. That row did not affect the TVA
@@ -166,18 +183,20 @@ def per_domain_table(matrix, panel_index: dict[str, int], domains,
             log.info("  %s: %d cells, below %d — not scored",
                      domain, n_cells, MIN_CELLS_PER_DOMAIN)
             continue
-        block = matrix[mask]
+        block = None if matrix is None else matrix[mask]
         floor = (floor_from_obs(obs.loc[mask], n_negative_probes=n_negative_probes)
                  if control_indices is None
                  else negative_floor(block, control_indices, min_umi=min_umi))
         for gene, column in panel_index.items():
-            detection = _detection(block, column, min_umi)
+            gene_detection = (float(detection[gene][mask].mean())
+                              if detection is not None
+                              else _detection(block, column, min_umi))
             rows.append({
                 "domain": domain,
                 "gene": gene,
                 "role": GENE_ROLES[gene],
                 "n_cells": n_cells,
-                "detection": detection,
+                "detection": gene_detection,
                 # THE DEPTH ROW. Becker's mature label carried 2.04x the arm's
                 # median UMIs and lifted every gene; the pass was library size.
                 # A cross-domain comparison inherits any depth difference, and
@@ -194,8 +213,8 @@ def per_domain_table(matrix, panel_index: dict[str, int], domains,
                 # divide-by-zero warning and invite someone to clamp it into a
                 # finite number that reads like a measurement.
                 "log_separation": (
-                    float("-inf") if detection <= 0.0 else float(
-                        np.log(_mu(detection)
+                    float("-inf") if gene_detection <= 0.0 else float(
+                        np.log(_mu(gene_detection)
                                / max(_mu(floor["floor_per_probe_mean"]), 1e-12)))),
             })
     frame = pd.DataFrame(rows)
@@ -533,11 +552,33 @@ def main(argv: list[str] | None = None) -> int:
     else:
         require_controls(controls)
 
-    matrix = adata.layers[args.layer] if args.layer else adata.X
-    if adata.isbacked:
-        matrix = adata.to_memory().layers[args.layer] if args.layer \
-            else adata.to_memory().X
-    require_counts(check_counts_are_integers(matrix))
+    # THE MATRIX IS NOT LOADED. `to_memory()` on a backed CSC materialises every
+    # non-zero as float64 -- 549M values and 4.39 GB on section 110, which is
+    # what killed the first attempt. Five columns of 18,878 are read directly
+    # from the sparse arrays, and the per-cell depth comes from obs.
+    matrix = None
+    detection = counts_per_cell = genes_per_cell = None
+    depth_check: dict[str, object] = {}
+    if adata.isbacked and not args.layer:
+        detection = read_gene_columns(args.object, panel_index,
+                                      min_umi=DETECTION_MIN_UMI)
+        counts_per_cell, genes_per_cell = depth_from_obs(adata.obs)
+        depth_check = check_depth_is_consistent(detection, genes_per_cell)
+        if not depth_check["consistent"]:
+            raise CrowellError(
+                f"{depth_check['violations']} cells detect more panel genes "
+                f"than obs['nFeature_RNA'] says they detect in total. That "
+                f"column describes a different feature space from X, so the "
+                f"depth row would not describe this matrix."
+            )
+        log.info("read %d gene columns directly; depth from obs "
+                 "(%d cells checked, %d inconsistent)", len(detection),
+                 depth_check["cells_checked"], depth_check["violations"])
+    else:
+        matrix = adata.layers[args.layer] if args.layer else adata.X
+        if adata.isbacked:
+            matrix = adata.to_memory().layers[args.layer]
+        require_counts(check_counts_are_integers(matrix))
 
     # POOLING, multisection Amendment 1. Several sub-domains of one class in one
     # block are one patient's observation, and §5 already fixed "pool the cells
@@ -559,12 +600,14 @@ def main(argv: list[str] | None = None) -> int:
     reference_label = ("+".join(sorted(args.reference_domain))
                        if args.reference_domain else None)
 
+    _precomputed = dict(detection=detection, counts_per_cell=counts_per_cell,
+                        genes_per_cell=genes_per_cell)
     table = per_domain_table(
         matrix, panel_index, pooled_domains,
         control_indices=(None if floor_source == "obs"
                          else np.asarray(controls["negative_indices"], dtype=int)),
         obs=adata.obs if floor_source == "obs" else None,
-        n_negative_probes=args.n_negative_probes)
+        n_negative_probes=args.n_negative_probes, **_precomputed)
     log.info("\n%s\nPER-DOMAIN DETECTION AGAINST THE FALSE-POSITIVE FLOOR\n%s",
              "=" * 72, "=" * 72)
     if not table.empty:
@@ -589,7 +632,7 @@ def main(argv: list[str] | None = None) -> int:
             control_indices=(None if floor_source == "obs"
                              else np.asarray(controls["negative_indices"], dtype=int)),
             obs=adata.obs if floor_source == "obs" else None,
-            n_negative_probes=args.n_negative_probes)
+            n_negative_probes=args.n_negative_probes, **_precomputed)
         parts = parts[parts["domain"].isin(pooled_names)].copy()
         parts["pooled_into"] = parts["domain"].map(pooled_names)
         parts["exploratory"] = True
@@ -649,6 +692,9 @@ def main(argv: list[str] | None = None) -> int:
         ),
         "min_log_separation": MIN_LOG_SEPARATION,
         "floor_source": floor_source,
+        "matrix_loaded": matrix is not None,
+        "depth_source": "obs" if matrix is None else "matrix",
+        "depth_consistency_check": depth_check or None,
         "n_negative_probes": args.n_negative_probes,
         "qc_filter_column": OBS_QC_PASS,
         "n_cells_before_qc": n_cells_before_qc,
