@@ -1,0 +1,56 @@
+{
+  "date": "2026-09-07",
+  "utc_timestamp": "2026-09-07T21:23:02+00:00",
+  "git_sha": "8fa00f2312e55d68493854fbe03c96126e51a123",
+  "git_sha_short": "8fa00f2",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": true,
+  "git_untracked": [
+    "docs/a2_synapse_access_request.md",
+    "docs/stage4_carcinoma_audit.md",
+    "src/reference/a2_synapse.py",
+    "src/reference/jobs/a2_synapse_inventory.py",
+    "tests/test_a2_synapse.py"
+  ],
+  "seed": 20260907,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "panel_coverage",
+  "n_rows": 44,
+  "columns": [
+    "panel",
+    "plex",
+    "vendor_doc",
+    "gene",
+    "role",
+    "status",
+    "present",
+    "permissive_match_would_say",
+    "match_disagrees",
+    "n_symbols_in_panel"
+  ],
+  "table_kind": "harness",
+  "what_this_is": "avenue C1's feasibility gate \u2014 a lookup, recorded",
+  "ranked_item": "docs/NEXT_AVENUES.md 'Still open, ranked' item 7",
+  "match_rule": "exact, on the vendor's symbol column only; no alias mapping is used. A hand-written alias table in the first pass wrongly gave CD20L4 to MS4A12 (it is MS4A7's) and manufactured a PRESENT. permissive_match_would_say records what a whole-sheet search for the exact symbol claims \u2014 here, the same thing.",
+  "panels_checked": {
+    "CosMx_Human_Universal_1K": "LBL-11178-04",
+    "CosMx_Human_6K_Discovery": "LBL-11190-04",
+    "Xenium_Human_Colon_v1": "Xenium Human Colon v1 panel metadata",
+    "Xenium_Prime_5K_Human_Pan_Tissue": "Xenium Prime 5K Human Pan Tissue panel metadata"
+  },
+  "panel_sha256": {
+    "CosMx_Human_Universal_1K": "941832fddbc58c52821a7202b780e19b14cd418d5554c4cc1ae780d54ace9cc7",
+    "CosMx_Human_6K_Discovery": "14395559815719c62eee8593149e52e75a0b038ce9728fa37f5818c747d3bcf9",
+    "Xenium_Human_Colon_v1": "68950fb07b11205fa3602762c3011b8b1a14914b044328dec6939b8c1be0da39",
+    "Xenium_Prime_5K_Human_Pan_Tissue": "833ddb3008f2eb5e1b39053a988869c74db82cbaa8124d932965459f3169c58a"
+  },
+  "verdict": {
+    "verdict": "C1 NOT RUNNABLE ON A STOCK PANEL",
+    "detail": "no checked stock panel contains a target, an identity marker, and a control. C1 needs a custom panel or a different spatial design; a target-only panel does not license the claim. CosMx_Human_6K_Discovery: 7/11 present, MISSING REQUIRED ROLE(S) (target); CosMx_Human_Universal_1K: 4/11 present, MISSING REQUIRED ROLE(S) (target, identity); Xenium_Human_Colon_v1: 3/11 present, MISSING REQUIRED ROLE(S) (control); Xenium_Prime_5K_Human_Pan_Tissue: 5/11 present, MISSING REQUIRED ROLE(S) (target, control)"
+  },
+  "exploratory": false,
+  "pre_registered": false
+}

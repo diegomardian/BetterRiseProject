@@ -437,25 +437,24 @@ feasibility check exists.
 
 ### C. The survivorship discriminators — consistent, and C2's target choice is corroborated
 
-**C1 (segmented spatial) — LOOKUP DONE 2026-09-07, and it is not orderable off
-a catalogue.** `results/2026-09-07_eb58d79/panel_coverage.parquet`, job
-`src/reference/jobs/panel_coverage.py`, gene lists in `data/manifest.csv` with
-sha256.
+**C1 (segmented spatial) — LOOKUP COMPLETE 2026-09-07, and it is not runnable
+on a stock catalogue panel.** `results/2026-09-07_8fa00f2/panel_coverage.parquet`,
+job `src/reference/jobs/panel_coverage.py`, gene lists in
+`data/manifest.csv` with sha256.
 
-| gene | role | CosMx 1K Universal | CosMx 6K Discovery |
-|---|---|---|---|
-| **GUCA2A** | **target** | **absent** | **absent** |
-| MS4A12 | identity | absent | absent |
-| CDX2 | identity | absent | present |
-| EPCAM | epithelial | present | present |
-| KRT8 | control | present | present |
-| **ACTB** | **control** | **absent** | **absent** |
-| AXIN2 / NKD1 / RNF43 / NOTUM / TCF7 | Wnt (inv. 8) | 2 of 5 | 4 of 5 |
+| gene | role | CosMx 1K | CosMx 6K | Xenium Colon v1 | Xenium Prime 5K |
+|---|---|---|---|---|---|
+| **GUCA2A** | **target** | absent | absent | **present** | absent |
+| MS4A12 | identity | absent | absent | present | absent |
+| CDX2 | identity | absent | present | absent | present |
+| EPCAM | epithelial | present | present | absent | present |
+| KRT8 | control | present | present | absent | absent |
+| **ACTB** | **control** | absent | absent | absent | absent |
 
-**The target is absent from a 6,000-gene panel.** Its paralog `GUCA2B` is on the
-6K and `GUCA2A` is not. So is `ACTB`, the load-bearing control. **C1 needs custom
-probes for the genes the whole design rests on** — a different cost and lead
-time from "order the colon panel," and that is the fact the ranking was missing.
+The Human Colon panel supplies the target but no control; Prime 5K supplies an
+identity marker but no target or control. **No stock panel has C1's required
+target, identity marker, and control.** C1 needs custom probes or a different
+spatial design — a different cost and lead time from “order the colon panel.”
 
 *The tidy explanation is wrong, so do not repeat it.* Absence does not track
 abundance: `KRT8` is the **highest**-expressing gene in the panel (25.8 CP10K,
@@ -465,12 +464,6 @@ these panels are built for — the CosMx 1K's own description is "robust cell
 typing." This project needs a housekeeping control (discriminates nothing, so a
 typing panel omits it) and functional maturity markers. That reading is an
 interpretation and is labelled one; the table above is the measurement.
-
-**Xenium is NOT CHECKED, which is not the same as absent.** 10x returned HTTP
-429/403 to every request on 2026-09-07. `XENIUM_SOURCES` in the job carries the
-two URLs; fetch the Human Colon (325-gene) and Prime 5K metadata CSVs from a
-browser, drop them in `data/raw/panels/`, add manifest rows, and extend `PANELS`.
-**That is the remaining half of this item and it is still nearly free.**
 
 The Visium caveat C1 carries is already this repo's (`docs/HANDOFF.md` §6e: a
 spot is still a mixture). Ruling Pelka's own GeoMx out as a primary is right —
@@ -643,14 +636,17 @@ matrices **without touching outcomes**; record the gate and its threshold; model
 only if it passes. If the marker is at floor in most tumours there is no
 variation to regress on and the prespec would be written for a study that cannot
 produce a non-null. Same shape as B1's detection gate, and B1 is why this
-sentence exists.
+sentence exists. `docs/d2_feasibility_gate.md` fixes the input, unit, and
+outcome-blind pass conditions before the cluster run.
 
 **6 · Carcinoma — a candidate resolvability diagnostic, not a fraction.**
-`best4` returns exactly-zero mature fraction on **97.3% of 1,350** TCGA rows
-with `estimability='estimated'` and an **empty reason field**. Audit the source
-artifact, denominator, estimability status and those reasons before quoting the
-number. **Never present it as a biological mature-cell fraction.** The
-conclusion carcinoma supports is "not estimable at this resolution".
+`best4` returns exactly-zero mature fraction on **1,314 of 1,350
+method-by-sample rows (97.3%)**; that is **641 of 675 tumours zero under both
+methods**. Every row is marked `estimability='estimated'` with an empty reason
+field. **Never present it as a biological mature-cell fraction.** The source
+artifact's denominator and semantics must be audited before quoting either
+number; the only supported carcinoma conclusion is "not estimable at this
+resolution".
 
 **Policy, not an invariant.** *ML produces segmentation, geometry or anatomical
 measurements; biological claims are patient-level estimates with explicit

@@ -127,7 +127,15 @@ Change both files, in one PR, titled `shared/...`, with the reason in the PR bod
 
 ---
 
-## 6. Before you open a PR
+## 6. ML is measurement infrastructure
+
+ML may produce segmentation, geometry, or anatomical measurements. Biological
+claims remain patient-level estimates with explicit abstention rules; an ML
+output does not replace a sensitivity control or license a per-cell state claim.
+
+---
+
+## 7. Before you open a PR
 
 ```bash
 pytest
@@ -171,7 +179,7 @@ is to disagree.
 
 ---
 
-## 7. Cadence
+## 8. Cadence
 
 Per [execution_plan.md §11](execution_plan.md#11-standing-meetings): weekly
 30 min, blockers only. Week 2 is the W3 premise check and the W1→W2 pilot

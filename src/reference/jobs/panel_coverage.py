@@ -28,11 +28,10 @@ The fix is that no alias mapping is used at all: the match is exact against
 future reader can see the strict answer is not an artefact of looking in one
 column. A gene genuinely listed only under an alias would show up there.
 
-WHAT THIS DOES NOT COVER. 10x's Xenium panel lists are behind a rate limiter
-that returned HTTP 429/403 to every request on 2026-09-07, so the Xenium rows
-are ``not_checked`` rather than absent — invariant 1, one layer out: a lookup
-that could not run is not a lookup that returned nothing. ``XENIUM_SOURCES``
-carries the URLs to finish it.
+THE 10X HALF IS NOW CHECKED. Both 10x panel metadata CSVs were downloaded on
+2026-09-07, pinned in ``data/manifest.csv``, and read by exact symbol column.
+They are deliberately treated like the CosMx files rather than inferred from a
+marketing-page gene count.
 """
 
 from __future__ import annotations
@@ -74,20 +73,22 @@ PANELS = {
         "vendor_doc": "LBL-11190-04",
         "sha256": "14395559815719c62eee8593149e52e75a0b038ce9728fa37f5818c747d3bcf9",
     },
-}
-
-#: Not checked on 2026-09-07 — every request to 10x returned 429 or 403. These
-#: are the pages the lists hang off; finish the lookup from a browser and add
-#: the files to the manifest the way the CosMx two are recorded.
-XENIUM_SOURCES = {
-    "Xenium_Human_Colon_v1": (
-        "https://www.10xgenomics.com/support/software/xenium-panel-designer/"
-        "latest/tutorials/pre-designed-panels/pre-designed-xenium-v1"
-    ),
-    "Xenium_Prime_5K_Human_Pan_Tissue": (
-        "https://www.10xgenomics.com/support/software/xenium-panel-designer/"
-        "latest/tutorials/pre-designed-xenium-prime-5k"
-    ),
+    "Xenium_Human_Colon_v1": {
+        "path": "raw/panels/Xenium_Human_Colon_v1_panel_metadata.csv",
+        "format": "csv",
+        "symbol_column": "Gene",
+        "plex": 322,
+        "vendor_doc": "Xenium Human Colon v1 panel metadata",
+        "sha256": "68950fb07b11205fa3602762c3011b8b1a14914b044328dec6939b8c1be0da39",
+    },
+    "Xenium_Prime_5K_Human_Pan_Tissue": {
+        "path": "raw/panels/Xenium_Prime_5K_Human_Pan_Tissue_panel_metadata.csv",
+        "format": "csv",
+        "symbol_column": "gene_name",
+        "plex": 5001,
+        "vendor_doc": "Xenium Prime 5K Human Pan Tissue panel metadata",
+        "sha256": "833ddb3008f2eb5e1b39053a988869c74db82cbaa8124d932965459f3169c58a",
+    },
 }
 
 _SPLIT = re.compile(r"[,;|/]")
@@ -105,8 +106,8 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def read_symbols(spec: dict, data_dir: Path) -> set[str]:
-    """Exact gene symbols from one vendor sheet, with the revision verified."""
+def read_panel_frame(spec: dict, data_dir: Path) -> pd.DataFrame:
+    """Read one verified vendor panel, preserving its declared symbol column."""
     path = data_dir / spec["path"]
     if not path.exists():
         raise PanelError(
@@ -120,17 +121,27 @@ def read_symbols(spec: dict, data_dir: Path) -> set[str]:
             f"was computed against. The vendor revised the panel; re-run and "
             f"record the new answer rather than trusting the old one."
         )
-    frame = pd.read_excel(path, sheet_name=spec["sheet"], header=1)
+    if spec.get("format", "xlsx") == "csv":
+        frame = pd.read_csv(path)
+    else:
+        frame = pd.read_excel(path, sheet_name=spec["sheet"], header=1)
     column = spec["symbol_column"]
     if column not in frame.columns:
         raise PanelError(f"{path} has no {column!r}; got {list(frame.columns)}")
+    return frame
+
+
+def read_symbols(spec: dict, data_dir: Path) -> set[str]:
+    """Exact gene symbols from one vendor sheet, with the revision verified."""
+    frame = read_panel_frame(spec, data_dir)
+    column = spec["symbol_column"]
     symbols: set[str] = set()
     for value in frame[column].dropna():
         symbols |= {t.strip().upper() for t in _SPLIT.split(str(value)) if t.strip()}
     return symbols
 
 
-def alias_audit(spec: dict, data_dir: Path, genes: "tuple[str, ...]") -> set[str]:
+def alias_audit(spec: dict, data_dir: Path, genes: tuple[str, ...]) -> set[str]:
     """What a search of EVERY column for the exact symbol would have claimed.
 
     Reported, not used. On the panels in hand it agrees with the strict match
@@ -139,7 +150,7 @@ def alias_audit(spec: dict, data_dir: Path, genes: "tuple[str, ...]") -> set[str
     error, which came from a hand-written alias table rather than from the
     sheet — no alias mapping is used anywhere in this module, deliberately.
     """
-    frame = pd.read_excel(data_dir / spec["path"], sheet_name=spec["sheet"], header=1)
+    frame = read_panel_frame(spec, data_dir)
     blob = {str(v).strip().upper() for c in frame.columns for v in frame[c].dropna()}
     exploded: set[str] = set()
     for value in blob:
@@ -168,56 +179,47 @@ def coverage(data_dir: Path) -> pd.DataFrame:
                 "match_disagrees": bool(gene in permissive) != present,
                 "n_symbols_in_panel": len(symbols),
             })
-    for panel, url in XENIUM_SOURCES.items():
-        for gene in genes:
-            rows.append({
-                "panel": panel, "plex": None, "vendor_doc": None,
-                "gene": gene, "role": roles[gene],
-                # Invariant 1, one layer out: not checked is not absent.
-                "status": "not_checked", "present": None,
-                "permissive_match_would_say": None, "match_disagrees": None,
-                "n_symbols_in_panel": None, "source_url": url,
-            })
     return pd.DataFrame(rows)
 
 
 def verdict(table: pd.DataFrame) -> dict[str, str]:
     """C1's gate: can the design be run on a stock panel?
 
-    The design needs the target, at least one identity marker to make the claim
-    gene-specific rather than tier-level, and a control. Losing the target ends
-    it outright; that is the branch that matters and it is stated as such.
+    The design needs a target, at least one identity marker to make the claim
+    gene-specific rather than tier-level, and a control. Missing any one of
+    those roles ends the stock-panel design; a target alone is not a runnable
+    discriminator.
     """
-    checked = table[table["status"] != "not_checked"]
-    if checked.empty:
+    if table.empty:
         return {"verdict": "NOT CHECKED",
                 "detail": "no panel list in hand; nothing was determined."}
     lines = []
-    target_lost = []
-    for panel, group in checked.groupby("panel", sort=True):
-        # Filter on `status`, not on `present` — `present` carries None for the
-        # not-checked rows and a boolean mask over object dtype silently
-        # reverses that third state into "absent".
+    runnable = []
+    for panel, group in table.groupby("panel", sort=True):
         got = group[group["status"] == "present"]["gene"].tolist()
-        targets = group[group["role"] == "target"]
-        missing_targets = targets[targets["status"] == "absent"]["gene"].tolist()
-        if missing_targets:
-            target_lost.append(panel)
+        missing_roles = [
+            role for role in ("target", "identity", "control")
+            if not (group[(group["role"] == role) & (group["status"] == "present")].shape[0])
+        ]
+        if not missing_roles:
+            runnable.append(panel)
         lines.append(
             f"{panel}: {len(got)}/{len(group)} present"
-            + (f", TARGET MISSING ({', '.join(missing_targets)})" if missing_targets else "")
+            + (f", MISSING REQUIRED ROLE(S) ({', '.join(missing_roles)})"
+               if missing_roles else ", RUNNABLE")
         )
-    if len(target_lost) == checked["panel"].nunique():
+    if not runnable:
         return {
             "verdict": "C1 NOT RUNNABLE ON A STOCK PANEL",
             "detail": (
-                "the target gene is absent from every panel checked, including "
-                "one at 6,000-plex. C1 needs custom probes for the target "
-                "itself, which is a different cost and a different lead time "
-                "from 'order the colon panel'. " + "; ".join(lines)
+                "no checked stock panel contains a target, an identity marker, "
+                "and a control. C1 needs a custom panel or a different spatial "
+                "design; a target-only panel does not license the claim. "
+                + "; ".join(lines)
             ),
         }
-    return {"verdict": "PARTIAL", "detail": "; ".join(lines)}
+    return {"verdict": "C1 RUNNABLE ON STOCK PANEL(S)",
+            "detail": f"runnable: {', '.join(runnable)}; " + "; ".join(lines)}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -230,20 +232,15 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     table = coverage(args.data_dir)
-    checked = table[table["status"] != "not_checked"]
     log.info("\n%s\nPANEL COVERAGE — exact match on the vendor symbol column\n%s",
              "=" * 72, "=" * 72)
-    wide = checked.pivot(index=["gene", "role"], columns="panel", values="status")
+    wide = table.pivot(index=["gene", "role"], columns="panel", values="status")
     log.info("%s", wide.to_string())
 
-    disagree = checked[checked["match_disagrees"]]
+    disagree = table[table["match_disagrees"]]
     log.info("\nAlias-permissive match would have disagreed on %d gene/panel "
              "pair(s): %s", len(disagree),
              ", ".join(f"{r.gene}@{r.panel}" for r in disagree.itertuples()) or "none")
-
-    log.info("\nNOT CHECKED (10x returned 429/403 to every request 2026-09-07):")
-    for panel, url in XENIUM_SOURCES.items():
-        log.info("  %s — %s", panel, url)
 
     outcome = verdict(table)
     log.info("\n%s\nVERDICT\n%s", "=" * 72, "=" * 72)
@@ -261,8 +258,6 @@ def main(argv: list[str] | None = None) -> int:
         ),
         "panels_checked": {k: v["vendor_doc"] for k, v in PANELS.items()},
         "panel_sha256": {k: v["sha256"] for k, v in PANELS.items()},
-        "not_checked": XENIUM_SOURCES,
-        "not_checked_is_not_absent": True,
         "verdict": outcome,
         "exploratory": False,
         "pre_registered": False,
