@@ -83,6 +83,40 @@ CHEN_BASELINE: dict[str, float] = {
 #: cross-block contrasts (prereg §1).
 CRITICAL_GENE = "GUCA2A"
 
+#: Mature-colonocyte markers for the label §3's gate is actually about.
+#:
+#: NONE OF THESE IS ON THE PANEL, and that is required rather than tidy.
+#: Invariant 2 forbids a target gene appearing in a label; labelling mature
+#: cells by GUCA2A and then measuring GUCA2A in them would return the threshold
+#: it was given. The whole panel is excluded, not just the target, so the
+#: controls stay usable as controls inside the label.
+#:
+#: Canonical differentiated / absorptive colonocyte markers. Committed here
+#: BEFORE the labelled gate is run, so the set cannot be tuned to the answer.
+MATURE_MARKERS: tuple[str, ...] = (
+    "CA1", "CA2", "AQP8", "SLC26A3", "KRT20", "CEACAM7",
+)
+
+#: A nucleus is called mature when it detects at least this many of them. Two,
+#: not one: at these detection rates a single marker is mostly noise, and
+#: requiring all six would select depth rather than identity.
+MIN_MARKERS_FOR_MATURE = 2
+
+#: Below this many labelled nuclei the gate is not taken. A detection rate over
+#: a handful of cells is not a detection rate, and the failure mode is reporting
+#: one anyway.
+MIN_MATURE_CELLS = 200
+
+#: THE DEPTH TRAP, named because it is the way this analysis fails.
+#: "Detects >= 2 markers" is correlated with sequencing depth, and a deeper
+#: nucleus detects EVERYTHING more -- including GUCA2A. So a mature-cell
+#: restriction can lift the target over the floor while measuring nothing but
+#: library size. The controls are scored in the SAME cells for exactly this
+#: reason: if GUCA2A's enrichment sits inside the band the controls describe,
+#: the enrichment is depth and the pass is hollow. `enrichment_audit` computes
+#: it and the job prints the verdict either way.
+DEPTH_AUDIT_CONTROLS: tuple[str, ...] = ("ACTB", "KRT8", "EPCAM")
+
 
 class FeasibilityError(ValueError):
     """The object cannot be read as a cohort this gate applies to."""
@@ -332,6 +366,70 @@ def verdict(gated: pd.DataFrame, *, mature_labelled: bool = False) -> dict:
     }
 
 
+def label_mature(counts, marker_index: dict[str, int], *,
+                 min_umi: int = DETECTION_MIN_UMI,
+                 min_markers: int = MIN_MARKERS_FOR_MATURE):
+    """Boolean mask: nuclei calling as mature colonocytes.
+
+    ``marker_index`` maps :data:`MATURE_MARKERS` to columns and is built by the
+    caller, so a label can never be produced without the caller having said
+    which identifier space it looked in — the same rule ``detection_table``
+    follows for the panel.
+
+    Raises rather than returning an all-False mask when no marker was located.
+    An empty label would flow downstream as "no mature cells", which reads as a
+    biological statement and is a lookup failure.
+    """
+    if not marker_index:
+        raise FeasibilityError(
+            f"none of {list(MATURE_MARKERS)} was located, so no mature label "
+            f"can be built. Check the identifier space before concluding the "
+            f"markers are absent — that error has been made four times here. "
+            f"An all-False mask would read as 'this tissue has no mature "
+            f"colonocytes', which is a claim, not a missing lookup."
+        )
+    hits = None
+    for column in marker_index.values():
+        values = counts[:, column]
+        values = (np.asarray(values.todense()).ravel()
+                  if hasattr(values, "todense") else np.asarray(values))
+        detected = (values.astype(float) >= min_umi).astype(int)
+        hits = detected if hits is None else hits + detected
+    return hits >= min_markers
+
+
+def enrichment_audit(whole: pd.DataFrame, mature: pd.DataFrame) -> pd.DataFrame:
+    """Did the mature label enrich the target, or just select deeper nuclei?
+
+    Per gene, the log fold change of detection from the whole arm to the mature
+    label, on the detection scale. The controls define a band; a target whose
+    enrichment sits INSIDE that band has not been enriched, it has been
+    resampled at greater depth, and a gate it clears on that basis is hollow.
+
+    This is the same shape as ``coexpression_silencing``'s rule that every
+    control is scored in the same cells as the target, and it exists because
+    the label is built from marker DETECTION, which is a depth-correlated
+    quantity by construction.
+    """
+    mu = lambda p: -np.log1p(-np.clip(np.asarray(p, dtype=float), 0, 1 - 1e-12))
+    left = whole.set_index("gene")["detection"]
+    right = mature.set_index("gene")["detection"]
+    genes = [g for g in left.index if g in right.index]
+    out = pd.DataFrame({
+        "gene": genes,
+        "detection_whole_arm": left.loc[genes].to_numpy(),
+        "detection_mature": right.loc[genes].to_numpy(),
+    })
+    out["log_enrichment"] = np.log(mu(out["detection_mature"])
+                                   / mu(out["detection_whole_arm"]))
+    out["role"] = out["gene"].map(GENE_ROLES)
+    band = out.loc[out["gene"].isin(DEPTH_AUDIT_CONTROLS), "log_enrichment"]
+    out["control_band_low"] = float(band.min()) if len(band) else float("nan")
+    out["control_band_high"] = float(band.max()) if len(band) else float("nan")
+    out["beyond_control_band"] = out["log_enrichment"] > out["control_band_high"]
+    return out.sort_values("log_enrichment", ascending=False, ignore_index=True)
+
+
 def detection_table(
     counts, gene_index: dict[str, int], patient_id, *, min_umi: int = DETECTION_MIN_UMI
 ) -> pd.DataFrame:
@@ -410,11 +508,15 @@ def _read_deposit(tar: Path, series_matrix: Path, *, pool_by: str):
         arms.extend([row["arm"]] * counts.shape[0])
 
     gene_index = {}
-    for gene in GENE_ROLES:
+    for gene in tuple(GENE_ROLES) + MATURE_MARKERS:
         hit = np.flatnonzero(reference == gene)
         if hit.size:
             gene_index[gene] = int(hit[0])
     absent = sorted(set(GENE_ROLES) - set(gene_index))
+    missing_markers = sorted(set(MATURE_MARKERS) - set(gene_index))
+    if missing_markers:
+        log.warning("  mature markers not located: %s (of %d)",
+                    missing_markers, len(MATURE_MARKERS))
     log.info("  stacked %d samples -> %d cells, pooled by %s (%d units)",
              len(blocks), sum(b.shape[0] for b in blocks), pool_by,
              len(set(keys)))
@@ -501,7 +603,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         counts, gene_index, patients, cell_arms, absent = _read_deposit(
             args.tar, args.series_matrix, pool_by=args.pool_by)
         log.info("panel genes located in the features symbol column: %d of %d%s",
-                 len(gene_index), len(GENE_ROLES),
+                 len(set(gene_index) & set(GENE_ROLES)), len(GENE_ROLES),
                  f" (absent: {absent})" if absent else "")
     else:
         import anndata
@@ -509,20 +611,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         adata = anndata.read_h5ad(str(args.object))
         symbols = adata.var[args.gene_column].astype(str).to_numpy()
         gene_index = {}
-        for gene in GENE_ROLES:
+        for gene in tuple(GENE_ROLES) + MATURE_MARKERS:
             hit = np.flatnonzero(symbols == gene)
             if hit.size:
                 gene_index[gene] = int(hit[0])
         absent = sorted(set(GENE_ROLES) - set(gene_index))
         log.info("panel genes located in var['%s']: %d of %d%s",
-                 args.gene_column, len(gene_index), len(GENE_ROLES),
+                 args.gene_column, len(set(gene_index) & set(GENE_ROLES)),
+                 len(GENE_ROLES),
                  f" (absent: {absent})" if absent else "")
         counts = adata.layers[args.layer] if args.layer else adata.X
         patients = adata.obs[args.patient_column].to_numpy()
         # Invariant 1: no arm vector is not an arm vector of one value.
         cell_arms = np.full(counts.shape[0], None, dtype=object)
 
-    if not gene_index:
+    panel_index = {g: i for g, i in gene_index.items() if g in GENE_ROLES}
+    marker_index = {g: i for g, i in gene_index.items() if g in MATURE_MARKERS}
+    if not panel_index:
         raise FeasibilityError(
             "no panel gene matched. Check the identifier space before "
             "concluding they are not measured — that error has been made four "
@@ -539,10 +644,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     per_arm = []
     for arm in sorted({a for a in cell_arms.tolist() if a is not None}):
         mask = cell_arms == arm
-        frame = detection_table(counts[mask], gene_index, patients[mask])
+        frame = detection_table(counts[mask], panel_index, patients[mask])
         frame.insert(0, "arm", arm)
         per_arm.append(frame)
-    whole = detection_table(counts, gene_index, patients)
+    whole = detection_table(counts, panel_index, patients)
     whole.insert(0, "arm", "ALL_ARMS_POOLED")
     per_arm.append(whole)
     by_arm = gate(pd.concat(per_arm, ignore_index=True))
@@ -561,21 +666,70 @@ def main(argv: Sequence[str] | None = None) -> int:
     if gate_arm != "normal":
         log.warning("no normal arm in this object; gating on the pooled object, "
                     "which is NOT the pre-registered gate.")
-    table = detection_table(counts[cell_arms == "normal"], gene_index,
-                            patients[cell_arms == "normal"]) \
-        if gate_arm == "normal" else whole.drop(columns="arm")
+    arm_mask = ((cell_arms == "normal") if gate_arm == "normal"
+                else np.ones(counts.shape[0], dtype=bool))
+    table = detection_table(counts[arm_mask], panel_index, patients[arm_mask])
     gated = gate(table)
-    # §3 names the mature cells of the reference arm. Nothing here labels cells,
-    # so the pre-registered gate has not been run and `verdict` is told so.
-    outcome = verdict(gated, mature_labelled=False)
+
+    # ---------------------------------------------------------------- the gate
+    # §3 names the MATURE CELLS of the reference arm. Everything above is every
+    # cell in that arm, which is a lower bound. This is the pre-registered
+    # quantity, and it is only taken when the markers were actually located.
+    audit = pd.DataFrame()
+    mature_labelled = False
+    if marker_index:
+        mature_mask = label_mature(counts, marker_index)
+        gate_mask = arm_mask & mature_mask
+        n_mature = int(gate_mask.sum())
+        if n_mature < MIN_MATURE_CELLS:
+            log.warning(
+                "only %d nuclei carry >=%d of %s in the %s arm, below the %d "
+                "needed; the labelled gate is NOT taken.",
+                n_mature, MIN_MARKERS_FOR_MATURE, list(marker_index), gate_arm,
+                MIN_MATURE_CELLS)
+        else:
+            mature_table = detection_table(counts[gate_mask], panel_index,
+                                           patients[gate_mask])
+            audit = enrichment_audit(table, mature_table)
+            depth = np.asarray(counts.sum(axis=1)).ravel()
+            log.info(
+                "\n%s\nTHE MATURE LABEL — §3's actual gate\n%s",
+                "=" * 72, "=" * 72)
+            log.info("  %d of %d nuclei in the %s arm call as mature "
+                     "(>=%d of %s)", n_mature, int(arm_mask.sum()), gate_arm,
+                     MIN_MARKERS_FOR_MATURE, list(marker_index))
+            log.info("  median UMIs/nucleus: %.0f in the label, %.0f in the arm "
+                     "-> %.2fx depth",
+                     float(np.median(depth[gate_mask])),
+                     float(np.median(depth[arm_mask])),
+                     float(np.median(depth[gate_mask])
+                           / max(np.median(depth[arm_mask]), 1e-9)))
+            log.info("\n  ENRICHMENT AUDIT — is this identity or is it depth?")
+            log.info("%s", audit[["gene", "role", "detection_whole_arm",
+                                  "detection_mature", "log_enrichment",
+                                  "beyond_control_band"]].to_string(index=False))
+            critical = audit.loc[audit["gene"] == CRITICAL_GENE]
+            if len(critical) and not bool(critical["beyond_control_band"].iloc[0]):
+                log.warning(
+                    "\n  %s's enrichment sits INSIDE the band the controls "
+                    "describe (%.3f to %.3f).\n  The label selected deeper "
+                    "nuclei, not mature ones, and a floor cleared on that\n  "
+                    "basis is cleared by library size. Read the gate below "
+                    "with that in front of it.",
+                    CRITICAL_GENE, float(critical["control_band_low"].iloc[0]),
+                    float(critical["control_band_high"].iloc[0]))
+            table, gated, mature_labelled = mature_table, gate(mature_table), True
+
+    outcome = verdict(gated, mature_labelled=mature_labelled)
 
     log.info("\n%s\nDETECTION BY ARM — the gate reads the '%s' row\n%s",
              "=" * 72, gate_arm, "=" * 72)
     log.info("%s", by_arm.pivot(index=["gene", "role"], columns="arm",
                                 values="detection").to_string())
 
-    log.info("\n%s\nTHE PRE-REGISTERED GATE — prereg §3, on the %s arm\n%s",
-             "=" * 72, gate_arm, "=" * 72)
+    log.info("\n%s\nTHE PRE-REGISTERED GATE — prereg §3, %s\n%s", "=" * 72,
+             (f"mature cells of the {gate_arm} arm" if mature_labelled
+              else f"the {gate_arm} arm, ALL cells (a LOWER BOUND)"), "=" * 72)
     log.info("  detection >= %.2f AND non-zero in >= %.0f%% of patients",
              MIN_DETECTION, 100 * MIN_PATIENT_SHARE_NONZERO)
     log.info("%s", gated[["gene", "role", "detection", "chen_baseline",
@@ -618,6 +772,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         "critical_gene": CRITICAL_GENE,
         "verdict": outcome,
         "chen_baseline": CHEN_BASELINE,
+        "mature_label": {
+            "markers": list(MATURE_MARKERS),
+            "min_markers": MIN_MARKERS_FOR_MATURE,
+            "min_cells": MIN_MATURE_CELLS,
+            "none_is_on_the_panel": True,
+            "why": (
+                "invariant 2 — a target gene in the label returns the threshold "
+                "it was given. The whole panel is excluded so the controls stay "
+                "usable inside the label."
+            ),
+            "taken": bool(mature_labelled),
+            "depth_audit_controls": list(DEPTH_AUDIT_CONTROLS),
+        },
         "gene_column": args.gene_column,
         "patient_column": args.patient_column,
         "layer": args.layer or "X",
@@ -631,8 +798,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "exploratory": False,
         "pre_registered": True,
     }
-    for frame, name in ((gated, "becker_feasibility"),
-                        (by_arm, "becker_feasibility_by_arm")):
+    tables = [(gated, "becker_feasibility"),
+              (by_arm, "becker_feasibility_by_arm")]
+    if not audit.empty:
+        tables.append((audit, "becker_feasibility_enrichment_audit"))
+    for frame, name in tables:
         log.info("wrote %s", write_versioned_table(
             frame, name, seed=args.seed, results_dir=args.results_dir,
             allow_dirty=args.allow_dirty, extra_meta=meta,

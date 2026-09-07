@@ -324,6 +324,58 @@ direction.
 
 ### B. More polyp substrate — the ICBI claim is exact, and B1 is not a new idea
 
+> #### RUN 2026-09-07. The instrument objection is dead; a REFERENCE-ARM objection replaced it.
+>
+> `results/2026-09-07_5ce00b8/becker_feasibility{,_by_arm}.parquet`.
+>
+> **The physical risk B1 was gated on does not exist.** §3 feared that GUCA2A
+> and MS4A12, being cytoplasmic, would be lost by nuclear sampling. In Becker's
+> `healthy_donor` arm, on the detection scale against Chen's mature-normal
+> baseline, they are the **two best-preserved genes on the panel** — GUCA2A
+> −0.258 (82% of Chen's rate) and MS4A12 −0.478, against ACTB −1.246, EPCAM
+> −1.477, KRT8 −2.171 and CDX2 **−3.182**, the worst. The worst-hit gene is a
+> nuclear transcription factor, which is the opposite of what the cytoplasmic
+> story predicts. **snRNA-seq is not the problem.**
+>
+> **The reference arm is.** `normal` in this deposit is a FAP donor's uninvolved
+> mucosa, not healthy colon — `becker_io.DISEASE_STAGE_MAP` kept them apart as a
+> fifth arm precisely so this could be seen. GUCA2A falls **+1.689 in log** from
+> healthy donor to FAP-unaffected against a control floor of +0.514 to +1.186:
+> **2.38× beyond what the controls explain**, where MS4A12 (0.92×) and CDX2
+> (0.50×) sit inside that floor.
+>
+> **So the paired design's reference is contaminated by the phenomenon it is the
+> reference for.** Each polyp is contrasted against that donor's own uninvolved
+> mucosa; if the mucosa is already GUCA2A-depleted, the contrast understates the
+> loss. This is an **estimand** problem: labelling does not fix it and more
+> donors do not fix it. B1 was demoted for cohort size (4 paired donors); this
+> is a second and independent reason, and it is **structural to FAP** — the
+> germline *APC* hit is in the whole colon, so "unaffected" is pre-lesional
+> everywhere. Sporadic adenoma does not carry it in the same form.
+>
+> **n = 2.** The healthy-donor arm is B001 and B004. Below every patient floor
+> in this repository, post-hoc, and not pre-registered. **It is an observation
+> that motivates a design and it may never carry an interval.**
+>
+> **The gate itself is still open.** §3 names the mature cells of the reference
+> arm; the run measured every cell in it, which is a lower bound. GUCA2A misses
+> the 0.10 floor by **1.27×** there. See §B1-next below.
+
+#### The substrate criterion, stated sharply enough to search on
+
+The requirement is no longer "more polyp data." It is:
+
+**sporadic adenoma, paired with the same patient's normal mucosa, at nuclear
+sensitivity or better.**
+
+FAP is disqualified by the reference-arm argument above, not by size. Chen_2021
+is exactly this substrate, which is why B1 was the replication and why losing it
+costs. **No accession is named here on purpose** — this repository has spent
+real time on two deposits whose format and contents were assumed rather than
+checked (`docs/HANDOFF.md` §4), so a candidate is not an avenue until its
+`--inspect` has run.
+
+
 **"ICBI is exhausted" is VERIFIED, precisely.** Two studies carry any `polyp`
 cells at all, out of 49:
 

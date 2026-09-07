@@ -182,3 +182,87 @@ def test_the_thresholds_are_the_pre_registered_ones():
     assert MIN_DETECTION == 0.10
     assert MIN_PATIENT_SHARE_NONZERO == 0.75
     assert CRITICAL_GENE == "GUCA2A"
+
+
+# ---------------------------------------------------------------------------
+# The mature label, and the way it fails
+# ---------------------------------------------------------------------------
+
+
+def test_no_marker_is_on_the_panel():
+    """Invariant 2. A target in its own label returns the threshold it was given.
+
+    The whole panel is excluded, not just GUCA2A, so ACTB/KRT8/EPCAM stay
+    usable as the depth-audit controls INSIDE the label.
+    """
+    from src.reference.jobs.becker_feasibility import (
+        DEPTH_AUDIT_CONTROLS,
+        MATURE_MARKERS,
+    )
+
+    assert not set(MATURE_MARKERS) & set(PANEL)
+    assert CRITICAL_GENE not in MATURE_MARKERS
+    assert set(DEPTH_AUDIT_CONTROLS) <= set(PANEL)
+
+
+def test_a_nucleus_needs_two_markers_not_one():
+    from src.reference.jobs.becker_feasibility import label_mature
+
+    counts = np.array([
+        [0, 0, 0],   # nothing
+        [3, 0, 0],   # one marker  -> not mature
+        [3, 2, 0],   # two markers -> mature
+        [1, 1, 1],   # three       -> mature
+    ], dtype=float)
+    mask = label_mature(counts, {"CA1": 0, "CA2": 1, "AQP8": 2}, min_umi=1)
+    assert mask.tolist() == [False, False, True, True]
+
+
+def test_a_label_with_no_located_marker_raises_rather_than_being_empty():
+    """An all-False mask reads as 'this tissue has no mature cells'.
+
+    That is a biological claim produced by a failed lookup, which is the exact
+    error this repository has made four times in the other direction.
+    """
+    from src.reference.jobs.becker_feasibility import label_mature
+
+    with pytest.raises(FeasibilityError, match="identifier space"):
+        label_mature(np.zeros((4, 3)), {})
+
+
+def test_the_audit_catches_a_label_that_only_selected_deeper_nuclei():
+    """THE FAILURE THIS AUDIT EXISTS FOR.
+
+    "Detects >= 2 markers" correlates with library size, and a deeper nucleus
+    detects everything more. If the mature restriction lifts GUCA2A by the same
+    factor it lifts the housekeeping controls, nothing was enriched — the gate
+    would be cleared by depth. The target must land BEYOND the control band.
+    """
+    from src.reference.jobs.becker_feasibility import enrichment_audit
+
+    whole = _detection(ACTB=0.30, KRT8=0.15, EPCAM=0.27, GUCA2A=0.08,
+                       CDX2=0.06, MS4A12=0.12)
+    # every gene lifted by the same multiple: pure depth, no enrichment
+    depth_only = whole.copy()
+    depth_only["detection"] = 1 - (1 - depth_only["detection"]) ** 2.0
+    audit = enrichment_audit(whole, depth_only).set_index("gene")
+    assert not bool(audit.loc[CRITICAL_GENE, "beyond_control_band"])
+
+    # now GUCA2A alone lifted further: real enrichment
+    enriched = depth_only.copy()
+    enriched.loc[enriched.gene == CRITICAL_GENE, "detection"] = 0.42
+    audit2 = enrichment_audit(whole, enriched).set_index("gene")
+    assert bool(audit2.loc[CRITICAL_GENE, "beyond_control_band"])
+
+
+def test_the_audit_reports_the_control_band_it_judged_against():
+    """A verdict whose threshold is not in the row cannot be re-checked."""
+    from src.reference.jobs.becker_feasibility import enrichment_audit
+
+    whole = _detection()
+    mature = whole.copy()
+    mature["detection"] = 1 - (1 - mature["detection"]) ** 1.5
+    audit = enrichment_audit(whole, mature)
+    assert audit["control_band_low"].notna().all()
+    assert audit["control_band_high"].notna().all()
+    assert (audit["control_band_low"] <= audit["control_band_high"]).all()
