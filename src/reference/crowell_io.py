@@ -162,23 +162,98 @@ def require_controls(controls: dict[str, object], *, minimum: int = 5) -> None:
         )
 
 
-def domain_vocabulary(obs: pd.DataFrame) -> dict[str, object]:
-    """Every candidate domain column and its values. MAPS NOTHING.
+#: Where this deposit actually keeps its false-positive floor. The control
+#: probes are NOT features of X — they were summarised per cell into obs before
+#: the object was written, so `control_features` finds nothing in var_names and
+#: `require_controls` correctly refuses. The floor is still measurable, just
+#: from here.
+OBS_NEGATIVE_COUNT = "nCount_negprobes"
+OBS_NEGATIVE_FEATURES = "nFeature_negprobes"
+OBS_FALSECODE_COUNT = "nCount_falsecode"
+OBS_FALSECODE_FEATURES = "nFeature_falsecode"
+
+
+def floor_from_obs(obs: pd.DataFrame, *, n_negative_probes: int | None = None
+                   ) -> dict[str, object]:
+    """The per-probe false-positive floor, from obs summaries rather than var.
+
+    ``nFeature_negprobes`` is the number of DISTINCT negative probes detected in
+    a cell, so the mean of it divided by the probe count is the mean per-probe
+    detection rate — the same quantity :func:`negative_floor` computes from a
+    feature matrix, and the one comparable to a single gene's detection.
+
+    ``n_negative_probes`` is inferred as the maximum observed if not supplied.
+    **That is deliberately conservative**: an underestimated probe count divides
+    by too little, which makes the floor too HIGH and the separation too SMALL,
+    so a gene that clears it clears it for real. The paper reports 50; passing
+    it explicitly is better and the sidecar records which was used.
+    """
+    missing = [c for c in (OBS_NEGATIVE_COUNT, OBS_NEGATIVE_FEATURES)
+               if c not in obs.columns]
+    if missing:
+        raise CrowellError(
+            f"obs carries no {missing}; the false-positive floor cannot be "
+            f"built from it either. Do not proceed with a floor of zero — that "
+            f"is a gate every gene clears."
+        )
+    features = pd.to_numeric(obs[OBS_NEGATIVE_FEATURES], errors="coerce")
+    observed_max = int(np.nanmax(features.to_numpy())) if len(features) else 0
+    n_probes = int(n_negative_probes or observed_max)
+    if n_probes <= 0:
+        raise CrowellError(
+            f"cannot establish a negative-probe count ({OBS_NEGATIVE_FEATURES} "
+            f"max is {observed_max}); the floor would divide by zero."
+        )
+    per_probe = float(np.nanmean(features.to_numpy()) / n_probes)
+    out: dict[str, object] = {
+        "floor_per_probe_mean": per_probe,
+        "n_control_probes": n_probes,
+        "probe_count_source": ("supplied" if n_negative_probes
+                               else f"inferred from max({OBS_NEGATIVE_FEATURES})"),
+        "probe_count_is_conservative": n_negative_probes is None,
+        "any_probe_union_rate": float(np.nanmean((features > 0).to_numpy())),
+        "mean_negative_counts_per_cell": float(
+            np.nanmean(pd.to_numeric(obs[OBS_NEGATIVE_COUNT],
+                                     errors="coerce").to_numpy())),
+    }
+    if OBS_FALSECODE_FEATURES in obs.columns:
+        fc = pd.to_numeric(obs[OBS_FALSECODE_FEATURES], errors="coerce")
+        out["false_code_union_rate"] = float(np.nanmean((fc > 0).to_numpy()))
+    return out
+
+
+def domain_vocabulary(obs: pd.DataFrame, *, max_distinct: int = 50) -> dict[str, object]:
+    """Every LOW-CARDINALITY obs column and its values. MAPS NOTHING.
 
     The pre-registration expects REF / TVA / CRC. Whether those words are in
     this object is a measurement, and this function reports it rather than
     assuming it — `becker_feasibility --inspect` exists for the same reason and
     found a fifth arm nobody had planned for.
+
+    **THE SELECTION IS BY CARDINALITY, NOT BY NAME, AND THAT IS A CORRECTION.**
+    The first version filtered against :data:`DOMAIN_COLUMN_CANDIDATES`, a
+    hardcoded list of readable English names. The Crowell deposit names its
+    annotations ``typ``, ``roi``, ``ctx``, ``ist``, ``lv1``, ``lv2``, ``trj``,
+    ``jst`` — none of which is in that list, so the first inspection reported
+    exactly one candidate column and silently hid eight others. A module whose
+    docstring says "assume nothing" cannot select by guessing what a column
+    will be called. Any column with few enough distinct values to be a
+    vocabulary is reported; the name list is kept only to mark the ones that
+    were *expected*.
     """
     found: dict[str, object] = {}
     for column in obs.columns:
-        if column.lower() not in DOMAIN_COLUMN_CANDIDATES:
+        try:
+            values = obs[column].astype(str)
+        except Exception:  # pragma: no cover - exotic dtypes
             continue
-        values = obs[column].astype(str)
+        n_distinct = int(values.nunique())
+        if n_distinct > max_distinct or n_distinct <= 1 and column.lower() not in DOMAIN_COLUMN_CANDIDATES:
+            # A constant column is not a vocabulary — unless it is one of the
+            # named candidates, where "all cells are TVA" is the finding.
+            if not (n_distinct <= 1 and column.lower() in DOMAIN_COLUMN_CANDIDATES):
+                continue
         counts = values.value_counts()
-        if len(counts) > 50:
-            found[column] = {"n_distinct": int(len(counts)), "too_many_to_list": True}
-            continue
         found[column] = counts.to_dict()
 
     matches = {
@@ -190,6 +265,7 @@ def domain_vocabulary(obs: pd.DataFrame) -> dict[str, object]:
     return {
         "candidate_columns": found,
         "expected_words_seen": {c: m for c, m in matches.items() if m},
+        "expected_by_name": [c for c in found if c.lower() in DOMAIN_COLUMN_CANDIDATES],
         "all_obs_columns": list(obs.columns),
     }
 

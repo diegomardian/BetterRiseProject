@@ -50,11 +50,13 @@ import pandas as pd
 from src.common.io import write_versioned_table
 from src.common.paths import RESULTS_DIR
 from src.reference.crowell_io import (
+    OBS_NEGATIVE_FEATURES,
     SECTIONS,
     CrowellError,
     check_counts_are_integers,
     control_features,
     domain_vocabulary,
+    floor_from_obs,
     open_section,
     require_controls,
     require_counts,
@@ -127,9 +129,22 @@ def negative_floor(matrix, control_indices: np.ndarray, *,
 
 
 def per_domain_table(matrix, panel_index: dict[str, int], domains,
-                     control_indices: np.ndarray, *,
+                     control_indices: np.ndarray | None = None, *,
+                     obs: "pd.DataFrame | None" = None,
+                     n_negative_probes: int | None = None,
                      min_umi: int = DETECTION_MIN_UMI) -> pd.DataFrame:
-    """One row per (domain, gene): detection, the floor, separation, depth."""
+    """One row per (domain, gene): detection, the floor, separation, depth.
+
+    The floor comes from ``control_indices`` when the control probes are
+    features of the matrix, and from ``obs`` when they were summarised per cell
+    before the object was written — which is what the Crowell deposit does. One
+    of the two is required; there is no path to a floor of zero.
+    """
+    if control_indices is None and obs is None:
+        raise CrowellError(
+            "give either control_indices (probes in var) or obs (probes "
+            "summarised per cell). A floor of zero is a gate every gene clears."
+        )
     domains = np.asarray([str(d) for d in domains])
     counts_per_cell = np.asarray(matrix.sum(axis=1)).ravel()
     genes_per_cell = np.asarray((matrix > 0).sum(axis=1)).ravel()
@@ -143,7 +158,9 @@ def per_domain_table(matrix, panel_index: dict[str, int], domains,
                      domain, n_cells, MIN_CELLS_PER_DOMAIN)
             continue
         block = matrix[mask]
-        floor = negative_floor(block, control_indices, min_umi=min_umi)
+        floor = (floor_from_obs(obs.loc[mask], n_negative_probes=n_negative_probes)
+                 if control_indices is None
+                 else negative_floor(block, control_indices, min_umi=min_umi))
         for gene, column in panel_index.items():
             detection = _detection(block, column, min_umi)
             rows.append({
@@ -269,6 +286,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="the value in that column naming the adenoma, "
                              "from --inspect. Not guessed.")
     parser.add_argument("--layer", default=None, help="counts layer, if not X")
+    parser.add_argument("--n-negative-probes", type=int, default=None,
+                        help="negative-probe count for the per-probe floor. "
+                             "Inferred from max(nFeature_negprobes) if absent, "
+                             "which is CONSERVATIVE: too few probes divides by "
+                             "too little and raises the floor. The paper "
+                             "reports 50.")
     parser.add_argument("--seed", type=int, default=20260907)
     parser.add_argument("--results-dir", type=Path, default=RESULTS_DIR)
     parser.add_argument("--allow-dirty", action="store_true")
@@ -330,7 +353,19 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(
             f"{args.domain_column!r} is not an obs column; got "
             f"{list(adata.obs.columns)}")
-    require_controls(controls)
+    # WHERE THE FLOOR COMES FROM. Section 232 carries no control probes in var
+    # -- they were summarised into obs before the object was written. Both
+    # paths are real; neither may be skipped, because a floor of zero is a gate
+    # every gene clears.
+    floor_source = "var"
+    if controls["n_negative"] == 0:
+        if OBS_NEGATIVE_FEATURES not in adata.obs.columns:
+            require_controls(controls)          # raises, with the reason
+        floor_source = "obs"
+        log.info("control probes are not features of X; taking the floor from "
+                 "obs['%s'] instead", OBS_NEGATIVE_FEATURES)
+    else:
+        require_controls(controls)
 
     matrix = adata.layers[args.layer] if args.layer else adata.X
     if adata.isbacked:
@@ -338,9 +373,12 @@ def main(argv: list[str] | None = None) -> int:
             else adata.to_memory().X
     require_counts(check_counts_are_integers(matrix))
 
-    table = per_domain_table(matrix, panel_index,
-                             adata.obs[args.domain_column].to_numpy(),
-                             np.asarray(controls["negative_indices"], dtype=int))
+    table = per_domain_table(
+        matrix, panel_index, adata.obs[args.domain_column].to_numpy(),
+        control_indices=(None if floor_source == "obs"
+                         else np.asarray(controls["negative_indices"], dtype=int)),
+        obs=adata.obs if floor_source == "obs" else None,
+        n_negative_probes=args.n_negative_probes)
     log.info("\n%s\nPER-DOMAIN DETECTION AGAINST THE FALSE-POSITIVE FLOOR\n%s",
              "=" * 72, "=" * 72)
     if not table.empty:
@@ -383,6 +421,8 @@ def main(argv: list[str] | None = None) -> int:
             "indicator and is NOT the comparable floor."
         ),
         "min_log_separation": MIN_LOG_SEPARATION,
+        "floor_source": floor_source,
+        "n_negative_probes": args.n_negative_probes,
         "negative_probes_are_specificity_only": True,
         "does_not_license": (
             "any per-cell 'GUCA2A-low = silenced' claim. The false-negative "

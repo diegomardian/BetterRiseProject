@@ -249,18 +249,37 @@ def test_normalised_values_are_refused_before_a_detection_rate_is_taken():
     require_counts(check_counts_are_integers(counts))
 
 
-def test_the_domain_vocabulary_is_reported_and_nothing_is_mapped():
+def test_the_domain_vocabulary_is_selected_by_cardinality_not_by_name():
+    """THE DEFECT THE FIRST CROWELL INSPECTION SHIPPED.
+
+    The first version filtered obs against a hardcoded list of readable English
+    names. The deposit names its annotations `typ`, `roi`, `ctx`, `lv1`, `lv2`,
+    so the inspection reported ONE candidate column and silently hid the rest.
+    A module whose docstring says "assume nothing, map nothing" cannot select by
+    guessing what a column will be called.
+    """
     obs = pd.DataFrame({
         "region": ["REF", "REF", "TVA", "CRC"],
-        "cell_type": ["a", "b", "c", "d"],
-        "n_counts": [1, 2, 3, 4],
+        "typ": ["a", "a", "b", "b"],      # cryptic, and real: Crowell uses it
+        "lv2": ["x", "y", "x", "y"],
+        "cell_id": [f"c{i}" for i in range(4)],   # high cardinality, not a vocabulary
     })
-    vocab = domain_vocabulary(obs)
+    vocab = domain_vocabulary(obs, max_distinct=3)
     assert vocab["candidate_columns"]["region"] == {"REF": 2, "TVA": 1, "CRC": 1}
-    assert "cell_type" not in vocab["candidate_columns"]
-    assert set(vocab["all_obs_columns"]) == {"region", "cell_type", "n_counts"}
-    # it reports that the prereg's words appear; it does not rename anything
+    assert "typ" in vocab["candidate_columns"], "a cryptic name is still a vocabulary"
+    assert "lv2" in vocab["candidate_columns"]
+    assert "cell_id" not in vocab["candidate_columns"], "4 distinct over 4 rows"
+    # the name list survives only to mark what was EXPECTED, never to filter
+    assert vocab["expected_by_name"] == ["region"]
     assert "region" in vocab["expected_words_seen"]
+
+
+def test_a_constant_named_column_is_reported_because_that_is_the_finding():
+    """`tissue` was 'TVA' for all 130,814 cells of section 232. A constant is
+    not a vocabulary, but "this whole section is one domain" is the answer."""
+    obs = pd.DataFrame({"tissue": ["TVA"] * 10})
+    vocab = domain_vocabulary(obs)
+    assert vocab["candidate_columns"]["tissue"] == {"TVA": 10}
 
 
 # ---------------------------------------------------------------------------
@@ -315,3 +334,55 @@ def test_a_gene_detected_in_no_cell_is_not_separated_by_zero():
     assert row.loc[CRITICAL_GENE, "detection"] == 0.0
     assert row.loc[CRITICAL_GENE, "log_separation"] == float("-inf")
     assert not bool(row.loc[CRITICAL_GENE, "usable"])
+
+
+# ---------------------------------------------------------------------------
+# The floor when the probes are not features — which is what 232 actually is
+# ---------------------------------------------------------------------------
+
+
+def test_the_floor_can_be_built_from_obs_when_probes_are_not_features():
+    """Section 232 carries 0 control probes in var: they were summarised per
+    cell into obs before the object was written. The floor is still measurable,
+    and the same per-probe quantity."""
+    from src.reference.crowell_io import floor_from_obs
+
+    obs = pd.DataFrame({
+        "nFeature_negprobes": [0, 1, 2, 5, 0, 1],
+        "nCount_negprobes": [0, 1, 3, 7, 0, 2],
+        "nFeature_falsecode": [0, 0, 1, 2, 0, 0],
+    })
+    floor = floor_from_obs(obs, n_negative_probes=50)
+    assert floor["n_control_probes"] == 50
+    assert floor["probe_count_source"] == "supplied"
+    assert floor["floor_per_probe_mean"] == pytest.approx(np.mean([0,1,2,5,0,1]) / 50)
+    assert floor["any_probe_union_rate"] == pytest.approx(4 / 6)
+    assert floor["false_code_union_rate"] == pytest.approx(2 / 6)
+
+
+def test_an_inferred_probe_count_errs_toward_refusing():
+    """Inferring the count from the observed max divides by too little, which
+    raises the floor and shrinks the separation. A gene clearing a conservative
+    floor clears a real one."""
+    from src.reference.crowell_io import floor_from_obs
+
+    obs = pd.DataFrame({"nFeature_negprobes": [0, 1, 2, 5],
+                        "nCount_negprobes": [0, 1, 3, 7]})
+    inferred = floor_from_obs(obs)
+    supplied = floor_from_obs(obs, n_negative_probes=50)
+    assert inferred["n_control_probes"] == 5
+    assert inferred["probe_count_is_conservative"] is True
+    assert inferred["floor_per_probe_mean"] > supplied["floor_per_probe_mean"]
+
+
+def test_obs_without_the_negative_summaries_is_refused_not_defaulted():
+    from src.reference.crowell_io import floor_from_obs
+
+    with pytest.raises(CrowellError, match="floor of zero"):
+        floor_from_obs(pd.DataFrame({"something_else": [1, 2, 3]}))
+
+
+def test_per_domain_table_refuses_when_neither_floor_source_is_given():
+    matrix, names, domains = _section({"REF": {"ACTB": 0.5}}, seed=8)
+    with pytest.raises(CrowellError, match="floor of zero"):
+        per_domain_table(matrix, find_panel(names)[0], domains)
