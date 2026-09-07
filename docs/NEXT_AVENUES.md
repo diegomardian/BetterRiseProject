@@ -605,15 +605,19 @@ Becker/B1 (not licensed), C1's panel lookup (no stock panel carries a target and
 a control together), the meta-layer weights (§6k), and the carcinoma `best4`
 denominator.
 
-**The one avenue with an unexplored substrate** is lesion-level Wnt — item 4
-below — and its audit came back thin: 2 of 6 Crowell blocks have multiple
-adenoma sub-regions, and Becker's per-donor lesion counts were never committed.
+**Two conditional substrates remain unexplored.** Lesion-level Wnt — item 4
+below — has a thin audit: 2 of 6 Crowell blocks have multiple adenoma
+sub-regions, and Becker's per-donor inventory writer is committed but its
+versioned result artifact has not yet been run. Item 2b is a distinct H&E
+morphology-to-molecular-label study, not a new reading of avenue A and not a
+replacement for either Crowell or A2.
 
-### Roadmap amendment, 2026-09-07 — six items, after the Crowell run
+### Roadmap amendment, 2026-09-07 — seven items, after the Crowell run
 
 Supersedes the corresponding entries above where they conflict. Each item names
-what it is *not* as tightly as what it is, because five of the six were
-originally written one class stronger than the data supports.
+what it is *not* as tightly as what it is, because five of the original six
+were written one class stronger than the data supports. Item 2b was added
+2026-09-07 and is a data gate, not an avenue in hand.
 
 **1 · Crowell — CLOSED 2026-09-07, seven of seven.** The 504 cleared on a
 retry; `242.h5ad` is `results/2026-09-07_da1f46b/` and the aggregate is
@@ -642,6 +646,40 @@ anatomical ground truth, patient-held-out evaluation, and a
 morphology-or-geometry-derived label — and it still does not touch the per-cell
 false-negative problem (`docs/HANDOFF.md` §6g).
 
+**2b · H&E foundation-model ML — a separate, conditional molecular-prediction
+avenue.** H&E offers an orthogonal morphology measurement, so its validity is
+not limited by the transcript false-negative floor. It does **not** validate
+the compositional-versus-intrinsic decomposition, repair Crowell's control
+limit, or turn same-cohort morphology into an independent replication.
+
+The proposed estimand is deliberately narrow: a frozen H&E encoder predicts a
+pre-specified, independently assayed molecular endpoint for the **same polyp
+specimen**, with an abstention rule fixed before the held-out evaluation. It is
+not “another polyp classifier.” Polyp subtype or dysplasia labels obtained
+from the very H&E slide being classified are diagnostic-label imitation, not an
+independent biological claim; they may be used only to test engineering
+performance, never as the project result.
+
+**Data gate before a model, image download, or encoder choice.** The candidate
+source must provide (1) licensed full-resolution H&E or WSI files; (2) a
+specimen-exact crosswalk from each image to an independently generated
+molecular call, not merely a participant-level join; (3) a fixed molecular
+endpoint with its prevalence, missingness and complete-case count shown before
+fitting; and (4) enough patients and sites for patient-held-out evaluation.
+The reported COLON MAP targeted-sequencing and imaging collections do not yet
+establish that this joined public object is downloadable, so they are a source
+to inventory, not data in hand. Public polyp image datasets can benchmark an
+encoder but cannot supply the molecular endpoint.
+
+**If the gate passes.** All tiles from a patient and specimen remain in one
+split. Encoder and molecular endpoint are fixed before fitting; calibration and
+the abstention threshold are selected only on training/validation patients; an
+untouched patient-held-out test reports coverage, selective error, calibration,
+and the ordinary non-abstaining baseline. A site-held-out test is required when
+more than one acquisition site exists. Failure of the crosswalk, prevalence, or
+split requirement ends the avenue as **NO SUBSTRATE**, rather than replacing
+the molecular endpoint with a morphology-derived diagnosis.
+
 **3 · AD versus SSL — a DATA HUNT, not a pre-registrable analysis.**
 **No transcriptomic substrate exists in hand.** The ICBI atlas carries `polyp`
 with no subtype, from two studies only; Crowell is **entirely TVA**. The sole
@@ -667,8 +705,9 @@ collapses replicates by `sample_id` and keeps the row count beside the
 biological count so the collapse stays auditable.
 **The independent unit is still 4 donors, not 31 lesions** (invariant 5, Becker
 Amendment 2), so this needs a lesion-within-donor pre-specification before any
-analysis. **Still not an artifact:** `--inspect` logs the inventory and writes
-no table, which is what this item asked for.
+analysis. The metadata-only `--lesion-inventory` writer is committed and tested;
+**the remaining mechanical step is to run it from a clean tree and commit its
+versioned parquet plus sidecar.**
 Sub-regions and lesions are **not independent patients**; any analysis is
 patient-clustered or mixed-model, with the Wnt score and adjustment set fixed
 first, and read as association. Crowell's sub-domains stay `exploratory` under
@@ -706,15 +745,18 @@ tumours zero under both methods (95.0%)**, with 673/675 zero under at least one
 records it as a resolvability diagnostic. The only supported carcinoma
 conclusion is "not estimable at this resolution". **Closed.**
 
-**Policy, not an invariant.** *ML produces segmentation, geometry or anatomical
-measurements; biological claims are patient-level estimates with explicit
+**Policy, not an invariant.** *ML may provide segmentation, geometry,
+anatomical measurements, or a prediction against an independently measured
+endpoint; biological claims remain patient-level estimates with explicit
 abstention rules.* That belongs in `CONTRIBUTING`, because the standing
 invariants are enforced by assertions and this one is not testable. The
 **testable** half — *no transcript-derived label may define a population and
-then be used to claim the state of its own defining programme* — is a candidate
-**invariant 11**, and it reaches `CLAUDE.md` only through invariant 3's route: a
-PR, two approvals, and a guard that can fail. It is already applied in practice
-(Becker RESULT, Crowell multisection Amendment 1 §2) and unenforced in code.
+then be used to claim the state of its own defining programme* — **is now
+`CLAUDE.md` invariant 11**, merged 2026-09-07 by invariant 3's route: a
+`shared/...` PR, W2's approval, and a guard with a forcing input for every
+branch. `src/common/label_provenance.py`; both reference jobs declare their
+provenance, call the guard before reading anything, and write the declaration
+into their result sidecars. See `docs/invariant_11_proposal.md` RESULT.
 
 ### Still open, ranked
 

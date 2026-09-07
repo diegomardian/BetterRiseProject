@@ -129,9 +129,15 @@ Change both files, in one PR, titled `shared/...`, with the reason in the PR bod
 
 ## 6. ML is measurement infrastructure
 
-ML may produce segmentation, geometry, or anatomical measurements. Biological
-claims remain patient-level estimates with explicit abstention rules; an ML
-output does not replace a sensitivity control or license a per-cell state claim.
+ML may provide segmentation, geometry, anatomical measurements, or a
+prediction against an independently measured endpoint. Biological claims remain
+patient-level estimates with explicit abstention rules; an ML output does not
+replace a sensitivity control or license a per-cell state claim.
+
+The endpoint clause is the load-bearing one. A prediction scored against a
+label read off the same image is an engineering benchmark, not a biological
+result — see `docs/NEXT_AVENUES.md` item 2b, where it is the difference between
+a molecular-prediction study and diagnostic-label imitation.
 
 The testable half of this policy is now **`CLAUDE.md` invariant 11**, enforced in
 `src/common/label_provenance.py`: declare what defined your population and what
