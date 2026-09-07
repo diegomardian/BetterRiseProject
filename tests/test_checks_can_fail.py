@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -1201,3 +1202,81 @@ def test_both_consumers_size_the_secondary_arm_the_same_way():
         "if these ever coincide the fixture has stopped exercising the defect"
     )
     assert sum(by_arm) == len(joined), "the arms must exhaust the scored cohort"
+
+
+# ---------------------------------------------------------------------------
+# A result that exists, and an index that says it is pending
+#
+# The defect, caught by a reader on 2026-09-06 and then found a second time in
+# the same file within the hour: `docs/prereg_wnt_mechanism.md` carried a RESULT
+# section and `docs/HANDOFF.md` still said "BUILT, needs one qsub". A cold agent
+# would queue a job that had already run and never learn its answer.
+#
+# It is not a check that cannot fail. It is TWO documents with no check between
+# them, which is the same failure one step earlier and the reason the panel and
+# the labelling axes are loaded from one place. The pre-registrations were
+# correct both times; the index drifted behind them.
+# ---------------------------------------------------------------------------
+
+
+def _preregs_with_results() -> list[tuple[Path, str]]:
+    """Pre-registrations carrying a RESULT section, with their doc stem."""
+    out = []
+    for path in sorted((REPO_ROOT / "docs").glob("prereg_*.md")):
+        text = path.read_text(encoding="utf-8")
+        if re.search(r"^##\s+RESULT", text, flags=re.MULTILINE):
+            body = text.split("## RESULT", 1)[1]
+            # "Not run"/"Not computed" means the section is a placeholder.
+            pending = bool(re.match(r"[^\n]*\n+\*?\*?Not (run|computed)",
+                                    body, flags=re.IGNORECASE))
+            out.append((path, pending))
+    return out
+
+
+def test_every_prereg_with_a_result_is_reflected_in_the_handoff():
+    """THE INPUT IS THE REPOSITORY ITSELF.
+
+    A pre-registration whose RESULT section is filled in describes a job that
+    ran. HANDOFF is what a cold agent reads first, so it must not still be
+    advertising that job as pending. This does not check the words match — it
+    checks the handoff mentions the document at all, and that no line
+    mentioning it also calls it un-run.
+    """
+    handoff = (REPO_ROOT / "docs" / "HANDOFF.md").read_text(encoding="utf-8")
+    pending_words = ("needs one qsub", "not yet run", "NOT yet run",
+                     "needs a qsub", "waiting on one")
+
+    stale = []
+    for path, is_pending in _preregs_with_results():
+        if is_pending:
+            continue
+        name = path.name
+        if name not in handoff:
+            stale.append(f"{name}: has a RESULT and HANDOFF never mentions it")
+            continue
+        for line in handoff.splitlines():
+            if name in line and any(w in line for w in pending_words):
+                stale.append(f"{name}: HANDOFF still calls it pending — {line[:90]}")
+    assert not stale, (
+        "a pre-registration has run and the index still says otherwise:\n  "
+        + "\n  ".join(stale)
+    )
+
+
+def test_the_staleness_check_fires_on_an_index_that_says_pending():
+    """The guard needs an input that forces it, and this is that input."""
+    handoff = "| **D1** | `docs/prereg_wnt_mechanism.md`. BUILT, needs one qsub. |"
+    pending_words = ("needs one qsub", "not yet run")
+    hits = [line for line in handoff.splitlines()
+            if "prereg_wnt_mechanism.md" in line
+            and any(w in line for w in pending_words)]
+    assert hits, "the phrasing this guard looks for must actually be detectable"
+
+
+def test_at_least_one_prereg_has_a_filled_in_result():
+    """Otherwise the check above passes by having nothing to check."""
+    filled = [p.name for p, pending in _preregs_with_results() if not pending]
+    assert len(filled) >= 3, (
+        f"only {filled} carry a completed RESULT; the staleness check would be "
+        f"vacuous on a repository with none"
+    )

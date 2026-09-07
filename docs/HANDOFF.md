@@ -1,72 +1,79 @@
 # Where this is, for someone arriving cold
 
-**Written 2026-09-05, branch `submission/competitor-bench`.** Read
-[CLAUDE.md](../CLAUDE.md) first for the invariants; this says what state they
-are in and what to do next.
+**Written 2026-09-05, substantially rewritten 2026-09-06. Branch
+`submission/competitor-bench`.** Read [CLAUDE.md](../CLAUDE.md) first for the
+invariants; this says what state they are in and what to do next.
 
 ---
 
 ## 1. The one-paragraph state
 
 The project asks whether a differentiation marker's loss in colorectal cancer is
-*compositional* (the cells left) or *intrinsic* (the cells stayed and went
-quiet). **The answer is that this is not identifiable on any data currently
-available**, established by FOUR independent routes — the decomposition's
-algebraic collapse, the coexpression premise at 13 studies, the Stage 4
-deconvolution gate, and the bulk CIMP screen. That is a real, pre-committed
-result, not a stalled analysis.
+**compositional** (the cells left) or **intrinsic** (the cells stayed and went
+quiet). The answer now has two halves and they point opposite ways.
 
-**Three analysis paths ran to completion on 2026-09-05** — Stage 4 (§6a), the
-13-study coexpression meta (§6b), and the adenoma reading (§6d). Nothing is
-half-finished.
+**On CARCINOMA it is not identifiable, by five independent routes** — the
+decomposition's algebraic collapse, the coexpression premise at 13 studies, the
+Stage 4 deconvolution gate, the bulk CIMP screen, and (2026-09-06) the MLH1
+positive control, which could not even be run because the premise does not hold
+there. Every one is pre-committed and none is a stalled analysis. §2.
 
-**THE DECOMPOSITION RAN ON ADENOMA ON 2026-09-06 AND IS IDENTIFIABLE THERE.**
-The project's original deliverable, produced for the first time. On carcinoma
-the `i/c` ratio collapsed onto −5.85 for every gene; on adenoma it runs 0.33 to
-2.03 and the falsifier did not fire. On the intrinsic share the panel splits
-into **two blocks** — {CDX2, EPCAM, ACTB, KRT8} at 0.50–0.55 and
-{MS4A12, GUCA2A} at 0.71 — with all eight cross-block contrasts excluding zero
-and `GUCA2A − MS4A12` containing zero. **A tier-level result, not a
-gene-specific one**, which is the outcome the pre-registration named in advance.
-§6h and `docs/prereg_adenoma_decomposition.md`.
+**On ADENOMA it IS identifiable, and that is the project's deliverable.** Run
+2026-09-06 (§6h). The `i/c` ratio collapsed onto −5.85 for every gene in
+carcinoma; on adenoma it runs 0.33 to 2.03 and the pre-registered falsifier did
+not fire. **The answer is that the loss is majority-intrinsic for the
+differentiation tier** — the mature cells that remain have turned their output
+down — and it is a **tier-level result, not a gene-specific one**, which the
+pre-registration named as the expected outcome before the run.
 
-Path C is the one positive: the premise HOLDS, `best4` is estimable for the
-first time, and inside the surviving mature cells of adenomas the
-**terminal-differentiation tier is down while intestinal identity is retained**.
-On the log fold-change scale the panel separates into **two blocks** —
-{KRT8, ACTB, EPCAM, CDX2} and {MS4A12, GUCA2A} — with all eight cross-block
-contrasts excluding zero and CDX2 indistinguishable from housekeeping. GUCA2A is
-not separable within its block, so no gene-specific claim follows. **The first
-version of that reading compared raw detection deltas across genes, which is not
-a comparison the statistic supports** (§3, §6d); the conclusion survived the
-correction, its stated evidence did not. **`docs/NEXT_AVENUES.md` reviews what is left**, and two items there
-outrank a data hunt: the decomposition may be identifiable on adenoma, and the
-instrument has never had a positive control though one is sitting in the atlas.
+**What survives scrutiny, stated at the strength it survives at.** Six of eight
+cross-block contrasts hold under the statistic-agreement rule, and all four of
+GUCA2A's are unanimous. `GUCA2A − MS4A12` contains zero, so no gene-specific
+claim follows. **`best4` is retracted** — its block structure held on one
+statistic of four. **The strongest single number needs no decomposition at all:**
+on depth-matched mature cells the targets lose ~62% of per-cell output
+(GUCA2A 0.374, MS4A12 0.383) where the controls lose 5–17% (KRT8 0.946,
+ACTB 0.834). That ratio is scale-free and is what to quote if anything here is
+challenged.
 
-**The positive control RAN on 2026-09-06 and returned UNINTERPRETABLE — the
-premise does not hold in the arm it is about (§6g).** ACTB moved 1.36× in the
-methylated arm's tumour cells, and `premise_holds` was biased *toward* passing
-by the very interval defect below and failed anyway. **The instrument's
-sensitivity to a known silencing event remains untested, and a FIFTH
-independent route says it cannot be tested on available data:** the premise has
-held in exactly one cohort (adenoma, `Chen_2021_Cell`), that cohort carries no
-MLH1 methylation annotation, and `Pelka_2021_Cell` is the only study in the
-whole 49-study atlas that does. The cohort with the ground truth cannot support
-the comparison; the cohort that supports it has no ground truth. **So every null
-this project has produced stays uninformative rather than becoming evidence of
-absence.** And the statistic every
-reading ends in has been calibrated for the first time: **the percentile
-bootstrap over patients is 0.82× the width it claims at n=10 and 0.53× at n=4,
-by a closed form with no data in it** (§3a). Nothing is retracted; `best4`
-contrasts are ~7% tests rather than 5% ones.
+**Three qualifiers that must travel with it.** It is **one cohort** — a DIS/VAL
+split (§6j) found no sign reversals across three specimen collections but could
+not formally exclude batch-drivenness. The cross-gene **statistic was chosen
+after seeing output**; it was re-run on one fixed in advance (`ac7eca1`) and
+held, which is partial closure, not full. And **survivorship is untouched** and
+not transcript-detectable, here or anywhere in this project.
 
-Two papers exist; the WMHS one is a methods paper about validation statistics
-that cannot fail, and it is the near deliverable — **deadline 15 September
-2026**.
+**Two papers exist.** The ICBI-NB one argues the decomposition is empirically
+unverifiable — avenue A is the branch where it is verifiable, and that arc is
+not yet written into it. The WMHS one is a methods paper about validation
+statistics that cannot fail, **deadline 15 September 2026**, and today handed it
+three new instances (§3, §3a, §3a-bis). **Neither paper carries any 2026-09-06
+result.** That is the largest outstanding gap and §6f is the list.
 
----
+### What happened on 2026-09-06, in order
+
+| | outcome |
+|---|---|
+| **MLH1 positive control** (§6g) | **UNINTERPRETABLE** — premise fails in the arm it is about. And it cannot be run on any available data: the only cohort with the ground truth is the one where the premise fails. |
+| **The interval** (§3a) | The percentile bootstrap used everywhere is **0.82× the width it claims at n=10**, by a closed form containing no data. Nothing retracted; `best4` contrasts are ~7% tests. |
+| **The cutpoints** (§3a-bis) | `CUTPOINTS` is not merely provisional — it is **not identifiable** on either Lee cohort by the project's own criteria. |
+| **Avenue A** (§6h) | **The decomposition is identifiable on adenoma.** The project's original deliverable, produced. |
+| **D1, Wnt mechanism** (§6i) | **TECHNICAL** — a clean negative. GUCA2A sits inside the control floor, and it survives an over-conditioning objection raised after the run. |
+| **B1, Becker** (§6i) | Pre-registered, gate and loader built, data on disk. **Its paired cohort is four donors**, so it cannot serve as avenue A's replication. |
+| **DIS/VAL stability** (§6j) | **AMBIGUOUS** — no sign reversals in three collections, but not 4-of-4 in both halves. |
 
 ## 2. What is established, and how confident to be
+
+> **Everything in this section is about CARCINOMA.** The adenoma result (§6h)
+> is the exception to all of it, and the algebraic collapse below is exactly
+> what does *not* happen there. Read §6h before concluding the project is
+> negative.
+
+**Five routes terminate on carcinoma:** the algebraic collapse (below), the
+coexpression premise at 13 studies (below), the Stage 4 deconvolution gate
+(§6a), the bulk CIMP screen (below), and the MLH1 positive control (§6g) — the
+fifth, added 2026-09-06, and the one that closes the *instrument* question
+rather than a biological one.
 
 **The decomposition cannot separate the mechanisms on this panel.** Algebraic,
 not statistical:
@@ -128,7 +135,7 @@ a freshly downloaded 3.1 GB cohort against the Windows originals: 11 bit-identic
 
 ## 3. The recurring defect, which is also the paper's thesis
 
-**A check that cannot fail reports success.** It has now been found **seventeen**
+**A check that cannot fail reports success.** It has now been found **nineteen**
 times, including six times inside guards written to prevent it, and twice
 inside guards written *during* this work. Assume the next one exists.
 
@@ -185,13 +192,15 @@ The five found on 2026-09-05, all in code written that day:
 | **the interval itself** | percentile bootstrap over patients | **0.82x the correct width at n=10, 0.53x at n=4 — a normal quantile where a t quantile is needed** |
 | **the power calculation** | simulated power at n=10 | **only binomial noise in it, so it could not come out underpowered from patient heterogeneity** |
 | **the secondary arm's size** | *nothing compared them* | **one arm, two definitions in two files — 15 and 19 — surfaced only when the cluster printed one against a document holding the other** |
+| **the denominator gate** | arm-asymmetry threshold | **fired at 0.05 where the null's own noise runs 0.028 — a gate inside the replacement for a gate** |
+| **the index** | *nothing compared them* | **a prereg with a RESULT and a HANDOFF row saying "needs one qsub". Two documents, no check between them; caught twice in one hour by a reader** |
 
 The last four were found this week. The invariant-2 guard has now been fixed
 **three times**; each fix covered the case just found, and the next was always
 the input nobody had loaded yet.
 
 **The rule the repo works to:** a guard needs a committed input that forces it to
-fail. `tests/test_checks_can_fail.py` holds those — 38 of them, 40 with
+fail. `tests/test_checks_can_fail.py` holds those — 41 of them, 43 with
 parametrisation. If you add a
 guard, add its failing input. If you cannot construct one, that is the finding.
 
@@ -408,27 +417,41 @@ not fail to join, they join wrongly. `src/bulk/ingest_cluster.sh` pins it.
 
 ---
 
-## 6. What to do next
+## 6. What to do next — START HERE
 
-**Read this first.** Both analysis paths ran to completion and terminated in
-pre-committed negative results (§6a, §6b). Every table is committed and
-clean-stamped; the repo has zero dirty tables and no uncommitted producers.
+**Nothing is half-finished and nothing is queued.** Every job that was pending
+this morning has run. The repo has zero dirty tables and no uncommitted
+producers, and every result below is committed with a sha and a seed.
 
-**One thing is now waiting rather than finished: the MLH1 positive control
-(§6g).** Its code, pre-registration and calibration are committed and it needs a
-single `qsub` against the cluster's atlas. It is the highest-leverage item here
-because it is the first test of the instrument this project has ever had, and
-both of its outcomes change how the write-up reads.
+### The subsections are lettered out of order. Read them in this order instead
 
-The other open items are a **write-up** (§6f) and a **data hunt** (§6e).
+Cross-references in the pre-registrations use these letters, so they have not
+been renumbered.
 
-**The WMHS paper is the outstanding deliverable. Deadline 15 September 2026,
-AoE.** As of 2026-09-05 it carries the week's findings: `allow_dirty` and
-`extra_meta` were already in Appendix A, and the saturated control plus the
-three-cohort UNRESOLVED result went into §3 as the *third* withdrawn guard,
-with §5 and the conclusion carrying the non-resolution (commit `e9f0ef9`).
+| read | section | one line |
+|---|---|---|
+| 1 | **§6h** | **Avenue A — the decomposition on adenoma. The deliverable. Start here.** |
+| 2 | §6d | Path C — the adenoma *detection* reading, the independent estimand that agrees with §6h |
+| 3 | §6j | DIS/VAL — is §6h driven by one specimen collection? Ambiguous, no reversals |
+| 4 | §6g | MLH1 — the instrument's only positive control. UNINTERPRETABLE, and unavailable on any data |
+| 5 | §6i | **What to do next, ranked**, with what is explicitly not worth doing |
+| 6 | §6a, §6b, §6c | Stage 4, the 13-study meta, housekeeping — all terminated, nothing to resume |
+| 7 | §6e | Why "different data, not more of it" is still true for survivorship |
+| 8 | §6f | **The write-up — the one thing with a deadline** |
 
-Two things about the paper are still open, and one is blocking:
+### The single most important thing for a new agent
+
+**Every result from 2026-09-06 is missing from both papers**, and the WMHS
+deadline is **15 September 2026**. That is six results, four of them produced
+after the last paper edit. §6f lists them. If you do one thing, do that.
+
+**And read §3, §3a and §3a-bis before trusting any interval in this repo.** The
+percentile bootstrap used throughout is narrower than it claims at small n, by a
+closed form; the cutpoints governing estimability do not calibrate at all. Both
+were found on 2026-09-06 and neither is fixed in the committed tables — they are
+documented, not repaired.
+
+### The paper's blocking item, unchanged
 
 - **BLOCKING — the page limits are unverified.** `neurips_2026.sty` is
   deliberately not vendored, so `./build.sh` cannot run. Against a
@@ -440,11 +463,11 @@ Two things about the paper are still open, and one is blocking:
   Windows→Linux, 4 differing at ≤9.3e-13 relative) is still unclaimed anywhere
   in the paper. It is a real result and it has no home yet.
 
-`tests/test_paper_numbers.py` now ties the prose to its tables: every figure in
-the new paragraph is re-derived from `results/*/coexpression_silencing*.parquet`
-and asserted against the literal string in the `.tex`, so a re-run table and a
-stale sentence can no longer diverge silently. All eleven assertions are
-mutation-tested. **If you re-run that job, this test tells you what to edit.**
+`tests/test_paper_numbers.py` ties the prose to its tables: every figure in the
+third-guard paragraph is re-derived from
+`results/*/coexpression_silencing*.parquet` and asserted against the literal
+string in the `.tex`. All eleven assertions are mutation-tested. **If you re-run
+that job, this test tells you what to edit.**
 
 ## 6a. Stage 4 — RUN, and it terminated. Nothing to resume.
 
@@ -531,7 +554,7 @@ the atlas's. Sizing tables: `results/2026-09-05_d241b35/`.
   excludes it by design (`not_prespecified`). It would need its own
   pre-specification.
 
-## 6d. Path C — RUN, and it is the one positive result. See `docs/ICBI_RUNBOOK.md`.
+## 6d. Path C — the adenoma DETECTION reading. Agrees with §6h by a different estimand.
 
 `Chen_2021_Cell` **is** the Vanderbilt/HTAN polyp atlas (`dataset` reads
 `VUMC_HTAN_*`, sample ids `HTA11_*`), and it was already inside the 30 GB object
@@ -673,6 +696,22 @@ sits with the controls, so *terminal differentiation down, identity retained*
 now rests on **two different estimands** — this and the corrected specificity
 reading.
 
+**THE STATISTIC WAS LATER FIXED IN ADVANCE AND THE READING HELD.**
+`docs/prereg_decomposition_statistic.md` (`ac7eca1`) pre-registers
+`log_ratio = log(|intrinsic| / |compositional|)` — committed **before** it was
+computed, chosen because the project already made this decision one estimand
+over in `detection_scale.py`. Its RESULT: **8/8 cross-block, 0/7 within-block at
+`lineage`**, and a pre-stated prediction held (undefined at `epithelial` for the
+whole panel, 0 of 792 rows, because Δf is identically zero there).
+
+**But that document's own agreement rule is stricter than its headline**, and it
+binds: requiring `log_ratio` to agree with all three other statistics, **6 of 8
+cross-block contrasts survive at `lineage` and 1 of 8 at `best4`**. The six
+include **all four GUCA2A contrasts, unanimous**; the two that fail are
+MS4A12's, against CDX2 and EPCAM. **So the robust claim is GUCA2A-specific in
+its comparators and tier-level in its conclusion**, and `best4`'s retraction is
+confirmed on a statistic chosen before the numbers.
+
 **HOW MUCH OF IT DEPENDS ON A STATISTIC NOBODY PRE-SPECIFIED — measured, and it
 is not all robust.** §5 fixed the comparator set and not the scale, and the
 share was chosen after seeing the output. Run on all three defensible
@@ -720,6 +759,46 @@ gene's own CP10K units, so the share was chosen after the fact as the
 scale-free option. It is recorded as a gap, not papered over; a successor design
 should fix the statistic too.
 
+## 6j. DIS/VAL — is avenue A driven by one specimen collection?
+
+**RUN 2026-09-06. AMBIGUOUS, and the informative part is what did not happen.**
+`docs/prereg_disval_stability.md` RESULT; tables `results/2026-09-06_705dd5b/`.
+Laptop-runnable from committed tables — no cluster, no download.
+
+`Chen_2021_Cell` is **four specimen collections, not one**. Discovery and
+validation are independent collections about a year apart with disjoint patient
+sets but for one (`HTA11_866`, excluded from both). So the 44-patient reading
+re-cuts into **15 / 15 / 13** with the paired design and estimand untouched.
+
+`log_ratio`, GUCA2A against each control:
+
+| contrast | discovery | validation | cohort3 | pooled |
+|---|---|---|---|---|
+| − ACTB | **+0.881 \*** | **+0.952 \*** | **+0.899 \*** | **+0.912 \*** |
+| − CDX2 | +0.648 | **+1.442 \*** | +1.149 | **+1.075 \*** |
+| − EPCAM | +0.833 | **+1.520 \*** | +0.834 | **+1.079 \*** |
+| − KRT8 | +1.004 | **+1.027 \*** | +0.545 | **+0.881 \*** |
+
+**Zero sign reversals, all four statistics, all three collections.** That is the
+branch §5 reserved as the one width cannot explain. Every estimate is positive
+and the collections agree on direction and magnitude; they differ on whether the
+interval clears zero, which is the **1.80× width penalty at n=15** the
+pre-registration named before the numbers existed.
+
+**So: not carried by one batch, and not formally excluded either.** §5's first
+branch needed 4-of-4 in both halves. **Ambiguous is the pre-registered word.**
+
+**It is NOT a replication** and the document says so first: same lab, same
+platform, same population, same cells whose pooled answer was already known. The
+single-cohort qualifier on §6h **stays**.
+
+*One thing worth carrying.* The first run applied a t-interval to `ratio`, which
+`adenoma_decomposition_scales.py` summarises by a **median with a rank interval**
+because it is heavy-tailed. That mismatch produced the only two sign flips — and
+a sign flip is §5's *strongest* branch. An inconsistent summary in a reading job
+would have manufactured the most consequential verdict available. Fixed before
+the numbers above.
+
 ## 6i. What is next, after avenue A
 
 **A's open items are data properties except one, and that one is now
@@ -757,7 +836,7 @@ closed it, and it is the fifth closed route).
 ## 6e. Different data, not more of it — still true for survivorship
 
 Every design here conditions cell identity on transcription, which is circular,
-and §2 now shows four independent routes terminating. **More of the same data
+and §2 now shows five independent routes terminating on carcinoma. **More of the same data
 has been tried and does not work** — that is what the 13-study result settles.
 
 Ranked, all data-hunt-gated:
@@ -783,25 +862,55 @@ cells having been preferentially destroyed — is **not transcript-detectable**.
 A resolved premise makes the detection reading interpretable; it never rules
 that out. Longitudinal tracing would, and does not exist in public human data.
 
-## 6f. The write-up
+## 6f. The write-up — THE ONLY THING WITH A DEADLINE
 
-Two terminal results landed on 2026-09-05 and neither is in either paper yet:
+**15 September 2026, AoE.** Neither paper carries any 2026-09-06 result, and
+four of the six were produced after the last paper edit. This is the largest
+outstanding gap in the project.
 
-- **Stage 4's gate failure on a verified-correct reference** (§6a). Note the
-  arc: it was suspected of being a scale artifact, the suspicion was tested,
-  and the reference turned out already correct — so the result strengthened.
-- **The premise unresolvable at 13 studies because studies disagree** (§2),
-  which is a materially stronger statement than "undecided at 3".
+### What is missing, and which paper it belongs to
 
-For the WMHS paper specifically, `tests/test_paper_numbers.py` ties its prose to
-its tables: every figure in the third-guard paragraph is re-derived from
-`results/*/coexpression_silencing*.parquet` and asserted against the literal
-string in the `.tex`. All eleven assertions are mutation-tested. **If you re-run
-that job, this test tells you exactly what to edit.**
+| result | § | paper |
+|---|---|---|
+| Stage 4's gate failure on a verified-correct reference | §6a | ICBI-NB |
+| Premise unresolvable at 13 studies *because studies disagree* | §2 | ICBI-NB |
+| **The decomposition is identifiable on adenoma; tier-level at `lineage`** | §6h | **ICBI-NB — this is the climax it currently lacks** |
+| DIS/VAL: no sign reversals across three collections, ambiguous | §6j | ICBI-NB |
+| MLH1 → UNINTERPRETABLE, and unavailable on any data | §6g | either |
+| **The interval is 0.82× the width it claims — closed form** | §3a | **WMHS** |
+| **The cutpoints do not calibrate on either cohort** | §3a-bis | **WMHS** |
+| D1 Wnt → technical floor, clean negative | §6i | ICBI-NB |
+
+### The ICBI-NB paper's arc has changed and its abstract has not
+
+It argues the decomposition is empirically unverifiable. **Avenue A is the
+branch where it is verifiable**, so the honest arc is now:
+
+> five routes close the mechanism on carcinoma → the one substrate where the
+> algebra does not collapse (adenoma) → the pre-registered split is identifiable
+> → **and the answer is a tier, not a gene**
+
+**Constraints when writing it**, all pre-committed and none optional: quote the
+two blocks at **`lineage` only**; carry the statistic caveat verbatim (the scale
+was chosen post-hoc, re-run on one fixed in advance, partial closure); state
+that `best4`'s intrinsic arm is **0 `ok` under calibrated cutpoints**; and keep
+the single-cohort qualifier, which §6j does not remove.
+
+### The WMHS paper's subject grew by three
+
+It is about validation statistics that cannot fail, and 2026-09-06 produced
+three fresh instances — including the sharpest one yet: **a disagreement
+detector that fired on noise, inside the replacement for a gate that fired on
+noise.** §3's ledger is at seventeen.
 
 ## 6g. The MLH1 positive control — RAN 2026-09-06. UNINTERPRETABLE.
 
-**Full account: `docs/prereg_g2_mlh1_within_stratum.md`, RESULT section.**
+**Full account: `docs/prereg_g2_mlh1_within_stratum.md`, RESULT section.** Its
+predecessor `docs/prereg_g2_mlh1.md` (week-0, RESULT run 2026-08-29) pre-
+registered a difference-in-differences whose mechanistic control arm turned out
+to be **four patients on two independent pipelines** — that design is superseded
+and its RESULT records why, including that tier B could not have validated the
+estimator whatever the biology did, MLH1 sitting ~600× below GUCA2A.
 Tables `results/2026-09-06_4b1afca/`, committed in `5428a9a` and verified
 against the write-up (verdict, premise, strata, interval method and all three
 MLH1 rows match the sidecar). 29 of 30 eligible patients scored; arms 10 methylated / 4
