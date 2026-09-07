@@ -410,7 +410,9 @@ file written by one job is invisible to the next. Same class as the login-node
 | GSE39582 | **no** | yes | `$BRP_DATA_DIR/processed/bulk/` |
 | **ICBI atlas, 30.44 GiB** | **no** | yes | **`/project/rise-batteries/bode/icbi/`** |
 | ICBI obs cache | yes | yes | `$BRP_DATA_DIR/interim/icbi_obs.parquet` |
-| `results/` (138 tables) | yes | yes | in git |
+| **Becker GSE201348, 1.2 GB** | **no** | yes | `$BRP_DATA_DIR/raw/becker/` — `GSE201348_RAW.tar` (72 10x triplets) **and** `GSE201348_series_matrix.txt.gz`, which is a required second input because the tar carries no arm labels. §6i B1. |
+| in-situ panel lists | yes | — | `$BRP_DATA_DIR/raw/panels/` — CosMx 1K and 6K xlsx, sha256 in the manifest. §6i C1. |
+| `results/` | yes | yes | in git |
 
 `data/manifest.csv` carries every file's url and sha256 and is the only record
 that travels — verify downloads against it.
