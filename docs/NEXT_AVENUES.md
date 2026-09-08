@@ -597,7 +597,7 @@ is what stops the next one.
 | open | what it needs |
 |---|---|
 | **The write-up** | Eight days. ~15 results across 2026-09-06/07 in neither paper, and `neurips_2026.sty` still unvendored so `./build.sh` has never run. **This outranks everything.** |
-| **D2 survival** | `docs/prereg_d2_survival.md` is **proposed, not locked**. Its gate PASSED (n=624, IQR 2.96). §6a lists three decisions it leaves open. Needs the lock, then implementation. |
+| ~~**D2 survival**~~ | **CLOSED 2026-09-07 — null on every endpoint.** `results/2026-09-07_b42a2cd/`; PFI ABSOLUTE 0.9697 [0.8564, 1.0979], every interval containing 1, PH clean, 11.27 events/df. Locked, implemented, run. `docs/prereg_d2_survival.md` §8. **Do not queue it.** |
 | **Invariant 11** | `docs/invariant_11_proposal.md` drafted with a guard design, unimplemented. Needs a PR and two approvals per invariant 3. |
 
 **Closed on 2026-09-07 and not worth reopening:** Crowell (7 of 7, §6l),
@@ -716,8 +716,19 @@ patient-clustered or mixed-model, with the Wnt score and adjustment set fixed
 first, and read as association. Crowell's sub-domains stay `exploratory` under
 its own pre-registration and cannot be borrowed.
 
-**5 · D2 survival — the gate PASSED 2026-09-07; the pre-specification is
-proposed, not locked.** `results/2026-09-07_1dc7624/`: n=624, IQR 2.9607, 312
+**5 · D2 survival — CLOSED 2026-09-07, a pre-registered null.** The whole
+sequence ran in one day: gate PASS, lock, implementation, run.
+`results/2026-09-07_b42a2cd/` — **PFI ABSOLUTE 0.9697 [0.8564, 1.0979]** and
+every other interval also containing 1, proportional hazards clean on every
+term, 11.27 events per non-stratum df. The verdict label reads
+PURITY-SOURCE SENSITIVE because §6's reversal rule fired on 0.9697 against
+1.0090, which is two nulls straddling 1; §6c records why the rule was not
+re-decided after the fact. §6a's missingness concern was real — ABSOLUTE drops
+107 participants whose GUCA2A is *lower* than the retained set's — and the
+ESTIMATE population, which loses only 48, returns the same null. Full reading in
+the pre-registration's §8. The original framing follows.
+
+**The gate PASSED 2026-09-07; the pre-specification was then locked and run.** `results/2026-09-07_1dc7624/`: n=624, IQR 2.9607, 312
 below and 312 above the median — so the "GUCA2A is at floor in most tumours"
 worry is refuted for bulk TCGA, and the gate licenses a pre-specification and
 nothing else. `docs/prereg_d2_survival.md` is written and **unlocked**; its §6a

@@ -248,3 +248,46 @@ The execution artifact must contain the coefficient and interval for every
 endpoint/model, diagnostic status, complete-case attrition, event counts,
 events per degree of freedom, and the decision labels above. It must not report
 a Kaplan–Meier plot based on a data-chosen GUCA2A threshold.
+
+## 8. RESULT — 2026-09-07. D2 is null on every endpoint.
+
+`results/2026-09-07_b42a2cd/`, six tables, clean sha.
+
+| endpoint | purity | HR per +1 log2-CPM | 95% CI | n | events |
+|---|---|---|---|---|---|
+| **PFI** (lead) | ABSOLUTE | 0.9697 | 0.8564 – 1.0979 | 489 | 124 |
+| PFI | ESTIMATE | 1.0090 | 0.8993 – 1.1319 | 548 | 142 |
+| DSS | ABSOLUTE | 1.0013 | 0.8348 – 1.2010 | 474 | 57 |
+| OS | ABSOLUTE | 0.9137 | 0.7867 – 1.0612 | 491 | 97 |
+
+**Every interval contains 1.** The §4 directional prediction — higher bulk
+GUCA2A, lower hazard — is not supported. Proportional hazards is clean on every
+term under both purity sources, and the lead endpoint clears §5 at **11.27
+events per non-stratum degree of freedom**. This is a well-conditioned null, not
+a failed run, and §1 said it was a live possibility: bulk GUCA2A carries tumour
+purity and normal-mucosa content as well as biology.
+
+**The verdict label is `PURITY-SOURCE SENSITIVE`, and it means less than it
+sounds like.** §6's reversal rule fired on 0.9697 against 1.0090 — two null
+estimates on either side of 1. The rule carries no precision qualifier and was
+not re-decided after the fact; §6c records that choice. `lead_interval_excludes_
+one` is `False` and the detail line prints both intervals, so the row cannot be
+read as a caveat on an association that was never demonstrated.
+
+**DSS is underpowered exactly as §5 anticipated:** 57 events over 8 degrees of
+freedom is 7.12, below the floor. §3 already forbade it from establishing a
+result independently, and this is what that looks like in practice.
+
+**§6a's missingness concern was real.** ABSOLUTE complete-case removed **107**
+participants of the 596 usable for PFI, and their GUCA2A is *lower* than the
+retained set's — median 2.055 against 2.962, first quartile 1.056 against 1.579.
+The removal is not ignorable and runs in the attenuating direction. The ESTIMATE
+population loses only 48 and returns the same null, which is what rules out the
+null being an artifact of who ABSOLUTE discards.
+
+**What this does not say.** It is not evidence that GUCA2A is unrelated to
+outcome in any cell population — §1's boundary stands, and a bulk measurement
+confounded by composition is not a statement about malignant cells. It does not
+bear on the compositional-versus-intrinsic question at all. And the repository's
+own CIMP screen still points at CDX2 rather than GUCA2A as the stronger bulk
+signal (§6a).
