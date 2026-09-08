@@ -210,6 +210,35 @@ contrary finding. Testing the sign first would turn an absence of evidence into
 a reported direction, which is the one error this document cannot afford to
 make in that direction.
 
+## 6c. Amendment 1 — recorded AFTER the first run, 2026-09-07
+
+**Written after seeing the outcome, and labelled as such.** The run is
+`results/2026-09-07_a90d84b/`. One change was made and one was deliberately not.
+
+**Changed: discordance now requires the DSS interval to exclude 1.** §6 states
+the sign rule and then qualifies it in the very next sentence — *"An imprecise
+DSS interval alone is reported as such, not treated as a contradiction."* The
+code implemented the rule and not the qualifier, so PFI 0.9697 [0.8564, 1.0979]
+against DSS 1.0013 [0.8348, 1.2010] — two intervals both containing 1, point
+estimates straddling it by 3% and 0.1% — was reported as a contradiction
+between endpoints. This is implementing §6 as written, not amending it.
+
+**Not changed: the PURITY-SOURCE SENSITIVE rule.** §6 says the label applies if
+the direction reverses, with no precision qualifier attached, and the direction
+did reverse: ABSOLUTE 0.9697, ESTIMATE 1.0090. Both intervals contain 1, so the
+"reversal" is two null estimates on either side of 1 — but re-deciding that rule
+after seeing which side of it the result fell on is exactly the move this
+document exists to prevent. **The label stands.** What changed is that the
+verdict row now carries `lead_interval_excludes_one` and the detail line prints
+both intervals, so the label cannot be read as a caveat on an association that
+was never demonstrated.
+
+**§6a's prediction held and is worth recording.** ABSOLUTE complete-case removed
+**107** participants against the 596 usable for PFI, and their GUCA2A is lower
+than the retained set's — median 2.055 against 2.962, first quartile 1.056
+against 1.579. The removal is not ignorable and it runs in the direction that
+attenuates. The ESTIMATE population loses only 48 and gives the same null.
+
 ## 7. Required artifact and lock
 
 Before execution, this proposed document must be locked as its own D2 change,

@@ -99,6 +99,7 @@ def d2_verdict(
                 "directional conclusion is read."
             ),
             "lead_estimable": False,
+            "lead_interval_excludes_one": None,
             "ph_violated": None,
             "endpoint_discordance": None,
             "dss_interval_includes_one": None,
@@ -127,8 +128,18 @@ def d2_verdict(
     # direction of overstatement this document exists to prevent.
     pfi_excludes_one = bool(pfi["ci_high"] < 1 or pfi["ci_low"] > 1)
     pfi_supported = bool(pfi["hazard_ratio"] < 1 and pfi["ci_high"] < 1)
-    dss_opposite = bool((pfi["hazard_ratio"] - 1) * (dss["hazard_ratio"] - 1) < 0)
+    # §6 defines discordance and then QUALIFIES it in the next sentence: "An
+    # imprecise DSS interval alone is reported as such, not treated as a
+    # contradiction." The sign test alone ignored that qualifier, so two null
+    # endpoints whose point estimates happen to straddle 1 -- PFI 0.970 and DSS
+    # 1.001, both intervals containing 1 -- were reported as a contradiction
+    # between endpoints. Discordance now requires the DSS interval to exclude 1,
+    # which is what makes an opposite direction a claim rather than noise.
     dss_interval_includes_one = bool(dss["ci_low"] <= 1 <= dss["ci_high"])
+    dss_opposite = bool(
+        (pfi["hazard_ratio"] - 1) * (dss["hazard_ratio"] - 1) < 0
+        and not dss_interval_includes_one
+    )
     ci_decision_changed = bool((pfi["ci_high"] < 1) != (sensitivity["ci_high"] < 1))
     direction_reversed = bool(
         (pfi["hazard_ratio"] - 1) * (sensitivity["hazard_ratio"] - 1) < 0
@@ -143,9 +154,24 @@ def d2_verdict(
         )
     elif sensitive:
         verdict = "PURITY-SOURCE SENSITIVE"
+        # The label is pre-specified and stands. The numbers go in the detail so
+        # it cannot be read as a robust association whose robustness is in
+        # question -- when both intervals contain 1 there is no association for
+        # the purity source to be sensitive about, and a reader must be able to
+        # see that from the verdict row alone.
         detail = (
-            "PFI direction or confidence-interval decision changes between "
-            "ABSOLUTE and ESTIMATE purity."
+            f"PFI direction or confidence-interval decision changes between "
+            f"ABSOLUTE and ESTIMATE purity. ABSOLUTE HR "
+            f"{float(pfi['hazard_ratio']):.4f} "
+            f"[{float(pfi['ci_low']):.4f}, {float(pfi['ci_high']):.4f}]; "
+            f"ESTIMATE HR {float(sensitivity['hazard_ratio']):.4f} "
+            f"[{float(sensitivity['ci_low']):.4f}, "
+            f"{float(sensitivity['ci_high']):.4f}]. "
+            + ("BOTH INTERVALS INCLUDE 1: the lead result is null under either "
+               "purity source, and the label is a caveat on a null."
+               if not pfi_excludes_one
+               and not bool(sensitivity["ci_high"] < 1 or sensitivity["ci_low"] > 1)
+               else "")
         )
     elif dss_opposite:
         verdict = "ENDPOINT DISCORDANCE"
@@ -169,6 +195,7 @@ def d2_verdict(
         "verdict": verdict,
         "detail": detail,
         "lead_estimable": True,
+        "lead_interval_excludes_one": pfi_excludes_one,
         "ph_violated": ph_violated,
         "endpoint_discordance": dss_opposite,
         # §6: "An imprecise DSS interval alone is reported as such, not treated

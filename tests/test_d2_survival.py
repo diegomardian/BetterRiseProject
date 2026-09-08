@@ -258,6 +258,33 @@ def test_a_null_interval_above_one_is_not_a_contrary_direction():
     assert contrary["verdict"] == "DIRECTION CONTRARY"
 
 
+def test_an_imprecise_dss_interval_is_not_an_endpoint_contradiction():
+    """§6 qualifies its own discordance rule and the sign test ignored it.
+
+    The real 2026-09-07 run: PFI 0.9697 [0.8564, 1.0979] and DSS 1.0013
+    [0.8348, 1.2010]. Both intervals contain 1, and the point estimates straddle
+    it by 3% and 0.1%. That was reported as endpoint discordance -- a
+    contradiction between endpoints -- when §6 says in the sentence after the
+    rule that "an imprecise DSS interval alone is reported as such, not treated
+    as a contradiction."
+    """
+    verdict = d2_verdict(
+        _d2_stats(),
+        _d2_coefficients(pfi_hr=0.9697, pfi_low=0.8564, pfi_high=1.0979,
+                         dss_hr=1.0013,
+                         estimate_hr=1.0090, estimate_low=0.8993,
+                         estimate_high=1.1319),
+        _d2_ph(),
+    ).iloc[0]
+    assert not verdict["endpoint_discordance"]
+    assert verdict["dss_interval_includes_one"]
+    assert not verdict["lead_interval_excludes_one"]
+    # The pre-specified label still stands -- it is not re-decided after the
+    # fact -- but the row now says the lead result is null.
+    assert verdict["verdict"] == "PURITY-SOURCE SENSITIVE"
+    assert "BOTH INTERVALS INCLUDE 1" in verdict["detail"]
+
+
 def test_a_ph_violation_in_a_secondary_endpoint_does_not_silence_the_lead():
     """§6: OS is descriptive and cannot reverse the primary conclusion.
 
