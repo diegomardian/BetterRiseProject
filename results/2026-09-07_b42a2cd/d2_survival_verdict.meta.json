@@ -1,0 +1,36 @@
+{
+  "date": "2026-09-07",
+  "utc_timestamp": "2026-09-08T00:10:49+00:00",
+  "git_sha": "b42a2cdef9e2ba4984fc1f4898ff8cd104e3c0c3",
+  "git_sha_short": "b42a2cd",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.11.16",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "name": "d2_survival_verdict",
+  "n_rows": 1,
+  "columns": [
+    "verdict",
+    "detail",
+    "lead_estimable",
+    "lead_interval_excludes_one",
+    "ph_violated",
+    "endpoint_discordance",
+    "dss_interval_includes_one",
+    "purity_source_sensitive"
+  ],
+  "table_kind": "harness",
+  "contract": "docs/prereg_d2_survival.md",
+  "predictor": "GUCA2A per +1 log2-CPM, continuous",
+  "primary_purity": "absolute",
+  "sensitivity_purity": "estimate_affy_extrapolated",
+  "strata": [
+    "project",
+    "plate"
+  ],
+  "lead_endpoint": "PFI"
+}
