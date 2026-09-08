@@ -232,13 +232,24 @@ def test_read_verdict_reports_stable_when_the_cause_really_is_unchanged():
     assert read_verdict(frame)["verdict"] == "STABLE"
 
 
-def test_the_ceiling_and_its_null_are_allowed_to_disagree_and_it_is_recorded():
-    """At k=6 the null median is 0, so an I^2 the ceiling passes can be extreme.
+def test_an_intermediate_floor_cause_cannot_be_hidden_by_matching_endpoints():
+    """n>=3 and n>=6 may agree while n>=4 says something else."""
+    frame = pd.DataFrame([
+        {"gene": "KRT8", "patient_floor": 3, "estimability": "estimated",
+         "homogeneous": False, "verdict": "UNRESOLVED"},
+        {"gene": "KRT8", "patient_floor": 4, "estimability": "estimated",
+         "homogeneous": True, "verdict": "UNRESOLVED"},
+        {"gene": "KRT8", "patient_floor": 6, "estimability": "estimated",
+         "homogeneous": False, "verdict": "UNRESOLVED"},
+    ])
+    frame["verdict_cause"] = frame.apply(verdict_cause, axis=1)
+    outcome = read_verdict(frame)
+    assert outcome["verdict"] != "STABLE"
+    assert "n>=4 homogeneous_straddles_tolerance" in outcome["detail"]
 
-    The fixed 0.75 is too strict at eleven small studies and too lax at six
-    larger ones. A column records which way, per row, rather than a reader
-    having to notice.
-    """
+
+def test_the_calibrated_null_can_refuse_an_i_squared_below_the_old_ceiling():
+    """At k=6 the calibrated null can reject an I^2 below 75%."""
     curve = floor_curve(_committed_per_study(), n_trials=40_000)
     top = curve[(curve.gene == "KRT8") & (curve.patient_floor == PATIENT_FLOOR)].iloc[0]
     assert top["i_squared"] < 0.75

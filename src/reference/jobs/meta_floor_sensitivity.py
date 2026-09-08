@@ -229,13 +229,13 @@ def read_verdict(frame: pd.DataFrame) -> dict[str, str]:
         return dict(zip(f["gene"], f["verdict_cause"], strict=False))
 
     v_primary, v_weak, v_status = verdicts(primary), verdicts(weak), verdicts(status_quo)
-    moved = sorted(g for g in v_status if v_status[g] != v_primary.get(g))
-    disagree = sorted(g for g in v_weak if v_weak[g] != v_primary.get(g))
+    causes = {
+        gene: (v_status.get(gene), v_weak.get(gene), v_primary.get(gene))
+        for gene in set(v_status) | set(v_weak) | set(v_primary)
+    }
+    varied = sorted(gene for gene, path in causes.items() if len(set(path)) > 1)
 
-    def moves(gene: str) -> str:
-        return f"{gene}: {v_status[gene]} -> {v_primary.get(gene)}"
-
-    if not moved:
+    if not varied:
         return {
             "verdict": "STABLE",
             "detail": (
@@ -246,23 +246,13 @@ def read_verdict(frame: pd.DataFrame) -> dict[str, str]:
                 "it did not have."
             ),
         }
-    if disagree:
-        return {
-            "verdict": "FLOOR-UNSTABLE, AND THE FLOORS DISAGREE",
-            "detail": (
-                f"{'; '.join(moves(g) for g in moved)} against the status quo, "
-                f"and {', '.join(disagree)} differ between n>=4 and n>=6. Report "
-                f"all three floors; claim none. The instrument does not resolve it."
-            ),
-        }
     return {
-        "verdict": "FLOOR-UNSTABLE",
+        "verdict": "FLOOR-UNSTABLE, AND THE FLOORS DISAGREE",
         "detail": (
-            f"{'; '.join(moves(g) for g in moved)} once studies whose weights "
-            f"are not integrable are excluded, and n>=4 and n>=6 agree. The "
-            f"verdict was carried by those studies. This says the instrument "
-            f"was unstable to a criterion nobody had applied; it does NOT say "
-            f"the controls hold."
+            f"{'; '.join(f'{gene}: n>=3 {causes[gene][0]}, n>=4 '
+            f'{causes[gene][1]}, n>=6 {causes[gene][2]}' for gene in varied)}. "
+            "Report all three floors and their causes; claim none. The instrument "
+            "does not resolve the controls."
         ),
     }
 
