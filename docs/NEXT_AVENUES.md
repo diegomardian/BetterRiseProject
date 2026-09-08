@@ -817,3 +817,78 @@ elsewhere: **do not spend weeks feeding a transcript instrument whose
 sensitivity cannot be established.** Prefer the avenues that do not depend on it
 — A, which needs no premise and no sensitivity, and B1/C2, which replace the
 label rather than trusting it.
+
+### Plan, 2026-09-07 — the corrected order of work
+
+The roadmap amendment above records **what each item is**. This section records
+**what to do next, in what order**, and three of its four entries correct a next
+step the amendment states differently. Where they conflict, this section is the
+later decision.
+
+**The write-up still outranks all of it** ("Still open" item 5, WMHS deadline
+15 September 2026). What follows is the technical queue behind it, not ahead of
+it.
+
+**Plan 1 · The meta layer — first, because it is the only internal-only
+blocker.** No data access, no third party, no gate: everything it needs is
+committed. §6k of `docs/HANDOFF.md` documents this defect but records no fix,
+and the fix has three parts.
+
+1. **Delete `se_from_interval`** (`src/harness/meta.py:59`). It is dead —
+   `tests/test_meta.py` is the only importer, so the tests are testing a
+   function nothing calls.
+2. **Replace the fixed ceiling with the calibrated null.**
+   `src/reference/meta_calibration.py` already computes it; `MAX_I_SQUARED =
+   0.75` in `src/harness/meta.py` is Higgins' rule of thumb with no null behind
+   it, and §6k shows its error **changes sign with k** — too strict at k = 11,
+   too lax at k = 6. The replacement ceiling is **pre-specified before the
+   re-run**, not chosen after seeing which verdicts move.
+3. **Re-run KRT8's ceiling sensitivity.** KRT8 is UNRESOLVED at all three
+   floors by **two different routes**, and only one of them is a ceiling
+   effect. Report `verdict_cause`, never the label — §6k's own rule.
+
+Parts 1 and 2 both touch `src/harness/meta.py`, so they ride one **PR with two
+approvals** under CONTRIBUTING §2. This is W2's, not W1's, exactly as §6k says.
+
+**Item 4 · Lesion-level Wnt — the detection gate comes first, before the
+pre-specification.** The amendment above says item 4 "needs a lesion-within-donor
+pre-specification before any analysis." That is the wrong first step. **The five
+signature genes in `src/reference/wnt_score.py` (AXIN2, NKD1, RNF43, NOTUM,
+TCF7) have never been scored in the Becker deposit at all**, and every one of
+them is lower-expressed than GUCA2A — whose own gate cleared **by depth, not by
+premise** ("Still open" item 6). Writing a pre-specification for a study that
+cannot produce a non-null is the mistake B1 already made once.
+
+So: an **outcome-blind detection gate at `DETECTION_MIN_UMI`** on the nuclei of
+the four paired donors (A001, A002, A014, A015) in
+`results/2026-09-07_682ad52/becker_lesion_inventory.parquet`, recorded with its
+threshold before anything is fit. The pre-specification is step two and happens
+only if the gate passes. Nothing else about item 4 changes: **the independent
+unit is still 4 donors, not 31 lesions** (invariant 5), and Crowell's
+sub-domains stay `exploratory` under their own pre-registration.
+
+**Item 2 / A2 · Authenticate before rewriting the request.** The repo records
+that the three Synapse entities **refuse anonymous read**. An anonymous-read
+refusal is not evidence of an access gate — it is the expected response to an
+unauthenticated client, and it does not distinguish "controlled access" from
+"log in." Before any further work on the request text in
+`docs/a2_synapse_access_request.md`:
+
+```
+synapse login
+python -m src.reference.jobs.a2_synapse_inventory --no-write
+```
+
+Only if an **authenticated** read also refuses does the access-request path
+become real. Item 2's substantive ruling is untouched either way: no biological
+analysis proceeds from the pixel product alone.
+
+**Order, and why.** Plan 1, then item 4's gate, then the A2 login check. Plan 1
+is first because it is the only one of the three whose completion depends on
+nobody outside the repo. Item 4's gate is cheap, outcome-blind, and decides
+whether a pre-registration is worth writing. A2 is last because its outcome
+changes only which of two request paths applies.
+
+**Unchanged by this plan:** 2b's four gate conditions and its NO SUBSTRATE exit;
+AD-versus-SSL as a data hunt with no substrate in hand; and the closures of
+Crowell, D2 and carcinoma.
