@@ -182,7 +182,7 @@ class NullHeterogeneity:
     median: float
     q90: float
     q95: float
-    p_exceeds_ceiling: float
+    p_exceeds_legacy_ceiling: float
     q_rejection_rate: float
     n_trials: int
     seed: int
@@ -193,7 +193,7 @@ class NullHeterogeneity:
             "null_i_squared_median": self.median,
             "null_i_squared_q90": self.q90,
             "null_i_squared_q95": self.q95,
-            "null_p_exceeds_ceiling": self.p_exceeds_ceiling,
+            "null_p_exceeds_legacy_ceiling": self.p_exceeds_legacy_ceiling,
             "null_q_rejection_rate": self.q_rejection_rate,
             "null_n_trials": self.n_trials,
             "null_seed": self.seed,
@@ -232,13 +232,13 @@ def _simulate_null(
 def null_i_squared(
     n_patients: np.ndarray | list[int],
     *,
-    ceiling: float | None = None,
+    legacy_ceiling: float | None = None,
     n_trials: int = DEFAULT_N_TRIALS,
     seed: int = DEFAULT_SEED,
 ) -> NullHeterogeneity:
     """What ``I^2`` does at these patient counts when there is no heterogeneity.
 
-    ``ceiling`` defaults to the retired 75% ceiling, solely to report how that
+    ``legacy_ceiling`` defaults to the retired 75% ceiling, solely to report how that
     historical rule behaved. The harness now gates on :func:`calibrated_p`.
     """
     from src.harness.meta import MIN_STUDIES
@@ -254,7 +254,7 @@ def null_i_squared(
             f"patient counts {sorted(ns.tolist())} include one below 2; an SE "
             f"over patients does not exist there."
         )
-    bar = LEGACY_I_SQUARED_CEILING if ceiling is None else ceiling
+    bar = LEGACY_I_SQUARED_CEILING if legacy_ceiling is None else legacy_ceiling
     i_squared, q = _simulate_null(ns, n_trials, seed)
     df = ns.size - 1
     return NullHeterogeneity(
@@ -263,7 +263,7 @@ def null_i_squared(
         median=float(np.median(i_squared)),
         q90=float(np.quantile(i_squared, 0.90)),
         q95=float(np.quantile(i_squared, 0.95)),
-        p_exceeds_ceiling=float((i_squared > bar).mean()),
+        p_exceeds_legacy_ceiling=float((i_squared > bar).mean()),
         q_rejection_rate=float((q > stats.chi2.ppf(0.95, df)).mean()),
         n_trials=int(n_trials),
         seed=int(seed),

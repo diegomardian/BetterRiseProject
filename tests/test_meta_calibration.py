@@ -98,7 +98,7 @@ def test_null_i_squared_is_far_from_zero_at_the_committed_patient_counts():
     assert null.k == 11
     assert 0.22 < null.median < 0.32
     assert null.q95 > 0.75                   # homogeneity alone clears the old ceiling
-    assert 0.04 < null.p_exceeds_ceiling < 0.10
+    assert 0.04 < null.p_exceeds_legacy_ceiling < 0.10
 
 
 def test_cochrans_q_rejects_far_above_nominal_at_these_patient_counts():
@@ -111,7 +111,7 @@ def test_the_heterogeneity_is_manufactured_by_the_small_studies():
     inflated = null_i_squared(ICBI_N, n_trials=40_000)
     even = null_i_squared([29] * 11, n_trials=40_000)
     assert even.median == pytest.approx(0.0, abs=1e-9)
-    assert even.p_exceeds_ceiling < 0.01
+    assert even.p_exceeds_legacy_ceiling < 0.01
     assert inflated.median > 0.2
 
 
