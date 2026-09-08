@@ -1,0 +1,71 @@
+{
+  "date": "2026-09-08",
+  "utc_timestamp": "2026-09-08T19:33:03+00:00",
+  "git_sha": "a96e3b32045accd7978f51898a943e2561b9786e",
+  "git_sha_short": "a96e3b3",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.11.15",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "scanpy_version": "1.10.2",
+  "anndata_version": "0.10.8",
+  "name": "becker_lesion_wnt_detection_by_donor",
+  "n_rows": 20,
+  "columns": [
+    "donor",
+    "gene",
+    "n_lesions",
+    "n_sequence_rows",
+    "n_nuclei",
+    "n_detected",
+    "detection",
+    "passes_detected_nuclei",
+    "passes_detection_rate",
+    "passes"
+  ],
+  "table_kind": "harness",
+  "prereg": "docs/prereg_becker_lesion_wnt_detection_gate.md",
+  "input": "GSE201348 paired-donor polyp nuclei only",
+  "paired_donors": [
+    "A001",
+    "A002",
+    "A014",
+    "A015"
+  ],
+  "signature": [
+    "AXIN2",
+    "NKD1",
+    "RNF43",
+    "NOTUM",
+    "TCF7"
+  ],
+  "detection_min_umi": 1,
+  "min_detected_nuclei_per_donor": 30,
+  "min_detection_rate_per_donor": 0.01,
+  "unit": "donor; lesion and sequencing-row counts are descriptive only",
+  "verdict": {
+    "verdict": "NO SUBSTRATE AT THIS snRNA RESOLUTION",
+    "detail": "A002/NOTUM, A002/TCF7, A014/NOTUM, A014/TCF7, A015/NOTUM, A015/TCF7 fail one or both fixed detection floors. This is a measurement limit, not a Wnt null; do not fit a reduced signature."
+  },
+  "exploratory": false,
+  "pre_registered": true,
+  "invariant_11": "no transcript-derived label may claim its own programme",
+  "label_provenance": {
+    "modality": "sample_annotation",
+    "assay": "Becker GEO disease-stage metadata",
+    "genes": "",
+    "derived_from": ""
+  },
+  "claim_provenance": {
+    "modality": "transcript",
+    "assay": "Becker GSE201348 snRNA-seq",
+    "genes": "AXIN2;NKD1;RNF43;NOTUM;TCF7",
+    "derived_from": ""
+  },
+  "overlapping_genes": "",
+  "independent_endpoint": null
+}
