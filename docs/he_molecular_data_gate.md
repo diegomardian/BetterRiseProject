@@ -118,13 +118,17 @@ VCF. Run it only after a CLI login, first with `--no-write`:
 
 ```bash
 pip install -e '.[a2]'
-synapse login
+synapse config
 python -m src.reference.jobs.he_molecular_synapse_access \
   --files /path/to/files.tsv \
   --biospecimens /path/to/biospecimens.tsv \
   --cases /path/to/cases.tsv \
   --no-write
 ```
+
+Use the default profile when prompted and supply a View-scope personal access
+token. `synapse login` merely verifies a token; `synapse config` persists the
+profile that the job's silent client login reads.
 
 `readable` means the authenticated account can resolve metadata for that entity;
 `unresolved` preserves the exact remote error and is not silently interpreted

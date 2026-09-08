@@ -5,7 +5,7 @@ premalignant candidates emitted by ``he_molecular_gate``. It never downloads or
 opens a VCF, selects an endpoint, or fits a model.
 
     pip install -e '.[a2]'
-    synapse login
+    synapse config
     python -m src.reference.jobs.he_molecular_synapse_access \
       --files /path/to/files.tsv \
       --biospecimens /path/to/biospecimens.tsv \
@@ -15,6 +15,8 @@ opens a VCF, selects an endpoint, or fits a model.
 Use ``--no-write`` first. A successful metadata read establishes only that the
 authenticated account can resolve the entity; it does not establish VCF content
 download, endpoint callability, image resolution, or model eligibility.
+Run ``synapse config`` to save a default profile before this job; ``synapse
+login`` only verifies supplied credentials.
 """
 
 from __future__ import annotations
