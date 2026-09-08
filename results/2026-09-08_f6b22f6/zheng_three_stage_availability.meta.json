@@ -1,0 +1,76 @@
+{
+  "date": "2026-09-08",
+  "utc_timestamp": "2026-09-08T19:46:34+00:00",
+  "git_sha": "f6b22f69527c06d91d6b2ac55a8cd71095397abc",
+  "git_sha_short": "f6b22f6",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.11.15",
+  "platform": "Linux-4.18.0-553.158.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.2",
+  "scanpy_version": "1.10.2",
+  "anndata_version": "0.10.8",
+  "name": "zheng_three_stage_availability",
+  "n_rows": 9,
+  "columns": [
+    "study_id",
+    "patient_id",
+    "stage",
+    "n_epithelial_before_qc",
+    "n_epithelial_after_qc",
+    "n_samples_before_qc",
+    "n_samples_after_qc",
+    "median_counts_after_qc",
+    "median_genes_after_qc",
+    "stage_measurable_after_qc"
+  ],
+  "table_kind": "harness",
+  "prereg": "docs/prereg_zheng_gradient.md",
+  "report": {
+    "study_id": "Zheng_2022_Signal_Transduct_Target_Ther",
+    "patients": [
+      "Zheng_2022_Signal_Transduct_Target_Ther.P1",
+      "Zheng_2022_Signal_Transduct_Target_Ther.P2",
+      "Zheng_2022_Signal_Transduct_Target_Ther.P3"
+    ],
+    "n_patients": 3,
+    "stages": [
+      "normal",
+      "polyp",
+      "carcinoma"
+    ],
+    "min_epithelial_per_stage_before_qc": 100
+  },
+  "counts_layer": "layers/counts",
+  "panel": [
+    "ACTB",
+    "KRT8",
+    "EPCAM",
+    "CDX2",
+    "MS4A12",
+    "GUCA2A"
+  ],
+  "detection_min_umi": 1,
+  "population": "naive, coarse-annotation epithelial cells; no transcript-derived mature label",
+  "inference": "none: individual trajectories only; no pooling, contrast, interval, test, or model",
+  "pre_registered": true,
+  "exploratory": false,
+  "invariant_11": "no transcript-derived label may claim its own programme",
+  "label_provenance": {
+    "modality": "sample_annotation",
+    "assay": "ICBI coarse cell-type and sample-type annotations",
+    "genes": "",
+    "derived_from": ""
+  },
+  "claim_provenance": {
+    "modality": "transcript",
+    "assay": "ICBI raw UMI counts layer",
+    "genes": "ACTB;KRT8;EPCAM;CDX2;MS4A12;GUCA2A",
+    "derived_from": ""
+  },
+  "overlapping_genes": "",
+  "independent_endpoint": null
+}
