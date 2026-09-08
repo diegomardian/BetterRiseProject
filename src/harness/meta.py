@@ -21,10 +21,10 @@ that may well clear the tolerance, reporting "the premise holds" when what is
 actually true is that no two studies agree on what the premise is. The pooled
 number is arithmetically correct and substantively meaningless.
 
-So :func:`premise_verdict` refuses to read a pooled estimate when I^2 exceeds
-``MAX_I_SQUARED``. That is not a caveat attached to an answer; it is a third
-answer, and it has the same shape as every other three-state verdict in this
-project -- satisfied, refused, and undecided.
+So :func:`premise_verdict` refuses to read a pooled estimate when its observed
+I^2 is rare under the patient-count-matched null. That is not a caveat attached
+to an answer; it is a third answer, and it has the same shape as every other
+three-state verdict in this project -- satisfied, refused, and undecided.
 """
 
 from __future__ import annotations
@@ -45,30 +45,13 @@ class MetaError(RuntimeError):
 #: DerSimonian-Laird's Q has k-1 degrees of freedom, so k=2 gives one.
 MIN_STUDIES = 3
 
-#: Above this, the pooled estimate is not read. Cochrane's conventional
-#: "considerable heterogeneity" boundary, committed here rather than chosen
-#: after seeing a value.
-MAX_I_SQUARED = 0.75
+#: Tail probability below which the patient-count-matched I^2 null refuses a
+#: pooled reading. The null itself is supplied by the caller because it depends
+#: on the per-study patient counts, not merely on the pooled estimates.
+HETEROGENEITY_ALPHA = 0.05
 
-#: Normal quantile for a 95% interval. The per-study inputs are bootstrap
-#: intervals over patients, so this is a second-stage normal approximation on
-#: already-resampled quantities.
+#: Normal quantile for a 95% interval.
 Z_95 = 1.959963984540054
-
-
-def se_from_interval(ci_low: float, ci_high: float, *, z: float = Z_95) -> float:
-    """Standard error implied by a symmetric 95% interval.
-
-    The per-study inputs are percentile bootstrap intervals, which are not
-    exactly symmetric. Taking the half-width over ``z`` is the standard
-    two-stage move and it is an approximation -- recorded here so it is visible
-    rather than buried in a caller.
-    """
-    if not (np.isfinite(ci_low) and np.isfinite(ci_high)):
-        return float("nan")
-    if ci_high < ci_low:
-        raise MetaError(f"interval [{ci_low}, {ci_high}] is inverted")
-    return (ci_high - ci_low) / (2.0 * z)
 
 
 @dataclass(frozen=True)
@@ -99,10 +82,6 @@ class MetaResult:
     pi_low: float = float("nan")
     pi_high: float = float("nan")
 
-    @property
-    def homogeneous(self) -> bool:
-        return bool(np.isfinite(self.i_squared) and self.i_squared <= MAX_I_SQUARED)
-
     def as_row(self) -> dict:
         return {
             "k_studies": self.k, "pooled": self.pooled, "se": self.se,
@@ -111,7 +90,6 @@ class MetaResult:
             "cochran_q": self.q, "df": self.df,
             "pooled_fixed_effect": self.pooled_fixed,
             "prediction_low": self.pi_low, "prediction_high": self.pi_high,
-            "homogeneous": self.homogeneous,
         }
 
 
@@ -182,7 +160,34 @@ def meta_analyse(
     )
 
 
-def premise_verdict(result: MetaResult, tolerance: float) -> tuple[str, str]:
+def calibrated_homogeneous(
+    null_p_of_observed: float,
+    *,
+    alpha: float = HETEROGENEITY_ALPHA,
+) -> bool:
+    """Whether observed I^2 is compatible with its patient-count-matched null.
+
+    ``null_p_of_observed`` is ``P(I^2_null >= I^2_observed)`` from the exact
+    estimator and the actual per-study patient counts.  It is deliberately an
+    input rather than inferred from standard errors: the latter do not identify
+    the patient counts that generated them.
+    """
+    if not (np.isfinite(null_p_of_observed) and 0.0 <= null_p_of_observed <= 1.0):
+        raise MetaError(
+            "calibrated heterogeneity requires a finite null tail probability "
+            "between 0 and 1"
+        )
+    if not (np.isfinite(alpha) and 0.0 < alpha < 1.0):
+        raise MetaError("heterogeneity alpha must be strictly between 0 and 1")
+    return bool(null_p_of_observed >= alpha)
+
+
+def premise_verdict(
+    result: MetaResult,
+    tolerance: float,
+    *,
+    null_p_of_observed: float,
+) -> tuple[str, str]:
     """The premise at the meta level: satisfied, refused, or undecided.
 
     Applied to a CONTROL statistic, where the question is whether a
@@ -192,12 +197,14 @@ def premise_verdict(result: MetaResult, tolerance: float) -> tuple[str, str]:
     route into "undecided" that only exists at this level: the studies may not
     be describing a common quantity at all.
     """
-    if not result.homogeneous:
+    if not calibrated_homogeneous(null_p_of_observed):
         return "UNRESOLVED", (
-            f"I^2 = {result.i_squared:.1%} exceeds the pre-committed "
-            f"{MAX_I_SQUARED:.0%} ceiling (tau^2 = {result.tau_squared:.4f}, "
+            f"I^2 = {result.i_squared:.1%} has calibrated null tail probability "
+            f"{null_p_of_observed:.4f}, below the pre-committed "
+            f"{HETEROGENEITY_ALPHA:.0%} alpha (tau^2 = {result.tau_squared:.4f}, "
             f"Q = {result.q:.2f} on {result.df} df). The studies are not "
-            f"estimating a common quantity, so the pooled value "
+            f"estimating a common quantity at their observed patient counts, so "
+            f"the pooled value "
             f"({result.pooled:+.3f}) is arithmetically correct and "
             f"substantively meaningless. Report the per-study estimates; do not "
             f"read this one."

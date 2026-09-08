@@ -50,9 +50,9 @@ of ``n`` alone. Both are arithmetic. Both were invisible because nothing raised.
 The difference is direction: that one made a check too eager to find an effect,
 this one makes a gate too eager to refuse one.
 
-AND THE GUARD, WHICH IS THE POINT OF THE MODULE. ``MAX_I_SQUARED = 0.75`` is
-Higgins' rule of thumb for a literature of trials with hundreds of subjects
-each. Applied at n = 3 it is a threshold whose null distribution nobody
+AND THE GUARD, WHICH IS THE POINT OF THE MODULE. The historical 75% I^2
+ceiling was Higgins' rule of thumb for a literature of trials with hundreds of
+subjects each. Applied at n = 3 it is a threshold whose null distribution nobody
 computed, which is this repository's signature defect wearing a citation. So a
 heterogeneity verdict does not exist here without the null it was read against:
 ``null_i_squared`` and ``calibrated_p`` are emitted in the same row as the
@@ -66,10 +66,10 @@ hand is post-hoc outlier removal. The floors below are fixed by the chi-square
 degrees-of-freedom condition and were written into
 ``docs/prereg_meta_weight_calibration.md`` before any floor curve was run.
 
-OWNERSHIP. CONTRIBUTING §2: ``src/harness/meta.py`` is W2's and this module does
-not modify it -- it imports ``meta_analyse`` and reads its output. The floor is
-applied at the job layer, which is W1's. Changing ``MIN_STUDIES`` or
-``MAX_I_SQUARED`` themselves is a W2 PR with two approvals and is out of scope.
+OWNERSHIP. CONTRIBUTING §2: ``src/harness/meta.py`` is W2's and this module
+supplies its patient-count-matched calibration at the job layer. The interface
+is the scalar null tail probability, not a copied implementation. Changing
+``MIN_STUDIES`` remains a W2 decision.
 """
 
 from __future__ import annotations
@@ -112,6 +112,10 @@ DEFAULT_N_TRIALS = 200_000
 
 #: Fixed seed, invariant 10.
 DEFAULT_SEED = 20260907
+
+#: The retired fixed ceiling, retained only to quantify why it was retired in
+#: historical calibration tables. It is not used by ``premise_verdict``.
+LEGACY_I_SQUARED_CEILING = 0.75
 
 #: **Primary floor.** The smallest n at which ``Var[w_hat]`` is finite. A weight
 #: with a finite mean but infinite variance is still a weight that can take any
@@ -226,7 +230,7 @@ def _simulate_null(
 
 
 def null_i_squared(
-    n_patients: "np.ndarray | list[int]",
+    n_patients: np.ndarray | list[int],
     *,
     ceiling: float | None = None,
     n_trials: int = DEFAULT_N_TRIALS,
@@ -234,10 +238,10 @@ def null_i_squared(
 ) -> NullHeterogeneity:
     """What ``I^2`` does at these patient counts when there is no heterogeneity.
 
-    ``ceiling`` defaults to ``meta.MAX_I_SQUARED`` -- imported rather than
-    restated, so the two cannot drift.
+    ``ceiling`` defaults to the retired 75% ceiling, solely to report how that
+    historical rule behaved. The harness now gates on :func:`calibrated_p`.
     """
-    from src.harness.meta import MAX_I_SQUARED, MIN_STUDIES
+    from src.harness.meta import MIN_STUDIES
 
     ns = np.asarray(list(n_patients), dtype=int)
     if ns.size < MIN_STUDIES:
@@ -250,7 +254,7 @@ def null_i_squared(
             f"patient counts {sorted(ns.tolist())} include one below 2; an SE "
             f"over patients does not exist there."
         )
-    bar = MAX_I_SQUARED if ceiling is None else ceiling
+    bar = LEGACY_I_SQUARED_CEILING if ceiling is None else ceiling
     i_squared, q = _simulate_null(ns, n_trials, seed)
     df = ns.size - 1
     return NullHeterogeneity(
@@ -268,16 +272,16 @@ def null_i_squared(
 
 def calibrated_p(
     observed_i_squared: float,
-    n_patients: "np.ndarray | list[int]",
+    n_patients: np.ndarray | list[int],
     *,
     n_trials: int = DEFAULT_N_TRIALS,
     seed: int = DEFAULT_SEED,
 ) -> float:
     """``P(I^2 >= observed)`` under homogeneity at these patient counts.
 
-    The number ``MAX_I_SQUARED`` was standing in for and never supplied. Uses
-    the ``(r+1)/(B+1)`` convention so a p of exactly zero is never reported from
-    a finite simulation.
+    The retired fixed ceiling was standing in for and never supplied. Uses the
+    ``(r+1)/(B+1)`` convention so a p of exactly zero is never reported from a
+    finite simulation.
     """
     ns = np.asarray(list(n_patients), dtype=int)
     i_squared, _ = _simulate_null(ns, n_trials, seed)
@@ -295,8 +299,8 @@ def floor_label(floor: int) -> str:
 
 
 def null_heterogeneity_table(
-    n_patients: "np.ndarray | list[int]",
-    floors: "tuple[int, ...]" = FLOORS_REPORTED,
+    n_patients: np.ndarray | list[int],
+    floors: tuple[int, ...] = FLOORS_REPORTED,
     *,
     n_trials: int = DEFAULT_N_TRIALS,
     seed: int = DEFAULT_SEED,

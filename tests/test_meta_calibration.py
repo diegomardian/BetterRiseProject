@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.harness.meta import MAX_I_SQUARED, meta_analyse
+from src.harness.meta import HETEROGENEITY_ALPHA
 from src.reference.jobs.meta_floor_sensitivity import (
     NULL_ALPHA,
     floor_curve,
@@ -97,7 +97,7 @@ def test_null_i_squared_is_far_from_zero_at_the_committed_patient_counts():
     null = null_i_squared(ICBI_N, n_trials=40_000)
     assert null.k == 11
     assert 0.22 < null.median < 0.32
-    assert null.q95 > MAX_I_SQUARED          # homogeneity alone clears the ceiling
+    assert null.q95 > 0.75                   # homogeneity alone clears the old ceiling
     assert 0.04 < null.p_exceeds_ceiling < 0.10
 
 
@@ -190,34 +190,34 @@ def _row(**kw) -> pd.Series:
 
 
 def test_verdict_cause_separates_the_two_routes_into_unresolved():
-    over_ceiling = _row(homogeneous=False, verdict="UNRESOLVED")
+    over_null = _row(homogeneous=False, verdict="UNRESOLVED")
     straddles = _row(homogeneous=True, verdict="UNRESOLVED")
-    assert verdict_cause(over_ceiling) == "heterogeneity_over_ceiling"
+    assert verdict_cause(over_null) == "heterogeneity_over_calibrated_null"
     assert verdict_cause(straddles) == "homogeneous_straddles_tolerance"
-    assert verdict_cause(over_ceiling) != verdict_cause(straddles)
+    assert verdict_cause(over_null) != verdict_cause(straddles)
 
 
 def test_read_verdict_does_not_call_a_changed_cause_stable():
     """The defect, as a test.
 
-    KRT8 is UNRESOLVED at every floor -- at n>=3 because I^2 clears the ceiling,
-    at n>=6 because the studies AGREE the control moved and the interval
-    straddles the tolerance. Those are opposite findings under one word. The
-    first version of ``read_verdict`` compared labels and reported STABLE, which
-    is a check that could not fail on the input it existed to catch.
+    KRT8 is UNRESOLVED at every floor -- at n>=3 because its calibrated null
+    rejects homogeneity, at n>=6 because the studies AGREE the control moved and
+    the interval straddles the tolerance. Those are opposite findings under one
+    word. The first version of ``read_verdict`` compared labels and reported
+    STABLE, which is a check that could not fail on the input it existed to catch.
     """
     frame = pd.DataFrame([
         {"gene": "KRT8", "patient_floor": 3, "estimability": "estimated",
-         "homogeneous": False, "verdict": "UNRESOLVED", "ceiling_and_null_agree": True},
+         "homogeneous": False, "verdict": "UNRESOLVED"},
         {"gene": "KRT8", "patient_floor": 4, "estimability": "estimated",
-         "homogeneous": True, "verdict": "UNRESOLVED", "ceiling_and_null_agree": True},
+         "homogeneous": True, "verdict": "UNRESOLVED"},
         {"gene": "KRT8", "patient_floor": 6, "estimability": "estimated",
-         "homogeneous": True, "verdict": "UNRESOLVED", "ceiling_and_null_agree": True},
+         "homogeneous": True, "verdict": "UNRESOLVED"},
     ])
     frame["verdict_cause"] = frame.apply(verdict_cause, axis=1)
     outcome = read_verdict(frame)
     assert outcome["verdict"] != "STABLE"
-    assert "heterogeneity_over_ceiling" in outcome["detail"]
+    assert "heterogeneity_over_calibrated_null" in outcome["detail"]
     assert "homogeneous_straddles_tolerance" in outcome["detail"]
 
 
@@ -225,7 +225,7 @@ def test_read_verdict_reports_stable_when_the_cause_really_is_unchanged():
     """The other half: the pass path, so the test above is not vacuous."""
     frame = pd.DataFrame([
         {"gene": "ACTB", "patient_floor": f, "estimability": "estimated",
-         "homogeneous": True, "verdict": "HOLDS", "ceiling_and_null_agree": True}
+         "homogeneous": True, "verdict": "HOLDS"}
         for f in FLOORS_REPORTED
     ])
     frame["verdict_cause"] = frame.apply(verdict_cause, axis=1)
@@ -241,8 +241,8 @@ def test_the_ceiling_and_its_null_are_allowed_to_disagree_and_it_is_recorded():
     """
     curve = floor_curve(_committed_per_study(), n_trials=40_000)
     top = curve[(curve.gene == "KRT8") & (curve.patient_floor == PATIENT_FLOOR)].iloc[0]
-    assert top["homogeneous"] is True or bool(top["homogeneous"])
-    assert top["i_squared"] < MAX_I_SQUARED
+    assert top["i_squared"] < 0.75
     assert top["null_p_of_observed"] < NULL_ALPHA
     assert bool(top["heterogeneous_by_null"])
-    assert not bool(top["ceiling_and_null_agree"])
+    assert not bool(top["homogeneous"])
+    assert top["heterogeneity_alpha"] == HETEROGENEITY_ALPHA

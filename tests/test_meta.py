@@ -14,12 +14,12 @@ import numpy as np
 import pytest
 
 from src.harness.meta import (
-    MAX_I_SQUARED,
+    HETEROGENEITY_ALPHA,
     MIN_STUDIES,
     MetaError,
+    calibrated_homogeneous,
     meta_analyse,
     premise_verdict,
-    se_from_interval,
 )
 
 # ---------------------------------------------------------------------------
@@ -100,13 +100,6 @@ def test_mismatched_input_lengths_are_refused():
         meta_analyse([0.1, 0.2, 0.3], [0.1, 0.1])
 
 
-def test_se_from_interval_inverts_a_symmetric_interval():
-    assert se_from_interval(0.2, 0.8) == pytest.approx(0.3 / 1.959963984540054)
-    assert np.isnan(se_from_interval(np.nan, 0.5))
-    with pytest.raises(MetaError, match="inverted"):
-        se_from_interval(0.8, 0.2)
-
-
 # ---------------------------------------------------------------------------
 # The verdict, and the state that only exists at this level
 
@@ -142,27 +135,29 @@ def test_heterogeneous_studies_refuse_a_pooled_reading_that_would_say_HOLDS():
     )
 
     # Which is exactly why the gate has to fire.
-    assert result.i_squared > MAX_I_SQUARED
-    verdict, detail = premise_verdict(result, tolerance=0.5)
+    assert result.i_squared > 0.75
+    verdict, detail = premise_verdict(
+        result, tolerance=0.5, null_p_of_observed=0.01
+    )
     assert verdict == "UNRESOLVED"
     assert "not estimating a common quantity" in detail
 
 
 def test_a_tight_homogeneous_result_inside_the_tolerance_holds():
     result = meta_analyse([0.10, 0.12, 0.09, 0.11, 0.10], [0.03] * 5)
-    verdict, _ = premise_verdict(result, tolerance=0.5)
+    verdict, _ = premise_verdict(result, tolerance=0.5, null_p_of_observed=0.5)
     assert verdict == "HOLDS"
 
 
 def test_a_tight_homogeneous_result_beyond_the_tolerance_refuses():
     result = meta_analyse([0.90, 0.92, 0.89, 0.91, 0.90], [0.03] * 5)
-    verdict, detail = premise_verdict(result, tolerance=0.5)
+    verdict, detail = premise_verdict(result, tolerance=0.5, null_p_of_observed=0.5)
     assert verdict == "REFUSED" and "not comparable" in detail
 
 
 def test_an_interval_straddling_the_tolerance_is_undecided():
     result = meta_analyse([0.45, 0.55, 0.50, 0.48, 0.52], [0.20] * 5)
-    verdict, detail = premise_verdict(result, tolerance=0.5)
+    verdict, detail = premise_verdict(result, tolerance=0.5, null_p_of_observed=0.5)
     assert verdict == "UNRESOLVED" and "straddles" in detail
 
 
@@ -170,7 +165,7 @@ def test_a_negative_interval_straddling_the_tolerance_is_also_undecided():
     """|shift| is what the tolerance reads, so signs must not flip the logic.
     This is the bug the Stage 4 straddle check had."""
     result = meta_analyse([-0.45, -0.55, -0.50, -0.48, -0.52], [0.20] * 5)
-    verdict, _ = premise_verdict(result, tolerance=0.5)
+    verdict, _ = premise_verdict(result, tolerance=0.5, null_p_of_observed=0.5)
     assert verdict == "UNRESOLVED"
 
 
@@ -213,7 +208,7 @@ def test_the_prediction_interval_catches_what_the_i2_gate_catches():
     result = meta_analyse(values, [0.05] * len(values))
     assert max(abs(result.ci_low), abs(result.ci_high)) < 0.5      # CI says fine
     assert max(abs(result.pi_low), abs(result.pi_high)) > 0.5      # PI does not
-    assert not result.homogeneous
+    assert not calibrated_homogeneous(0.01)
 
 
 def test_a_homogeneous_result_has_a_prediction_interval_close_to_its_ci():
@@ -221,3 +216,19 @@ def test_a_homogeneous_result_has_a_prediction_interval_close_to_its_ci():
     assert result.tau_squared == 0.0
     # With tau^2 = 0 the PI is the CI widened only by the t vs z quantile.
     assert result.pi_high - result.pi_low < 3 * (result.ci_high - result.ci_low)
+
+
+@pytest.mark.parametrize("null_p", [float("nan"), -0.01, 1.01])
+def test_a_premise_verdict_refuses_a_missing_or_invalid_calibrated_null(null_p):
+    result = meta_analyse([0.10, 0.12, 0.09], [0.03] * 3)
+    with pytest.raises(MetaError, match="null tail probability"):
+        premise_verdict(result, tolerance=0.5, null_p_of_observed=null_p)
+
+
+def test_the_calibrated_null_not_the_old_i_squared_ceiling_controls_the_gate():
+    result = meta_analyse([0.10, 0.12, 0.09, 0.11, 0.10], [0.03] * 5)
+    assert result.i_squared < 0.75
+    verdict, _ = premise_verdict(result, tolerance=0.5, null_p_of_observed=0.01)
+    assert verdict == "UNRESOLVED"
+    assert not calibrated_homogeneous(0.01)
+    assert calibrated_homogeneous(HETEROGENEITY_ALPHA)

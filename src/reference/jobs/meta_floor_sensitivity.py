@@ -45,13 +45,18 @@ import pandas as pd
 
 from src.common.io import write_versioned_table
 from src.common.paths import RESULTS_DIR
-from src.harness.meta import MAX_I_SQUARED, MetaError, meta_analyse, premise_verdict
+from src.harness.meta import (
+    HETEROGENEITY_ALPHA,
+    MetaError,
+    calibrated_homogeneous,
+    meta_analyse,
+    premise_verdict,
+)
 from src.reference.jobs.coexpression_silencing import CONTROL_LOG2_TOLERANCE
 from src.reference.meta_calibration import (
     DEFAULT_N_TRIALS,
     DEFAULT_SEED,
     FLOORS_REPORTED,
-    MetaCalibrationError,
     calibrated_p,
     check_heterogeneity_carries_its_own_null,
     floor_label,
@@ -64,9 +69,9 @@ log = logging.getLogger(__name__)
 #: The committed meta this re-reads. Named so the provenance is in the source.
 DEFAULT_PER_STUDY = "2026-09-05_61ba221/icbi_coexpression_meta_per_study.parquet"
 
-#: Significance level for the calibrated heterogeneity test. The level the fixed
-#: 0.75 ceiling was implicitly standing in for and never achieved.
-NULL_ALPHA = 0.05
+#: Kept as a local alias for result-table readability; the harness owns the
+#: fixed decision rule.
+NULL_ALPHA = HETEROGENEITY_ALPHA
 
 
 def find_per_study(results_dir: Path) -> Path | None:
@@ -157,7 +162,12 @@ def floor_curve(
 
             counts = kept["n_patients"].to_numpy(int)
             null = null_i_squared(counts, n_trials=n_trials, seed=seed)
-            verdict, detail = premise_verdict(result, tolerance)
+            null_p = calibrated_p(
+                result.i_squared, counts, n_trials=n_trials, seed=seed
+            )
+            verdict, detail = premise_verdict(
+                result, tolerance, null_p_of_observed=null_p
+            )
             row.update({
                 "estimability": "estimated",
                 "pooled": result.pooled,
@@ -168,25 +178,14 @@ def floor_curve(
                 "i_squared": result.i_squared,
                 "cochran_q": result.q,
                 "df": result.df,
-                "ceiling": float(MAX_I_SQUARED),
-                "homogeneous": bool(result.homogeneous),
+                "heterogeneity_alpha": float(HETEROGENEITY_ALPHA),
+                "homogeneous": calibrated_homogeneous(null_p),
                 "verdict": verdict,
                 "detail": detail,
-                "null_p_of_observed": calibrated_p(
-                    result.i_squared, counts, n_trials=n_trials, seed=seed
-                ),
+                "null_p_of_observed": null_p,
             })
             row.update(null.as_row())
-            # The ceiling's answer and the null's answer, side by side. They are
-            # not the same question: 0.75 is a fixed rule of thumb, the null is
-            # what I^2 does at THESE patient counts under exact homogeneity.
-            row["heterogeneous_by_ceiling"] = not bool(result.homogeneous)
-            row["heterogeneous_by_null"] = bool(
-                row["null_p_of_observed"] < NULL_ALPHA
-            )
-            row["ceiling_and_null_agree"] = bool(
-                row["heterogeneous_by_ceiling"] == row["heterogeneous_by_null"]
-            )
+            row["heterogeneous_by_null"] = not row["homogeneous"]
             rows.append(row)
     frame = pd.DataFrame(rows)
     check_heterogeneity_carries_its_own_null(frame)
@@ -194,7 +193,7 @@ def floor_curve(
     return frame
 
 
-def verdict_cause(row: "pd.Series") -> str:
+def verdict_cause(row: pd.Series) -> str:
     """WHY a verdict is what it is. ``premise_verdict`` returns UNRESOLVED down
     two different routes and the label alone cannot tell them apart.
 
@@ -209,7 +208,7 @@ def verdict_cause(row: "pd.Series") -> str:
     if row["estimability"] != "estimated":
         return "not_estimable"
     if not bool(row["homogeneous"]):
-        return "heterogeneity_over_ceiling"
+        return "heterogeneity_over_calibrated_null"
     if row["verdict"] == "HOLDS":
         return "homogeneous_within_tolerance"
     if row["verdict"] == "REFUSED":
@@ -227,7 +226,7 @@ def read_verdict(frame: pd.DataFrame) -> dict[str, str]:
     status_quo = frame[frame["patient_floor"] == 3]
 
     def verdicts(f: pd.DataFrame) -> dict[str, str]:
-        return dict(zip(f["gene"], f["verdict_cause"]))
+        return dict(zip(f["gene"], f["verdict_cause"], strict=False))
 
     v_primary, v_weak, v_status = verdicts(primary), verdicts(weak), verdicts(status_quo)
     moved = sorted(g for g in v_status if v_status[g] != v_primary.get(g))
@@ -235,16 +234,6 @@ def read_verdict(frame: pd.DataFrame) -> dict[str, str]:
 
     def moves(gene: str) -> str:
         return f"{gene}: {v_status[gene]} -> {v_primary.get(gene)}"
-
-    disputed = sorted(
-        frame.loc[~frame["ceiling_and_null_agree"].fillna(True), "gene"].unique()
-    )
-    dispute_note = (
-        f" And the fixed {MAX_I_SQUARED:.0%} ceiling disagrees with its own "
-        f"calibrated null for {', '.join(disputed)} at one or more floors — "
-        f"the ceiling calls them homogeneous where the null does not."
-        if disputed else ""
-    )
 
     if not moved:
         return {
@@ -254,7 +243,7 @@ def read_verdict(frame: pd.DataFrame) -> dict[str, str]:
                 "floor and the floor at which the weight has two moments. The "
                 "heterogeneity is a property of the data, not of the weighting. "
                 "The committed conclusion stands and now carries a calibration "
-                "it did not have." + dispute_note
+                "it did not have."
             ),
         }
     if disagree:
@@ -263,8 +252,7 @@ def read_verdict(frame: pd.DataFrame) -> dict[str, str]:
             "detail": (
                 f"{'; '.join(moves(g) for g in moved)} against the status quo, "
                 f"and {', '.join(disagree)} differ between n>=4 and n>=6. Report "
-                f"all three floors; claim none. The instrument does not resolve "
-                f"it." + dispute_note
+                f"all three floors; claim none. The instrument does not resolve it."
             ),
         }
     return {
@@ -274,7 +262,7 @@ def read_verdict(frame: pd.DataFrame) -> dict[str, str]:
             f"are not integrable are excluded, and n>=4 and n>=6 agree. The "
             f"verdict was carried by those studies. This says the instrument "
             f"was unstable to a criterion nobody had applied; it does NOT say "
-            f"the controls hold." + dispute_note
+            f"the controls hold."
         ),
     }
 
@@ -312,8 +300,8 @@ def main(argv: list[str] | None = None) -> int:
     log.info("\n%s\nTHE FLOOR CURVE — verdict and its null, per gene\n%s",
              "=" * 72, "=" * 72)
     show = ["gene", "patient_floor", "k", "i_squared", "null_i_squared_median",
-            "null_p_of_observed", "heterogeneous_by_ceiling",
-            "heterogeneous_by_null", "verdict", "verdict_cause"]
+            "null_p_of_observed", "heterogeneous_by_null", "verdict",
+            "verdict_cause"]
     log.info("%s", curve[show].to_string(index=False))
 
     infl = influence(per_study[~per_study["below_patient_floor"]]
@@ -354,7 +342,7 @@ def main(argv: list[str] | None = None) -> int:
         "closed_form": "E[w_hat]/w_true = (n-1)/(n-3); no finite mean at n<=3",
         "primary_floor": max(FLOORS_REPORTED),
         "floors_reported": list(FLOORS_REPORTED),
-        "ceiling": float(MAX_I_SQUARED),
+        "heterogeneity_alpha": float(HETEROGENEITY_ALPHA),
         "null_is_per_row": True,
         "does_not_touch": (
             "the adenoma results (avenue A, §6h, §6j) — they do not go through "

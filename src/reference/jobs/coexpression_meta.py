@@ -44,9 +44,10 @@ from src.common.io import write_versioned_table
 from src.common.paths import RESULTS_DIR
 from src.common.provenance import DEFAULT_SEED
 from src.harness.meta import (
-    MAX_I_SQUARED,
+    HETEROGENEITY_ALPHA,
     MIN_STUDIES,
     MetaError,
+    calibrated_homogeneous,
     meta_analyse,
     premise_verdict,
 )
@@ -55,6 +56,7 @@ from src.reference.jobs.coexpression_silencing import (
     GENE_ROLES,
     MIN_PREMISE_PATIENTS,
 )
+from src.reference.meta_calibration import calibrated_p
 
 log = logging.getLogger(__name__)
 
@@ -119,9 +121,17 @@ def meta_control(deltas: pd.DataFrame, gene: str) -> tuple[dict, pd.DataFrame]:
         return {"gene": gene, "k_studies": len(usable), "verdict": "UNRESOLVED",
                 "detail": str(exc)}, per_study
 
-    verdict, detail = premise_verdict(result, CONTROL_LOG2_TOLERANCE)
+    counts = usable["n_patients"].to_numpy(int)
+    null_p = calibrated_p(result.i_squared, counts)
+    verdict, detail = premise_verdict(
+        result, CONTROL_LOG2_TOLERANCE, null_p_of_observed=null_p
+    )
     return {"gene": gene, "verdict": verdict, "detail": detail,
-            "tolerance": CONTROL_LOG2_TOLERANCE, **result.as_row()}, per_study
+            "tolerance": CONTROL_LOG2_TOLERANCE,
+            "null_p_of_observed": null_p,
+            "heterogeneity_alpha": HETEROGENEITY_ALPHA,
+            "homogeneous": calibrated_homogeneous(null_p),
+            **result.as_row()}, per_study
 
 
 def meta_premise(deltas: pd.DataFrame) -> tuple[str, str, pd.DataFrame, pd.DataFrame]:
@@ -231,10 +241,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         log.info("         %s", row["detail"])
         if "i_squared" in row and pd.notna(row.get("i_squared")):
             log.info("         I2 = %.1f%%  tau2 = %.4f  prediction "
-                     "[%+.3f, %+.3f]  (I2 ceiling %.0f%%)",
+                     "[%+.3f, %+.3f]  (calibrated null p = %.4f; alpha %.0f%%)",
                      100 * row["i_squared"], row["tau_squared"],
                      row["prediction_low"], row["prediction_high"],
-                     100 * MAX_I_SQUARED)
+                     row["null_p_of_observed"], 100 * HETEROGENEITY_ALPHA)
 
     log.info("\n%s", "=" * 72)
     log.info("THE META PREMISE: %s", verdict)
@@ -275,7 +285,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "only if EVERY pooled interval sits inside the tolerance"
                 ),
                 "tolerance_log2": CONTROL_LOG2_TOLERANCE,
-                "i_squared_ceiling": MAX_I_SQUARED,
+                "heterogeneity_rule": (
+                    "refuse a pooled premise reading when the observed I^2 has "
+                    "patient-count-matched null tail probability below 0.05"
+                ),
+                "heterogeneity_alpha": HETEROGENEITY_ALPHA,
                 "min_studies": MIN_STUDIES,
                 "pooling": (
                     "estimates, never cells (invariant 4). Each study's shift "
