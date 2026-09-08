@@ -11,6 +11,7 @@ from src.reference.jobs.becker_lesion_wnt_gate import (
     gate_verdict,
     signature_index,
     summarise_blocks,
+    validate_specification,
 )
 from src.reference.wnt_score import SIGNATURE
 
@@ -36,6 +37,11 @@ def test_all_signature_genes_must_be_exact_feature_matches():
         signature_index(SIGNATURE[:-1])
     with pytest.raises(WntDetectionGateError, match="duplicated symbols"):
         signature_index(list(SIGNATURE) + [SIGNATURE[0]])
+
+
+def test_the_pre_read_provenance_guard_accepts_the_declared_non_circular_spec():
+    """Exercise the exact call the CLI makes before it checks paths or reads data."""
+    assert validate_specification() == ()
 
 
 def test_gate_passes_only_when_every_donor_gene_row_clears_both_floors():

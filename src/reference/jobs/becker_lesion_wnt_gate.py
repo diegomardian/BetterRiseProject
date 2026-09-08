@@ -52,7 +52,9 @@ class WntDetectionGateError(ValueError):
 
 def validate_specification() -> tuple[str, ...]:
     """Run invariant 11 before checking a path or reading a matrix."""
-    return check_no_circular_claim(LABEL_PROVENANCE, CLAIM_PROVENANCE)
+    return check_no_circular_claim(
+        labels=LABEL_PROVENANCE, claim=CLAIM_PROVENANCE
+    )
 
 
 def signature_index(symbols: Sequence[str]) -> dict[str, int]:
