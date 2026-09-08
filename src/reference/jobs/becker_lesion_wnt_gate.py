@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -204,6 +205,26 @@ def gate_verdict(by_donor: pd.DataFrame) -> dict[str, object]:
     }
 
 
+def tar_sample_matches_metadata(row: pd.Series) -> bool:
+    """Allow the deposit's ``-R<number>`` tar suffix only for GEO replicates.
+
+    GEO identifies the physical lesion as (for example) ``A002-C-010`` while
+    its raw-triplet member for a technical replicate is named
+    ``A002-C-010-R0``.  The suffix is not a new lesion, and it is accepted only
+    when the corresponding GEO row names a replicate.  All other differences
+    remain a deposit-identity failure.
+    """
+    tar_id = str(row["sample_id_tar"])
+    metadata_id = str(row["sample_id"])
+    if tar_id == metadata_id:
+        return True
+    replicate = row.get("replicate")
+    return bool(
+        pd.notna(replicate)
+        and re.fullmatch(re.escape(metadata_id) + r"-R\d+", tar_id)
+    )
+
+
 def read_paired_polyp_blocks(tar: Path, series_matrix: Path) -> list[dict[str, object]]:
     """Read only paired-donor polyp triplets, retaining replicate rows visibly."""
     from src.reference.becker_io import (
@@ -226,9 +247,8 @@ def read_paired_polyp_blocks(tar: Path, series_matrix: Path) -> list[dict[str, o
     selected = files[(files["arm"] == "tumour") & files["donor"].isin(paired)]
     if selected.empty:
         raise WntDetectionGateError("no paired-donor polyp triplets after metadata join")
-    mismatched = selected.loc[
-        selected["sample_id_tar"] != selected["sample_id"]
-    ]
+    matches = selected.apply(tar_sample_matches_metadata, axis=1)
+    mismatched = selected.loc[~matches]
     if not mismatched.empty:
         names = ", ".join(
             f"{row.gsm}: tar={row.sample_id_tar}, metadata={row.sample_id}"

@@ -14,6 +14,7 @@ from src.reference.jobs.becker_lesion_wnt_gate import (
     read_paired_polyp_blocks,
     signature_index,
     summarise_blocks,
+    tar_sample_matches_metadata,
     validate_specification,
 )
 from src.reference.wnt_score import SIGNATURE
@@ -95,6 +96,19 @@ def test_incomplete_selected_triplet_is_named_not_silently_dropped(monkeypatch, 
     assert raised.value.failure_kind == "incomplete_triplet"
     outcome = gate.failure_outcome(raised.value)
     assert outcome["verdict"] == "NO SUBSTRATE — incomplete assay triplet"
+
+
+def test_tar_replicate_suffix_requires_a_matching_geo_replicate_label():
+    row = pd.Series({
+        "sample_id_tar": "A002-C-010-R0",
+        "sample_id": "A002-C-010",
+        "replicate": "Replicate1",
+    })
+    assert tar_sample_matches_metadata(row)
+    row["replicate"] = None
+    assert not tar_sample_matches_metadata(row)
+    row["sample_id_tar"] = "unrelated-sample"
+    assert not tar_sample_matches_metadata(row)
 
 
 def test_identifier_failure_writes_durable_no_substrate_artifact(monkeypatch, tmp_path):
