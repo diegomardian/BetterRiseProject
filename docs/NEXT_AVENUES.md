@@ -837,7 +837,7 @@ homogeneity. `b0ef250` closes the remaining summary defect: every reported
 floor's `verdict_cause` is compared, so matching n≥3 and n≥6 labels cannot hide
 a different n≥4 route.
 
-The clean-tree re-run is `results/2026-09-08_32ef54d/`. **KRT8 remains
+The clean-tree re-run is `results/2026-09-08_cf5b419/`. **KRT8 remains
 UNRESOLVED at all three floors, but is floor-unstable by cause:** calibrated
 heterogeneity at n≥3 (p=0.0156) and n≥6 (p=0.0176), versus a homogeneous
 tolerance-straddle at n≥4 (p=0.0898). ACTB holds at every floor. This is a

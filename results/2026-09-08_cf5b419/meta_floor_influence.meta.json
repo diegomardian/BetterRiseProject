@@ -1,0 +1,52 @@
+{
+  "date": "2026-09-08",
+  "utc_timestamp": "2026-09-08T13:43:37+00:00",
+  "git_sha": "cf5b41954a16030c3cbfde6f771b2ff85965810e",
+  "git_sha_short": "cf5b419",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260907,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "meta_floor_influence",
+  "n_rows": 22,
+  "columns": [
+    "gene",
+    "study_id",
+    "n_patients",
+    "estimate",
+    "se",
+    "sd_over_patients",
+    "weight_share",
+    "patient_share",
+    "q_contribution",
+    "q_share",
+    "expected_weight_inflation",
+    "exploratory"
+  ],
+  "table_kind": "harness",
+  "prereg": "docs/prereg_meta_weight_calibration.md",
+  "prereg_committed_in": "a9dc874, before this job existed",
+  "source": "2026-09-05_61ba221/icbi_coexpression_meta_per_study.parquet",
+  "what_this_is": "a sensitivity of the 13-study heterogeneity verdict to the patient floor, where each floor is the smallest n at which a named moment of the inverse-variance weight exists",
+  "what_this_is_not": "a threshold search, and not a licence to drop a study. The three floors are fixed by the chi-square df condition (E[w] finite iff n>=4, Var[w] finite iff n>=6) and were written down before the curve was run.",
+  "closed_form": "E[w_hat]/w_true = (n-1)/(n-3); no finite mean at n<=3",
+  "primary_floor": 6,
+  "floors_reported": [
+    3,
+    4,
+    6
+  ],
+  "heterogeneity_alpha": 0.05,
+  "null_is_per_row": true,
+  "does_not_touch": "the adenoma results (avenue A, \u00a76h, \u00a76j) \u2014 they do not go through meta.py at all",
+  "verdict": {
+    "verdict": "FLOOR-UNSTABLE, AND THE FLOORS DISAGREE",
+    "detail": "KRT8: n>=3 heterogeneity_over_calibrated_null, n>=4 homogeneous_straddles_tolerance, n>=6 heterogeneity_over_calibrated_null. Report all three floors and their causes; claim none. The instrument does not resolve the controls."
+  },
+  "exploratory": false,
+  "pre_registered": true
+}

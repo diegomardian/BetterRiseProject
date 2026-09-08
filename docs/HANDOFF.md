@@ -955,7 +955,7 @@ is a property of the data, not of the weighting`, which is backwards.
 - **Closed 2026-09-08.** `db487f0` retires the fixed 75% I² ceiling from the
   harness. A premise verdict now requires the patient-count-matched null tail
   probability at the fixed α=0.05; an absent or invalid null is refused. The
-  clean re-run is `results/2026-09-08_32ef54d/`: KRT8 is calibrated-heterogeneous
+  clean re-run is `results/2026-09-08_cf5b419/`: KRT8 is calibrated-heterogeneous
   at n≥3 (p=0.0156) and n≥6 (p=0.0176), but homogeneous and
   tolerance-straddling at n≥4 (p=0.0898). `b0ef250` adds the forcing test that
   prevents matching endpoint causes from hiding that middle-floor disagreement.
