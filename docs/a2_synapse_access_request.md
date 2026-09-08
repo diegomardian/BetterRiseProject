@@ -35,11 +35,31 @@ On the cluster, in the W1 environment:
 cd "$BRP_PROJECT_ROOT/BetterRiseProject"
 conda activate brp-w1
 pip install -e '.[a2]'
-synapse login --rememberMe
+synapse config          # paste a personal access token when prompted
+chmod 600 ~/.synapseConfig
 python -m src.reference.jobs.a2_synapse_inventory --no-write
 ```
 
-The first command produces a metadata-only inventory. Review candidate products
+**Authentication is a personal access token, not a password.** `synapse login
+--rememberMe` was written here from older documentation and the flag does not
+exist in synapseclient 4, which `pyproject.toml` pins. Make the token at
+synapse.org under Account Settings, Personal Access Tokens, and give it **View
+scope only** — a metadata inventory needs nothing else, and Download or Modify
+scope on a shared cluster is a credential that can do more than the job it was
+made for.
+
+`synapse config` writes `~/.synapseConfig` in your home directory, outside the
+repository. Keep it there. Do not export the token into a shell environment you
+will leave running, and never place it anywhere under the working tree.
+
+**Try this before submitting the access request above.** The inventory in
+`docs/a2_mxif_inventory.md` records that *anonymous* read fails and that no
+login was ever attempted from this machine — which does not establish that the
+entities are access-gated. Many Synapse entities need only an authenticated
+account and accepted terms. If the authenticated inventory returns rows, no
+request is needed; if it returns 403, send the request that day.
+
+The last command produces a metadata-only inventory. Review candidate products
 for all four required properties before downloading anything:
 
 1. stable cell IDs;
