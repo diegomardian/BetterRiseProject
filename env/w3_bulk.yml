@@ -19,6 +19,11 @@ dependencies:
   - jupyterlab=4.2.3
   - requests=2.32.3         # GDC API
   - diptest=0.10.0          # Hartigan dip test for the week-2 bimodality check
+  # W2 and W4 pinned this and W1/W3 did not, so the two environments that own
+  # the reference and bulk code could not run their own tests. Found on the
+  # cluster when the D2 survival suite -- whose Cox path only executes here,
+  # because lifelines lives in this env -- had no runner.
+  - pytest=8.2.2
   # ---------------------------------------------------------------------------
   # ESTIMATE (W3.3) is an R package and is NOT installable from conda. It lives
   # on R-Forge, not CRAN, so there is no conda-forge or bioconda build — the

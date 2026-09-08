@@ -38,6 +38,9 @@ dependencies:
   # After creating the env, install it once:
   #   R -e 'remotes::install_github("navinlabcode/copykat")'
   - r-remotes=2.5.0
+  # Same gap as env/w3_bulk.yml: W2 and W4 pinned a test runner and W1
+  # did not, so this environment could not run its own suite.
+  - pytest=8.2.2
   - pip
   - pip:
       # CellBender is retained but CURRENTLY UNUSABLE — it models all barcodes
