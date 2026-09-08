@@ -1,8 +1,9 @@
 # Pre-registration — Becker lesion-level Wnt detection gate
 
-**Written:** 2026-09-08 · **Status:** proposed; no GSE201348 count matrix has
-been read by this gate. **Scope:** the outcome-blind feasibility step for Item
-4 of `docs/NEXT_AVENUES.md`, not B1 and not the completed within-cell D1 test.
+**Written:** 2026-09-08 · **Status:** RAN 2026-09-08; the fixed gate returned
+exit status 5, **NO SUBSTRATE AT THIS snRNA RESOLUTION**. **Scope:** the
+outcome-blind feasibility step for Item 4 of `docs/NEXT_AVENUES.md`, not B1 and
+not the completed within-cell D1 test.
 
 ## 1 · Question and fixed input
 
@@ -53,3 +54,17 @@ without asking a sparse nuclear assay to support a score it cannot measure.
 Every no-substrate outcome writes a versioned result and provenance sidecar
 before exiting with status 5. Status 0 means the gate passed. Other errors are
 infrastructure or unrecognised-input failures and do not constitute a result.
+
+## 4 · Result
+
+The checksum-pinned inputs were read on 2026-09-08 with code commit
+`a96e3b3`. The fixed gate returned **NO SUBSTRATE AT THIS snRNA RESOLUTION**:
+`A002/NOTUM`, `A002/TCF7`, `A014/NOTUM`, `A014/TCF7`, `A015/NOTUM`, and
+`A015/TCF7` failed one or both pre-specified detection floors. This is a
+measurement limit, not a Wnt null. No reduced signature, lesion-level Wnt
+model, or lesion-level Wnt pre-specification is licensed.
+
+The cluster-produced records are
+`results/2026-09-08_a96e3b3/becker_lesion_wnt_detection_by_donor.parquet` and
+`results/2026-09-08_a96e3b3/becker_lesion_wnt_detection_summary.parquet`, each
+with its provenance sidecar.
