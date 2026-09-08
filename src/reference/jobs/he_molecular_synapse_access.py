@@ -5,7 +5,7 @@ premalignant candidates emitted by ``he_molecular_gate``. It never downloads or
 opens a VCF, selects an endpoint, or fits a model.
 
     pip install -e '.[a2]'
-    synapse login --rememberMe
+    synapse login
     python -m src.reference.jobs.he_molecular_synapse_access \
       --files /path/to/files.tsv \
       --biospecimens /path/to/biospecimens.tsv \

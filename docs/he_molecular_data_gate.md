@@ -118,7 +118,7 @@ VCF. Run it only after a CLI login, first with `--no-write`:
 
 ```bash
 pip install -e '.[a2]'
-synapse login --rememberMe
+synapse login
 python -m src.reference.jobs.he_molecular_synapse_access \
   --files /path/to/files.tsv \
   --biospecimens /path/to/biospecimens.tsv \
