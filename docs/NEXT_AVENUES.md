@@ -681,6 +681,15 @@ establish that this joined public object is downloadable, so they are a source
 to inventory, not data in hand. Public polyp image datasets can benchmark an
 encoder but cannot supply the molecular endpoint.
 
+**Inventory record:** `docs/he_molecular_data_gate.md` records the HTA11
+candidate screen. `src/reference/jobs/he_molecular_gate.py` enforces the exact
+biospecimen join and reports attrition. The currently exported metadata returns
+`NOT LICENSED`: resolution is not reported, candidate molecular access is
+`Synapse` but unverified, case diagnosis/site are missing, and no endpoint is
+pre-specified. `src/reference/jobs/he_molecular_synapse_access.py` is the
+metadata-only, authenticated access check. Neither job selects an endpoint or
+licenses image download.
+
 **If the gate passes.** All tiles from a patient and specimen remain in one
 split. Encoder and molecular endpoint are fixed before fitting; calibration and
 the abstention threshold are selected only on training/validation patients; an
