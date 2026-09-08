@@ -43,8 +43,13 @@ sizes and not tuned after inspection.
 |---|---|
 | all 20 rows pass | Draft a separate lesion-within-donor Wnt pre-specification. Do not fit it yet. |
 | a feature is absent, duplicated, or feature order changes | **NO SUBSTRATE — identifier/assay failure.** Do not call the gene biologically absent. |
+| a required paired-donor polyp 10x triplet is incomplete | **NO SUBSTRATE — incomplete assay triplet.** Name it; do not silently reduce the paired cohort. |
 | any donor-by-gene row fails detection | **NO SUBSTRATE AT THIS snRNA RESOLUTION.** Report the table; do not fit a reduced signature or replace the gene. |
 
 This gate cannot test Wnt biology, a differentiation association, or a
 between-lesion effect. It decides only whether those questions can be specified
 without asking a sparse nuclear assay to support a score it cannot measure.
+
+Every no-substrate outcome writes a versioned result and provenance sidecar
+before exiting with status 5. Status 0 means the gate passed. Other errors are
+infrastructure or unrecognised-input failures and do not constitute a result.

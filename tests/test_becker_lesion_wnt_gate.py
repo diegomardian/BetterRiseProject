@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 import pytest
 from scipy.sparse import csr_matrix
 
+import src.reference.jobs.becker_lesion_wnt_gate as gate
 from src.reference.jobs.becker_lesion_wnt_gate import (
     EXPECTED_PAIRED_DONORS,
     MIN_DETECTED_NUCLEI,
     WntDetectionGateError,
     gate_verdict,
+    read_paired_polyp_blocks,
     signature_index,
     summarise_blocks,
     validate_specification,
@@ -66,3 +69,51 @@ def test_changed_feature_order_refuses_to_combine_nuclei():
     blocks[-1]["symbols"] = list(reversed(SIGNATURE)) + ["OTHER"]
     with pytest.raises(WntDetectionGateError, match="different feature order"):
         summarise_blocks(blocks)
+
+
+def test_incomplete_selected_triplet_is_named_not_silently_dropped(monkeypatch, tmp_path):
+    metadata = pd.DataFrame({
+        "gsm": ["GSM-A001", "GSM-CRC"],
+        "donor": ["A001", "CRC1"],
+        "arm": ["tumour", None],
+        "sample_id": ["A001-C-001", "CRC1_8810"],
+    })
+    files = pd.DataFrame({
+        "gsm": ["GSM-A001", "GSM-CRC"], "complete": [False, True],
+        "barcodes": ["barcodes", "barcodes"],
+        "features": ["features", "features"],
+        "matrix": [np.nan, "matrix"],
+        # The CRC name is intentionally inconsistent: it is outside the gate's
+        # selected cohort and must not obscure the selected triplet failure.
+        "sample_id": ["A001-C-001", "wrong-ignored-sample"],
+    })
+    monkeypatch.setattr("src.reference.becker_io.read_series_matrix", lambda _: metadata)
+    monkeypatch.setattr("src.reference.becker_io.paired_donors", lambda _: EXPECTED_PAIRED_DONORS)
+    monkeypatch.setattr("src.reference.becker_io.sample_files", lambda _: files)
+    with pytest.raises(WntDetectionGateError, match="No sample was silently dropped") as raised:
+        read_paired_polyp_blocks(tmp_path / "raw.tar", tmp_path / "series.txt.gz")
+    assert raised.value.failure_kind == "incomplete_triplet"
+    outcome = gate.failure_outcome(raised.value)
+    assert outcome["verdict"] == "NO SUBSTRATE — incomplete assay triplet"
+
+
+def test_identifier_failure_writes_durable_no_substrate_artifact(monkeypatch, tmp_path):
+    tar = tmp_path / "raw.tar"
+    series = tmp_path / "series.txt.gz"
+    tar.touch()
+    series.touch()
+    written: dict[str, object] = {}
+
+    def refuse(*_args, **_kwargs):
+        raise WntDetectionGateError("missing symbols ['TCF7']", failure_kind="identifier_assay")
+
+    def record(frame, name, **kwargs):
+        written.update({"frame": frame, "name": name, "meta": kwargs["extra_meta"]})
+        return tmp_path / f"{name}.parquet"
+
+    monkeypatch.setattr(gate, "read_paired_polyp_blocks", refuse)
+    monkeypatch.setattr(gate, "write_versioned_table", record)
+    assert gate.main(["--tar", str(tar), "--series-matrix", str(series)]) == 5
+    assert written["name"] == "becker_lesion_wnt_detection_failure"
+    assert written["frame"].iloc[0]["verdict"] == "NO SUBSTRATE — identifier/assay failure"
+    assert written["meta"]["verdict"]["failure_kind"] == "identifier_assay"

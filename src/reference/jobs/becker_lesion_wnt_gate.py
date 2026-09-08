@@ -9,6 +9,10 @@ Run on the cluster where the checksum-pinned GSE201348 files live:
 This is deliberately not an analysis. It reads only the five invariant-8 Wnt
 targets in paired donors' polyp nuclei and stops after deciding whether a later
 lesion-within-donor specification has a measurable predictor.
+
+Exit status 0 means the gate passed. Exit status 5 means a durable no-substrate
+artifact was written. Other failures are infrastructure or unrecognised-input
+errors and do not claim a biological or assay result.
 """
 
 from __future__ import annotations
@@ -49,6 +53,10 @@ CLAIM_PROVENANCE = Measurement(
 class WntDetectionGateError(ValueError):
     """The fixed input cannot support the detection gate."""
 
+    def __init__(self, message: str, *, failure_kind: str = "unrecognised_input"):
+        super().__init__(message)
+        self.failure_kind = failure_kind
+
 
 def validate_specification() -> tuple[str, ...]:
     """Run invariant 11 before checking a path or reading a matrix."""
@@ -75,7 +83,8 @@ def signature_index(symbols: Sequence[str]) -> dict[str, int]:
         raise WntDetectionGateError(
             "Wnt signature lookup refused: "
             + (f"missing symbols {missing}. " if missing else "")
-            + (f"duplicated symbols {duplicated}." if duplicated else "")
+            + (f"duplicated symbols {duplicated}." if duplicated else ""),
+            failure_kind="identifier_assay",
         )
     return index
 
@@ -109,7 +118,8 @@ def summarise_blocks(blocks: Sequence[dict[str, object]]) -> tuple[pd.DataFrame,
         elif not np.array_equal(symbols, reference_symbols):
             raise WntDetectionGateError(
                 f"{gsm} has a different feature order from the first included "
-                "sample; columns cannot be combined safely."
+                "sample; columns cannot be combined safely.",
+                failure_kind="identifier_assay",
             )
         index = signature_index(symbols)
         for gene, column in index.items():
@@ -210,10 +220,34 @@ def read_paired_polyp_blocks(tar: Path, series_matrix: Path) -> list[dict[str, o
         raise WntDetectionGateError(
             f"metadata paired donors {paired}, expected {EXPECTED_PAIRED_DONORS}"
         )
-    files = sample_files(tar).merge(metadata, on="gsm", how="inner")
+    files = sample_files(tar).merge(
+        metadata, on="gsm", how="inner", suffixes=("_tar", "")
+    )
     selected = files[(files["arm"] == "tumour") & files["donor"].isin(paired)]
     if selected.empty:
         raise WntDetectionGateError("no paired-donor polyp triplets after metadata join")
+    mismatched = selected.loc[
+        selected["sample_id_tar"] != selected["sample_id"]
+    ]
+    if not mismatched.empty:
+        names = ", ".join(
+            f"{row.gsm}: tar={row.sample_id_tar}, metadata={row.sample_id}"
+            for row in mismatched.itertuples()
+        )
+        raise WntDetectionGateError(
+            f"tar and metadata sample identifiers disagree: {names}",
+        )
+    incomplete = selected.loc[~selected["complete"]]
+    if not incomplete.empty:
+        affected = ", ".join(
+            f"{row.donor}/{row.gsm}/{row.sample_id}"
+            for row in incomplete.sort_values(["donor", "sample_id", "gsm"]).itertuples()
+        )
+        raise WntDetectionGateError(
+            "required paired-donor polyp triplet is incomplete: "
+            f"{affected}. No sample was silently dropped.",
+            failure_kind="incomplete_triplet",
+        )
 
     blocks: list[dict[str, object]] = []
     for _, row in selected.sort_values(["donor", "sample_id", "gsm"]).iterrows():
@@ -226,6 +260,46 @@ def read_paired_polyp_blocks(tar: Path, series_matrix: Path) -> list[dict[str, o
             "symbols": gene_symbols(features),
         })
     return blocks
+
+
+def failure_outcome(error: WntDetectionGateError) -> dict[str, str]:
+    """Classify the fixed no-substrate failures that must leave an artifact."""
+    if error.failure_kind == "identifier_assay":
+        verdict = "NO SUBSTRATE — identifier/assay failure"
+    elif error.failure_kind == "incomplete_triplet":
+        verdict = "NO SUBSTRATE — incomplete assay triplet"
+    else:
+        raise error
+    return {"verdict": verdict, "detail": str(error), "failure_kind": error.failure_kind}
+
+
+def result_meta(outcome: dict[str, object]) -> dict[str, object]:
+    """Metadata common to passing, detection-failure, and assay-failure records."""
+    return {
+        "prereg": "docs/prereg_becker_lesion_wnt_detection_gate.md",
+        "input": "GSE201348 paired-donor polyp nuclei only",
+        "paired_donors": list(EXPECTED_PAIRED_DONORS),
+        "signature": list(SIGNATURE),
+        "detection_min_umi": DETECTION_MIN_UMI,
+        "min_detected_nuclei_per_donor": MIN_DETECTED_NUCLEI,
+        "min_detection_rate_per_donor": MIN_DETECTION_RATE,
+        "unit": "donor; lesion and sequencing-row counts are descriptive only",
+        "verdict": outcome,
+        "exploratory": False,
+        "pre_registered": True,
+        **provenance_meta(LABEL_PROVENANCE, CLAIM_PROVENANCE),
+    }
+
+
+def write_failure_artifact(
+    outcome: dict[str, str], *, seed: int, results_dir: Path | None, allow_dirty: bool
+) -> Path:
+    """Persist a fixed assay/identifier no-substrate result before exit status 5."""
+    frame = pd.DataFrame([outcome])
+    return write_versioned_table(
+        frame, "becker_lesion_wnt_detection_failure", seed=seed,
+        results_dir=results_dir, allow_dirty=allow_dirty, extra_meta=result_meta(outcome),
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -243,24 +317,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not path.exists():
             raise SystemExit(f"{path} not found")
 
-    by_donor, summary = summarise_blocks(
-        read_paired_polyp_blocks(args.tar, args.series_matrix)
-    )
+    try:
+        by_donor, summary = summarise_blocks(
+            read_paired_polyp_blocks(args.tar, args.series_matrix)
+        )
+    except WntDetectionGateError as error:
+        outcome = failure_outcome(error)
+        log.info("wrote %s", write_failure_artifact(
+            outcome, seed=args.seed, results_dir=args.results_dir,
+            allow_dirty=args.allow_dirty,
+        ))
+        log.info("%s\n%s", outcome["verdict"], outcome["detail"])
+        return 5
+
     outcome = gate_verdict(by_donor)
-    meta = {
-        "prereg": "docs/prereg_becker_lesion_wnt_detection_gate.md",
-        "input": "GSE201348 paired-donor polyp nuclei only",
-        "paired_donors": list(EXPECTED_PAIRED_DONORS),
-        "signature": list(SIGNATURE),
-        "detection_min_umi": DETECTION_MIN_UMI,
-        "min_detected_nuclei_per_donor": MIN_DETECTED_NUCLEI,
-        "min_detection_rate_per_donor": MIN_DETECTION_RATE,
-        "unit": "donor; lesion and sequencing-row counts are descriptive only",
-        "verdict": outcome,
-        "exploratory": False,
-        "pre_registered": True,
-        **provenance_meta(LABEL_PROVENANCE, CLAIM_PROVENANCE),
-    }
+    meta = result_meta(outcome)
     for frame, name in (
         (by_donor, "becker_lesion_wnt_detection_by_donor"),
         (summary, "becker_lesion_wnt_detection_summary"),

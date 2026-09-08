@@ -211,8 +211,10 @@ def read_series_matrix(path: str | Path) -> pd.DataFrame:
 def sample_files(tar_path: str | Path) -> pd.DataFrame:
     """The tar's members, grouped into one row per sample.
 
-    A sample needs all three of barcodes / features / matrix. An incomplete
-    triplet is named and excluded rather than half-read.
+    A sample needs all three of barcodes / features / matrix. Incomplete
+    triplets are returned with ``complete=False`` so an analysis can name the
+    missing input and refuse a silently smaller fixed cohort rather than
+    half-read it.
     """
     kinds = {"barcodes": "barcodes", "features": "features", "matrix": "matrix"}
     rows: dict[str, dict] = {}
