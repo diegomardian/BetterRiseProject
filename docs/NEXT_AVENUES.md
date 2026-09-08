@@ -829,26 +829,21 @@ later decision.
 15 September 2026). What follows is the technical queue behind it, not ahead of
 it.
 
-**Plan 1 · The meta layer — first, because it is the only internal-only
-blocker.** No data access, no third party, no gate: everything it needs is
-committed. §6k of `docs/HANDOFF.md` documents this defect but records no fix,
-and the fix has three parts.
+**Plan 1 · The meta layer — COMPLETE 2026-09-08.** The unused
+`se_from_interval` helper is gone. `db487f0` replaces the fixed 75% I² ceiling
+with the pre-specified patient-count-matched null at α = 0.05; a premise verdict
+now refuses an omitted or invalid calibration rather than treating it as
+homogeneity. `b0ef250` closes the remaining summary defect: every reported
+floor's `verdict_cause` is compared, so matching n≥3 and n≥6 labels cannot hide
+a different n≥4 route.
 
-1. **Delete `se_from_interval`** (`src/harness/meta.py:59`). It is dead —
-   `tests/test_meta.py` is the only importer, so the tests are testing a
-   function nothing calls.
-2. **Replace the fixed ceiling with the calibrated null.**
-   `src/reference/meta_calibration.py` already computes it; `MAX_I_SQUARED =
-   0.75` in `src/harness/meta.py` is Higgins' rule of thumb with no null behind
-   it, and §6k shows its error **changes sign with k** — too strict at k = 11,
-   too lax at k = 6. The replacement ceiling is **pre-specified before the
-   re-run**, not chosen after seeing which verdicts move.
-3. **Re-run KRT8's ceiling sensitivity.** KRT8 is UNRESOLVED at all three
-   floors by **two different routes**, and only one of them is a ceiling
-   effect. Report `verdict_cause`, never the label — §6k's own rule.
-
-Parts 1 and 2 both touch `src/harness/meta.py`, so they ride one **PR with two
-approvals** under CONTRIBUTING §2. This is W2's, not W1's, exactly as §6k says.
+The clean-tree re-run is `results/2026-09-08_32ef54d/`. **KRT8 remains
+UNRESOLVED at all three floors, but is floor-unstable by cause:** calibrated
+heterogeneity at n≥3 (p=0.0156) and n≥6 (p=0.0176), versus a homogeneous
+tolerance-straddle at n≥4 (p=0.0898). ACTB holds at every floor. This is a
+resolvability result, not permission to select a floor or claim that controls
+hold. The result sidecar is clean (`git_dirty: false`) and pins both code
+implementation history and the 200,000-draw null simulation.
 
 **Item 4 · Lesion-level Wnt — the detection gate comes first, before the
 pre-specification.** The amendment above says item 4 "needs a lesion-within-donor

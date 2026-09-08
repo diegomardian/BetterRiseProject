@@ -952,10 +952,15 @@ is a property of the data, not of the weighting`, which is backwards.
   closed that" rested on the heterogeneity reading. The closure stands on the
   other four routes in §2 and on the tolerance reading here; it does not stand
   on "the studies disagree."
-- **Open, and W2's, not W1's.** `MAX_I_SQUARED` and `MIN_STUDIES` live in
-  `src/harness/meta.py` (CONTRIBUTING §2). Replacing the fixed ceiling with the
-  calibrated null is a W2 PR with two approvals. This work applies the floor at
-  the job layer and changes nothing in the harness.
+- **Closed 2026-09-08.** `db487f0` retires the fixed 75% I² ceiling from the
+  harness. A premise verdict now requires the patient-count-matched null tail
+  probability at the fixed α=0.05; an absent or invalid null is refused. The
+  clean re-run is `results/2026-09-08_32ef54d/`: KRT8 is calibrated-heterogeneous
+  at n≥3 (p=0.0156) and n≥6 (p=0.0176), but homogeneous and
+  tolerance-straddling at n≥4 (p=0.0898). `b0ef250` adds the forcing test that
+  prevents matching endpoint causes from hiding that middle-floor disagreement.
+  Its verdict is **FLOOR-UNSTABLE, AND THE FLOORS DISAGREE**. Report each
+  `verdict_cause`, never the shared `UNRESOLVED` label.
 
 ## 6l. Crowell WTx spatial — RAN 2026-09-07. COMPLETE, 7 of 7 blocks.
 
