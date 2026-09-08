@@ -1,9 +1,10 @@
 # Pre-registration — Zheng three-stage descriptive gradient
 
-**Written:** 2026-09-08 · **Status:** proposed; no Zheng count matrix has been
-read by this job. **Scope:** Item 1c of `docs/NEXT_AVENUES.md`: a three-patient
-normal → polyp → carcinoma timing companion. It is not a replication, premise
-test, decomposition, or per-cell silencing analysis.
+**Written:** 2026-09-08 · **Status:** RAN 2026-09-08; all three fixed patients
+and stages remained measurable after QC. **Scope:** Item 1c of
+`docs/NEXT_AVENUES.md`: a three-patient normal → polyp → carcinoma timing
+companion. It is not a replication, premise test, decomposition, or per-cell
+silencing analysis.
 
 ## 1 · Fixed cohort and population
 
@@ -47,3 +48,22 @@ after the polyp stage within each of the three patients. It is timing context
 only. It cannot establish a common trajectory, a stage effect, cell-intrinsic
 loss, or a causal order. A zero after QC means unmeasurable at that stage, never
 zero expression.
+
+## 4 · Result
+
+The run used commit `f6b22f6` and wrote clean artifacts in
+`results/2026-09-08_f6b22f6/`. It produced 54 trajectory rows (three patients
+× three stages × six genes) and nine availability rows; every stage retained
+measurable post-QC epithelium.
+
+GUCA2A detection fell from normal to polyp in each individual trajectory:
+P1 0.579 → 0.040, P2 0.703 → 0.027, and P3 0.642 → 0.040. Its CP10K mean also
+fell in all three. MS4A12 followed that normal-to-polyp direction in all three.
+CDX2 did not: it rose in P1 and P2 polyp and fell in P3. Carcinoma GUCA2A
+remained below normal in every trajectory but partially rebounded relative to
+polyp in P1 and P2.
+
+These rows remain descriptive timing context only. P1 and P2 normal samples
+were substantially shallower than their polyp samples, and P3 retains only 150
+post-QC polyp epithelial cells. No pooled trend, interval, stage contrast,
+identity conclusion, or intrinsic-loss conclusion is licensed.

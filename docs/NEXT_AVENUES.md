@@ -126,7 +126,7 @@ does.
   QC path already computes its own from raw counts. Comparing the two is a
   genuine cross-check and the only one of the three that survives.
 
-### 1c. Zheng_2022's within-patient gradient. **Correct as stated, n = 3.**
+### 1c. Zheng_2022's within-patient gradient. **RAN 2026-09-08 — descriptive only, n = 3.**
 
 Three patients carry normal → polyp → carcinoma. Descriptive only, and worth
 reporting as such: it is timing evidence carcinoma cannot give, and it does not
@@ -141,6 +141,16 @@ true null — one interval in four, on data with nothing in it. See
 of n alone. **No interval from three patients may be reported here at all**, on
 any statistic. Descriptive means descriptive: report the three trajectories and
 let them be three trajectories.
+
+**Result.** All three pre-specified patients retained measurable epithelial
+cells at normal, polyp, and carcinoma after QC. GUCA2A detection fell from
+normal to polyp in each trajectory (P1 0.579 → 0.040; P2 0.703 → 0.027;
+P3 0.642 → 0.040), and MS4A12 did too. CDX2 did not follow one direction.
+P1/P2 normal samples were much shallower than their polyp samples and P3 has
+only 150 post-QC polyp epithelial cells, so the table is timing context only.
+`results/2026-09-08_f6b22f6/zheng_three_stage_trajectories.parquet` and its
+availability companion are the complete artifact. **Do not pool, test, or fit
+these trajectories.**
 
 ---
 
@@ -793,9 +803,10 @@ into their result sidecars. See `docs/invariant_11_proposal.md` RESULT.
    custom probes or a different design. Parses verified clean (322/322,
    5001/5001) so the absences are real, and the panel files are checksum-pinned
    in `data/manifest.csv`. **Do not queue it.**
-8. **Zheng's gradient** (1c), descriptive, and **no interval may be reported
-   from it**: at n=3 the percentile bootstrap is 25.1% and 0.372× the correct
-   width.
+8. ~~**Zheng's gradient**~~ **RAN 2026-09-08 — descriptive only.** All three
+   normal→polyp GUCA2A trajectories fall; CDX2 is mixed, and stage-specific
+   depth/QC differences preclude a pooled or intrinsic reading. The committed
+   table is `results/2026-09-08_f6b22f6/`. **Do not queue it.**
 9. ~~Tier 3's heterogeneity explanation.~~ **RAN 2026-09-07 — the heterogeneity
    is one n=3 study and an uncalibrated ceiling, not a subtype.** It did not
    strengthen the result in hand; it changed the reason behind it, which §2 of
@@ -845,22 +856,12 @@ resolvability result, not permission to select a floor or claim that controls
 hold. The result sidecar is clean (`git_dirty: false`) and pins both code
 implementation history and the 200,000-draw null simulation.
 
-**Item 4 · Lesion-level Wnt — the detection gate comes first, before the
-pre-specification.** The amendment above says item 4 "needs a lesion-within-donor
-pre-specification before any analysis." That is the wrong first step. **The five
-signature genes in `src/reference/wnt_score.py` (AXIN2, NKD1, RNF43, NOTUM,
-TCF7) have never been scored in the Becker deposit at all**, and every one of
-them is lower-expressed than GUCA2A — whose own gate cleared **by depth, not by
-premise** ("Still open" item 6). Writing a pre-specification for a study that
-cannot produce a non-null is the mistake B1 already made once.
-
-So: an **outcome-blind detection gate at `DETECTION_MIN_UMI`** on the nuclei of
-the four paired donors (A001, A002, A014, A015) in
-`results/2026-09-07_682ad52/becker_lesion_inventory.parquet`, recorded with its
-threshold before anything is fit. The pre-specification is step two and happens
-only if the gate passes. Nothing else about item 4 changes: **the independent
-unit is still 4 donors, not 31 lesions** (invariant 5), and Crowell's
-sub-domains stay `exploratory` under their own pre-registration.
+**Item 4 · Lesion-level Wnt — CLOSED 2026-09-08.** The outcome-blind detection
+gate ran on the four paired Becker donors and returned **NO SUBSTRATE AT THIS
+snRNA RESOLUTION**: NOTUM and TCF7 failed one or both pre-specified floors in
+three donors. `results/2026-09-08_a96e3b3/` and
+`docs/prereg_becker_lesion_wnt_detection_gate.md` record the result. No
+lesion-level Wnt pre-specification, reduced signature, or model is licensed.
 
 **Item 2 / A2 · Authenticate before rewriting the request.** The repo records
 that the three Synapse entities **refuse anonymous read**. An anonymous-read
@@ -878,11 +879,9 @@ Only if an **authenticated** read also refuses does the access-request path
 become real. Item 2's substantive ruling is untouched either way: no biological
 analysis proceeds from the pixel product alone.
 
-**Order, and why.** Plan 1, then item 4's gate, then the A2 login check. Plan 1
-is first because it is the only one of the three whose completion depends on
-nobody outside the repo. Item 4's gate is cheap, outcome-blind, and decides
-whether a pre-registration is worth writing. A2 is last because its outcome
-changes only which of two request paths applies.
+**Order, and why.** Plan 1 and item 4 are complete. The A2 login check remains
+external access work, not a biological analysis; it is not needed to interpret
+any result above.
 
 **Unchanged by this plan:** 2b's four gate conditions and its NO SUBSTRATE exit;
 AD-versus-SSL as a data hunt with no substrate in hand; and the closures of
