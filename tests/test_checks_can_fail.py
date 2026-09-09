@@ -1500,10 +1500,14 @@ def test_both_live_reference_jobs_declare_a_provenance_the_guard_can_read():
     from src.common.label_provenance import check_no_circular_claim
     from src.reference.jobs.becker_feasibility import (
         CLAIM_PROVENANCE as BECKER_CLAIM,
+    )
+    from src.reference.jobs.becker_feasibility import (
         LABEL_PROVENANCE as BECKER_LABELS,
     )
     from src.reference.jobs.crowell_multisection import (
         CLAIM_PROVENANCE as CROWELL_CLAIM,
+    )
+    from src.reference.jobs.crowell_multisection import (
         LABEL_PROVENANCE as CROWELL_LABELS,
     )
 

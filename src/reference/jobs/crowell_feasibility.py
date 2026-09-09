@@ -51,18 +51,18 @@ from src.common.io import write_versioned_table
 from src.common.paths import RESULTS_DIR
 from src.reference.crowell_io import (
     OBS_NEGATIVE_FEATURES,
-    check_depth_is_consistent,
-    depth_from_obs,
-    read_gene_columns,
     OBS_QC_PASS,
     SECTIONS,
     CrowellError,
     check_counts_are_integers,
+    check_depth_is_consistent,
     control_features,
+    depth_from_obs,
     domain_vocabulary,
     floor_from_obs,
     open_section,
     qc_pass_mask,
+    read_gene_columns,
     require_controls,
     require_counts,
 )
@@ -394,9 +394,6 @@ def verdict(table: pd.DataFrame, *, adenoma_domain: str | None = None,
                 )}
 
     sep = critical.set_index("domain")["log_separation"]
-    controls_by_domain = (controls.set_index(["gene", "domain"])["log_separation"]
-                          if n_controls else None)
-
     if adenoma_domain not in usable_domains:
         fields = dict(base)
         fields["per_cell_feasibility"] = "failed"

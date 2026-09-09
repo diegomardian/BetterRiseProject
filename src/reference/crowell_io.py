@@ -138,11 +138,16 @@ def open_section(path: str | Path, *, backed: bool = True,
     if expected is not None:
         actual = path.stat().st_size
         if actual != expected["bytes"]:
+            next_step = (
+                "it is small enough to be an HTTP error page; cat it"
+                if actual < 10_000
+                else "refetch it"
+            )
             raise CrowellError(
                 f"{path} is {actual:,} bytes; Zenodo record 10.5281/zenodo."
                 f"15574384 lists {expected['bytes']:,} for {path.name}. "
                 f"The download is incomplete or is an error body — "
-                f"{'it is small enough to be an HTTP error page; cat it' if actual < 10_000 else 'refetch it'}. "
+                f"{next_step}. "
                 f"Expected md5 {expected['md5']}."
             )
         if verify_checksum and checksum(path) != expected["md5"]:

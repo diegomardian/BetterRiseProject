@@ -6,8 +6,8 @@ import pytest
 
 from src.reference.he_tiff_header import (
     TiffHeaderError,
-    parse_tiff_header,
     classify_resolution,
+    parse_tiff_header,
     parse_tiff_header_ranges,
 )
 

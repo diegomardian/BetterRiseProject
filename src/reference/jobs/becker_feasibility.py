@@ -227,20 +227,6 @@ def inspect_deposit(tar: Path, series_matrix: Path) -> dict:
     return report
 
 
-def lesion_inventory(series_matrix: Path) -> pd.DataFrame:
-    """The durable, metadata-only Becker lesion inventory.
-
-    This is deliberately separate from ``--inspect``: the question needs only
-    GEO's small series matrix, not the 1.2 GB count tar, and the answer is an
-    input inventory rather than a biological result.  One lesion is one unique
-    ``sample_id``; technical GSM replicates remain visible in ``n_tumour_rows``.
-    """
-    from src.reference.becker_io import read_series_matrix, tumour_lesion_counts
-
-    metadata = read_series_matrix(series_matrix)
-    return tumour_lesion_counts(metadata)
-
-
 def inspect(path: Path) -> dict:
     """Report what is in an h5ad. Kept for a deposit that arrives as one.
 

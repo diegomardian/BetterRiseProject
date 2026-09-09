@@ -97,7 +97,9 @@ def test_the_gate_reports_the_fold_change_against_chen():
     assert row["passes"]
     # On the detection scale: cloglog(p) = log(mu), so the reported fold is a
     # ratio of expected UMIs, not of probabilities.
-    mu = lambda p: -np.log1p(-p)
+    def mu(p):
+        return -np.log1p(-p)
+
     assert row["fold_mu_vs_chen"] == pytest.approx(mu(0.11) / mu(0.437), rel=1e-6)
     assert row["log_fc_vs_chen"] == pytest.approx(
         np.log(mu(0.11) / mu(0.437)), rel=1e-6)

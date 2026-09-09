@@ -502,8 +502,10 @@ def test_pooled_subdomains_are_one_observation_weighted_by_cells():
         for j, nm in enumerate(names):
             if nm.startswith(("NegPrb", "FalseCode")):
                 b[:, j] = (rng.random(n) < 0.01).astype(float)
-        blocks.append(b); doms += [label] * n
-    X = np.vstack(blocks); doms = np.array(doms, dtype=object)
+        blocks.append(b)
+        doms += [label] * n
+    X = np.vstack(blocks)
+    doms = np.array(doms, dtype=object)
 
     pooled = np.where(np.isin(doms, ["TVA1", "TVA2", "TVA3"]), "TVA_POOLED", doms)
     controls = control_features(names)["negative_indices"]

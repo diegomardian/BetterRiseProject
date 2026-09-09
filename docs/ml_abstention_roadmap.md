@@ -136,10 +136,10 @@ source-identity audit in `src/reference/jobs/release7_early_lesion_identity.py`
 must be committed and run from a clean tree to persist that result. It is not an
 ML substrate for independent replication.
 
-The CRDC H&E header audit is already committed. The remaining cleanup items are
-to mark the superseded `he_molecular_image_headers.py` path as retired and to
-resolve the repository-wide pre-existing Ruff debt in a separate hygiene change;
-neither should delay WP-A’s data-access feasibility gate.
+The CRDC H&E header audit is already committed, and the superseded
+`he_molecular_image_headers.py` path has been removed. The remaining
+repository-wide Ruff debt is tracked as separate hygiene work; it does not
+reopen an image or ML gate.
 
 ## Current sequence
 

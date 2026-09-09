@@ -608,19 +608,18 @@ is what stops the next one.
 |---|---|
 | **The write-up** | Eight days. ~15 results across 2026-09-06/07 in neither paper, and `neurips_2026.sty` still unvendored so `./build.sh` has never run. **This outranks everything.** |
 | ~~**D2 survival**~~ | **CLOSED 2026-09-07 — null on every endpoint.** `results/2026-09-07_b42a2cd/`; PFI ABSOLUTE 0.9697 [0.8564, 1.0979], every interval containing 1, PH clean, 11.27 events/df. Locked, implemented, run. `docs/prereg_d2_survival.md` §8. **Do not queue it.** |
-| **Invariant 11** | `docs/invariant_11_proposal.md` drafted with a guard design, unimplemented. Needs a PR and two approvals per invariant 3. |
+| ~~**Invariant 11**~~ | **CLOSED 2026-09-08.** The guard, forcing tests, and declared call sites are merged; `docs/invariant_11_proposal.md` records the reviewed result. |
 
 **Closed on 2026-09-07 and not worth reopening:** Crowell (7 of 7, §6l),
 Becker/B1 (not licensed), C1's panel lookup (no stock panel carries a target and
 a control together), the meta-layer weights (§6k), and the carcinoma `best4`
 denominator.
 
-**Two conditional substrates remain unexplored.** Lesion-level Wnt — item 4
-below — has a thin audit: 2 of 6 Crowell blocks have multiple adenoma
-sub-regions, and Becker's per-donor inventory writer is committed but its
-versioned result artifact has not yet been run. Item 2b is a distinct H&E
-morphology-to-molecular-label study, not a new reading of avenue A and not a
-replacement for either Crowell or A2.
+**No conditional substrate remains executable locally.** Lesion-level Wnt
+closed on its fixed detection gate; its Becker per-donor inventory is durable.
+Item 2b is a distinct H&E morphology-to-molecular-label data gate, not a new
+reading of avenue A or a replacement for Crowell/A2, and MHIST has now closed
+as one source for it.
 
 ### Roadmap amendment, 2026-09-07 — seven items, after the Crowell run
 
@@ -833,13 +832,11 @@ into their result sidecars. See `docs/invariant_11_proposal.md` RESULT.
    strengthen the result in hand; it changed the reason behind it, which §2 of
    `docs/HANDOFF.md` now carries. See §6k. **Do not queue it.**
 
-10. **The remaining half of §6k, and it is W2's not W1's.** `MAX_I_SQUARED = 0.75`
-   is Higgins' rule of thumb with no null behind it: at k = 11 homogeneity alone
-   gives a median I² of 0.270, at k = 6 it gives 0.000, and Cochran's Q rejects
-   **32.5%** of the time at the committed patient counts against a nominal 5%.
-   `src/reference/meta_calibration.py` computes the null; wiring it into
-   `src/harness/meta.py` in place of the fixed ceiling is a **PR with two
-   approvals** under CONTRIBUTING §2 and was deliberately not done here.
+10. ~~**The remaining half of §6k.**~~ **CLOSED 2026-09-08.** The fixed 75%
+   I² ceiling is retired. `src/harness/meta.py` now requires the
+   patient-count-matched null tail probability at fixed α=0.05, and the clean
+   rerun is `results/2026-09-08_cf5b419/`. `docs/HANDOFF.md` §6k records the
+   approval/process history and the floor-specific verdict causes.
 
 ~~Tier 2 only after the MLH1 control says whether the instrument can see
 silencing at all.~~ **That gate is now permanently open, and not the way anyone

@@ -173,7 +173,6 @@ def test_the_gate_module_imports_nothing_that_carries_an_outcome():
     this job's imports.
     """
     import ast
-    import pathlib
 
     from src.common.paths import REPO_ROOT
 
