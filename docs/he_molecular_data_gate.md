@@ -180,11 +180,16 @@ resolution pass for the whole candidate arm. The r7 metadata query now provides
 an exact 18-row H&E--VCF--CRDC object crosswalk: candidate, assayed, and
 originating biospecimen IDs agree and one DRS object is present on every row.
 A missing or unparseable tag is retained as `unresolved`, never filled with a
-default. The first local pilot (`HTA11_1391`) parsed a 32,811 × 28,339 classic
-TIFF in 202 requested bytes. Its header's 352.78 µm/pixel value is exactly
-72-DPI-equivalent metadata, so it is not evidence of scanner sampling or of a
-full-resolution release. This is not yet a versioned artifact and does not
-alter the gate verdict.
+default. The durable all-candidate audit is
+`results/2026-09-08_3cc8f73/he_molecular_crdc_header.parquet`. It reached all
+18 DRS objects without downloading a full image: 12 classic-TIFF headers parsed
+in 202 requested bytes each and six lacked all physical-resolution tags
+(282/283/296). The 12 parsed objects have varying native dimensions, from
+8,350 × 16,241 to 40,964 × 32,416 pixels, but all report the same
+72-DPI-equivalent 352.78 µm/pixel value. That generic value is not evidence of
+scanner sampling or a full-resolution release. Thus 0/18 candidates supplies
+usable native physical-scale evidence, and the resolution clause remains
+unmet.
 
 The r7 imaging table reports `0.25 µm`, `40×`, and `Pyramid=No` for every
 matched object, but also reports the same 1,616 × 4,668 dimensions for all 18.

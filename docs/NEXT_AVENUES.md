@@ -694,9 +694,11 @@ metadata-only authenticated check has now resolved all 18 candidate entities,
 but it does not establish VCF-content download. Its versioned output can clear
 only the pending metadata-access reason in the main gate. The one-image CRDC
 pilot is deliberately not a gate-wide resolution result. The r7 imaging
-dimensions conflict with that image's native TIFF header, so r7 is used for its
-crosswalk only; bounded native-header reads across all 18 objects are the next
-metadata-only check.
+dimensions conflict with the native TIFF headers, so r7 is used for its
+crosswalk only. The durable bounded audit now covers all 18 exact objects:
+12 parsed headers carry the same generic 72-DPI-equivalent scale and six lack
+the required physical-resolution tags. It yields 0/18 usable physical-scale
+measurements, so the full-resolution clause remains unmet.
 `src/reference/jobs/he_molecular_synapse_access.py` performs that check.
 Neither job selects an endpoint or licenses image download.
 
