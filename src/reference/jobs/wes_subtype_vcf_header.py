@@ -74,11 +74,16 @@ def _presigned_url(syn: object, entity_id: str) -> str:
     """Get a signed download URL without invoking Synapse's full-download path."""
     try:
         from synapseclient.api.file_services import get_file_handle_for_download
+        from synapseclient.operations import FileOptions, get
     except ImportError as exc:  # pragma: no cover - optional operational dependency
         raise WESHeaderError(
             "synapseclient is not installed; run `pip install -e '.[a2]'`"
         ) from exc
-    entity = syn.get(entity_id, downloadFile=False)
+    entity = get(
+        entity_id,
+        file_options=FileOptions(download_file=False),
+        synapse_client=syn,  # type: ignore[arg-type]
+    )
     properties = getattr(entity, "properties", {}) or {}
     handle_id = properties.get("dataFileHandleId") or getattr(entity, "dataFileHandleId", None)
     if not handle_id:

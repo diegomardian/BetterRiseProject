@@ -23,7 +23,7 @@ dependencies = [
 # the public repository must be testable without a Synapse account or client,
 # while the authenticated inventory needs the official read-only client.
 a2 = [
-    "synapseclient>=4,<5",
+    "synapseclient>=4.11,<5",
 ]
 
 # Open CRDC H&E header inspection. The Gen3 SDK turns the user's local API-key
