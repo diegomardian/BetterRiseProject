@@ -1,0 +1,51 @@
+{
+  "date": "2026-09-09",
+  "utc_timestamp": "2026-09-09T16:30:11+00:00",
+  "git_sha": "b4ddb92cd6ac20c5395c60da90f409d8cb8adc26",
+  "git_sha_short": "b4ddb92",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "wes_subtype_vcf_header_summary",
+  "n_rows": 1,
+  "columns": [
+    "n_specimen_exact_vcf_candidates",
+    "n_unique_patients",
+    "n_headers_parsed",
+    "n_headers_unresolved",
+    "n_not_download_eligible",
+    "n_with_unmet_access_requirement",
+    "n_certification_required_but_not_completed",
+    "n_with_dp_field",
+    "n_with_ad_or_af_field",
+    "sample_layout_rollup",
+    "verdict"
+  ],
+  "table_kind": "harness",
+  "plan": "docs/wes_subtype_plan.md",
+  "candidate_rule": "Step-1 specimen_exact_unique only",
+  "header_byte_budget_per_entity": 262144,
+  "vcf_variant_records_read": false,
+  "molecular_endpoint_selected": false,
+  "subgroup_outcome_calculated": false,
+  "invariant_11": "no transcript-derived label may claim its own programme",
+  "label_provenance": {
+    "modality": "sample_annotation",
+    "assay": "HTAN exact scRNA-to-WES biospecimen provenance crosswalk",
+    "genes": "",
+    "derived_from": ""
+  },
+  "claim_provenance": {
+    "modality": "genotype",
+    "assay": "bounded header schema of exact-match HTAN Release-7 WES VCFs",
+    "genes": "",
+    "derived_from": ""
+  },
+  "overlapping_genes": "",
+  "independent_endpoint": null
+}
