@@ -1,10 +1,19 @@
 # Chen WES molecular-subtype gate
 
-**Status: STEP 1 COMPLETE; STEP 2 HEADER-CAPABILITY CHECK NEXT.** The committed
+**Status: STEP 1 COMPLETE; STEP 2 ACCESS-SCOPE BLOCKED.** The committed
 crosswalk found 35 specimen-exact WES candidates across 29 of the fixed 44
-lineage patients. This plan can produce a source/callability verdict. It does
-not license assigning a molecular subtype or recomputing the avenue-A
-transcript result until its later steps have been separately locked.
+lineage patients. The bounded Step-2 probe reached all 35 entity bundles but
+each signed-URL request returned `403 insufficient_scope: download`; therefore
+it received **zero** header bytes and parsed zero headers. See
+`results/2026-09-09_2adc97a/wes_subtype_vcf_header_summary.parquet`.
+
+This is a configured-token scope failure, not evidence that WES content is
+unavailable, that a VCF lacks the needed fields, or that either molecular arm
+is absent. The next action is to configure an authenticated Synapse token with
+the `download` scope, rerun Step 2, and record any restrictions or terms
+required after that scope is present. This plan does not license assigning a
+molecular subtype or recomputing the avenue-A transcript result until its later
+steps have been separately locked.
 
 ## Question and boundary
 
