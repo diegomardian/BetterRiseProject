@@ -18,6 +18,7 @@ pre-specification; it is not a pass to read variant records.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -74,18 +75,26 @@ def _presigned_url(syn: object, entity_id: str) -> str:
     """Get a signed download URL without invoking Synapse's full-download path."""
     try:
         from synapseclient.api.file_services import get_file_handle_for_download
-        from synapseclient.operations import FileOptions, get
     except ImportError as exc:  # pragma: no cover - optional operational dependency
         raise WESHeaderError(
             "synapseclient is not installed; run `pip install -e '.[a2]'`"
         ) from exc
-    entity = get(
-        entity_id,
-        file_options=FileOptions(download_file=False),
-        synapse_client=syn,  # type: ignore[arg-type]
+    # ``operations.get(..., download_file=False)`` intentionally omits the
+    # handle.  Requesting the documented entity bundle preserves the handle ID
+    # without invoking a full download or the deprecated ``Synapse.get`` API.
+    bundle = syn.restPOST(  # type: ignore[attr-defined]
+        f"/entity/{entity_id}/bundle2",
+        body=json.dumps(
+            {
+                "includeEntity": True,
+                "includeFileHandles": True,
+                "includeAnnotations": False,
+                "includeRestrictionInformation": True,
+            }
+        ),
     )
-    properties = getattr(entity, "properties", {}) or {}
-    handle_id = properties.get("dataFileHandleId") or getattr(entity, "dataFileHandleId", None)
+    entity = bundle.get("entity", {})
+    handle_id = entity.get("dataFileHandleId")
     if not handle_id:
         raise WESHeaderError(f"Synapse entity {entity_id} has no dataFileHandleId")
     result = get_file_handle_for_download(

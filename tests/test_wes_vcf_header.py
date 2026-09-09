@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from src.reference.jobs.wes_subtype_vcf_header import validate_specification
+from src.reference.jobs.wes_subtype_vcf_header import _presigned_url, validate_specification
 from src.reference.wes_vcf_header import WESHeaderError, exact_vcf_candidates, parse_vcf_header
 
 
@@ -24,6 +24,23 @@ def _crosswalk() -> pd.DataFrame:
 
 def test_header_probe_declares_the_independent_genotype_channel_before_access():
     assert validate_specification() == ()
+
+
+def test_signed_url_lookup_uses_a_metadata_bundle_before_the_file_handle_service(monkeypatch):
+    class FakeSynapse:
+        def restPOST(self, uri, body):
+            assert uri == "/entity/syn1/bundle2"
+            assert '"includeEntity": true' in body
+            return {"entity": {"dataFileHandleId": "99"}}
+
+    def fake_handle(handle_id, entity_id, **kwargs):
+        assert (handle_id, entity_id) == ("99", "syn1")
+        return {"preSignedURL": "https://example.test/ranged"}
+
+    monkeypatch.setattr(
+        "synapseclient.api.file_services.get_file_handle_for_download", fake_handle
+    )
+    assert _presigned_url(FakeSynapse(), "syn1") == "https://example.test/ranged"
 
 
 def test_exact_candidates_refuse_joined_or_ambiguous_entity_identifiers():
