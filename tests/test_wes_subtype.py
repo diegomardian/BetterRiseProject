@@ -12,6 +12,7 @@ from src.reference.wes_subtype import (
     WESSubtypeCrosswalkError,
     avenue_a_lineage_patients,
     build_lineage_manifest,
+    build_provenance_crosswalk,
 )
 
 
@@ -83,3 +84,58 @@ def test_manifest_refuses_a_sample_id_without_an_explicit_htan_biospecimen_token
     obs.loc[0, "sample_id"] = "unparseable"
     with pytest.raises(WESSubtypeCrosswalkError, match="dataset separator"):
         build_lineage_manifest(_decomposition(), obs)
+
+
+def _manifest_row(*, biospecimen: str = "HTA11_1_2000001011") -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "patient_id": ["Chen_2021_Cell.HTA11_1"],
+            "sample_id": [f"VUMC_HTAN_validation.{biospecimen}"],
+            "scRNA_biospecimen_id": [biospecimen],
+            "specimen_exact": [False],
+            "crosswalk_status": ["awaiting_provenance_export"],
+        }
+    )
+
+
+def _provenance(*, assayed: str = "HTA11_1_2000001011", origin: str = "") -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "vcf_data_file_id": ["HTA11_0_1"],
+            "vcf_filename": ["MAP.00001_polyp.filtered.vcf"],
+            "vcf_entity_id": ["syn1"],
+            "vcf_parent_data_file_id": ["parent-1"],
+            "htan_participant_id": ["HTA11_1"],
+            "vcf_assayed_biospecimen_id": [assayed],
+            "vcf_originating_biospecimen_id": [origin],
+            "biospecimen_path": ["metadata"],
+        }
+    )
+
+
+def test_crosswalk_accepts_only_full_biospecimen_identity_not_participant_or_suffix():
+    table, summary = build_provenance_crosswalk(
+        _manifest_row(), _provenance(assayed="HTA11_1_2000009999")
+    )
+    assert table.loc[0, "crosswalk_status"] == "participant_vcf_not_specimen_exact"
+    assert not bool(table.loc[0, "specimen_exact"])
+    assert summary.loc[0, "n_participant_only"] == 1
+    assert summary.loc[0, "verdict"].startswith("NO SUBSTRATE")
+
+
+def test_crosswalk_accepts_one_documented_exact_assayed_or_originating_link():
+    table, summary = build_provenance_crosswalk(
+        _manifest_row(), _provenance(assayed="", origin="HTA11_1_2000001011")
+    )
+    assert table.loc[0, "crosswalk_status"] == "specimen_exact_unique"
+    assert bool(table.loc[0, "specimen_exact"])
+    assert summary.loc[0, "n_specimen_exact_unique_patients"] == 1
+
+
+def test_crosswalk_refuses_to_choose_between_two_exact_vcf_files():
+    provenance = pd.concat([_provenance(), _provenance()], ignore_index=True)
+    provenance.loc[1, "vcf_data_file_id"] = "HTA11_0_2"
+    provenance.loc[1, "vcf_entity_id"] = "syn2"
+    table, summary = build_provenance_crosswalk(_manifest_row(), provenance)
+    assert table.loc[0, "crosswalk_status"] == "ambiguous_provenance"
+    assert summary.loc[0, "n_ambiguous_provenance"] == 1

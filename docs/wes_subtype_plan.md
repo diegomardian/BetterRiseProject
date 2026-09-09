@@ -55,23 +55,34 @@ No suffix rule, filename heuristic, or manual reconciliation can upgrade a
 row. If no specimen-exact WES arm remains, the route ends **NO SUBSTRATE AT
 THIS RESOLUTION**.
 
-### Required BigQuery export, before writing the crosswalk reader
+### Required BigQuery export
 
-Do not guess the source field names. First run this read-only schema query in
-the user's BigQuery project and save the CSV result beside the other HTAN
-exports:
+The observed `id_provenance_r7` schema supplies the needed file, participant,
+assayed-biospecimen, and originating-biospecimen fields. Run this read-only
+query in the user's BigQuery project, then download the results as
+`htan_vanderbilt_vcf_provenance_r7.csv`:
 
 ```sql
-SELECT column_name, data_type, ordinal_position
-FROM `isb-cgc-bq.HTAN_versioned.INFORMATION_SCHEMA.COLUMNS`
-WHERE table_name = 'id_provenance_r7'
-ORDER BY ordinal_position;
+SELECT
+  HTAN_Data_File_ID AS vcf_data_file_id,
+  Filename AS vcf_filename,
+  entityId AS vcf_entity_id,
+  HTAN_Parent_Data_File_ID AS vcf_parent_data_file_id,
+  HTAN_Participant_ID AS htan_participant_id,
+  HTAN_Assayed_Biospecimen_ID AS vcf_assayed_biospecimen_id,
+  HTAN_Originating_Biospecimen_ID AS vcf_originating_biospecimen_id,
+  Biospecimen_Path AS biospecimen_path
+FROM `isb-cgc-bq.HTAN_versioned.id_provenance_r7`
+WHERE HTAN_Center = 'HTAN Vanderbilt'
+  AND REGEXP_CONTAINS(LOWER(Filename), r'\.vcf(?:\.gz)?$')
+ORDER BY htan_participant_id, vcf_data_file_id;
 ```
 
-The next query will alias the real source fields to the normalized contract
-above and filter only HTAN Vanderbilt Level-3 VCF rows. It is intentionally not
-written until this schema is observed: an invented `assayed_biospecimen` field
-would make a superficially reproducible but invalid crosswalk.
+This queries provenance metadata only. It does not authenticate to Synapse or
+read any VCF content. The local reader
+`src/reference/jobs/wes_subtype_provenance_crosswalk.py` rejects altered column
+names, duplicated VCF file IDs, non-VCF filenames, and all participant-only or
+suffix-only matches.
 
 ## Step 2 — access and technical capability, not variant outcomes
 

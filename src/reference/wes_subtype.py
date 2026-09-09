@@ -24,6 +24,21 @@ DECOMPOSITION_REQUIRED = frozenset(
 OBS_REQUIRED = frozenset(
     {"study_id", "patient_id", "sample_id", "sample_type", "dataset"}
 )
+MANIFEST_REQUIRED = frozenset(
+    {"patient_id", "scRNA_biospecimen_id", "specimen_exact", "crosswalk_status"}
+)
+PROVENANCE_REQUIRED = frozenset(
+    {
+        "vcf_data_file_id",
+        "vcf_filename",
+        "vcf_entity_id",
+        "vcf_parent_data_file_id",
+        "htan_participant_id",
+        "vcf_assayed_biospecimen_id",
+        "vcf_originating_biospecimen_id",
+        "biospecimen_path",
+    }
+)
 
 
 class WESSubtypeCrosswalkError(ValueError):
@@ -138,3 +153,148 @@ def read_obs(path: Path) -> pd.DataFrame:
     if not path.is_file():
         raise FileNotFoundError(f"ICBI obs cache not found: {path}")
     return pd.read_parquet(path, columns=sorted(OBS_REQUIRED))
+
+
+def _htan_participant_id(patient_id: str) -> str:
+    prefix = f"{CHEN_STUDY_ID}."
+    value = str(patient_id).strip()
+    if not value.startswith(prefix):
+        raise WESSubtypeCrosswalkError(
+            f"Chen patient ID lacks expected prefix {prefix!r}: {value!r}"
+        )
+    return value.removeprefix(prefix)
+
+
+def _join(values: pd.Series) -> str:
+    return " | ".join(sorted({str(value).strip() for value in values if str(value).strip()}))
+
+
+def build_provenance_crosswalk(
+    manifest: pd.DataFrame, provenance: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Match only full scRNA and WES biospecimen IDs through HTAN provenance.
+
+    The caller must provide the normalized BigQuery export documented in
+    ``docs/wes_subtype_plan.md``.  A participant hit without equality to either
+    documented WES biospecimen field is retained as a failure, not promoted to
+    an exact lesion match.  A pair of exact VCF records is likewise ambiguous:
+    this source gate does not choose one after seeing filenames.
+    """
+    _require_columns(manifest, MANIFEST_REQUIRED, name="lineage manifest")
+    _require_columns(provenance, PROVENANCE_REQUIRED, name="HTAN provenance export")
+    if manifest.empty:
+        raise WESSubtypeCrosswalkError("lineage manifest is empty")
+    if manifest["scRNA_biospecimen_id"].isna().any() or _text(
+        manifest["scRNA_biospecimen_id"]
+    ).eq("").any():
+        raise WESSubtypeCrosswalkError("lineage manifest contains a missing scRNA biospecimen ID")
+    if manifest["scRNA_biospecimen_id"].duplicated().any():
+        raise WESSubtypeCrosswalkError("lineage manifest duplicates an scRNA biospecimen ID")
+    if provenance.empty:
+        raise WESSubtypeCrosswalkError("HTAN provenance export is empty")
+    prov = provenance.loc[:, sorted(PROVENANCE_REQUIRED)].copy()
+    for column in prov.columns:
+        prov[column] = _text(prov[column])
+    if prov["vcf_data_file_id"].eq("").any() or prov["htan_participant_id"].eq("").any():
+        raise WESSubtypeCrosswalkError(
+            "HTAN provenance export has a VCF row missing data-file or participant ID"
+        )
+    if prov["vcf_data_file_id"].duplicated().any():
+        raise WESSubtypeCrosswalkError("HTAN provenance export duplicates a VCF data-file ID")
+    if (~prov["vcf_filename"].str.lower().str.contains(r"\.vcf(?:\.gz)?$", regex=True)).any():
+        bad = prov.loc[
+            ~prov["vcf_filename"].str.lower().str.contains(r"\.vcf(?:\.gz)?$", regex=True),
+            "vcf_filename",
+        ].tolist()
+        raise WESSubtypeCrosswalkError(
+            f"HTAN provenance export includes a non-VCF filename: {bad[:5]}"
+        )
+
+    rows: list[dict[str, object]] = []
+    for lesion in manifest.itertuples(index=False):
+        lesion_row = lesion._asdict()
+        patient = _htan_participant_id(lesion_row["patient_id"])
+        biospecimen = str(lesion_row["scRNA_biospecimen_id"]).strip()
+        participant_vcf = prov.loc[prov["htan_participant_id"].eq(patient)].copy()
+        exact = participant_vcf[
+            participant_vcf["vcf_assayed_biospecimen_id"].eq(biospecimen)
+            | participant_vcf["vcf_originating_biospecimen_id"].eq(biospecimen)
+        ].copy()
+        missing_fields = participant_vcf[
+            participant_vcf["vcf_entity_id"].eq("")
+            | (
+                participant_vcf["vcf_assayed_biospecimen_id"].eq("")
+                & participant_vcf["vcf_originating_biospecimen_id"].eq("")
+            )
+        ]
+        if participant_vcf.empty:
+            status = "no_participant_vcf"
+        elif exact.empty and not missing_fields.empty:
+            status = "missing_provenance_field"
+        elif exact.empty:
+            status = "participant_vcf_not_specimen_exact"
+        elif len(exact) > 1:
+            status = "ambiguous_provenance"
+        elif exact["vcf_entity_id"].eq("").any():
+            status = "missing_provenance_field"
+        else:
+            status = "specimen_exact_unique"
+        rows.append(
+            {
+                **lesion_row,
+                "htan_participant_id": patient,
+                "n_participant_vcf_records": int(len(participant_vcf)),
+                "n_exact_vcf_records": int(len(exact)),
+                "matched_vcf_data_file_ids": _join(exact["vcf_data_file_id"]),
+                "matched_vcf_entity_ids": _join(exact["vcf_entity_id"]),
+                "matched_vcf_assayed_biospecimen_ids": _join(
+                    exact["vcf_assayed_biospecimen_id"]
+                ),
+                "matched_vcf_originating_biospecimen_ids": _join(
+                    exact["vcf_originating_biospecimen_id"]
+                ),
+                "specimen_exact": status == "specimen_exact_unique",
+                "crosswalk_status": status,
+            }
+        )
+    table = pd.DataFrame(rows).sort_values(["patient_id", "sample_id"], kind="stable")
+    exact = table["specimen_exact"]
+    summary = pd.DataFrame(
+        [
+            {
+                "n_scRNA_polyp_biospecimens": int(len(table)),
+                "n_lineage_patients": int(table["patient_id"].nunique()),
+                "n_participant_vcf_biospecimens": int(
+                    table["n_participant_vcf_records"].gt(0).sum()
+                ),
+                "n_specimen_exact_unique_biospecimens": int(exact.sum()),
+                "n_specimen_exact_unique_patients": int(table.loc[exact, "patient_id"].nunique()),
+                "n_ambiguous_provenance": int(
+                    table["crosswalk_status"].eq("ambiguous_provenance").sum()
+                ),
+                "n_participant_only": int(
+                    table["crosswalk_status"].eq("participant_vcf_not_specimen_exact").sum()
+                ),
+                "n_missing_provenance_field": int(
+                    table["crosswalk_status"].eq("missing_provenance_field").sum()
+                ),
+                "n_no_participant_vcf": int(
+                    table["crosswalk_status"].eq("no_participant_vcf").sum()
+                ),
+                "suffix_match_used": False,
+                "vcf_content_read": False,
+                "verdict": (
+                    "SPECIMEN-EXACT WES CANDIDATES — access/header gate next"
+                    if exact.any()
+                    else "NO SUBSTRATE AT THIS RESOLUTION — no unique specimen-exact WES link"
+                ),
+            }
+        ]
+    )
+    return table.reset_index(drop=True), summary
+
+
+def read_provenance_export(path: Path) -> pd.DataFrame:
+    if not path.is_file():
+        raise FileNotFoundError(f"HTAN provenance CSV not found: {path}")
+    return pd.read_csv(path, dtype=str, keep_default_na=False)
