@@ -29,7 +29,7 @@ the H&E image.
 
 | Candidate | What is verified | Gate state | Reason / next metadata-only action |
 |---|---|---|---|
-| **HTA11 / COLON MAP** | The exported Files table contains **50** H&E Level-2 records (30 TIFF, 20 OME-TIFF), all labelled `CRDC-GC/SB-CGC (open access)`. It contains **174** unique Bulk-DNA Level-3 VCF biospecimens (253 VCF records), and **38/50 H&E biospecimen IDs exactly match** a VCF biospecimen ID. The Biospecimen export contains all 38 matches: **18** are `Premalignant` (14) or `Atypia - hyperplasia` (4), while **20** are `Primary` and excluded from the polyp estimand. Of **25** premalignant H&E biospecimens, 18 match a VCF and **7 do not**. | **NOT LICENSED — only in-scope lead** | Exact biospecimen linkage is evidenced, but full-resolution is not established by this metadata (Level 2 is not a resolution), candidate VCF access is `Synapse` and has not been authenticated, and the Case export records both diagnosis and site as `Not Reported` for all 18 candidates. No endpoint has been pre-specified or counted. |
+| **HTA11 / COLON MAP** | The exported Files table contains **50** H&E Level-2 records (30 TIFF, 20 OME-TIFF), all labelled `CRDC-GC/SB-CGC (open access)`. It contains **174** unique Bulk-DNA Level-3 VCF biospecimens (253 VCF records), and **38/50 H&E biospecimen IDs exactly match** a VCF biospecimen ID. The Biospecimen export contains all 38 matches: **18** are `Premalignant` (14) or `Atypia - hyperplasia` (4), while **20** are `Primary` and excluded from the polyp estimand. Of **25** premalignant H&E biospecimens, 18 match a VCF and **7 do not**. The HTAN r7 metadata query maps every one of those 18 exact biospecimens to one H&E file and one CRDC DRS object. | **NOT LICENSED — only in-scope lead** | Exact biospecimen and CRDC-object linkage are evidenced, but full-resolution is not established (Level 2 is not a resolution). Authenticated Synapse metadata access resolves for all 18 candidate VCF entities but does not license their contents. The Case export records both diagnosis and site as `Not Reported` for all 18 candidates. No endpoint has been pre-specified or counted. |
 | **TCGA COAD/READ** | GDC makes diagnostic slide images available and TCGA barcodes retain sample/portion lineage. | **EXCLUDED** | Carcinoma, not a polyp substrate. It may be an engineering benchmark, never evidence for this polyp estimand. A matching barcode prefix also would need an explicit portion-level crosswalk before any separate benchmark. |
 | **SurGen** | Public 40× colorectal WSIs with KRAS, NRAS, BRAF, MMR/MSI, and survival annotations. | **EXCLUDED** | Carcinoma, not polyp; the public description does not establish the needed image-to-assay specimen crosswalk. It may be a future engineering benchmark only. |
 | Public polyp image-only sets | H&E images and morphology labels exist. | **EXCLUDED** | No independently assayed molecular endpoint. Diagnostic-label imitation is out of scope. |
@@ -47,8 +47,8 @@ read.
 The eventual input table must contain, at minimum:
 
 ```text
-candidate_id, patient_id, biospecimen_id, image_file_id, image_synapse_id,
-image_data_file_id, image_access, image_format, image_resolution_um_per_px,
+candidate_id, patient_id, biospecimen_id, image_file_id, image_crdc_object_id,
+image_access, image_format, image_resolution_um_per_px,
 molecular_file_id, molecular_access, molecular_assay,
 molecular_biospecimen_id, endpoint_name, endpoint_value, endpoint_callable,
 acquisition_site
@@ -65,9 +65,9 @@ The first Files-table export resolved the enforced assay vocabulary: `H&E`
 at `Level 2`, `Bulk DNA` at `Level 3` in `vcf` format, image access labelled
 `CRDC-GC/SB-CGC (open access)`, and molecular access labelled `Synapse`.
 It does **not** report microns-per-pixel, so it cannot establish that the H&E
-files satisfy the full-resolution clause. `Synapse` is not treated as dbGaP,
-but it is also not assumed to be downloadable until an authenticated metadata
-or file request succeeds.
+files satisfy the full-resolution clause. The authenticated, metadata-only
+Synapse check subsequently resolved all 18 candidate VCF entities. That is not
+permission to download or open their contents.
 
 The Biospecimen export resolved the first disease-scope split: 18
 premalignant/atypia-hyperplasia exact matches are candidates, whereas 20
@@ -152,26 +152,57 @@ The main gate refuses an artifact whose candidate entities differ from its own
 exact H&E–VCF crosswalk. Metadata readability is not treated as permission to
 download or open VCF content.
 
-### Native H&E header check
+### Native H&E header pilot
 
-`src/reference/jobs/he_molecular_image_headers.py` is the next bounded check.
-For each of the 18 exact premalignant H&E candidates, it obtains a signed URL
-for the already-open image entity and requests only bytes `0–65535`. It reports
-the first TIFF directory's pixel dimensions and microns-per-pixel if the needed
-tags occur in that prefix. It does not download a slide or assert that a native
-TIFF is the scanner's original full-resolution object.
+H&E and molecular files have different portal routes: the H&E Level-2 records
+are open CRDC-GC/SB-CGC objects, whereas the candidate VCFs are Synapse
+objects. Do not use the VCF Synapse credentials to retrieve H&E. Instead,
+select one exact H&E biospecimen in the portal and download its one-object
+`gen3_manifest.json`. After configuring the official Gen3 client, run the
+bounded CRDC header probe below:
 
 ```bash
-python -m src.reference.jobs.he_molecular_image_headers \
-  --files /path/to/files.tsv \
-  --biospecimens /path/to/biospecimens.tsv \
-  --cases /path/to/cases.tsv \
+python -m pip install -e '.[he]'
+python -m src.reference.jobs.he_molecular_crdc_header \
+  --manifest ~/Downloads/gen3_manifest.json \
+  --biospecimen-id HTA11_1391_2000001011 \
+  --credentials ~/Documents/crdc_credentials.json \
   --no-write
 ```
 
-Only an explicit native-scale result plus provenance that the released Level-2
-object is the required full-resolution image can resolve condition 1. A missing
-or unparseable tag is retained as `unresolved`, never filled with a default.
+The Gen3 SDK obtains a short-lived signed URL from the authenticated CRDC
+endpoint. The job requests no more than 65,536 bytes total across the TIFF
+header regions declared by the file itself, then reports native TIFF dimensions
+and physical sampling if those tags are available. It does not run
+`gen3-client download-multiple`, download a slide, or open a VCF. A parsed row
+is evidence only for that manifest-selected image; it is a pilot, not a
+resolution pass for the whole candidate arm. The r7 metadata query now provides
+an exact 18-row H&E--VCF--CRDC object crosswalk: candidate, assayed, and
+originating biospecimen IDs agree and one DRS object is present on every row.
+A missing or unparseable tag is retained as `unresolved`, never filled with a
+default. The first local pilot (`HTA11_1391`) parsed a 32,811 × 28,339 classic
+TIFF in 202 requested bytes. Its header's 352.78 µm/pixel value is exactly
+72-DPI-equivalent metadata, so it is not evidence of scanner sampling or of a
+full-resolution release. This is not yet a versioned artifact and does not
+alter the gate verdict.
+
+The r7 imaging table reports `0.25 µm`, `40×`, and `Pyramid=No` for every
+matched object, but also reports the same 1,616 × 4,668 dimensions for all 18.
+Those dimensions conflict with the native `HTA11_1391` TIFF header. BigQuery
+therefore supplies the exact object crosswalk, not native resolution evidence.
+Export the r7 result as CSV, then run:
+
+```bash
+python -m src.reference.jobs.he_molecular_crdc_header \
+  --crosswalk-csv ~/Downloads/htan_he_vcf_crdc_crosswalk.csv \
+  --credentials ~/Documents/crdc_credentials.json \
+  --no-write
+```
+
+The job rejects input unless it contains exactly 18 distinct candidates, H&E
+data-file IDs, and DRS objects, with candidate = assayed = originating
+biospecimen on every row. It performs at most 65,536 bytes of targeted reads
+per DRS object; it does not download a slide or read VCF content.
 
 ## Sources consulted
 

@@ -8,7 +8,6 @@ from src.reference.he_molecular_gate import (
     build_inventory,
     exit_code,
 )
-from src.reference.jobs.he_molecular_image_headers import candidate_images
 from src.reference.jobs.he_molecular_synapse_access import candidate_entities
 
 
@@ -152,14 +151,6 @@ def test_synapse_probe_uses_only_exact_premalignant_candidate_ids():
             "participant_id": "P-A",
             "entity_id": "syn-A.vcf",
         }
-    ]
-
-
-def test_header_probe_uses_only_exact_premalignant_image_ids():
-    attrition, _ = build_inventory(_files(), _biospecimens(), _cases())
-    images = candidate_images(attrition)
-    assert images.to_dict("records") == [
-        {"biospecimen_id": "B-A", "participant_id": "P-A", "entity_id": "syn-A.tif"}
     ]
 
 

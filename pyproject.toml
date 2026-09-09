@@ -26,6 +26,12 @@ a2 = [
     "synapseclient>=4,<5",
 ]
 
+# Open CRDC H&E header inspection. The Gen3 SDK turns the user's local API-key
+# file into a short-lived signed URL; the job requests only a bounded TIFF prefix.
+he = [
+    "gen3>=4,<5",
+]
+
 # What CI installs. It must be able to IMPORT every module under src/, or the
 # test run dies at collection rather than failing a test.
 #

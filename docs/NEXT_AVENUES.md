@@ -676,19 +676,27 @@ specimen-exact crosswalk from each image to an independently generated
 molecular call, not merely a participant-level join; (3) a fixed molecular
 endpoint with its prevalence, missingness and complete-case count shown before
 fitting; and (4) enough patients and sites for patient-held-out evaluation.
-The reported COLON MAP targeted-sequencing and imaging collections do not yet
-establish that this joined public object is downloadable, so they are a source
+The reported COLON MAP targeted-sequencing and imaging collections establish a
+specimen-exact metadata join. HTAN r7 metadata now maps all 18 in-scope exact
+H&E--VCF biospecimens to one CRDC object each. One authenticated CRDC,
+header-only pilot also shows that a selected H&E object is readable without
+downloading a slide. That does **not** establish full-resolution release status,
+usable clinical strata, or a callable endpoint; the collection remains a source
 to inventory, not data in hand. Public polyp image datasets can benchmark an
 encoder but cannot supply the molecular endpoint.
 
 **Inventory record:** `docs/he_molecular_data_gate.md` records the HTA11
 candidate screen. `src/reference/jobs/he_molecular_gate.py` enforces the exact
 biospecimen join and reports attrition. The currently exported metadata returns
-`NOT LICENSED`: resolution is not reported, case diagnosis/site are missing,
+`NOT LICENSED`: resolution is not established, case diagnosis/site are missing,
 and no endpoint is pre-specified. Candidate molecular access is `Synapse`; the
 metadata-only authenticated check has now resolved all 18 candidate entities,
 but it does not establish VCF-content download. Its versioned output can clear
-only the pending metadata-access reason in the main gate.
+only the pending metadata-access reason in the main gate. The one-image CRDC
+pilot is deliberately not a gate-wide resolution result. The r7 imaging
+dimensions conflict with that image's native TIFF header, so r7 is used for its
+crosswalk only; bounded native-header reads across all 18 objects are the next
+metadata-only check.
 `src/reference/jobs/he_molecular_synapse_access.py` performs that check.
 Neither job selects an endpoint or licenses image download.
 
