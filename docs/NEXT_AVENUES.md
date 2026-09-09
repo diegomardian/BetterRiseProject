@@ -712,15 +712,25 @@ more than one acquisition site exists. Failure of the crosswalk, prevalence, or
 split requirement ends the avenue as **NO SUBSTRATE**, rather than replacing
 the molecular endpoint with a morphology-derived diagnosis.
 
-**3 · AD versus SSL — a DATA HUNT, not a pre-registrable analysis.**
-**No transcriptomic substrate exists in hand.** The ICBI atlas carries `polyp`
-with no subtype, from two studies only; Crowell is **entirely TVA**. The sole
-AD/SSL source is A2's pixel inventory — `config/a2_mxif_regions.csv`, 7 AD and 8
-SSL patients, of which **only 8 have a labelled normal/tumour pair: 3 AD against
-5 SSL** — and item 2 rules that product out for biological claims. At 3 patients
-the AD arm sits exactly on `MIN_STUDIES` and 8.07× avenue A's width.
-**Requirement: a cohort with paired reference, both lesion types, subtype
-metadata, and a patient-level n that is not 3.**
+**3 · AD versus SSL — WES provenance/callability gate in progress, not yet an
+analysis.** The ICBI atlas carries `polyp` with no subtype and Crowell is
+**entirely TVA**; A2's public pixel inventory remains too small and cannot make
+a biological claim. However, the Chen collection may carry a modality-orthogonal
+FFPE WES label for a subset of avenue A's 44 lineage patients. This is not yet
+a usable AD/SSL substrate: participants can have multiple scRNA polyp sample
+IDs, while VCF IDs span more than one naming family. Participant overlap and
+identifier suffixes therefore do not prove the same lesion.
+
+The sole live route is [`docs/wes_subtype_plan.md`](wes_subtype_plan.md): an
+outcome-blind `id_provenance` chain must establish exact equality between a
+specific polyp scRNA biospecimen and a VCF's documented assayed/originating
+biospecimen. Only then may authenticated VCF-content access and header
+capability be checked. The candidate arms are positive-only, molecular-signature
+labels (`BRAF` V600E-positive versus truncating-`APC`-positive), not all AD
+versus all SSL; dual, neither, and uncallable lesions remain visibly
+unclassified. A precommitted arm-size/precision rule is required before any
+variant record or transcriptomic subgroup outcome is read. Failure at either
+gate closes **NO SUBSTRATE AT THIS RESOLUTION**.
 
 **4 · Lesion-level Wnt — feasibility-gated, and the gate is partly answered.**
 D1 was within-patient and explicitly conceded between-lesion variation. The
