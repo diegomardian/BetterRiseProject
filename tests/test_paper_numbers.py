@@ -231,3 +231,136 @@ def test_the_conclusion_counts_the_statistics_it_lists(tex):
     assert sentence.count(";") == 3, (
         f"{sentence.count(';') + 1} statistics listed against a claimed four"
     )
+
+
+# ---------------------------------------------------------------------------
+# The denser cutpoint grid (sec:calibration) and the ratio collapse (sec:bench).
+#
+# Added with the two paragraphs they check. Both paragraphs quote numbers that
+# were previously carried only by prose in docs/, which is the failure mode
+# HANDOFF.md's ledger records twice: a number in a document with nothing tying
+# it to a table. These fixtures re-derive every one of them.
+
+
+@pytest.fixture(scope="module")
+def calibration_tex() -> str:
+    return (SECTIONS / "calibration.tex").read_text()
+
+
+@pytest.fixture(scope="module")
+def bench_tex() -> str:
+    return (SECTIONS / "bench.tex").read_text()
+
+
+def _cutpoints(cohort: str) -> pd.DataFrame:
+    """Committed, extended and dense grids for one cohort, in one frame."""
+    suffix = "" if cohort == "smc" else f"_{cohort}"
+    coarse = pd.read_parquet(_newest(f"calibration_gap_cutpoints{suffix}_r500"))
+    dense = pd.read_parquet(_newest(f"cutpoint_dense_grid_cutpoints_{cohort}_r200"))
+    return pd.concat([coarse, dense], ignore_index=True)
+
+
+def test_the_dense_grid_returns_the_ok_cutpoint_quoted(calibration_tex):
+    """``$ok = 70$ on eight of eight seeds`` on the reference pool."""
+    dense = _cutpoints("smc")
+    ref = dense[(dense["grid"] == "dense") & (dense["pool"] == "reference")]
+    _quotes(calibration_tex, "returns $ok = 70$ on eight of\neight seeds")
+    assert len(ref) == 8
+    assert sorted(ref["ok"].unique()) == [70.0]
+
+
+def test_wide_has_zero_seed_variance_within_every_grid(calibration_tex):
+    """The load-bearing claim: one value per grid, on all eight seeds.
+
+    Six cohort-by-grid cells. If any cell ever carries two values the
+    paragraph's central sentence is false, and this is what says so.
+    """
+    _quotes(
+        calibration_tex,
+        r"\textbf{Within any one grid the seed-to-seed variance of $wide$ is exactly",
+    )
+    # ...and the six values themselves. Asserting the table without quoting
+    # the prose list leaves the list free to drift -- this file's own
+    # failure mode, caught here by mutation rather than by review.
+    _quotes(
+        calibration_tex,
+        "($40$, $45$, $42$ here; $100$, $65$, $70$ on the second cohort)",
+    )
+    cells = {}
+    for cohort in ("smc", "kul3"):
+        frame = _cutpoints(cohort)
+        ref = frame[frame["pool"] == "reference"]
+        for grid, block in ref.groupby("grid"):
+            values = sorted(block["wide"].dropna().unique())
+            assert len(block) == 8, (cohort, grid, len(block))
+            assert len(values) == 1, f"{cohort}/{grid} carries {values}"
+            cells[(cohort, grid)] = values[0]
+    assert len(cells) == 6
+    assert [cells[("smc", g)] for g in ("committed", "extended", "dense")] == [
+        40.0,
+        45.0,
+        42.0,
+    ]
+    assert [cells[("kul3", g)] for g in ("committed", "extended", "dense")] == [
+        100.0,
+        65.0,
+        70.0,
+    ]
+
+
+def test_the_pooled_draw_returns_nothing_on_the_dense_grid(calibration_tex):
+    """``topping out at $0.750$ and\n$0.795$`` against the 0.80 target."""
+    _quotes(calibration_tex, "discrimination topping out at $0.750$ and\n$0.795$")
+    maxima = []
+    for cohort in ("smc", "kul3"):
+        frame = _cutpoints(cohort)
+        pooled = frame[(frame["grid"] == "dense") & (frame["pool"] == "pooled")]
+        assert len(pooled) == 8
+        assert not pooled["returned_a_cutpoint"].any()
+        maxima.append(round(pooled["max_discrimination"].max(), 3))
+    assert maxima == [0.750, 0.795]
+
+
+def _ratio_terms(frame: pd.DataFrame, rung: str, normal: str, tumour: str):
+    """``-f_N/df`` and each gene's ``m_T/m_N`` at one resolution."""
+    block = frame[frame["granularity_rung"] == rung]
+    f_n = block["frac_mature_normal"].mean()
+    f_t = block["frac_mature_tumour"].mean()
+    limit = f_n / (f_t - f_n)
+    means = block.groupby("gene")[[normal, tumour]].mean()
+    survived = means[tumour] / means[normal]
+    return limit, survived
+
+
+def test_the_carcinoma_ratio_collapses_onto_the_limit_quoted(bench_tex):
+    """``$6.94$``, and six genes inside a ``$1.07$-fold`` spread."""
+    frame = pd.read_parquet(_newest("decomposition_summary_matched"))
+    limit, survived = _ratio_terms(
+        frame, "lineage", "mean_normal", "mean_tumour"
+    )
+    _quotes(bench_tex, "that limit is $6.94$")
+    _quotes(bench_tex, "$m_T/m_N$ from $0.045$ to $0.109$")
+    _quotes(bench_tex, r"return ratios from $6.19$ to $6.63$, a spread of $1.07$-fold")
+    assert round(-limit, 2) == 6.94
+
+    nearest = survived.nsmallest(6)
+    assert (round(nearest.min(), 3), round(nearest.max(), 3)) == (0.045, 0.109)
+    ratios = limit * (nearest - 1.0)
+    assert (round(ratios.min(), 2), round(ratios.max(), 2)) == (6.19, 6.63)
+    assert round(ratios.max() / ratios.min(), 2) == 1.07
+
+
+def test_the_adenoma_ratio_does_not_collapse(bench_tex):
+    """The negative control: ``$0.27$ to\n$3.13$``, an ``$11.5$-fold`` spread."""
+    frame = pd.read_parquet(_newest("icbi_adenoma"))
+    limit, survived = _ratio_terms(
+        frame, "lineage", "cp10k_normal", "cp10k_tumour"
+    )
+    _quotes(bench_tex, "the minimum\n$m_T/m_N$ is $0.374$")
+    _quotes(bench_tex, "the identical computation returns $0.27$ to\n$3.13$")
+    _quotes(bench_tex, r"an $11.5$-fold spread where carcinoma gave $1.07$")
+    assert round(survived.min(), 3) == 0.374
+
+    ratios = limit * (survived - 1.0)
+    assert (round(ratios.min(), 2), round(ratios.max(), 2)) == (0.27, 3.13)
+    assert round(ratios.max() / ratios.min(), 1) == 11.5
