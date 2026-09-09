@@ -30,9 +30,28 @@ from typing import Any
 import pandas as pd
 
 from src.common.io import write_versioned_table
+from src.common.label_provenance import (
+    Measurement,
+    check_no_circular_claim,
+    provenance_meta,
+)
 from src.common.provenance import DEFAULT_SEED
 from src.reference.a2_synapse import login_synapse
 from src.reference.he_molecular_gate import build_inventory, candidate_synapse_entities
+
+# Invariant 11: declared before anything is read. This job defines its
+# population from sample annotation and claims nothing about a
+# transcript programme, but "unstated" is not "none".
+LABEL_PROVENANCE = Measurement(
+    modality="sample_annotation",
+    assay="HTAN HTA11 clinical case and biospecimen metadata",
+    genes=(),
+)
+CLAIM_PROVENANCE = Measurement(
+    modality="genotype",
+    assay="Synapse entity metadata for HTA11 Level-3 VCF files",
+    genes=(),
+)
 
 
 def _read(path: Path, *, name: str) -> pd.DataFrame:
@@ -90,6 +109,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args(argv)
 
+    # Invariant 11: refuse before the first read, not at the writer.
+    check_no_circular_claim(labels=LABEL_PROVENANCE, claim=CLAIM_PROVENANCE)
+
     attrition, _ = build_inventory(
         _read(args.files, name="Files"),
         _read(args.biospecimens, name="Biospecimen"),
@@ -114,6 +136,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         results_dir=args.results_dir,
         allow_dirty=args.allow_dirty,
         extra_meta={
+            **provenance_meta(LABEL_PROVENANCE, CLAIM_PROVENANCE),
             "prereg": "docs/he_molecular_data_gate.md",
             "probe": "Synapse.get(downloadFile=False)",
             "vcf_content_downloaded": False,

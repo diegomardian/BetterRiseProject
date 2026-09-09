@@ -22,6 +22,11 @@ from urllib.request import Request, urlopen
 import pandas as pd
 
 from src.common.io import write_versioned_table
+from src.common.label_provenance import (
+    Measurement,
+    check_no_circular_claim,
+    provenance_meta,
+)
 from src.common.provenance import DEFAULT_SEED
 from src.reference.he_crdc import (
     read_exact_he_crosswalk,
@@ -29,6 +34,20 @@ from src.reference.he_crdc import (
     single_object_id,
 )
 from src.reference.he_tiff_header import parse_tiff_header_ranges
+
+# Invariant 11: declared before anything is read. This job defines its
+# population from sample annotation and claims nothing about a
+# transcript programme, but "unstated" is not "none".
+LABEL_PROVENANCE = Measurement(
+    modality="sample_annotation",
+    assay="HTAN HTA11 exact H&E-to-VCF biospecimen crosswalk",
+    genes=(),
+)
+CLAIM_PROVENANCE = Measurement(
+    modality="morphology",
+    assay="native TIFF header fields of the deposited H&E object",
+    genes=(),
+)
 
 CRDC_ENDPOINT = "https://nci-crdc.datacommons.io"
 HEADER_BYTES = 65_536
@@ -97,6 +116,12 @@ def probe_object(*, object_id: str, biospecimen_id: str, credentials: Path) -> p
                     "pixel_width": pd.NA,
                     "pixel_height": pd.NA,
                     "resolution_unit": "",
+                    "x_resolution_numerator": pd.NA,
+                    "x_resolution_denominator": pd.NA,
+                    "y_resolution_numerator": pd.NA,
+                    "y_resolution_denominator": pd.NA,
+                    "resolution_status": "unresolved",
+                    "resolution_not_measured_reason": "TIFF header could not be parsed",
                     "x_microns_per_pixel": pd.NA,
                     "y_microns_per_pixel": pd.NA,
                 }
@@ -142,6 +167,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args(argv)
 
+    # Invariant 11: refuse before the first read, not at the writer.
+    check_no_circular_claim(labels=LABEL_PROVENANCE, claim=CLAIM_PROVENANCE)
+
     if args.manifest:
         if not args.biospecimen_id:
             parser.error("--biospecimen-id is required with --manifest")
@@ -169,6 +197,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         results_dir=args.results_dir,
         allow_dirty=args.allow_dirty,
         extra_meta={
+            **provenance_meta(LABEL_PROVENANCE, CLAIM_PROVENANCE),
             "prereg": "docs/he_molecular_data_gate.md",
             "header_byte_budget_per_entity": HEADER_BYTES,
             "full_image_downloaded": False,

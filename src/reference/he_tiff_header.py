@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import struct
 from collections.abc import Callable, Mapping
+from typing import Final
 
 
 class TiffHeaderError(ValueError):
@@ -30,6 +31,44 @@ _Y_RESOLUTION = 283
 _RESOLUTION_UNIT = 296
 _REQUIRED_TAGS = {_PIXEL_WIDTH, _PIXEL_HEIGHT, _X_RESOLUTION, _Y_RESOLUTION, _RESOLUTION_UNIT}
 _MAX_DIRECTORY_BYTES = 65_536
+
+#: Physical sampling a slide scanner can actually produce, in microns per pixel.
+#: Whole-slide scanners run about 0.25 at 40x and 0.5 at 20x; the coarsest
+#: downsampled pyramid level anyone calls an image is still far below this.
+MAX_PLAUSIBLE_MICRONS_PER_PIXEL: Final[float] = 10.0
+
+#: Resolutions a TIFF writer emits when it records no physical sampling at all.
+#: 72 and 96 dots per inch are screen defaults and 1/1 is an unset ratio; none
+#: of them is a statement about the specimen.
+WRITER_DEFAULT_RESOLUTIONS: Final[frozenset[tuple[float, int]]] = frozenset(
+    {(1.0, 2), (72.0, 2), (96.0, 2), (1.0, 3)}
+)
+
+
+def classify_resolution(
+    resolution_per_unit: float, unit: int, microns_per_pixel: float
+) -> tuple[str, str]:
+    """Whether a header's physical resolution is a measurement at all.
+
+    A TIFF always carries the tags; it does not always carry a *fact*. A writer
+    with nothing to record emits its default and the tag reads as though the
+    specimen had been measured. Reporting that number as microns per pixel is
+    the same error as writing ``0.0`` for an unestimable term, so the caller
+    gets ``None`` for the scale and the reason here.
+    """
+    if (float(resolution_per_unit), int(unit)) in WRITER_DEFAULT_RESOLUTIONS:
+        return "writer_default", (
+            f"{resolution_per_unit:g} per {'inch' if unit == 2 else 'centimeter'} "
+            "is a TIFF writer default, not a measurement of the specimen"
+        )
+    if not microns_per_pixel > 0.0:
+        return "not_positive", "physical resolution resolves to a non-positive scale"
+    if microns_per_pixel > MAX_PLAUSIBLE_MICRONS_PER_PIXEL:
+        return "implausible", (
+            f"{microns_per_pixel:.4g} microns per pixel exceeds the "
+            f"{MAX_PLAUSIBLE_MICRONS_PER_PIXEL:g} scanner plausibility bound"
+        )
+    return "measured", ""
 
 
 def _decode_value(
@@ -158,14 +197,26 @@ def parse_tiff_header_ranges(
     microns_per_unit = {2: 25_400.0, 3: 10_000.0}.get(unit)
     if microns_per_unit is None:
         raise TiffHeaderError(f"TIFF resolution unit {unit} cannot be converted to microns")
+    x_microns = microns_per_unit * x_den / x_num
+    y_microns = microns_per_unit * y_den / y_num
+    status, reason = classify_resolution(x_num / x_den, unit, x_microns)
+    measured = status == "measured"
     return (
         {
             "tiff_kind": kind,
             "pixel_width": int(tags[_PIXEL_WIDTH]),
             "pixel_height": int(tags[_PIXEL_HEIGHT]),
             "resolution_unit": {2: "inch", 3: "centimeter"}[unit],
-            "x_microns_per_pixel": microns_per_unit * x_den / x_num,
-            "y_microns_per_pixel": microns_per_unit * y_den / y_num,
+            # Raw tags are always reported so the classification stays auditable.
+            "x_resolution_numerator": int(x_num),
+            "x_resolution_denominator": int(x_den),
+            "y_resolution_numerator": int(y_num),
+            "y_resolution_denominator": int(y_den),
+            "resolution_status": status,
+            "resolution_not_measured_reason": reason,
+            # An unmeasured scale is None, never the writer's default number.
+            "x_microns_per_pixel": x_microns if measured else None,
+            "y_microns_per_pixel": y_microns if measured else None,
         },
         requested,
     )

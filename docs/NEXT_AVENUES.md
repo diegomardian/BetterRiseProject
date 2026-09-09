@@ -877,6 +877,15 @@ resolvability result, not permission to select a floor or claim that controls
 hold. The result sidecar is clean (`git_dirty: false`) and pins both code
 implementation history and the 200,000-draw null simulation.
 
+**Outstanding process debt, recorded 2026-09-08.** `src/harness/` is W2-owned
+and CONTRIBUTING §2-3 route every change to it through a PR; §6k of
+`docs/HANDOFF.md` named the requirement specifically — "a W2 PR with two
+approvals". `db487f0`, `b0ef250` and `32ef54d` landed directly on
+`submission/competitor-bench` with neither. **The code is verified and the
+numbers reproduce; what is missing is the review, and it is still owed.** This
+paragraph exists because the completion note that replaced the plan dropped the
+requirement rather than discharging it.
+
 **Item 4 · Lesion-level Wnt — CLOSED 2026-09-08.** The outcome-blind detection
 gate ran on the four paired Becker donors and returned **NO SUBSTRATE AT THIS
 snRNA RESOLUTION**: NOTUM and TCF7 failed one or both pre-specified floors in
@@ -907,3 +916,45 @@ any result above.
 **Unchanged by this plan:** 2b's four gate conditions and its NO SUBSTRATE exit;
 AD-versus-SSL as a data hunt with no substrate in hand; and the closures of
 Crowell, D2 and carcinoma.
+
+### ML amendment, 2026-09-08 — engineering branch, separate from the biology
+
+The HTA11 H&E molecular-prediction gate remains closed. Public polyp morphology
+labels cannot replace its specimen-exact, independently assayed molecular
+endpoint. They can, however, support a separate engineering benchmark with an
+explicit abstention rule. The priority is now the MHIST agreement-aware
+abstention feasibility gate, followed by UniToPatho only if its patient-contained
+grouping and download inventory hold. A survey of published abstention practice
+is a protocolled companion, not a claim that the field never abstains before a
+denominator is measured. The full decision, limits, and ordered gates are in
+`docs/ml_abstention_roadmap.md`.
+
+**Two corrections to the H&E header audit, 2026-09-08.** The 12 parsed rows in
+`results/2026-09-08_3cc8f73/` all reported *exactly* 352.777778 microns per
+pixel, which is 25400/72 — a TIFF writer's 72-dpi default, not a measurement.
+Taken literally it implies slides 2.95 to 14.45 metres wide. `he_tiff_header.py`
+now classifies a writer default or an implausible scale and returns **`None`**
+for the scale rather than the placeholder, on invariant 1's reasoning. **The
+committed CRDC table predates that classifier**; its `x_microns_per_pixel`
+column must be read as unresolved, not as 352.78, until the job is re-run.
+Separately, the deposit's own imaging metadata records `PhysicalSizeX` 0.25 µm
+at 40x for all 18 crosswalk biospecimens, so the images are plausibly
+full-resolution and the header simply never carried the fact. **That evidence
+has not been wired into the gate and `image_resolution_metadata_available`
+remains `False`** — promoting it is a gate decision, not a defect fix.
+
+The three HTAN H&E result tables also predate their jobs' invariant 11
+declarations, which were added 2026-09-08. The jobs now declare and guard; the
+committed sidecars do not carry the declaration and are regenerated on the next
+run against the source TSVs, which are not currently on disk.
+
+The proposed Release-7 HTAN early-lesion cohort is **provisionally set aside**
+as an independent replication source, and the qualifier is the point: the
+55-of-55 overlap with cached Chen is **an unbacked number**. There is no
+versioned artifact under `results/` — no parquet, no sidecar, no git sha, no
+seed — because the participant export the audit needs is not on disk, and
+invariant 10 does not make an exception for a result that closes an avenue
+rather than opening one. `src/reference/jobs/release7_early_lesion_identity.py`
+is committed and tested; **running it against the real export is what converts
+this from an assertion into a closure.** Until then it does not license a
+Release-7 H5AD read and it does not license the closure either.

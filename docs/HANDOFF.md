@@ -962,6 +962,44 @@ is a property of the data, not of the weighting`, which is backwards.
   Its verdict is **FLOOR-UNSTABLE, AND THE FLOORS DISAGREE**. Report each
   `verdict_cause`, never the shared `UNRESOLVED` label.
 
+## 6m. Audit of the 2026-09-08 additions — four defects, all recorded
+
+Reviewed the 24 commits after `91dec36` plus the uncommitted ML branch. Plan 1,
+item 4's Wnt gate, the 2b H&E gate and the Zheng gradient all reproduce: every
+number quoted in the docs matches its parquet, all ten new sidecars are
+`git_dirty: false` with pinned seeds, and item 4's gate refuses a reduced
+signature rather than dropping the two undetected genes. Four things were wrong.
+
+**1 · The harness change skipped its own review.** Fixed only in the sense that
+the debt is now written down — see the Plan 1 note in `NEXT_AVENUES`. The review
+is still owed.
+
+**2 · Invariant 11 was declared by three of seven new jobs.** `he_molecular_gate`,
+`he_molecular_synapse_access`, `he_molecular_crdc_header` and `mhist_feasibility`
+now declare, call the guard before the first read, and write the declaration to
+the sidecar. `tests/test_invariant_11_declarations.py` is the forcing input.
+**The committed H&E artifacts predate this** and carry no declaration.
+
+**The wider gap is real and is not fixed: 41 of 50 reference jobs still do not
+declare.** The invariant merged 2026-09-07 and everything older predates it.
+Retrofitting is a separate piece of work; the test above enumerates the jobs
+that are held to it, which is why adding a job to that list is the enforcement
+mechanism.
+
+**3 · A TIFF writer default was recorded as a measurement.** All 12 parsed
+headers read exactly 352.777778 microns per pixel = 25400/72, implying slides
+metres across. `he_tiff_header.py` now returns `None` for a scale it cannot
+establish and records `resolution_status` with the reason — invariant 1 applied
+one layer out. It was latent, never active: `image_resolution_metadata_available`
+is hard-coded `False`, so no gate consumed it. The deposit's imaging metadata
+gives the real figure, 0.25 µm at 40x across all 18 crosswalk biospecimens;
+that has deliberately **not** been wired into the gate.
+
+**4 · An avenue was closed on a number with no artifact.** The Release-7 55/55
+overlap has no versioned result and the export is not on disk. The avenue is
+now "provisionally set aside" rather than closed, and the job is committed so
+the number can be produced rather than asserted.
+
 ## 6l. Crowell WTx spatial — RAN 2026-09-07. COMPLETE, 7 of 7 blocks.
 
 `docs/prereg_crowell_feasibility.md` (+ Amendments 1–2),
