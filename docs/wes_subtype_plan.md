@@ -1,9 +1,10 @@
 # Chen WES molecular-subtype gate
 
-**Status: PROPOSED, OUTCOME-BLIND CROSSWALK IN PROGRESS.** This plan can
-produce a source/callability verdict. It does not license opening a VCF,
-assigning a molecular subtype, or recomputing the avenue-A transcript result
-until its later steps have been separately locked.
+**Status: STEP 1 COMPLETE; STEP 2 HEADER-CAPABILITY CHECK NEXT.** The committed
+crosswalk found 35 specimen-exact WES candidates across 29 of the fixed 44
+lineage patients. This plan can produce a source/callability verdict. It does
+not license assigning a molecular subtype or recomputing the avenue-A
+transcript result until its later steps have been separately locked.
 
 ## Question and boundary
 
@@ -91,11 +92,25 @@ whether the VCF **content** can be read; the earlier `Synapse.get(...,
 downloadFile=False)` result established entity-metadata readability only.
 
 A bounded header/schema inspection may read `##` header lines and `#CHROM` to
-record the reference genome, caller, FILTER/INFO/FORMAT declarations, sample
-columns, and whether the file is tumor-only or matched-normal. It must not read
-variant records. Its sole decision is whether the source has the fields needed
-for a pre-specified label. Missing fields end the route; they do not authorize
+record the reference genome, caller, FILTER/INFO/FORMAT declarations, and the
+number of sample columns. It cannot infer matched-normal status from that count
+or from an unrecorded sample name; that status remains explicitly unresolved
+until a later locked rule can establish it. It must not read variant records.
+Its sole decision is whether the source has the fields needed for a
+pre-specified label. Missing fields end the route; they do not authorize
 changing the label definition afterward.
+
+`src/reference/jobs/wes_subtype_vcf_header.py` implements this boundary. It
+requests at most 262,144 bytes from each exact-match entity via a Synapse
+byte-range request and closes the stream as soon as `#CHROM` is encountered.
+It refuses a storage response that ignores the range. Its versioned output is a
+technical schema artifact, not a variant call or an endpoint screen:
+
+```bash
+python -m pip install -e '.[a2]'
+synapse config
+python -m src.reference.jobs.wes_subtype_vcf_header --no-write
+```
 
 A variant-only VCF cannot prove a negative call at a site it does not list.
 Therefore the first analysis is positive-only unless a gVCF, coverage table, or
