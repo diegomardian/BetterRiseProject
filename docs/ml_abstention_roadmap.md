@@ -1,18 +1,21 @@
 # ML abstention roadmap
 
-**Written:** 2026-09-08 · **Status:** proposed engineering branch. This is
+**Written:** 2026-09-08 · **Updated:** 2026-09-09 · **Status:** MHIST has
+closed as a source for the 2b molecular-prediction estimand. Any later
+engineering-only image work requires a separately authorized dataset and remains
 separate from the adenoma mechanism result. It does not reopen the closed H&E
 molecular-prediction gate or turn a morphology-derived diagnosis into a
 biological endpoint.
 
 ## Decision
 
-Prioritize one small, public pathology benchmark: use a frozen pathology encoder
-to test whether a pre-committed selective-prediction rule abstains more often on
-images where pathologists disagreed. The empirical benchmark is the priority.
-A methods survey is an accompanying component, not a standalone result, because
-the current repository benchmark measures simulated estimability behaviour and
-does not establish what published pathology systems report.
+MHIST was initially evaluated as a small pathology benchmark for a frozen encoder
+and agreement-aware selective prediction. The completed inventory instead shows
+that it cannot support item 2b and its RUA leaves model-derived work unlicensed.
+It is now a recorded source exit, not an ML priority. A methods survey remains an
+optional companion only if separately protocolled; the current repository
+benchmark measures simulated estimability behaviour and does not establish what
+published pathology systems report.
 
 The core question is narrower than “does uncertainty help?”:
 
@@ -29,7 +32,7 @@ that boundary.
 
 | rank | source | verified strengths | constraint and role |
 |---:|---|---|---|
-| 1 | [MHIST](https://bmirds.github.io/MHIST/) | 3,152 H&E polyp images, HP-versus-SSA majority labels, and seven-pathologist vote information for every image | The delivered research-use agreement permits non-commercial research use but prohibits modification and derivative works. Written permission is required before embeddings, model fitting, or derived-model publication. The metadata also lacks patient/WSI identifiers, so any later permitted result is image-level only. |
+| closed | [MHIST](https://bmirds.github.io/MHIST/) | 3,152 H&E polyp images, HP-versus-SSA majority labels, and seven-pathologist vote information for every image | The inventory confirms 224x224 tiles, no patient/WSI or molecular key, and a diagnosis read from the classified tile. It fails every 2b condition and is NO SUBSTRATE for that estimand. Its RUA also leaves modeling/derived outputs pending written permission. |
 | 2 | [UniToPatho](https://github.com/EIDOSLAB/UNITOPATHO) | 9,536 H&E patches from 292 slides, six polyp/dysplasia classes, 0.4415 microns/pixel, and one slide per patient | Download access and supplied split/group fields need an inventory, but the source explicitly states one slide per patient. This is the first patient-contained engineering benchmark and external check after MHIST. It has no multi-pathologist agreement outcome. |
 | 3 | IMP-CRS2024 | Published work describes a large colorectal biopsy/polypectomy WSI collection with a held-out test set | Access terms, downloadable files, label definitions, and split provenance are not yet verified. Treat it as a data-access investigation, not an external test set in hand. |
 | excluded for this branch | NCT-CRC-HE-100K, TCGA COAD/READ, CRAG, DigestPath, LC25000 | useful colorectal pathology benchmarks | They do not supply the polyp ambiguity construct. They may later test engineering transport, but cannot substitute for MHIST or a polyp patient-level test. |
@@ -39,9 +42,9 @@ requires a research-use request before download. UniToPatho’s repository
 confirms both the six-class polyp task and the one-slide-per-patient structure.
 Neither fact licenses a biological claim.
 
-## WP-A — MHIST agreement-aware abstention benchmark
+## WP-A — MHIST agreement-aware abstention benchmark (closed before modeling)
 
-### Feasibility gate before a model
+### Completed source screen
 
 1. Obtain and record the MHIST research-use agreement. Keep the downloaded
    manifest, checksums, annotation schema, any supplied split, and license outside
@@ -58,10 +61,10 @@ Neither fact licenses a biological claim.
 3. Audit label and vote fields before choosing an analysis: each image needs a
    majority label and a valid seven-reader vote count. Missing or contradictory
    votes are retained in an attrition table, not silently imputed.
-4. Audit one exact frozen encoder release for research-use availability,
-   checkpoint hash, preprocessing, and hardware feasibility. Do not select the
-   encoder by test performance or replace an unavailable model after seeing
-   results.
+4. Stop. Conditions 1--3 establish only a matching tile/annotation inventory;
+   they do not repair the absence of full-resolution images, specimen-exact
+   molecular labels, or patient/slide grouping. No encoder was selected or
+   downloaded.
 
 ### Locked design after feasibility passes
 
@@ -138,19 +141,14 @@ to mark the superseded `he_molecular_image_headers.py` path as retired and to
 resolve the repository-wide pre-existing Ruff debt in a separate hygiene change;
 neither should delay WP-A’s data-access feasibility gate.
 
-## Immediate sequence
+## Current sequence
 
-1. Commit the Release-7 identity audit currently in the worktree and run it
-   cleanly to preserve the 55/55 overlap result.
-2. Obtain written MHIST permission specifically covering image embeddings,
-   frozen-encoder feature extraction, fitting an academic non-commercial model,
-   and publishing aggregate performance results without releasing images or
-   embeddings. Do not download a model or begin training until then.
-3. Once that permission is recorded, write and lock the WP-A feasibility
-   inventory and model specification before opening the image pixels.
-4. Execute WP-A. Only after its test artifact is complete, inventory UniToPatho
-   for WP-B.
-5. In parallel but not as a substitute, write the WP-C survey protocol.
+1. Preserve the Release-7 identity artifact and its closure in the repository.
+2. Watch the reviewer-token Grady spatial deposits (`GSE342139` Visium and
+   `GSE341852` Xenium) for public release. Before any analysis, verify the
+   custom-50 panel, target/control coverage, and patient/section crosswalk.
+3. Treat UniToPatho and the survey as optional engineering work only, not ways
+   to restore an ML project result or replace the molecular data gate.
 
 ## Source notes
 

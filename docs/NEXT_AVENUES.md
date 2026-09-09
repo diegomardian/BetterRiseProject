@@ -917,17 +917,45 @@ any result above.
 AD-versus-SSL as a data hunt with no substrate in hand; and the closures of
 Crowell, D2 and carcinoma.
 
-### ML amendment, 2026-09-08 — engineering branch, separate from the biology
+### ML amendment, 2026-09-08/09 — engineering branch, separate from the biology
 
 The HTA11 H&E molecular-prediction gate remains closed. Public polyp morphology
 labels cannot replace its specimen-exact, independently assayed molecular
-endpoint. They can, however, support a separate engineering benchmark with an
-explicit abstention rule. The priority is now the MHIST agreement-aware
-abstention feasibility gate, followed by UniToPatho only if its patient-contained
-grouping and download inventory hold. A survey of published abstention practice
-is a protocolled companion, not a claim that the field never abstains before a
-denominator is measured. The full decision, limits, and ordered gates are in
-`docs/ml_abstention_roadmap.md`.
+endpoint. They can support an explicitly scoped engineering benchmark, but never
+a biological project result.
+
+**MHIST source screen — CLOSED FOR ITEM 2b, 2026-09-09.** The durable
+metadata-only inventory is `results/2026-09-08_ccfa39c/mhist_feasibility.parquet`.
+Its 3,152 224x224 PNG tiles and four-field annotation CSV have neither
+full-resolution/WSI information, specimen-exact molecular data, a molecular
+endpoint, nor a patient/slide key. The supplied HP-versus-SSA majority label is
+read from the classified tile, so it is diagnostic-label imitation. MHIST
+therefore fails all four of item 2b's fixed conditions and is **NO SUBSTRATE FOR
+THE 2b MOLECULAR-PREDICTION ESTIMAND**. This does not close HTAN's distinct,
+still-gated H&E--VCF candidate route. The RUA also prohibits derivative works,
+so even a separate tile-level encoder sanity check remains license-pending until
+the publisher authorizes embeddings, model fitting, and publication of aggregate
+derived outputs.
+
+UniToPatho and the abstention survey remain optional engineering work, not
+project-result routes or priorities. The full source record and its limits are
+in `docs/ml_abstention_roadmap.md`.
+
+**Release-7 early-lesion source — CLOSED AS INDEPENDENT REPLICATION,
+2026-09-09.** The clean-tree source-identity audit is
+`results/2026-09-09_e019955/release7_early_lesion_identity.parquet`: all 55
+fixed Release-7 participants overlap the cached 106-participant Chen universe.
+Release-7 therefore contributes no independent replication; the earlier
+"provisionally set aside" wording below is superseded. This does not assert
+anything about its expression values or license a same-cohort reanalysis.
+
+**Grady spatial release watch — not an analysis.** `GSE342139` (Visium) and
+`GSE341852` (Xenium) are named as reviewer-token deposits whose custom-50-gene
+panel has not been publicly verified. Recheck only on public release. A Xenium
+analysis becomes a fresh data-gate question only if the released panel contains
+the pre-specified targets and controls, patient/section mapping is available,
+and its new analysis is pre-registered. Until then it is not a substrate, an
+ML task, or evidence that the current single-cohort cap can be lifted.
 
 **Two corrections to the H&E header audit, 2026-09-08.** The 12 parsed rows in
 `results/2026-09-08_3cc8f73/` all reported *exactly* 352.777778 microns per
@@ -948,13 +976,6 @@ declarations, which were added 2026-09-08. The jobs now declare and guard; the
 committed sidecars do not carry the declaration and are regenerated on the next
 run against the source TSVs, which are not currently on disk.
 
-The proposed Release-7 HTAN early-lesion cohort is **provisionally set aside**
-as an independent replication source, and the qualifier is the point: the
-55-of-55 overlap with cached Chen is **an unbacked number**. There is no
-versioned artifact under `results/` — no parquet, no sidecar, no git sha, no
-seed — because the participant export the audit needs is not on disk, and
-invariant 10 does not make an exception for a result that closes an avenue
-rather than opening one. `src/reference/jobs/release7_early_lesion_identity.py`
-is committed and tested; **running it against the real export is what converts
-this from an assertion into a closure.** Until then it does not license a
-Release-7 H5AD read and it does not license the closure either.
+The preceding Release-7 provisional status is superseded by the clean-tree
+2026-09-09 artifact named above. It remains neither an H5AD-read license nor a
+same-cohort reanalysis authorization.
