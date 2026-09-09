@@ -5,6 +5,13 @@ to establish whether the original Chen/HTAN release contains a MANDO-derived
 cell table or segmentation. It does not request a scientific result and does
 not authorize downloading raw images.
 
+**Authenticated result, 2026-09-09.** The metadata-only inventory was run with
+the configured account and returned HTTP 403 for `syn23520239`:
+`You lack READ access to the requested entity.` The job then stopped rather than
+inventing a partial inventory or treating the inaccessible entity as absent. No
+file content was downloaded and no result artifact was written. The account-only
+test is therefore complete; the access request below is now necessary.
+
 ## Access request text
 
 Submit through the Sage service desk linked from the [existing request for these
@@ -13,9 +20,10 @@ Replace the bracketed fields before sending:
 
 > **Subject:** Read-only metadata access request: COLON MAP MxIF / HTA11
 >
-> I am [name, institution, role] reusing the published COLON MAP / Chen et al.
-> HTAN data for an academic, non-commercial reproducibility analysis. Please
-> grant read access to `syn23564801`, `syn23630431`, and `syn23520239`.
+> I am [name, academic affiliation or independent-researcher status] reusing
+> the published COLON MAP / Chen et al. HTAN data for a non-commercial
+> reproducibility analysis. Please grant read access to `syn23564801`,
+> `syn23630431`, and `syn23520239`. My Synapse username is [username].
 >
 > My immediate use is metadata inventory only: I will enumerate entity names,
 > file types, and annotations to determine whether MANDO-derived cell-level
@@ -24,8 +32,9 @@ Replace the bracketed fields before sending:
 > only for the described same-cohort protein validation, with patient-level
 > aggregation and no attempt to infer a per-cell GUCA2A result from this panel.
 >
-> Please let me know if a data-use agreement, training, or additional protocol
-> information is required.
+> I authenticated successfully, but a metadata-only request returns HTTP 403 for
+> `syn23520239`. Please let me know whether a data-use agreement, training, or
+> other protocol information is required for read access.
 
 ## Once access is granted
 
@@ -35,7 +44,7 @@ On the cluster, in the W1 environment:
 cd "$BRP_PROJECT_ROOT/BetterRiseProject"
 conda activate brp-w1
 pip install -e '.[a2]'
-synapse config          # paste a personal access token when prompted
+synapse config          # paste a View-scope personal access token when prompted
 chmod 600 ~/.synapseConfig
 python -m src.reference.jobs.a2_synapse_inventory --no-write
 ```
@@ -52,12 +61,11 @@ made for.
 repository. Keep it there. Do not export the token into a shell environment you
 will leave running, and never place it anywhere under the working tree.
 
-**Try this before submitting the access request above.** The inventory in
-`docs/a2_mxif_inventory.md` records that *anonymous* read fails and that no
-login was ever attempted from this machine — which does not establish that the
-entities are access-gated. Many Synapse entities need only an authenticated
-account and accepted terms. If the authenticated inventory returns rows, no
-request is needed; if it returns 403, send the request that day.
+**The authenticated test is complete.** Anonymous refusal alone would not
+establish an access gate, but the configured account received HTTP 403 for one
+of the three root entities on 2026-09-09. Do not rerun the inventory until Sage
+confirms access has changed; it cannot produce an honest complete inventory in
+its current state.
 
 The last command produces a metadata-only inventory. Review candidate products
 for all four required properties before downloading anything:

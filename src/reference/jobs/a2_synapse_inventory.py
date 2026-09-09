@@ -2,7 +2,7 @@
 """Inventory Chen Synapse entities after access is granted; download no images.
 
     pip install -e '.[a2]'
-    synapse login --rememberMe
+    synapse config
     python -m src.reference.jobs.a2_synapse_inventory --no-write
 
 The first run is deliberately ``--no-write``: review the complete metadata

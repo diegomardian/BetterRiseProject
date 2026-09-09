@@ -648,9 +648,11 @@ per-cell silencing result (feasibility §7). Below-floor observations are bounds
 not effect-size points (Amendment 4). **Nothing here is open.**
 
 **2 · A2 / ML — contingent infrastructure only.** The public MxIF product is 42
-pixel NPZ regions with **no cell segmentation and no cell-by-marker table**; the
-three Synapse entities refuse anonymous read. **No biological analysis proceeds
-from it alone.** Crypt-position assignment needs independently annotated
+pixel NPZ regions with **no cell segmentation and no cell-by-marker table**. A
+configured Synapse account received HTTP 403 for root `syn23520239` on
+2026-09-09; the metadata-only job stopped rather than treating a partial tree as
+an absence. **No biological analysis proceeds from the public product alone.**
+Crypt-position assignment needs independently annotated
 anatomical ground truth, patient-held-out evaluation, and a
 morphology-or-geometry-derived label — and it still does not touch the per-cell
 false-negative problem (`docs/HANDOFF.md` §6g).
