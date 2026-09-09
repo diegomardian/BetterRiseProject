@@ -71,18 +71,12 @@ def _read_crosswalk(path: Path) -> pd.DataFrame:
     return candidates
 
 
-def _presigned_url(syn: object, entity_id: str) -> str:
-    """Get a signed download URL without invoking Synapse's full-download path."""
-    try:
-        from synapseclient.api.file_services import get_file_handle_for_download
-    except ImportError as exc:  # pragma: no cover - optional operational dependency
-        raise WESHeaderError(
-            "synapseclient is not installed; run `pip install -e '.[a2]'`"
-        ) from exc
+def _entity_bundle(syn: object, entity_id: str) -> dict[str, object]:
+    """Return the entity's authenticated metadata bundle, never its content."""
     # ``operations.get(..., download_file=False)`` intentionally omits the
     # handle.  Requesting the documented entity bundle preserves the handle ID
     # without invoking a full download or the deprecated ``Synapse.get`` API.
-    bundle = syn.restPOST(  # type: ignore[attr-defined]
+    return syn.restPOST(  # type: ignore[attr-defined]
         f"/entity/{entity_id}/bundle2",
         body=json.dumps(
             {
@@ -93,7 +87,30 @@ def _presigned_url(syn: object, entity_id: str) -> str:
             }
         ),
     )
-    entity = bundle.get("entity", {})
+
+
+def _download_eligibility(syn: object, entity_id: str) -> dict[str, object]:
+    """Expose account/requirement blocks before asking Synapse for a file URL."""
+    permissions = syn.restGET(f"/entity/{entity_id}/permissions")  # type: ignore[attr-defined]
+    restriction = _entity_bundle(syn, entity_id).get("restrictionInformation", {})
+    return {
+        "can_view": permissions.get("canView"),
+        "can_download": permissions.get("canDownload"),
+        "is_certified_user": permissions.get("isCertifiedUser"),
+        "is_certification_required": permissions.get("isCertificationRequired"),
+        "has_unmet_access_requirement": restriction.get("hasUnmetAccessRequirement"),
+    }
+
+
+def _presigned_url(syn: object, entity_id: str) -> str:
+    """Get a signed download URL without invoking Synapse's full-download path."""
+    try:
+        from synapseclient.api.file_services import get_file_handle_for_download
+    except ImportError as exc:  # pragma: no cover - optional operational dependency
+        raise WESHeaderError(
+            "synapseclient is not installed; run `pip install -e '.[a2]'`"
+        ) from exc
+    entity = _entity_bundle(syn, entity_id).get("entity", {})
     handle_id = entity.get("dataFileHandleId")
     if not handle_id:
         raise WESHeaderError(f"Synapse entity {entity_id} has no dataFileHandleId")
@@ -151,9 +168,23 @@ def probe_header(syn: object, row: pd.Series) -> dict[str, object]:
         "header_byte_budget": HEADER_BYTE_BUDGET,
     }
     try:
+        eligibility = _download_eligibility(syn, str(base["vcf_entity_id"]))
+        if eligibility["can_download"] is not True:
+            return {
+                **base,
+                **eligibility,
+                "header_status": "not_download_eligible",
+                "header_bytes_read": pd.NA,
+                "error": (
+                    "authenticated account cannot DOWNLOAD this entity; "
+                    "complete Synapse certification or any recorded access requirement"
+                ),
+                **_empty_header_fields(),
+            }
         lines, bytes_read = bounded_vcf_header(_presigned_url(syn, str(base["vcf_entity_id"])))
         return {
             **base,
+            **eligibility,
             "header_status": "parsed",
             "header_bytes_read": bytes_read,
             "error": "",
@@ -162,24 +193,36 @@ def probe_header(syn: object, row: pd.Series) -> dict[str, object]:
     except Exception as exc:  # pragma: no cover - depends on authenticated remote state
         return {
             **base,
+            "can_view": pd.NA,
+            "can_download": pd.NA,
+            "is_certified_user": pd.NA,
+            "is_certification_required": pd.NA,
+            "has_unmet_access_requirement": pd.NA,
             "header_status": "unresolved",
             "header_bytes_read": pd.NA,
             "error": str(exc),
-            "vcf_fileformat": "",
-            "reference_declarations": "",
-            "caller_declarations": "",
-            "filter_declaration_ids": "",
-            "info_declaration_ids": "",
-            "format_declaration_ids": "",
-            "n_sample_columns": pd.NA,
-            "sample_layout": "unresolved",
-            "matched_normal_status": "unresolved",
-            "has_dp_info": pd.NA,
-            "has_dp_format": pd.NA,
-            "has_ad_format": pd.NA,
-            "has_af_info": pd.NA,
-            "has_af_format": pd.NA,
+            **_empty_header_fields(),
         }
+
+
+def _empty_header_fields() -> dict[str, object]:
+    """Stable null schema for a source that was never technically readable."""
+    return {
+        "vcf_fileformat": "",
+        "reference_declarations": "",
+        "caller_declarations": "",
+        "filter_declaration_ids": "",
+        "info_declaration_ids": "",
+        "format_declaration_ids": "",
+        "n_sample_columns": pd.NA,
+        "sample_layout": "unresolved",
+        "matched_normal_status": "unresolved",
+        "has_dp_info": pd.NA,
+        "has_dp_format": pd.NA,
+        "has_ad_format": pd.NA,
+        "has_af_info": pd.NA,
+        "has_af_format": pd.NA,
+    }
 
 
 def probe_headers(syn: object, candidates: pd.DataFrame) -> pd.DataFrame:
@@ -189,6 +232,7 @@ def probe_headers(syn: object, candidates: pd.DataFrame) -> pd.DataFrame:
 
 def header_summary(result: pd.DataFrame) -> pd.DataFrame:
     parsed = result["header_status"].eq("parsed")
+    ineligible = result["header_status"].eq("not_download_eligible")
     layout_counts = result["sample_layout"].value_counts(sort=False).sort_index()
     return pd.DataFrame(
         [
@@ -197,6 +241,16 @@ def header_summary(result: pd.DataFrame) -> pd.DataFrame:
                 "n_unique_patients": result["patient_id"].nunique(),
                 "n_headers_parsed": int(parsed.sum()),
                 "n_headers_unresolved": int((~parsed).sum()),
+                "n_not_download_eligible": int(ineligible.sum()),
+                "n_with_unmet_access_requirement": int(
+                    result["has_unmet_access_requirement"].eq(True).sum()
+                ),
+                "n_certification_required_but_not_completed": int(
+                    (
+                        result["is_certification_required"].eq(True)
+                        & result["is_certified_user"].eq(False)
+                    ).sum()
+                ),
                 "n_with_dp_field": int(
                     (result.loc[parsed, "has_dp_info"].eq(True)
                     | result.loc[parsed, "has_dp_format"].eq(True)).sum()
@@ -209,14 +263,18 @@ def header_summary(result: pd.DataFrame) -> pd.DataFrame:
                 "sample_layout_rollup": " | ".join(
                     f"{layout}:{count}" for layout, count in layout_counts.items()
                 ),
-                "verdict": (
-                    "HEADER CAPABILITY OBSERVED — lock Step 3 before variant records"
-                    if bool(parsed.all())
-                    else "CONTENT ACCESS OR HEADER CAPABILITY UNRESOLVED — do not read variants"
-                ),
+                "verdict": _header_verdict(parsed=parsed, ineligible=ineligible),
             }
         ]
     )
+
+
+def _header_verdict(*, parsed: pd.Series, ineligible: pd.Series) -> str:
+    if bool(parsed.all()):
+        return "HEADER CAPABILITY OBSERVED — lock Step 3 before variant records"
+    if bool(ineligible.all()):
+        return "ACCOUNT NOT DOWNLOAD-ELIGIBLE — complete certification/access requirements"
+    return "CONTENT ACCESS OR HEADER CAPABILITY UNRESOLVED — do not read variants"
 
 
 def main(argv: Sequence[str] | None = None) -> int:

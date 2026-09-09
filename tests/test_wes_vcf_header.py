@@ -5,7 +5,12 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from src.reference.jobs.wes_subtype_vcf_header import _presigned_url, validate_specification
+from src.reference.jobs.wes_subtype_vcf_header import (
+    _download_eligibility,
+    _header_verdict,
+    _presigned_url,
+    validate_specification,
+)
 from src.reference.wes_vcf_header import WESHeaderError, exact_vcf_candidates, parse_vcf_header
 
 
@@ -41,6 +46,35 @@ def test_signed_url_lookup_uses_a_metadata_bundle_before_the_file_handle_service
         "synapseclient.api.file_services.get_file_handle_for_download", fake_handle
     )
     assert _presigned_url(FakeSynapse(), "syn1") == "https://example.test/ranged"
+
+
+def test_download_eligibility_separates_account_certification_from_file_requirements():
+    class FakeSynapse:
+        def restGET(self, uri):
+            assert uri == "/entity/syn1/permissions"
+            return {
+                "canView": True,
+                "canDownload": False,
+                "isCertifiedUser": False,
+                "isCertificationRequired": True,
+            }
+
+        def restPOST(self, uri, body):
+            return {"restrictionInformation": {"hasUnmetAccessRequirement": False}}
+
+    assert _download_eligibility(FakeSynapse(), "syn1") == {
+        "can_view": True,
+        "can_download": False,
+        "is_certified_user": False,
+        "is_certification_required": True,
+        "has_unmet_access_requirement": False,
+    }
+
+
+def test_all_download_ineligible_candidates_receive_a_specific_nonvariant_verdict():
+    assert _header_verdict(
+        parsed=pd.Series([False, False]), ineligible=pd.Series([True, True])
+    ).startswith("ACCOUNT NOT DOWNLOAD-ELIGIBLE")
 
 
 def test_exact_candidates_refuse_joined_or_ambiguous_entity_identifiers():
