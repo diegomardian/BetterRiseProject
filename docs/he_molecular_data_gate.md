@@ -152,6 +152,27 @@ The main gate refuses an artifact whose candidate entities differ from its own
 exact H&E–VCF crosswalk. Metadata readability is not treated as permission to
 download or open VCF content.
 
+### Native H&E header check
+
+`src/reference/jobs/he_molecular_image_headers.py` is the next bounded check.
+For each of the 18 exact premalignant H&E candidates, it obtains a signed URL
+for the already-open image entity and requests only bytes `0–65535`. It reports
+the first TIFF directory's pixel dimensions and microns-per-pixel if the needed
+tags occur in that prefix. It does not download a slide or assert that a native
+TIFF is the scanner's original full-resolution object.
+
+```bash
+python -m src.reference.jobs.he_molecular_image_headers \
+  --files /path/to/files.tsv \
+  --biospecimens /path/to/biospecimens.tsv \
+  --cases /path/to/cases.tsv \
+  --no-write
+```
+
+Only an explicit native-scale result plus provenance that the released Level-2
+object is the required full-resolution image can resolve condition 1. A missing
+or unparseable tag is retained as `unresolved`, never filled with a default.
+
 ## Sources consulted
 
 * HTAN's portal guide documents that Vanderbilt exposes H&E and Bulk DNA as
