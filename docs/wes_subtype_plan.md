@@ -55,6 +55,24 @@ No suffix rule, filename heuristic, or manual reconciliation can upgrade a
 row. If no specimen-exact WES arm remains, the route ends **NO SUBSTRATE AT
 THIS RESOLUTION**.
 
+### Required BigQuery export, before writing the crosswalk reader
+
+Do not guess the source field names. First run this read-only schema query in
+the user's BigQuery project and save the CSV result beside the other HTAN
+exports:
+
+```sql
+SELECT column_name, data_type, ordinal_position
+FROM `isb-cgc-bq.HTAN_versioned.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = 'id_provenance_r7'
+ORDER BY ordinal_position;
+```
+
+The next query will alias the real source fields to the normalized contract
+above and filter only HTAN Vanderbilt Level-3 VCF rows. It is intentionally not
+written until this schema is observed: an invented `assayed_biospecimen` field
+would make a superficially reproducible but invalid crosswalk.
+
 ## Step 2 — access and technical capability, not variant outcomes
 
 Only exact Step-1 rows may be access-probed. Authentication must establish
