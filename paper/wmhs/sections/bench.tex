@@ -75,6 +75,35 @@ answered the first one with a tool sized for the second. Conformal intervals are
 the right instrument for the \emph{wide} verdict, where the estimand exists and
 the interval is the whole question. We do not use them there yet.
 
+\paragraph{A real-data instance, and the negative control it comes with.}
+Everything above is synthetic. The same question --- what is this statistic a
+function of? --- has a closed-form answer on the estimand itself. Writing
+$\Delta f = f_T - f_N$, the ratio of Equation~\ref{eq:kitagawa}'s first two
+terms is
+\[
+\frac{\text{intrinsic}}{\text{compositional}}
+\;=\; \frac{f_N}{\Delta f}\left(\frac{m_T}{m_N} - 1\right),
+\]
+so as a group's surviving per-cell mean goes to zero the bracket tends to $-1$
+and the ratio tends to $-f_N/\Delta f$ --- a quantity with no group-specific
+term in it at all. Both terms are losses here, so the ratio is positive. On our carcinoma cohort at the \texttt{lineage} resolution
+that limit is $6.94$, and the six panel genes whose surviving mean is nearest
+zero --- $m_T/m_N$ from $0.045$ to $0.109$, a 2.4-fold range in their own
+inputs --- return ratios from $6.19$ to $6.63$, a spread of $1.07$-fold. The
+gene has cancelled, much as the estimator cancelled in \S\ref{sec:blind}, and
+what survives is a property of the composition.
+
+\textbf{The negative control is the same code on a different substrate.} On a
+pre-malignant cohort no gene's surviving mean is near zero (the minimum
+$m_T/m_N$ is $0.374$), and the identical computation returns $0.27$ to
+$3.13$: an $11.5$-fold spread where carcinoma gave $1.07$. The degeneracy is
+therefore a property of the substrate rather than of the estimator, and it is
+legible \emph{before} any estimate is quoted. It also answers the objection
+that abstention is trivially achievable by abstaining always --- on real data
+this pipeline declined where the estimand degenerates and separated the genes
+where it does not. We draw no biological conclusion from either cohort
+(\S\ref{sec:responsible}); the claim here is about identifiability.
+
 \paragraph{Where this leaves the rule.} Two independent routes now say the same
 thing about the count cutpoint, and neither says what we expected. The benchmark
 says its extra refusals buy nothing a finiteness check does not already buy;
