@@ -1,0 +1,55 @@
+{
+  "date": "2026-09-08",
+  "utc_timestamp": "2026-09-09T03:23:35+00:00",
+  "git_sha": "ccfa39c39e9d17a963ee3dba1d8ac100de855af9",
+  "git_sha_short": "ccfa39c",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "notes": "WP-A metadata-only data gate; no pixels decoded and no model selected",
+  "name": "mhist_feasibility",
+  "n_rows": 4,
+  "columns": [
+    "Partition",
+    "Majority Vote Label",
+    "n_images",
+    "min_ssa_votes",
+    "max_ssa_votes",
+    "evaluation_unit",
+    "patient_or_slide_group_key",
+    "patient_held_out_licensed"
+  ],
+  "table_kind": "harness",
+  "invariant_11": "no transcript-derived label may claim its own programme",
+  "label_provenance": {
+    "modality": "morphology",
+    "assay": "MHIST seven-pathologist H&E majority-vote diagnosis",
+    "genes": "",
+    "derived_from": ""
+  },
+  "claim_provenance": {
+    "modality": "morphology",
+    "assay": "MHIST delivered annotation and image-inventory fields",
+    "genes": "",
+    "derived_from": ""
+  },
+  "overlapping_genes": "",
+  "independent_endpoint": null,
+  "roadmap": "docs/ml_abstention_roadmap.md",
+  "archive_md5": "486973abb3cf7985df2034701d81e9c1",
+  "n_images": 3152,
+  "declared_partitions": [
+    "test",
+    "train"
+  ],
+  "has_patient_or_slide_group_key": false,
+  "evaluation_unit": "image",
+  "patient_held_out_licensed": false,
+  "modeling_license_status": "pending_written_permission",
+  "modeling_license_reason": "delivered RUA permits non-commercial research use but prohibits modification and derivative works"
+}
