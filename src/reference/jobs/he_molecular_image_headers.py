@@ -66,6 +66,7 @@ def probe_headers(syn: Any, candidates: pd.DataFrame) -> pd.DataFrame:
     """Return per-image header facts; one unparseable entity remains explicit."""
     try:
         from synapseclient.api.file_services import get_file_handle_for_download
+        from synapseclient.operations import FileOptions, get
     except ImportError as exc:  # pragma: no cover - depends on the optional extra
         raise RuntimeError("synapseclient is not installed; run `pip install -e '.[a2]'`") from exc
 
@@ -73,9 +74,12 @@ def probe_headers(syn: Any, candidates: pd.DataFrame) -> pd.DataFrame:
     for candidate in candidates.itertuples(index=False):
         base = candidate._asdict()
         try:
-            entity = syn.get(candidate.entity_id, downloadFile=False)
-            properties = getattr(entity, "properties", {}) or {}
-            file_handle_id = properties.get("dataFileHandleId")
+            entity = get(
+                synapse_id=candidate.entity_id,
+                file_options=FileOptions(download_file=False),
+                synapse_client=syn,
+            )
+            file_handle_id = getattr(entity, "data_file_handle_id", None)
             if not file_handle_id:
                 raise TiffHeaderError("Synapse file entity has no dataFileHandleId")
             download = get_file_handle_for_download(
