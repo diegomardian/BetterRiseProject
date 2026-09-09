@@ -123,6 +123,25 @@ def test_molecular_access_pending_is_derived_from_candidate_access():
     assert "Synapse access pending" not in summary.loc[0, "verdict"]
 
 
+def test_authenticated_access_artifact_clears_only_the_synapse_pending_reason():
+    access = pd.DataFrame(
+        [{"biospecimen_id": "B-A", "entity_id": "syn-A.vcf", "metadata_status": "readable"}]
+    )
+    _, summary = build_inventory(_files(), _biospecimens(), _cases(), access)
+    assert summary.loc[0, "molecular_synapse_metadata_status"] == "all_readable"
+    assert not summary.loc[0, "molecular_access_pending_determination"]
+    assert "Synapse access pending" not in summary.loc[0, "verdict"]
+    assert "image resolution not verified" in summary.loc[0, "verdict"]
+
+
+def test_access_artifact_must_cover_exactly_the_current_candidate_entities():
+    access = pd.DataFrame(
+        [{"biospecimen_id": "B-A", "entity_id": "syn-wrong", "metadata_status": "readable"}]
+    )
+    with pytest.raises(HEMolecularGateError, match="does not cover exactly"):
+        build_inventory(_files(), _biospecimens(), _cases(), access)
+
+
 def test_synapse_probe_uses_only_exact_premalignant_candidate_ids():
     attrition, _ = build_inventory(_files(), _biospecimens(), _cases())
     entities = candidate_entities(attrition)

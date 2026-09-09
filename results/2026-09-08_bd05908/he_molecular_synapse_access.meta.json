@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-08",
+  "utc_timestamp": "2026-09-08T23:56:37+00:00",
+  "git_sha": "bd05908560be56f5877cf91c082bb73d598c7d5c",
+  "git_sha_short": "bd05908",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "he_molecular_synapse_access",
+  "n_rows": 18,
+  "columns": [
+    "biospecimen_id",
+    "participant_id",
+    "entity_id",
+    "metadata_status",
+    "entity_name",
+    "entity_type",
+    "error"
+  ],
+  "table_kind": "harness",
+  "prereg": "docs/he_molecular_data_gate.md",
+  "probe": "Synapse.get(downloadFile=False)",
+  "vcf_content_downloaded": false,
+  "endpoint_selected": false,
+  "all_candidate_metadata_readable": true
+}

@@ -47,6 +47,7 @@ CASES_REQUIRED = frozenset(
         "Site of Resection or Biopsy",
     }
 )
+SYNAPSE_ACCESS_REQUIRED = frozenset({"biospecimen_id", "entity_id", "metadata_status"})
 
 
 class HEMolecularGateError(ValueError):
@@ -72,10 +73,60 @@ def _unique_index(frame: pd.DataFrame, *, column: str, name: str) -> pd.DataFram
     return frame.set_index(column, drop=False)
 
 
+def candidate_synapse_entities(attrition: pd.DataFrame) -> pd.DataFrame:
+    """Return the exact VCF entities whose access status is relevant to the gate."""
+    candidate = attrition[attrition["has_exact_level3_vcf"] & attrition["candidate_premalignant"]]
+    rows: list[dict[str, str]] = []
+    for row in candidate.itertuples(index=False):
+        entity_ids = [
+            entity_id.strip()
+            for entity_id in str(row.molecular_synapse_ids).split(" | ")
+            if entity_id.strip()
+        ]
+        if not entity_ids:
+            raise HEMolecularGateError(
+                f"{row.biospecimen_id} passed the VCF join without a Synapse ID"
+            )
+        rows.extend(
+            {"biospecimen_id": str(row.biospecimen_id), "entity_id": entity_id}
+            for entity_id in entity_ids
+        )
+    expected = pd.DataFrame(rows)
+    if expected.empty:
+        raise HEMolecularGateError("no exact premalignant H&E–VCF candidate entities")
+    if expected.duplicated().any():
+        raise HEMolecularGateError("candidate VCF entity extraction emitted a duplicate row")
+    return expected.sort_values(["biospecimen_id", "entity_id"], ignore_index=True)
+
+
+def _synapse_access_status(
+    attrition: pd.DataFrame,
+    synapse_access: pd.DataFrame | None,
+) -> str:
+    """Validate a prior metadata-only probe; never infer a download from it."""
+    if synapse_access is None:
+        return "not_checked"
+    _require_columns(synapse_access, SYNAPSE_ACCESS_REQUIRED, name="Synapse access")
+    observed = synapse_access.loc[:, ["biospecimen_id", "entity_id", "metadata_status"]].copy()
+    if observed.duplicated(["biospecimen_id", "entity_id"]).any():
+        raise HEMolecularGateError("Synapse access artifact duplicates a candidate entity")
+    expected = candidate_synapse_entities(attrition)
+    expected_pairs = set(map(tuple, expected[["biospecimen_id", "entity_id"]].to_numpy()))
+    observed_pairs = set(
+        map(tuple, observed[["biospecimen_id", "entity_id"]].astype(str).to_numpy())
+    )
+    if observed_pairs != expected_pairs:
+        raise HEMolecularGateError(
+            "Synapse access artifact does not cover exactly the candidate VCF entities"
+        )
+    return "all_readable" if observed["metadata_status"].eq("readable").all() else "unresolved"
+
+
 def build_inventory(
     files: pd.DataFrame,
     biospecimens: pd.DataFrame,
     cases: pd.DataFrame,
+    synapse_access: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Return H&E-file attrition and the one-row, no-model gate summary."""
     _require_columns(files, FILES_REQUIRED, name="Files")
@@ -201,13 +252,20 @@ def build_inventory(
     molecular_access_rollup = " | ".join(
         sorted(attrition.loc[candidate, "molecular_access"].unique())
     )
-    molecular_access_pending = "Synapse" in molecular_access_rollup.split(" | ")
+    synapse_metadata_status = _synapse_access_status(attrition, synapse_access)
+    molecular_access_pending = (
+        "Synapse" in molecular_access_rollup.split(" | ")
+        and synapse_metadata_status != "all_readable"
+    )
     reasons = [
         "image resolution not verified from metadata",
         "molecular endpoint not pre-specified",
     ]
     if molecular_access_pending:
-        reasons.append("molecular Synapse access pending determination")
+        if synapse_metadata_status == "unresolved":
+            reasons.append("molecular Synapse metadata unresolved for one or more candidates")
+        else:
+            reasons.append("molecular Synapse access pending determination")
     if not diagnosis_complete:
         reasons.append("case diagnosis incomplete")
     if not site_complete:
@@ -244,6 +302,7 @@ def build_inventory(
                 "image_resolution_metadata_available": False,
                 "biospecimen_exact_crosswalk": bool(candidate.any()),
                 "molecular_access_rollup": molecular_access_rollup,
+                "molecular_synapse_metadata_status": synapse_metadata_status,
                 "molecular_access_pending_determination": molecular_access_pending,
                 "case_diagnosis_complete": bool(diagnosis_complete),
                 "case_site_complete": bool(site_complete),

@@ -684,11 +684,13 @@ encoder but cannot supply the molecular endpoint.
 **Inventory record:** `docs/he_molecular_data_gate.md` records the HTA11
 candidate screen. `src/reference/jobs/he_molecular_gate.py` enforces the exact
 biospecimen join and reports attrition. The currently exported metadata returns
-`NOT LICENSED`: resolution is not reported, candidate molecular access is
-`Synapse` but unverified, case diagnosis/site are missing, and no endpoint is
-pre-specified. `src/reference/jobs/he_molecular_synapse_access.py` is the
-metadata-only, authenticated access check. Neither job selects an endpoint or
-licenses image download.
+`NOT LICENSED`: resolution is not reported, case diagnosis/site are missing,
+and no endpoint is pre-specified. Candidate molecular access is `Synapse`; the
+metadata-only authenticated check has now resolved all 18 candidate entities,
+but it does not establish VCF-content download. Its versioned output can clear
+only the pending metadata-access reason in the main gate.
+`src/reference/jobs/he_molecular_synapse_access.py` performs that check.
+Neither job selects an endpoint or licenses image download.
 
 **If the gate passes.** All tiles from a patient and specimen remain in one
 split. Encoder and molecular endpoint are fixed before fitting; calibration and

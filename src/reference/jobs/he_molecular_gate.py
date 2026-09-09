@@ -32,11 +32,23 @@ def _read(path: Path, *, name: str) -> pd.DataFrame:
     return pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False)
 
 
+def _read_synapse_access(path: Path) -> pd.DataFrame:
+    if not path.is_file():
+        raise FileNotFoundError(f"Synapse access artifact not found: {path}")
+    return pd.read_parquet(path)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--files", required=True, type=Path)
     parser.add_argument("--biospecimens", required=True, type=Path)
     parser.add_argument("--cases", required=True, type=Path)
+    parser.add_argument(
+        "--synapse-access",
+        type=Path,
+        default=None,
+        help="versioned metadata-only access table from he_molecular_synapse_access",
+    )
     parser.add_argument("--results-dir", type=Path, default=None)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--no-write", action="store_true")
@@ -47,6 +59,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _read(args.files, name="Files"),
         _read(args.biospecimens, name="Biospecimen"),
         _read(args.cases, name="Case"),
+        _read_synapse_access(args.synapse_access) if args.synapse_access else None,
     )
     print(summary.to_string(index=False))
     print("METADATA ONLY — no image or VCF read; no endpoint or model selected.")

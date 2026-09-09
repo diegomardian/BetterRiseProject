@@ -135,6 +135,23 @@ profile that the job's silent client login reads.
 as absence. Either outcome still leaves the resolution, clinical-metadata, and
 endpoint gates closed.
 
+After the inspection output is reviewed, rerun the access command without
+`--no-write` to persist its table. Supply that exact parquet table to the main
+gate to clear only the pending Synapse-*metadata* reason:
+
+```bash
+python -m src.reference.jobs.he_molecular_gate \
+  --files /path/to/files.tsv \
+  --biospecimens /path/to/biospecimens.tsv \
+  --cases /path/to/cases.tsv \
+  --synapse-access /path/to/he_molecular_synapse_access.parquet \
+  --no-write
+```
+
+The main gate refuses an artifact whose candidate entities differ from its own
+exact H&E–VCF crosswalk. Metadata readability is not treated as permission to
+download or open VCF content.
+
 ## Sources consulted
 
 * HTAN's portal guide documents that Vanderbilt exposes H&E and Bulk DNA as

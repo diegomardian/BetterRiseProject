@@ -31,8 +31,8 @@ import pandas as pd
 
 from src.common.io import write_versioned_table
 from src.common.provenance import DEFAULT_SEED
-from src.reference.a2_synapse import A2SynapseError, login_synapse
-from src.reference.he_molecular_gate import build_inventory
+from src.reference.a2_synapse import login_synapse
+from src.reference.he_molecular_gate import build_inventory, candidate_synapse_entities
 
 
 def _read(path: Path, *, name: str) -> pd.DataFrame:
@@ -43,30 +43,11 @@ def _read(path: Path, *, name: str) -> pd.DataFrame:
 
 def candidate_entities(attrition: pd.DataFrame) -> pd.DataFrame:
     """Explode only exact premalignant candidate IDs; blank IDs are a refusal."""
-    rows = attrition[attrition["has_exact_level3_vcf"] & attrition["candidate_premalignant"]]
-    output: list[dict[str, str]] = []
-    for row in rows.itertuples(index=False):
-        entity_ids = [
-            entity_id.strip()
-            for entity_id in str(row.molecular_synapse_ids).split(" | ")
-            if entity_id.strip()
-        ]
-        if not entity_ids:
-            raise A2SynapseError(f"{row.biospecimen_id} passed the VCF join without a Synapse ID")
-        output.extend(
-            {
-                "biospecimen_id": str(row.biospecimen_id),
-                "participant_id": str(row.participant_id),
-                "entity_id": entity_id,
-            }
-            for entity_id in entity_ids
-        )
-    frame = pd.DataFrame(output)
-    if frame.empty:
-        raise A2SynapseError("no exact premalignant H&E–VCF candidate entities")
-    if frame.duplicated(["biospecimen_id", "entity_id"]).any():
-        raise A2SynapseError("candidate entity extraction emitted a duplicate row")
-    return frame.sort_values(["biospecimen_id", "entity_id"], ignore_index=True)
+    entities = candidate_synapse_entities(attrition)
+    participants = attrition.loc[:, ["biospecimen_id", "participant_id"]].drop_duplicates()
+    return entities.merge(
+        participants, on="biospecimen_id", how="left", validate="many_to_one"
+    ).loc[:, ["biospecimen_id", "participant_id", "entity_id"]]
 
 
 def probe_metadata(syn: Any, candidates: pd.DataFrame) -> pd.DataFrame:
