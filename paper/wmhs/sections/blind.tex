@@ -150,32 +150,6 @@ detects is a shared functional, not a shared sample --- and the two estimators
 that look like careful causal inference are the blind ones.
 \fi
 
-\iffull
-\begin{table}[h]
-\small
-\centering
-\caption{Five estimators of the same treatment effect, at 5{,}000 patients per
-cohort. The first four recover it; only the last three are telling you anything
-about themselves. The residual column is the one-line check, and it is the only
-column here that separates them. OLS neither shares the generator's functional
-nor splits the sample, and recovers the effect more tightly than the cross-fitted
-comparison does.}
-\label{tab:trial}
-\begin{tabular}{@{}lccc@{}}
-\toprule
-& \textbf{recovered / requested} & \textbf{max $|\hat\theta - \theta_{\text{realised}}|$}
-& \textbf{sees the estimator?} \\
-\midrule
-G-computation, generator's strata & $0.998$ & $0$          & no \\
-IPW, saturated propensity         & $0.998$ & $8\times10^{-15}$ & no \\
-OLS, stratum dummies              & $0.996$ & $0.059$      & yes \\
-IPW, cross-fitted                 & $0.993$ & $0.297$      & yes \\
-unadjusted difference             & $2.441$ & $4.78$       & yes \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\fi
 The lesson is not that oracle arms are bad. It is that \emph{near 1 and
 tightening} is compatible with the estimator having been divided out, and that
 the residual against realised truth is what separates the two.
