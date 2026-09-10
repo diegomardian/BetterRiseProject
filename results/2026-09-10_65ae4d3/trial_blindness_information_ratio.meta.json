@@ -1,0 +1,71 @@
+{
+  "date": "2026-09-10",
+  "utc_timestamp": "2026-09-10T23:22:05+00:00",
+  "git_sha": "65ae4d32206d4ba2bdbb48432e7aafcd6017f1d6",
+  "git_sha_short": "65ae4d3",
+  "git_branch": "wmhs/trial-blindness",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260909,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "name": "trial_blindness_information_ratio",
+  "n_rows": 504,
+  "columns": [
+    "estimator",
+    "truth",
+    "design",
+    "n_patients",
+    "n_replicates",
+    "median_residual",
+    "median_generator_error",
+    "rho",
+    "generator_noise_share",
+    "rho_min_over_seeds",
+    "rho_max_over_seeds"
+  ],
+  "table_kind": "harness",
+  "sweep_seed": 20260909,
+  "n_seed_streams": 6,
+  "n_replicates_per_seed": 200,
+  "theta_requested": 3.0,
+  "stratum_means": [
+    10.0,
+    14.0,
+    25.0
+  ],
+  "propensity": [
+    0.25,
+    0.5,
+    0.75
+  ],
+  "stratum_weights": [
+    0.5,
+    0.3,
+    0.2
+  ],
+  "outcome_sd": 4.0,
+  "degenerate_below": 1e-09,
+  "seed_key_order": [
+    "base_seed",
+    "arm",
+    "seed_index",
+    "design_index",
+    "n_patients",
+    "replicate"
+  ],
+  "SYNTHETIC": "Simulated patients with an analytically known treatment effect. Nothing here is a result about any real trial.",
+  "cohort_sizes": [
+    100,
+    200,
+    500,
+    1000,
+    2000,
+    5000
+  ],
+  "rho_definition": "median|theta_hat - theta_realised| / median|theta_realised - theta_requested|",
+  "what_this_answers": "How much of a recovery curve is the estimator, in units of the generator's own sampling error. A non-zero residual is not evidence that a curve is informative: OLS's rho sits near 0.13 at every cohort size and does not fall with n, so its curve is mostly generator noise even where it is not identically zero."
+}
