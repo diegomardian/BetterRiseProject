@@ -20,6 +20,7 @@ literal is *present* before asserting anything about its value.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -424,3 +425,86 @@ def test_the_recovery_ranges_are_the_figures(blind_tex):
 
     assert spans["reference"] == (1.00, 1.07)
     assert spans["pooled"] == (0.86, 1.18)
+
+
+# ---------------------------------------------------------------------------
+# Merges can reintroduce deleted prose, and every check above would still pass.
+#
+# This happened. A branch cut before section 3 was rewritten carried the
+# superseded "denser grid" paragraph; merging it added that paragraph back
+# beside its replacement, and the paper said the same thing twice in two
+# different ways. Every assertion in this file passed, because they all ask
+# whether a literal is PRESENT. None asks whether it is present twice, and none
+# asks whether something deleted stayed deleted.
+
+
+#: Prose retired from the paper. A merge that resurrects any of these is a
+#: regression, not a contribution.
+RETIRED = (
+    "A denser grid, and a quantity whose stability is the apparatus",
+    "The answer moves to 90}, and the crossing it",
+    "roughly twice as strict on both cutpoints",
+    "it is the one defect in this paper that is now closed",
+    "three of the four look fine",
+)
+
+
+def test_retired_prose_stays_retired():
+    """Nothing a rewrite deleted has been merged back in."""
+    body = "\n".join(
+        p.read_text(encoding="utf-8") for p in sorted(SECTIONS.glob("*.tex"))
+    )
+    resurrected = [line for line in RETIRED if line in body]
+    assert not resurrected, (
+        f"deleted prose is back in the paper: {resurrected}. A merge from a "
+        f"branch cut before the rewrite is the usual cause."
+    )
+
+
+def _render(text: str, *, full: bool) -> str:
+    """The lines LaTeX would typeset for one build.
+
+    A naive duplicate check flags ``bench.tex``, which carries one paragraph
+    heading in each branch of an ``\iffull`` -- correct, and never duplicated
+    in either PDF. So evaluate the conditional first and check what a reader
+    actually sees.
+    """
+    out, stack = [], []
+    for line in text.splitlines():
+        bare = line.strip()
+        if bare.startswith(chr(92) + "iffull"):
+            stack.append(full)
+            bare = bare[len(chr(92) + "iffull"):].strip()
+            # "\iffull\else" on one line is how bench.tex writes its
+            # short-build branch. Missing this made the check flag that file.
+            while bare.startswith(chr(92) + "else"):
+                stack[-1] = not stack[-1]
+                bare = bare[len(chr(92) + "else"):].strip()
+            if not bare:
+                continue
+            line = bare
+        elif bare == chr(92) + "else":
+            if stack:
+                stack[-1] = not stack[-1]
+            continue
+        elif bare == chr(92) + "fi":
+            if stack:
+                stack.pop()
+            continue
+        if all(stack):
+            out.append(line)
+    return chr(10).join(out)
+
+
+def test_no_paragraph_heading_appears_twice():
+    """Two paragraphs with one title means a merge duplicated a block."""
+    pattern = re.escape(chr(92)) + r"paragraph\{([^}]{12,})\}"
+    for build in (True, False):
+        for path in sorted(SECTIONS.glob("*.tex")):
+            rendered = _render(path.read_text(encoding="utf-8"), full=build)
+            headings = re.findall(pattern, rendered)
+            duplicated = {h for h in headings if headings.count(h) > 1}
+            assert not duplicated, (
+                f"{path.name} carries {duplicated} more than once in the "
+                f"{'full' if build else 'short'} build"
+            )
