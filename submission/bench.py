@@ -50,6 +50,7 @@ import pandas as pd
 
 from src.harness.truth import analytic_terms
 from submission.competitors import DEFAULT_METHODS, DecompositionMethod, available_methods
+from submission.expression_models import POISSON, ExpressionModel
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,11 @@ class WorldSample:
     n_mature_tumour: int
     truth: dict[str, float]
     truth_is_defined: bool
+    #: Which count distribution the mature cells were drawn from. Defaulted to
+    #: the committed Poisson so every pre-existing construction of a
+    #: WorldSample still means what it said, and carried explicitly so a table
+    #: can never report a misspecified arm without saying which one it was.
+    expression_model: str = "poisson"
 
 
 #: 2,000 cells per arm. At frac_mature_tumour = 0.01 that is ~20 mature cells,
@@ -152,14 +158,29 @@ def world_seed(name: str) -> int:
     return zlib.crc32(name.encode("utf-8"))
 
 
-def generate_sample(world: BenchWorld, *, seed: int, replicate: int = 0) -> WorldSample:
-    """Draw one replicate. Immature cells express nothing; mature draw Poisson."""
+def generate_sample(
+    world: BenchWorld,
+    *,
+    seed: int,
+    replicate: int = 0,
+    model: ExpressionModel = POISSON,
+) -> WorldSample:
+    """Draw one replicate. Immature cells express nothing; mature draw ``model``.
+
+    ``model`` defaults to Poisson and ``POISSON.draw`` is exactly the
+    ``rng.poisson(mean, size=...)`` call this function made before the
+    parameter existed, in the same position in the stream -- so the committed
+    six-world benchmark is unchanged to the last bit. Every other model has
+    the SAME marginal mean and differs only in variance and shape, which is
+    what keeps ``world.truth`` exact under misspecification. See
+    ``expression_models``.
+    """
     rng = np.random.default_rng([seed, replicate, world_seed(world.name)])
 
     def arm(frac: float, mean: float) -> tuple[np.ndarray, int]:
         mature = rng.random(N_CELLS) < frac
         expr = np.zeros(N_CELLS, dtype=float)
-        expr[mature] = rng.poisson(mean, size=int(mature.sum()))
+        expr[mature] = model.draw(rng, mean, int(mature.sum()))
         return expr, mature
 
     expr_n, mature_n = arm(world.frac_mature_normal, MEAN_NORMAL)
@@ -182,6 +203,7 @@ def generate_sample(world: BenchWorld, *, seed: int, replicate: int = 0) -> Worl
         n_mature_tumour=n_mature_t,
         truth=world.truth(MEAN_NORMAL),
         truth_is_defined=world.truth_is_defined,
+        expression_model=model.name,
     )
 
 
@@ -192,18 +214,20 @@ def run_bench(
     worlds: Sequence[BenchWorld] = BENCH_WORLDS,
     methods: Sequence[DecompositionMethod] = DEFAULT_METHODS,
     weighting: str = "normal",
+    model: ExpressionModel = POISSON,
 ) -> tuple[pd.DataFrame, dict[str, str]]:
     """Every method on every world, ``n_replicates`` times. Long frame + skips."""
     runnable, skipped = available_methods(tuple(methods))
     rows = []
     for world in worlds:
         for replicate in range(n_replicates):
-            sample = generate_sample(world, seed=seed, replicate=replicate)
+            sample = generate_sample(world, seed=seed, replicate=replicate, model=model)
             for method in runnable:
                 out = method.fit(sample, weighting=weighting)
                 rows.append(
                     {
                         "method": method.name,
+                        "expression_model": sample.expression_model,
                         "can_refuse": method.can_refuse,
                         "estimates_intrinsic": method.estimates_intrinsic,
                         "world": world.name,
