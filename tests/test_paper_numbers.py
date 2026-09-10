@@ -364,3 +364,48 @@ def test_the_adenoma_ratio_does_not_collapse(bench_tex):
     ratios = limit * (survived - 1.0)
     assert (round(ratios.min(), 2), round(ratios.max(), 2)) == (0.27, 3.13)
     assert round(ratios.max() / ratios.min(), 1) == 11.5
+
+
+# ---------------------------------------------------------------------------
+# sec:blind's recovery ranges. An external reviewer could not reproduce these
+# from the committed tables and proposed cutting them. They are correct; what
+# was missing was the filter, which lived only in make_fig3.py. Pinned here so
+# the sentence and the figure cannot drift apart, and so the next reader does
+# not have to rediscover the aggregation.
+
+
+@pytest.fixture(scope="module")
+def blind_tex() -> str:
+    return (SECTIONS / "blind.tex").read_text()
+
+
+def test_the_recovery_ranges_are_the_figures(blind_tex):
+    """``between 1.00 and 1.07`` on reference, ``0.86 to 1.18`` pooled.
+
+    The filter is Appendix Fig. 2's own, and every clause of it matters:
+    the 50-replicate table, the detectable shift, the extended grid, the
+    median ACROSS SEEDS at each count, and only counts where the committed
+    rule says ``estimate``. Taking min/max over raw rows instead of the
+    per-count median reproduces neither range.
+    """
+    from src.harness.positivity import CUTPOINTS
+
+    rec = pd.read_parquet(_newest("calibration_gap_recovery"))
+    at_effect = rec[(rec["shift"] == 0.5) & (rec["grid"] == "extended")]
+
+    _quotes(blind_tex, "Ours ran between 1.00 and 1.07 wherever the rule said")
+    _quotes(blind_tex, "0.86 to 1.18 on the pooled one")
+    assert CUTPOINTS.ok == 50
+
+    spans = {}
+    for pool in ("reference", "pooled"):
+        by_count = (
+            at_effect[at_effect["pool"] == pool]
+            .groupby("median_n_cells_mature")["ratio_median"]
+            .median()
+        )
+        estimable = by_count[by_count.index >= CUTPOINTS.ok]
+        spans[pool] = (round(estimable.min(), 2), round(estimable.max(), 2))
+
+    assert spans["reference"] == (1.00, 1.07)
+    assert spans["pooled"] == (0.86, 1.18)

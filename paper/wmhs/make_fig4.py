@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-"""Figure 3 — the curve cannot tell these apart; one column can.
+"""Figure 2 — the curve cannot tell these apart; one column can.
 
 Reads the newest ``results/<date>_<sha>/trial_recovery.parquet``. Run from the
 repo root:
 
     python paper/wmhs/make_fig4.py
 
-Left panel: the recovery curve for four estimators of the same treatment effect.
-Three of the four sit near 1 and tighten with cohort size, and two of those three
+Left panel: the recovery curve for five estimators of the same treatment effect.
+Four of the five sit near 1 and tighten with cohort size, and two of those four
 are exactly blind — their curves are the same line to machine precision.
 
 Right panel: the residual against the *realised* effect, log scale. It is
@@ -61,7 +61,7 @@ def main() -> int:
     left.set_xscale("log")
     left.set_ylim(0.3, 2.9)
     left.set_ylabel("recovered / requested")
-    left.set_title("the recovery curve\nthree of the four look fine",
+    left.set_title("the recovery curve\nfour of the five look fine",
                    fontsize=8.5, linespacing=1.5)
 
     right.set_xscale("log")

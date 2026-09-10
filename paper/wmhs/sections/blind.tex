@@ -90,7 +90,7 @@ arm we shipped.
 cells. Take an external control arm drawn from a patient simulator: the generator
 samples covariates, assigns outcomes with a specified mean per stratum, and you
 ask it for a treatment effect $\theta$. You estimate that effect by
-standardisation over the same strata --- G-computation, which is
+standardisation over the same strata --- G-computation \citep{robins1986}, which is
 Equation~\ref{eq:kitagawa}'s identity under another name, and the estimator that
 target trial emulation \citep{hernan2016} rests on. If the estimator standardises over
 the strata the generator sampled within, weighting the stratum means the draw
@@ -112,14 +112,20 @@ validated estimator. Two of those four are exactly blind. G-computation over
 the generator's own strata returns the realised effect with
 $\max|\hat\theta - \theta_{\text{realised}}| = 0$, as the algebra says it must.
 \textbf{So does inverse-probability weighting with a saturated propensity
-model}, which is a different method from a different literature written in
-different code, and which we added expecting it to be the non-degenerate
-comparison. With the propensity estimated per stratum it is the same functional
-of the same statistics, and its recovery curve is G-computation's to machine
-precision. Whether an estimator shares sufficient statistics with the generator
+model.} That these coincide is not news --- with the propensity estimated
+nonparametrically per stratum, IPW is the same functional of the same
+statistics as standardisation, and any reader of the causal literature knows
+it. The news is that the coincidence is invisible where people look for it.
+The two are different methods from different literatures written in different
+code; nothing in either implementation says they are the same estimator, and
+their recovery curves agree to machine precision, so the curve does not say so
+either. We added this arm expecting a non-degenerate comparison, which is
+precisely the mistake the column prevents and reading the code did not.
+Whether an estimator shares sufficient statistics with the generator
 is not visible in the code. It is visible in one column.
 
-Cross-fitting breaks it. Fit the propensity on one fold and apply it to the
+Cross-fitting \citep{chernozhukov2018} breaks it. Fit the propensity on one fold and
+apply it to the
 other, so the weights on a patient come from data that patient is not in, and
 the estimator becomes a different functional: still consistent, still sitting
 near 1, but now with a residual that is non-zero at every cohort size and shrinks

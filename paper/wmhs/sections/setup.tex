@@ -63,6 +63,36 @@ checkable in one line on the sweep you already have, and our contribution is
 that line and the demonstration that two estimators from different literatures
 can both fail it.
 
+\paragraph{Relation to known circularity.} That a simulation study can favour
+methods resembling its generator is not new, and we are not claiming it. Meng
+\citep{meng1994} named the condition \emph{congeniality}; the plasmode
+literature warns that synthetic benchmarks can be ``biased towards favoring
+causal inference methods that mimic the modeling choices made when generating
+the synthetic datasets'' \citep{franklin2014}; Curth et al.~\citep{curth2021}
+show semi-synthetic benchmarks systematically favouring some estimators inside
+this community, and Gentzel et al.~\citep{gentzel2019} argue for interventional
+measures over simulated ones for the same reason; Shaw et al.~\citep{shaw2026} document the mirror image, a
+generator that makes good estimators look bad; and in inverse problems the same
+practice has had a name for two decades, the \emph{inverse crime}
+\citep{wirgin2004,kaipio2007}. Simulation-based calibration
+\citep{talts2018} is the closest existing instrument, and its own recent
+critique \citep{modrak2025} is this paper's argument in another setting:
+implementations in wide use ``could never detect large classes of problems''.
+
+\textbf{What we add is that the degenerate case is a kind, not a degree, and
+that this reverses the practical advice.} All of the above describe a bias of
+unknown magnitude, and a bias predicts a curve that looks \emph{suspiciously
+good} --- something a careful reader might catch. The case here is an identity:
+the residual is exactly zero, the estimator is algebraically absent from the
+ratio, and the curve therefore looks \emph{exactly as a correct one should},
+near 1 and tightening with $n$. \textbf{A validation that fails loudly is a
+nuisance; one that succeeds silently is a hazard}, and inspection cannot
+separate them. So the contribution is not the phenomenon. It is the column ---
+compare against the realised draw, and require the difference not to be
+identically zero --- together with the finding that two estimators from
+different literatures both fail it, and that
+\S\ref{sec:calibration} then contradicts what the blind curve had certified.
+
 \paragraph{Related work: the abstention rule.} Cell-count filters of this shape are standard rather
 than novel. Pseudobulk pipelines drop samples below a minimum cell count
 \citep{crowell2020}, and differential-abundance methods --- scCODA

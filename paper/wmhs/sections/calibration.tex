@@ -50,9 +50,9 @@ returns, under either reading of an unspecified design choice.} Dashed lines mar
 the targets fixed before the sweep. Shading marks the committed rule's three
 states. \emph{Left:} with the draw pool our sweep code implements, the routine
 returns no cutpoint at any tested count. \emph{Right:} under a second reading of
-the same unspecified choice it does return one --- $ok = 90$ once the grid
-carries points in the interval where the criteria cross, against a perfectly
-stable 100 when it does not. The committed value is 50 in both panels.}
+the same unspecified choice it does return one --- but the value is the grid's,
+not the cohort's: $100$, $90$ and $70$ on three grids of increasing resolution,
+against a committed 50 that none of them returns.}
 \else
 \caption{\textbf{The committed cutpoint is not what the pre-registered procedure
 returns, under either reading of an unspecified design choice.} Dashed lines are
@@ -90,55 +90,76 @@ Appendix~\ref{app:withdrawn} item~3, so there is nothing left to re-derive it
 from. We report that rather than reconcile it.
 \fi
 
-We added nine
-fractions inside the gap, reaching 50, 60, 70, 80, 90, 110, 120, 130 and 150,
-and changed nothing else. \textbf{The answer moves to 90}, and the crossing it
-was hiding becomes legible: median discrimination runs $0.728$ at 45 mature
-cells, $0.789$ at 65 and $0.858$ at 90, so the pre-registered target of $0.80$
-falls between 65 and 90 --- inside the interval the committed grid could not
-reach. Seven of eight seeds return $ok = 90$, $wide = 45$; the eighth disagrees
-and returns 65\iffull{}, which is the count where discrimination sits at $0.789$
-against a $0.80$ target --- close enough to the line that a seed can land either
-side of it\fi{}. Against committed values of 50 and 20, the calibrated rule is
-roughly twice as strict on both cutpoints. The pooled draw returns no cutpoint
-under either grid.
+\textbf{And the reported cutpoint is not a count. It is a bin label.} Counts are
+binned into twelve log-spaced intervals before coverage and discrimination are
+computed, and the value reported for a bin is the \emph{median of the counts
+that landed in it}. Over $20$--$800$ the edges are $\{0, 20, 28, 39, 55, 76,
+107, 150, 209, 293, 409, 572, 800\}$, and they are identical for every grid
+because they are derived from the same span. Nothing in the output says so, and
+we did not know it while writing the paragraph above.
+
+We added nine fractions inside the gap, reaching 50, 60, 70, 80, 90, 110, 120,
+130 and 150, and changed nothing else. The answer moves to 90 --- and it moves
+\emph{within one bin}. Both grids return the interval $(76, 107]$; the committed
+grid held only $\{100\}$ there and the filled grid holds $\{80, 90, 100\}$, so
+the median fell from 100 to 90 while the bin, and the evidence in it, stayed
+put. \textbf{At the resolution of the statistic that produced it, the answer did
+not move at all.} What the filled grid did buy is a genuinely new bin at
+$(55, 76]$, where discrimination reads $0.790$ --- under target, so the crossing
+lies above it.
+
+\textbf{A third grid, and the number keeps falling.} A denser grid reaching
+below 20 --- attainable counts $\{2.5, 10, 17.5, 27.5, 42.5, 70, 105, 150, 400,
+800\}$ --- returns $ok = 70$ on eight of eight seeds. Discrimination against
+count is smooth, and the three grids agree on it wherever they overlap
+($0.712$, $0.728$, $0.728$ near 40; $0.882$, $0.858$, $0.878$ near 100). What
+differs is only which point each grid happens to carry first above the $0.80$
+line:
+
+\begin{center}\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+ & \textbf{committed} & \textbf{filled} & \textbf{dense} \
+\midrule
+crossing bracketed to & $(40, 100]$ & $(65, 90]$ & $(42.5, 70]$ \
+reported $ok$ & $100$ & $90$ & $\mathbf{70}$ \
+reported $wide$ & $40$ & $45$ & $42$ \
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{The reported cutpoint is a decreasing function of grid resolution, with
+no sign of converging, and no grid, cohort or seed has ever returned the
+committed 50.} Each value is the first point above a crossing, reported as
+though it were the crossing. Within any one grid $wide$ has \emph{exactly zero}
+seed-to-seed variance --- one value on all eight seeds, in all six
+cohort-by-grid cells we ran ($40$, $45$, $42$ here; $100$, $65$, $70$ on the
+second cohort) --- so the quantity that looks most like a measurement is the one
+whose stability comes entirely from having nowhere else to land. The pooled draw
+returns no cutpoint under any of the three grids, on any seed of either cohort,
+discrimination topping out at $0.750$ and $0.795$ against the $0.80$ target, so
+the non-identifiability there is not a resolution artefact.
+
+\textbf{We do not report a calibrated cutpoint, because the procedure does not
+return one.} It returns its own grid, and it did so with a stability that
+survived three grids, thirteen seeds and two cohorts without once warning us.
 \fi
 
 \iffull
-\paragraph{And 90 is not a cutpoint with an interval on it.} At 50 replicates
-the crossing does not resolve at all --- the returned value wanders between 45
-and 90 with the seed. At 500 it does, 7 of 8 seeds returning $ok = 90$, but that
-stabilises Monte Carlo noise and not the quantity a reader will take it for. Ten
+\paragraph{And none of the three is a cutpoint with an interval on it.} At 50
+replicates the crossing does not resolve at all --- the returned value wanders
+between 45 and 90 with the seed. At 500 it does, 7 of 8 seeds returning
+$ok = 90$, but that stabilises Monte Carlo noise and not the quantity a reader
+will take it for. Ten
 patients with two held out per replicate admit just \textbf{45 distinct holdout
 pairs}, so at 500 replicates each pair is drawn about eleven times and the
 estimate converges to the value over those 45 pairs rather than to a population
 value. The patient-level uncertainty is unchanged by the replicate count and is
-not quantified anywhere in this paper. Read $ok = 90$ as what this procedure
-returns on this cohort. Reporting it with an interval would be the same error
-this paper documents twice elsewhere, one section later.
-\fi
-
-\iffull
-\paragraph{A denser grid, and a quantity whose stability is the apparatus.} A
-third grid reaches below 20 --- its attainable counts are $\{2.5, 10, 17.5,
-27.5, 42.5, 70, 105, 150, 400, 800\}$ --- and returns $ok = 70$ on eight of
-eight seeds, against the filled grid's 90 and the committed rule's 50. The
-sharper reading is in $wide$, the boundary deciding whether an intrinsic term
-gets written or returned as \notest{}. On the second cohort the committed grid
-returns $wide = 100$; two independent denser grids return $65$ and $70$. The
-committed grid can express no count between 40 and 100, so it reported the
-first point above the crossing, and that number was the grid's rather than the
-cohort's.
-
-\textbf{Within any one grid the seed-to-seed variance of $wide$ is exactly
-zero}: one value on all eight seeds, in all six cohort-by-grid cells we ran
-($40$, $45$, $42$ here; $100$, $65$, $70$ on the second cohort). A quantity that
-never moves with the seed and moves by 35 with the grid is not a measurement of
-the cohort, and nothing in its own output says so --- \S\ref{sec:blind}'s
-failure in a third statistic. The pooled draw returns no cutpoint on this grid
-either, on every seed of both cohorts, discrimination topping out at $0.750$ and
-$0.795$ against the $0.80$ target, so the non-identifiability there is not a
-resolution artefact.
+not quantified anywhere in this paper. Read each value as what this procedure
+returns on this cohort at that grid resolution. Reporting any of them with an
+interval would be the same error this paper documents elsewhere, one section
+later --- and \S\ref{sec:interval} shows the interval we would have reached
+for is itself narrower than it claims at exactly these $n$.
 \fi
 
 \iffull
@@ -149,9 +170,11 @@ again returns \emph{no} cutpoint, on every seed at both replicate counts: no
 seed meets both criteria, and discrimination alone reaches the $0.80$ target at
 50 replicates but tops out at $0.66$ at 500. The reference draw returns a
 cutpoint, and it is nowhere near the committed 50: $ok = 400$ or $800$ on both
-grids, the top two counts either can express, against $90$ on the first cohort's
-filled grid. \textbf{The pre-registered procedure returns a cutpoint roughly twice
-the committed one on one cohort and eight to sixteen times it on the other},
+grids, the top two counts either can express --- and the top point of a grid is
+the same artefact as the first point above a crossing, one edge further out.
+\textbf{The pre-registered procedure returns a cutpoint between $1.4$ and $2$
+times the committed one on the first cohort depending only on grid resolution,
+and eight to sixteen times it on the second},
 which is a statement about the procedure rather than about either cohort. The
 blindness, being algebraic, replicates exactly: the residual is $0$ on all
 $1{,}711{,}200$ replicates across both.

@@ -22,9 +22,19 @@ the result caught it.
 
 We draw no conclusion beyond the one the paper already argues. The defects
 surviving are the ones no check was capable of catching, and the remedy is to
-test each check against an input forcing it to fail. Every number in this paper
-is read by the figure code from a result table carrying a commit hash and a fixed
-seed, with two exceptions we name rather than smooth over: figures reproduced
+test each check against an input forcing it to fail. 
+Numbers reaching the text come from result tables carrying a commit hash and a
+fixed seed, and \texttt{tests/test\_paper\_numbers.py} re-derives a subset of
+them from those tables and asserts them against the literal strings in the
+sources, so editing prose or table alone fails continuous integration. \textbf{That
+subset is not yet the whole paper.} It covers the third withdrawn guard, the
+cutpoint grids, the recovery ranges of \S\ref{sec:blind} and the ratio
+collapse; Table~\ref{tab:trial} and the benchmark are checked by their own
+modules' tests but are not tied to the prose this way. We state the boundary
+rather than imply it does not exist --- an earlier draft of this sentence
+claimed every number was covered, which was the same overclaim this paper
+documents elsewhere, made about this paper's own provenance. Two figures are
+exceptions we name rather than smooth over: those reproduced
 from the superseded internal report are labelled as such in their captions, and
 the paired rates in \S\ref{sec:calibration}\emph{(ii)} are quoted from that
 report because the run that produced them was never committed --- which is
