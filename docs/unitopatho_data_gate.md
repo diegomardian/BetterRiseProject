@@ -2,8 +2,9 @@
 
 **Status:** manifest structure audited; the 48.37-GiB selected archive is held
 outside the repository in the researcher's Google Drive. Dataset terms have not
-yet been recorded or reviewed. No feature extraction, model selection, or
-fitting is licensed by this document.
+yet been recorded or reviewed. IEEE DataPort's public platform descriptions
+cannot substitute for the specific terms displayed for dataset 49617. No feature
+extraction, model selection, or fitting is licensed by this document.
 
 ## Scope
 
@@ -79,6 +80,18 @@ python -m src.reference.jobs.unitopatho_feasibility \
    feature extraction. The encoder remains frozen; all threshold selection is
    validation-only; the test set is opened once for coverage, selective error,
    calibration, and the ordinary non-abstaining baseline.
+
+   The metadata-only task/split contract is now
+   [`prereg_unitopatho_engineering_split.md`](prereg_unitopatho_engineering_split.md).
+   After this code is committed, run:
+
+   ```bash
+   python -m src.reference.jobs.unitopatho_development_split \
+     --manifest "$BRP_DATA_DIR/interim/unitopatho/unitopath-public-800.yml"
+   ```
+
+   This writes the deterministic 161/43/88 patient-contained assignment. It
+   does not authorize or perform image access.
 
 Failure of condition 1 stops before image download or modeling. It is not a
 reason to substitute MHIST or to claim an independent molecular result.
