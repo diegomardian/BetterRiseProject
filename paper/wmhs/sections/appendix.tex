@@ -84,8 +84,18 @@ Items 1 and 2 are one failure twice over. Someone trying to prevent exactly that
 failure wrote both; neither felt wrong, and both survived ordinary review. Item 3
 is why \S\ref{sec:calibration}'s numbers are re-derived here from a committed,
 seeded table rather than quoted from the report that first carried them --- and
-it is the one defect in this paper that is now closed, with the sweep committed
-and the check tested against the input it used to pass.
+the check now has a committed input that forces it to fail, with the sweep
+committed alongside it.
+
+\textbf{We had written that this was the one defect in the paper that was
+closed. While preparing this revision, the guard fired again.} Two result tables
+elsewhere in the repository carry a commit hash that no longer resolves and a
+\texttt{git\_dirty} flag of true. They postdate the repair by two days and
+belong to an analysis outside this paper. The guard is working --- it caught
+them, in our own suite, without being asked --- and the defect recurred anyway,
+because a guard that fires is not the same as a guard that is heeded.
+\emph{Closed} was the wrong word for a class of failure, and this was the only
+place in the paper we used it.
 
 \paragraph{A second route around the provenance guard, and what closing it
 cost.} Item~3's repair counts untracked files, and the same invariant had a

@@ -15,8 +15,14 @@ rendered as §5. Do not cut it for space.
 
 | | file | main text | limit |
 |---|---|---|---|
-| Full paper | `main.tex` | 7 pages | 9 |
-| Extended abstract | `main_short.tex` | 4 pages | 4 |
+| Full paper | `main.tex` | ~7.7 pages, **estimated** | 9 |
+| Extended abstract | `main_short.tex` | 4 pages, **estimated** | 4 |
+
+**Neither figure has been measured.** `neurips_2026.sty` is not vendored, so
+`./build.sh` has never run against the real style; both numbers come from a
+geometry-matched stub that runs about 1.4x long. `PATCHES.md` says the same and
+this table used to contradict it. Drop the official style in and run
+`./build.sh` before believing either number.
 
 Limits verified against the CFP's own text on 2026-08-31: *"Full Papers: at most
 9 pages of main text. Extended Abstracts: at most 4 pages of main text.
