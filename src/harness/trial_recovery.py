@@ -291,6 +291,31 @@ ESTIMATORS: dict[str, Callable[[Trial], float]] = {
 #: Measured, not asserted: every one of these is checked against the residual in
 #: tests/test_trial_recovery.py, which is the only way the claim is worth
 #: anything.
+#:
+#: THIS DICT'S SHAPE IS WRONG, AND ITS VALUES ARE RIGHT ONLY BY AN ACCIDENT OF
+#: SCOPE. Keying degeneracy by estimator name asserts that blindness is a
+#: property an estimator carries around with it. It is not. It is a property of
+#: the (estimator, realised-truth, design-point) triple, and this dict is one
+#: cell of that matrix: truth = the standardised effect, design = the confounded
+#: Bernoulli assignment defined by ``PROPENSITY`` above. Step off that cell and
+#: entries flip, with no change to any estimator's code:
+#:
+#:   * ``ols-stratum-dummies`` is False here and True against the
+#:     variance-weighted truth it actually targets (Frisch-Waugh), on the same
+#:     draw, in the same run. Measured at 1.2e-14.
+#:   * ``ols-stratum-dummies`` is True under stratified block randomisation,
+#:     where ``phat_g = 0.5`` makes the two truths the same number. Measured at
+#:     5.8e-15.
+#:   * ``unadjusted`` -- the arm included here *so the curve has something it can
+#:     catch* -- is True under block randomisation as well, because
+#:     ``n_g1 = n_g0`` makes the difference in arm means identically the
+#:     standardised effect. Measured at 4.4e-15. Under the randomisation a real
+#:     trial runs, this file's own positive control goes blind.
+#:
+#: The full matrix is ``DEGENERACY`` in src/harness/trial_blindness.py, measured
+#: over three design points and two truths. The five booleans below are left
+#: alone because they are correct at this module's single design point and the
+#: sidecar records them; the correction is the matrix, not an edit to these.
 IS_DEGENERATE: dict[str, bool] = {
     "gcomp-from-generator": True,
     "ipw-saturated": True,

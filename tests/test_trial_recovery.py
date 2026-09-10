@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from src.harness import trial_blindness
 from src.harness.trial_recovery import (
     ESTIMATORS,
     IS_DEGENERATE,
@@ -143,8 +144,13 @@ def test_the_conventional_estimator_is_the_non_degenerate_one():
 
 
 def test_the_degeneracy_table_is_measured_not_asserted():
-    """``IS_DEGENERATE`` is a claim about each estimator. Check every entry
-    against the residual rather than trusting the dict."""
+    """``IS_DEGENERATE`` is a claim about each estimator AT ONE CELL of a matrix.
+
+    Checked against the residual rather than trusted -- but note what is being
+    checked: the standardised truth, and the confounded Bernoulli design this
+    module defines. Both are held fixed here, which is exactly why the dict looks
+    like a property of the estimator. The grid test below moves them.
+    """
     trials = [_trial(seed=s) for s in range(15)]
     for name, estimator in ESTIMATORS.items():
         worst = max(abs(estimator(t) - t.theta_realised) for t in trials)
@@ -153,6 +159,49 @@ def test_the_degeneracy_table_is_measured_not_asserted():
             f"{name}: measured degenerate={degenerate}, table says "
             f"{IS_DEGENERATE[name]} (worst residual {worst:.3g})"
         )
+
+
+def test_the_degeneracy_table_is_a_cell_of_a_matrix_not_a_property_of_estimators():
+    """The correction. Iterate (estimator x truth x design) and measure each cell.
+
+    ``IS_DEGENERATE`` keys blindness by estimator name, which presumes it travels
+    with the estimator. It does not, and this test would fail if it did -- the
+    second assertion demands that at least one estimator disagree with its own
+    ``IS_DEGENERATE`` entry somewhere in the grid. A grid on which the dict were
+    right everywhere would fail this test, which is the only way the claim in the
+    docstring above is worth anything.
+    """
+    grid = trial_blindness.run_grid(
+        seed=4242, n_seeds=5, cohort_sizes=(2000,), n_replicates=4
+    )
+    matrix = trial_blindness.residual_matrix(grid)
+    assert len(matrix) == len(trial_blindness.ESTIMATORS) * len(
+        trial_blindness.TRUTHS
+    ) * len(trial_blindness.DESIGNS)
+
+    wrong = matrix[matrix["measured_degenerate"] != matrix["declared_degenerate"]]
+    assert wrong.empty, (
+        "DEGENERACY disagrees with the measurement in: "
+        + wrong[["estimator", "truth", "design", "max_residual",
+                 "declared_degenerate"]].to_string(index=False)
+    )
+
+    # And the point: the old per-estimator dict is contradicted somewhere.
+    flipped = [
+        (row.estimator, row.truth, row.design, row.measured_degenerate)
+        for row in matrix.itertuples()
+        if row.estimator in IS_DEGENERATE
+        and row.measured_degenerate != IS_DEGENERATE[row.estimator]
+    ]
+    assert flipped, (
+        "no cell of the grid contradicts IS_DEGENERATE, which would mean "
+        "degeneracy really is a property of the estimator and trial_blindness.py "
+        "has no subject"
+    )
+    names = {name for name, _, _, _ in flipped}
+    assert {"ols-stratum-dummies", "unadjusted"} <= names, (
+        f"expected OLS and the unadjusted control to flip somewhere; flipped: {names}"
+    )
 
 
 # ---------------------------------------------------------------------------
