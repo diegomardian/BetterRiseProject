@@ -1,0 +1,90 @@
+{
+  "date": "2026-09-09",
+  "utc_timestamp": "2026-09-10T03:51:26+00:00",
+  "git_sha": "01074fc453cc4d0eb4c2a9c5697eb4c1ba3ed2b5",
+  "git_sha_short": "01074fc",
+  "git_branch": "wmhs/bench-extensions",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260829,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "notes": "Committed gate classes against Poisson, negative-binomial and zero-inflated mature-cell arms. SYNTHETIC.",
+  "name": "misspecified_generator_refusals",
+  "n_rows": 324,
+  "columns": [
+    "seed",
+    "expression_model",
+    "model_kind",
+    "dispersion",
+    "zero_inflation",
+    "theoretical_variance_at_mu",
+    "world",
+    "truth_is_defined",
+    "gate",
+    "n_replicates",
+    "n_refused",
+    "n_returned_a_number",
+    "refusal_rate",
+    "mean_n_mature_tumour",
+    "max_n_mature_tumour"
+  ],
+  "table_kind": "harness",
+  "n_replicates": 200,
+  "sweep_seeds": [
+    20260829,
+    20260830,
+    20260831
+  ],
+  "n_cells_per_arm": 2000,
+  "mean_normal": 20.0,
+  "generators": {
+    "poisson": {
+      "kind": "poisson",
+      "dispersion": null,
+      "zero_inflation": 0.0,
+      "theoretical_variance_at_mu": 20.0
+    },
+    "nb_disp10": {
+      "kind": "nb",
+      "dispersion": 10.0,
+      "zero_inflation": 0.0,
+      "theoretical_variance_at_mu": 60.0
+    },
+    "nb_disp2": {
+      "kind": "nb",
+      "dispersion": 2.0,
+      "zero_inflation": 0.0,
+      "theoretical_variance_at_mu": 220.0
+    },
+    "nb_disp0.5": {
+      "kind": "nb",
+      "dispersion": 0.5,
+      "zero_inflation": 0.0,
+      "theoretical_variance_at_mu": 820.0
+    },
+    "zip_pi0.3": {
+      "kind": "zip",
+      "dispersion": null,
+      "zero_inflation": 0.3,
+      "theoretical_variance_at_mu": 191.42857142857144
+    },
+    "zinb_pi0.3_disp2": {
+      "kind": "zinb",
+      "dispersion": 2.0,
+      "zero_inflation": 0.3,
+      "theoretical_variance_at_mu": 477.1428571428571
+    }
+  },
+  "invariant_worlds": [
+    "annihilated"
+  ],
+  "guards_passed": [
+    "check_seeds_separate_model_from_stream",
+    "check_annihilated_refusal_is_model_invariant"
+  ],
+  "SYNTHETIC": "Every number here comes from simulated cells with analytically known truth, or from a closed form with no data in it. Nothing in this table is a result about colorectal cancer."
+}

@@ -1,0 +1,38 @@
+{
+  "date": "2026-09-09",
+  "utc_timestamp": "2026-09-10T03:51:27+00:00",
+  "git_sha": "01074fc453cc4d0eb4c2a9c5697eb4c1ba3ed2b5",
+  "git_sha_short": "01074fc",
+  "git_branch": "wmhs/bench-extensions",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260829,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "notes": "Per (world, gate): spread of refusals across count models versus across seeds. Says which differences in the refusal table can be attributed to the generator at all. SYNTHETIC.",
+  "name": "misspecified_generator_model_vs_seed",
+  "n_rows": 18,
+  "columns": [
+    "world",
+    "gate",
+    "n_seeds",
+    "n_models",
+    "refusals_min",
+    "refusals_max",
+    "model_spread_worst_seed",
+    "seed_spread_worst_model",
+    "model_to_seed_spread_ratio",
+    "attribution"
+  ],
+  "table_kind": "harness",
+  "sweep_seeds": [
+    20260829,
+    20260830,
+    20260831
+  ],
+  "n_replicates": 200,
+  "SYNTHETIC": "Every number here comes from simulated cells with analytically known truth, or from a closed form with no data in it. Nothing in this table is a result about colorectal cancer."
+}
