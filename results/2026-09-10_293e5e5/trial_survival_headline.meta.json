@@ -1,0 +1,113 @@
+{
+  "date": "2026-09-10",
+  "utc_timestamp": "2026-09-10T23:16:06+00:00",
+  "git_sha": "293e5e5d082ba0e40622cb65eb10522ae1e15a92",
+  "git_sha_short": "293e5e5",
+  "git_branch": "wmhs/trial-survival",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260909,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "name": "trial_survival_headline",
+  "n_rows": 28,
+  "columns": [
+    "censoring_target",
+    "n_patients",
+    "n_replicates",
+    "censored_fraction",
+    "max_blind_vs_latent",
+    "max_blind_vs_observed",
+    "max_informative_vs_latent",
+    "max_informative_vs_observed",
+    "median_blind_vs_latent",
+    "median_informative_vs_latent",
+    "inversion_rate",
+    "ordering_by_latent_truth",
+    "blind",
+    "informative",
+    "rule"
+  ],
+  "table_kind": "harness",
+  "seeds": [
+    20260909,
+    20260910,
+    20260911,
+    20260912,
+    20260913,
+    20260914
+  ],
+  "n_replicates_per_seed": 200,
+  "beta_requested": -0.5108256237659907,
+  "hazard_ratio_requested": 0.6,
+  "stratum_hazards": [
+    0.1,
+    0.16,
+    0.3
+  ],
+  "propensity": [
+    0.25,
+    0.5,
+    0.75
+  ],
+  "stratum_weights": [
+    0.5,
+    0.3,
+    0.2
+  ],
+  "cohort_sizes": [
+    100,
+    200,
+    500,
+    1000,
+    2000,
+    3000,
+    5000
+  ],
+  "censoring_targets": [
+    0.0,
+    0.12,
+    0.49,
+    0.78
+  ],
+  "censoring_times": {
+    "0.0": 1000.0,
+    "0.12": 20.065216,
+    "0.49": 6.07292,
+    "0.78": 2.028858
+  },
+  "censored_fraction_achieved": {
+    "0.0": 0.0,
+    "0.12": 0.1198,
+    "0.49": 0.4906,
+    "0.78": 0.7803
+  },
+  "rmst_tau": 2.0,
+  "headline_n_patients": 3000,
+  "estimators": {
+    "exponential-mle-standardised": "the generator's own functional",
+    "stratified-cox-breslow": "informative",
+    "unadjusted-cox": "confounded control",
+    "km-rmst-standardised": "the generator's own functional",
+    "exponential-rmst-standardised": "informative"
+  },
+  "degenerate_on_observed": {
+    "exponential-mle-standardised": true,
+    "stratified-cox-breslow": false,
+    "unadjusted-cox": false,
+    "km-rmst-standardised": true,
+    "exponential-rmst-standardised": false
+  },
+  "inversion_rate_at_headline_n": {
+    "0.0": 0.0,
+    "0.12": 0.46616541353383456,
+    "0.49": 0.585,
+    "0.78": 0.6091666666666666
+  },
+  "rule": "In a censored simulator, evaluate the realised truth on the OBSERVED data. The latent-time truth is more precise, more available, and wrong for this purpose: its residual is dominated by what censoring hid, not by whether the estimator is independent of the generator.",
+  "SYNTHETIC": "Simulated trial cohorts with an analytically known hazard ratio and administrative censoring. Nothing here is a result about any real trial, patient or endpoint.",
+  "what_this_answers": "Whether the residual-against-realised-truth check that catches an estimator sharing sufficient statistics with its generator still works once the endpoint is censored. It does when the realised truth is computed on the observed data, and it does not when the truth is computed on the latent event times: the residual then grows with the censored fraction until the blind estimator ranks worse than an informative one."
+}
