@@ -1,10 +1,12 @@
 # UniToPatho engineering benchmark — data gate
 
 **Status:** manifest structure audited; the 48.37-GiB selected archive is held
-outside the repository in the researcher's Google Drive. Dataset terms have not
-yet been recorded or reviewed. IEEE DataPort's public platform descriptions
-cannot substitute for the specific terms displayed for dataset 49617. No feature
-extraction, model selection, or fitting is licensed by this document.
+outside the repository in the researcher's Google Drive. Dataset terms were
+reviewed on 2026-09-10: the IEEE DataPort access language states that datasets
+are available under CC BY and may be copied, analyzed, or used for other
+purposes with attribution. This clears data licensing for the engineering
+benchmark. It does not turn its morphology labels into a biological endpoint or
+replace the remaining pre-feature-extraction protocol amendment.
 
 ## Scope
 
@@ -49,10 +51,11 @@ python -m src.reference.jobs.unitopatho_feasibility \
 
 ## Conditions still required before modeling
 
-1. Save and review the IEEE DataPort dataset terms. Confirm that non-commercial
-   model training, derived weights/features, and publication of aggregate
-   results are allowed. A GitHub repository's MIT code license does not answer
-   this question for the data.
+1. **Complete — retain the evidence.** Save the IEEE DataPort access-language
+   record alongside local access notes. It states that datasets are CC BY and
+   may be copied, analyzed, or otherwise used with attribution. Cite the
+   dataset and the Barbano et al. source paper in any output. The GitHub
+   repository's MIT code license is not the data license.
 2. Record the dataset version, archive checksum, and image-to-manifest
    reconciliation without changing the selected 800-pixel configuration. The
    Google Drive listing itself is enough for this structural check; it does not
@@ -77,7 +80,9 @@ python -m src.reference.jobs.unitopatho_feasibility \
    verbatim: it supplies bare root-relative file paths, while any directory
    markers are ignored by the gate.
 3. Lock one task and a patient-contained train/validation/test protocol before
-   feature extraction. The encoder remains frozen; all threshold selection is
+   feature extraction. The task and split are locked below; a subsequent,
+   pre-feature-extraction amendment must name the frozen encoder and evaluation
+   procedure. The encoder remains frozen; all threshold selection is
    validation-only; the test set is opened once for coverage, selective error,
    calibration, and the ordinary non-abstaining baseline.
 

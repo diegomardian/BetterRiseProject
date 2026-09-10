@@ -70,7 +70,7 @@ def test_source_location_must_be_a_png_with_the_roi_marker():
 
 
 def test_terms_are_not_inferred_from_an_eligible_split():
-    assert MODELING_LICENSE_STATUS == "terms_not_yet_verified"
+    assert MODELING_LICENSE_STATUS == "cc_by_attribution_required"
     assert EXPECTED_CLASSES == {"HP", "NORM", "TA.HG", "TA.LG", "TVA.HG", "TVA.LG"}
 
 

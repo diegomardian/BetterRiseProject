@@ -30,7 +30,7 @@ def test_reconciliation_accepts_exact_manifest_paths_and_csvs():
     assert detail.loc[0, "n_missing_paths"] == 0
     assert detail.loc[0, "n_unexpected_paths"] == 0
     assert summary.loc[0, "archive_paths_exactly_match_manifest"]
-    assert not summary.loc[0, "dataset_terms_reviewed"]
+    assert summary.loc[0, "dataset_terms_reviewed"]
 
 
 def test_reconciliation_refuses_a_manifest_with_duplicate_image_locations():

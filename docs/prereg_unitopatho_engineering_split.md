@@ -11,10 +11,12 @@ configuration. It has 8,669 image paths from 292 source-derived slide groups.
 `7000` and `7000_224` are prohibited: they are separate source configurations
 and their overlapping slide groups have incompatible supplied split assignments.
 
-This contract does not grant a data license. IEEE DataPort's dataset-specific
-terms, permission to train a model, make derived features/weights, and publish
-aggregate results remain unrecorded. Until that evidence is added, this document
-licenses no image transfer, feature extraction, model fitting, or publication.
+IEEE DataPort's access language was reviewed on 2026-09-10. It states that
+datasets are CC BY and may be copied, analyzed, or otherwise used with
+attribution, clearing data licensing for this engineering benchmark. This is
+not a biological-data license because the dataset carries no molecular endpoint.
+It also does not select an encoder or permit the protocol to be tuned after
+features are read.
 
 ## Locked prediction task
 

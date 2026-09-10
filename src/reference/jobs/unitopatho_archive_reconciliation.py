@@ -27,6 +27,7 @@ from src.common.label_provenance import (
 from src.common.provenance import DEFAULT_SEED
 from src.reference.jobs.unitopatho_feasibility import (
     CLAIM_PROVENANCE,
+    DATASET_TERMS_REVIEWED,
     EXPECTED_MANIFEST_SHA256,
     LABEL_PROVENANCE,
     MODELING_LICENSE_STATUS,
@@ -97,7 +98,7 @@ def reconcile(images: pd.DataFrame, listing: list[str]) -> tuple[pd.DataFrame, p
 
     summary = detail.assign(
         archive_paths_exactly_match_manifest=True,
-        dataset_terms_reviewed=False,
+        dataset_terms_reviewed=DATASET_TERMS_REVIEWED,
         modeling_license_status=MODELING_LICENSE_STATUS,
         molecular_endpoint_available=False,
         engineering_only=True,
@@ -141,7 +142,7 @@ def main() -> int:
             "roadmap": "docs/ml_abstention_roadmap.md",
             "manifest_sha256": manifest_sha256,
             "listing_sha256": sha256(listing_path),
-            "dataset_terms_reviewed": False,
+            "dataset_terms_reviewed": DATASET_TERMS_REVIEWED,
             "modeling_license_status": MODELING_LICENSE_STATUS,
             "molecular_endpoint_available": False,
             "engineering_only": True,

@@ -52,7 +52,8 @@ EXPECTED_PATCHES = 8669
 EXPECTED_SLIDE_GROUPS = 292
 EXPECTED_CLASSES = {"HP", "NORM", "TA.HG", "TA.LG", "TVA.HG", "TVA.LG"}
 EXPECTED_SPLITS = {"training", "validation", "test"}
-MODELING_LICENSE_STATUS = "terms_not_yet_verified"
+DATASET_TERMS_REVIEWED = True
+MODELING_LICENSE_STATUS = "cc_by_attribution_required"
 
 
 class UniToPathoFeasibilityError(ValueError):
@@ -223,7 +224,7 @@ def main() -> int:
             **provenance_meta(LABEL_PROVENANCE, CLAIM_PROVENANCE),
             "roadmap": "docs/ml_abstention_roadmap.md",
             "manifest_sha256": actual_sha256,
-            "dataset_terms_reviewed": False,
+            "dataset_terms_reviewed": DATASET_TERMS_REVIEWED,
             "modeling_license_status": MODELING_LICENSE_STATUS,
             "molecular_endpoint_available": False,
             "engineering_only": True,

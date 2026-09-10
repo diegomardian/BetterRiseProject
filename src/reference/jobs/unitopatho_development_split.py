@@ -25,6 +25,7 @@ from src.common.label_provenance import (
 from src.common.provenance import DEFAULT_SEED
 from src.reference.jobs.unitopatho_feasibility import (
     CLAIM_PROVENANCE,
+    DATASET_TERMS_REVIEWED,
     EXPECTED_MANIFEST_SHA256,
     LABEL_PROVENANCE,
     UniToPathoFeasibilityError,
@@ -156,7 +157,7 @@ def main() -> int:
             "development_split_salt": DEVELOPMENT_SPLIT_SALT,
             "validation_fraction": VALIDATION_FRACTION,
             "task_labels": list(TASK_LABELS),
-            "dataset_terms_reviewed": False,
+            "dataset_terms_reviewed": DATASET_TERMS_REVIEWED,
             "feature_extraction_authorized": False,
             "engineering_only": True,
         }
