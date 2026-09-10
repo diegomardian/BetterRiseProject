@@ -209,10 +209,21 @@ def test_the_seed_flip_is_the_one_recorded_in_the_job(tex):
 
 
 def test_the_paper_counts_its_own_withdrawn_guards(tex):
-    """Three guards described, three claimed, in both places that claim it."""
+    """Three guards described, three claimed -- and a fourth thing that is not one.
+
+    ``withdrawn.tex`` carries four paragraphs. Three are withdrawn guards; the
+    fourth is the interval, which is not a guard and whose whole point is that
+    it is not. Counting paragraphs and calling the answer "guards" would be a
+    miscount of exactly the kind this file exists to catch, so the two are
+    separated here rather than summed.
+    """
     withdrawn = (SECTIONS / "withdrawn.tex").read_text()
-    described = withdrawn.count("\\paragraph{")
-    assert described == 3, f"{described} guards described, not 3"
+    paragraphs = withdrawn.count("\\paragraph{")
+    not_a_guard = withdrawn.count("\\paragraph{And the fifth is not a guard at all.")
+    assert not_a_guard == 1, "the interval paragraph is missing or was retitled"
+    assert paragraphs - not_a_guard == 3, (
+        f"{paragraphs - not_a_guard} guards described, not 3"
+    )
     _quotes(tex, "Three more guards shipped and got withdrawn")
     appendix = (SECTIONS / "appendix.tex").read_text()
     assert "\\subsection*{Three more checks that could not fire}" in appendix
@@ -220,16 +231,16 @@ def test_the_paper_counts_its_own_withdrawn_guards(tex):
 
 
 def test_the_conclusion_counts_the_statistics_it_lists(tex):
-    """``Four ... could not fail``, and four semicolon-separated clauses.
+    """``Five ... could not fail``, and five semicolon-separated clauses.
 
     The sentence said ``two`` while listing three for as long as it existed.
     A count in a paper about miscounted claims is worth a test.
     """
     conclusion = (SECTIONS / "conclusion.tex").read_text()
-    _quotes(tex, "Four of this paper's statistics could not fail.")
+    _quotes(tex, "Five of this paper's statistics could not fail.")
     sentence = conclusion.split("could not fail.", 1)[1].split("Each looked like")[0]
-    assert sentence.count(";") == 3, (
-        f"{sentence.count(';') + 1} statistics listed against a claimed four"
+    assert sentence.count(";") == 4, (
+        f"{sentence.count(';') + 1} statistics listed against a claimed five"
     )
 
 
@@ -264,7 +275,7 @@ def test_the_dense_grid_returns_the_ok_cutpoint_quoted(calibration_tex):
     """``$ok = 70$ on eight of eight seeds`` on the reference pool."""
     dense = _cutpoints("smc")
     ref = dense[(dense["grid"] == "dense") & (dense["pool"] == "reference")]
-    _quotes(calibration_tex, "returns $ok = 70$ on eight of\neight seeds")
+    _quotes(calibration_tex, "returns $ok = 70$ on eight of eight seeds")
     assert len(ref) == 8
     assert sorted(ref["ok"].unique()) == [70.0]
 
@@ -277,14 +288,14 @@ def test_wide_has_zero_seed_variance_within_every_grid(calibration_tex):
     """
     _quotes(
         calibration_tex,
-        r"\textbf{Within any one grid the seed-to-seed variance of $wide$ is exactly",
+        r"seed-to-seed variance --- one value on all eight seeds, in all six",
     )
     # ...and the six values themselves. Asserting the table without quoting
     # the prose list leaves the list free to drift -- this file's own
     # failure mode, caught here by mutation rather than by review.
     _quotes(
         calibration_tex,
-        "($40$, $45$, $42$ here; $100$, $65$, $70$ on the second cohort)",
+        "($40$, $45$, $42$ here; $100$, $65$, $70$ on the" + chr(10) + "second cohort)",
     )
     cells = {}
     for cohort in ("smc", "kul3"):
@@ -310,7 +321,7 @@ def test_wide_has_zero_seed_variance_within_every_grid(calibration_tex):
 
 def test_the_pooled_draw_returns_nothing_on_the_dense_grid(calibration_tex):
     """``topping out at $0.750$ and\n$0.795$`` against the 0.80 target."""
-    _quotes(calibration_tex, "discrimination topping out at $0.750$ and\n$0.795$")
+    _quotes(calibration_tex, "topping out at $0.750$ and $0.795$ against the $0.80$ target")
     maxima = []
     for cohort in ("smc", "kul3"):
         frame = _cutpoints(cohort)
