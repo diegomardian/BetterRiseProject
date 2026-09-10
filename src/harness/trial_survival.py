@@ -379,17 +379,23 @@ def _cox(
 ) -> float:
     """Newton on the stratified Breslow partial likelihood. One covariate.
 
-    Requires ``time`` ascending within each stratum, which every trial in this
-    module satisfies because the cohort is sorted at generation and ``min(t, c)``
-    preserves the order.
+    Sorts defensively. ``_partial_likelihood`` builds its risk sets from reverse
+    cumulative sums and would return a wrong number rather than an error on
+    unsorted input, which is the worst way for this to fail. Cohorts arrive
+    already sorted -- ``min(t, c)`` preserves the generator's order -- so the
+    sort is nearly free and the assumption is not load-bearing.
 
     Returns NaN rather than a number when the partial likelihood carries no
     information about the covariate -- no events, or no within-stratum contrast.
     """
-    groups = [
-        (treated[stratum == g].astype(float), time[stratum == g], event[stratum == g])
-        for g in np.unique(stratum)
-    ]
+    groups = []
+    for g in np.unique(stratum):
+        cell = stratum == g
+        t = time[cell]
+        order = np.argsort(t, kind="stable")
+        groups.append(
+            (treated[cell].astype(float)[order], t[order], event[cell][order])
+        )
     beta = 0.0
     for _ in range(100):
         loglik = score = hessian = 0.0
