@@ -15,14 +15,39 @@ rendered as §5. Do not cut it for space.
 
 | | file | main text | limit |
 |---|---|---|---|
-| Full paper | `main.tex` | ~7.7 pages, **estimated** | 9 |
-| Extended abstract | `main_short.tex` | 4 pages, **estimated** | 4 |
+| Full paper | `main.tex` | **9 pages, measured** | 9 |
+| Extended abstract | `main_short.tex` | **4 pages, measured** | 4 |
 
-**Neither figure has been measured.** `neurips_2026.sty` is not vendored, so
-`./build.sh` has never run against the real style; both numbers come from a
-geometry-matched stub that runs about 1.4x long. `PATCHES.md` says the same and
-this table used to contradict it. Drop the official style in and run
-`./build.sh` before believing either number.
+**Measured 2026-09-09, against real NeurIPS geometry, and the old estimate was
+wrong by two pages.** `neurips_2026.sty` is still not published, so the build
+was run against the official `neurips_2024.sty` (from
+`media.neurips.cc/Conferences/NeurIPS2024/Styles.zip`) behind a five-line shim
+absorbing `[dblblindworkshop]` and `\workshoptitle`. NeurIPS page geometry has
+been stable across these years, so this measures pages accurately even though
+it is **not** the file to submit with.
+
+The stub previously used runs ~1.4x long and gave 7.7. The real geometry gives
+**11 pages for the full build as it stood on 2026-09-08** — over the limit,
+undetected, for as long as the estimate stood. Two grid caveats, the
+abstention-rate reading and the withdrawn guards moved to the appendix (both
+builds) to bring it to 9.
+
+Neither the shim nor `neurips_2024.sty` is committed. **Download the real 2026
+workshop style when it is published and re-run `./build.sh` before submitting**
+--- this measurement is a floor on confidence, not a substitute.
+
+Reproduce:
+
+```
+curl -L -o /tmp/s.zip https://media.neurips.cc/Conferences/NeurIPS2024/Styles.zip
+unzip -j /tmp/s.zip 'Styles/neurips_2024.sty' -d paper/wmhs/
+printf '%s\n' '\NeedsTeXFormat{LaTeX2e}' '\ProvidesPackage{neurips_2026}' \
+  '\DeclareOption{dblblindworkshop}{}' \
+  '\DeclareOption*{\PassOptionsToPackage{\CurrentOption}{neurips_2024}}' \
+  '\ProcessOptions\relax' '\RequirePackage{neurips_2024}' \
+  '\newcommand{\workshoptitle}[1]{}' > paper/wmhs/neurips_2026.sty
+cd paper/wmhs && ./build.sh
+```
 
 Limits verified against the CFP's own text on 2026-08-31: *"Full Papers: at most
 9 pages of main text. Extended Abstracts: at most 4 pages of main text.

@@ -226,8 +226,12 @@ def test_the_paper_counts_its_own_withdrawn_guards(tex):
     )
     _quotes(tex, "Three more guards shipped and got withdrawn")
     appendix = (SECTIONS / "appendix.tex").read_text()
-    assert "\\subsection*{Three more checks that could not fire}" in appendix
+    # The heading moved from a subsection of the short build's appendix to a
+    # section of both builds' appendix when the page count was first measured
+    # against real geometry. The count claim has to survive the move.
+    assert "\\section{Three guards that could not fire, and the interval}" in appendix
     assert "Two more checks that could not fire" not in appendix
+    assert "Two guards that could not fire" not in appendix
 
 
 def test_the_conclusion_counts_the_statistics_it_lists(tex):

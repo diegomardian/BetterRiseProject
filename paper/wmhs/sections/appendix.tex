@@ -21,15 +21,27 @@ expression shifts explicitly.
 \subsection*{What abstention buys, and which part of it}
 \input{sections/bench.tex}
 
-\subsection*{What the grid was reporting, and two caveats}
+\fi
+
+% Moved out of the main text in BOTH builds on 2026-09-09. Measured against the
+% real style geometry the nine-page build ran to eleven pages of main text, not
+% the 7.7 a stub had estimated. These three are the most instance-specific
+% material in the paper -- two grid caveats, the abstention-rate reading, and
+% the withdrawn guards -- so they are what an argument about validation
+% statistics can most afford to carry in an appendix. Both builds now \input
+% them here, which also means the short and long versions no longer differ in
+% where a reader finds them.
+\section{What the grid was reporting, and two caveats}
+\label{app:gridcaveats}
 \input{sections/gridcaveats.tex}
 
-\subsection*{On real data, abstention is the modal outcome}
+\section{On real data, abstention is the modal outcome}
+\label{app:modal}
 \input{sections/modaloutcome.tex}
 
-\subsection*{Three more checks that could not fire}
+\section{Three guards that could not fire, and the interval}
+\label{app:guards}
 \input{sections/withdrawn.tex}
-\fi
 
 \section{The withdrawn guards}
 \label{app:withdrawn}
