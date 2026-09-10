@@ -41,27 +41,10 @@ those verdicts is a cutpoint on $n$, the count of relevant cells in the diseased
 arm: answer at $n \geq 50$, flag a wide interval from 20 to 49, abstain below 20.
 
 \iffull
-\paragraph{Related work: validating a method against a simulator.} Evaluating a
-statistical method by simulating from a known truth and measuring recovery is
-long-standing practice with a written methodology behind it. Burton et
-al.~\citep{burton2006} set out how such a study should be designed and
-protocolled; ADEMP \citep{morris2019} gives the structure now in general use,
-and names the data-generating mechanism and the methods under evaluation as
-\emph{separate} items --- precisely so that the second can be assessed against
-the first. That separation is exactly the property our arm lost, and the
-guidance is right. What it does not supply is a test. It tells you the
-generating mechanism should not coincide with the analysis model; it does not
-tell you how to find out whether yours does, and in our case reading the code
-would not have told us either (\S\ref{sec:blind}).
-
-The case we describe is the degenerate end of that advice. It is not a
-diagnostic weakened because the generator and the estimator share assumptions.
-It is a diagnostic in which the estimator is \emph{algebraically absent} --- the
-recovery ratio is a function of the generator alone, so the curve is unchanged
-if the estimator is replaced by any other with the same property. That is
-checkable in one line on the sweep you already have, and our contribution is
-that line and the demonstration that two estimators from different literatures
-can both fail it.
+\paragraph{Related work.} Simulation-study methodology (ADEMP and its
+forerunners), the differential-abundance methods that never face this
+estimand, and the selective-prediction literature the abstention rule belongs
+to are surveyed in Appendix~\ref{app:relatedwork}.
 
 \paragraph{Relation to known circularity.} That a simulation study can favour
 methods resembling its generator is not new, and we are not claiming it. Meng
@@ -93,18 +76,6 @@ identically zero --- together with the finding that two estimators from
 different literatures both fail it, and that
 \S\ref{sec:calibration} then contradicts what the blind curve had certified.
 
-\paragraph{Related work: the abstention rule.} Cell-count filters of this shape are standard rather
-than novel. Pseudobulk pipelines drop samples below a minimum cell count
-\citep{crowell2020}, and differential-abundance methods --- scCODA
-\citep{buettner2021}, Milo \citep{dann2022}, propeller \citep{phipson2022},
-DA-seq \citep{zhao2021} --- test composition without an expression arm, so they
-never face this estimand. cacoa \citep{petukhov2022} is closest: it separates
-compositional from expression shifts explicitly. Our claim is not the filter. It
-is that the filter is a selective-prediction rule \citep{chow1970,elyaniv2010,
-geifman2017} and is therefore something you can \emph{calibrate} and get wrong,
-and that it should emit a third verdict rather than silently dropping rows ---
-because a dropped row and a row estimated at zero are indistinguishable
-downstream.
 \else
 \paragraph{Related work.} Cell-count filters of this shape are standard rather
 than novel (Appendix~\ref{app:benchtable}); cacoa \citep{petukhov2022} is

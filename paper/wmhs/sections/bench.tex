@@ -8,15 +8,11 @@ cells whose truth is available in closed form (Appendix~\ref{app:bench}). Mature
 cells draw Poisson; immature cells express nothing; one world sets the diseased
 mature fraction to zero.
 
-\iffull
-\input{sections/benchtable.tex}
-\else
 Over 200 replicates in the world where no diseased mature cell survives, our
 count gate and a width gate each refuse all 200, and three ungated methods ---
 the same arithmetic with the gate removed, pseudobulk differential expression,
-and a naive difference of arm means --- return a number every time. The full
-table is Appendix~\ref{app:benchtable}.
-\fi
+and a naive difference of arm means --- return a number every time
+(Table~\ref{tab:bench}).
 
 \iffull
 Ungated methods invent large effects. On a scale where the reference per-cell
@@ -103,6 +99,34 @@ that abstention is trivially achievable by abstaining always --- on real data
 this pipeline declined where the estimand degenerates and separated the genes
 where it does not. We draw no biological conclusion from either cohort
 (\S\ref{sec:responsible}); the claim here is about identifiability.
+
+
+\paragraph{The finiteness result does not depend on the count model, and we can
+prove that rather than hope it.} Appendix~\ref{app:bench} limitation~1 said this
+benchmark tests the gate and not robustness to a misspecified generator. For the
+finiteness guard specifically that limitation is now closed. Re-running
+\texttt{annihilated} under negative-binomial arms at dispersion $10$, $2$ and
+$0.5$, and zero-inflated NB at $\pi = 0.3$, the count gate and the width gate
+each refuse $200/200$ in every model while the ungated ablation answers
+$200/200$ in every model. There is an analytic reason and it is why this is a
+result: the world sets the mature fraction to \emph{exactly} zero, so no mature
+cell exists whatever the count distribution, and no amount of overdispersion or
+zero-inflation can manufacture one. \textbf{It does not extend to the width
+gate.} In \texttt{depleted\_wide} the count gate refuses 95--99 of 200 across
+all five models while the width gate refuses $0$, $0$, $1$ and $13.7$: its
+non-binding is a property of the expression model, and the finiteness guard's
+behaviour is not.
+
+\paragraph{And the width gate matches ours on a knife edge.} Sweeping the
+detectable effect locates where the width criterion starts to bind, and the
+answer is sharper than ``it never does''. There \emph{is} a setting reproducing
+our count gate's 88 refusals in \texttt{depleted\_wide} --- but only for
+$s_{\text{detect}} \in [0.928776, 0.928981]$, \textbf{a window $0.000204$
+wide}. And $0.029$ above it, at $s_{\text{detect}} = 0.958$, the gate collapses
+into refusing in \texttt{depleted\_estimable} and \texttt{compositional\_only},
+where the estimand plainly exists. So the width gate does not dominate ours for
+free. It matches ours in a parameter nobody calibrated, with a cliff just past
+it --- which is this paper's thesis arriving in our own preferred competitor.
 
 \paragraph{Where this leaves the rule.} Two independent routes now say the same
 thing about the count cutpoint, and neither says what we expected. The benchmark

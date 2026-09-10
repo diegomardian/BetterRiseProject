@@ -180,6 +180,85 @@ The lesson is not that oracle arms are bad. It is that \emph{near 1 and
 tightening} is compatible with the estimator having been divided out, and that
 the residual against realised truth is what separates the two.
 
+\iffull
+\paragraph{The check is sound and not complete, and we can say how incomplete.}
+An exact zero proves blindness: if $\hat\theta \equiv \theta_{\text{realised}}$
+the ratio is a functional of the generator, by algebra. The converse fails, in
+three ways we can measure (Table~\ref{tab:matrix}, 14 estimators $\times$ 3
+designs $\times$ 2 realised truths $\times$ 6 cohort sizes $\times$ 6 seeds).
+
+\textbf{Degeneracy belongs to the \emph{pair}, not the estimator.} OLS on
+stratum dummies has residual $0.0663$ against the standardised realised truth
+and reads informative. Against the variance-weighted realised truth --- OLS's
+own finite-sample estimand, exact by Frisch--Waugh --- it is
+$3.5\times10^{-14}$, exactly blind. The swap runs both ways: G-computation is
+$0$ against the first and $0.0663$ against the second. Our Table~\ref{tab:trial}
+reports OLS as the row that sees the estimator; it is, relative to a truth OLS
+was never estimating.
+
+\textbf{The verdict flips with the trial design.} Under stratified
+permuted-block randomisation with 1:1 allocation --- what ICH E9 trials
+actually run --- propensities are $0.5$ by construction, the two estimands
+coincide, and everything except cross-fitted IPW and finite-ratio matching sits
+at machine zero: OLS $1.6\times10^{-14}$, and even the unadjusted difference
+$6.7\times10^{-15}$. No estimator changed.
+
+\textbf{Two more estimators are secretly the same functional.} AIPW with
+saturated nuisances and no cross-fitting is $4.4\times10^{-15}$: the
+augmentation term is identically zero within each stratum, so the modern
+doubly-robust estimator collapses onto standardisation, and \textbf{cross-fitting
+is the only thing standing between it and a vacuous curve.} Exact matching on
+stratum is $8.9\times10^{-16}$ with all controls, $0.052$ at 20 and $0.164$ at
+1 --- blindness set by a matching ratio nobody thinks of as a validation
+choice. IPW with an $L_2$-penalised logistic propensity runs $0.403$, $0.045$,
+$0.0103$, $0.010$ as $C$ goes $0.1, 1, 100, 10^6$, and $1.3\times10^{-6}$ once
+the solver tolerance is tightened: five orders of magnitude of apparent
+informativeness from a regularisation constant.
+
+\paragraph{So report a ratio, not a boolean.} Put the residual in units of the
+generator's own sampling error,
+\[
+\rho \;=\; \frac{\mathrm{med}\,|\hat\theta - \theta_{\text{realised}}|}
+                {\mathrm{med}\,|\theta_{\text{realised}} - \theta|},
+\]
+the fraction of the recovery curve's spread the estimator is responsible for at
+all. OLS scores $\rho$ between $0.129$ and $0.137$ at every cohort size from
+100 to 5{,}000, with no trend in $n$: \textbf{88\% of its recovery curve is generator
+sampling noise}, and it passes the boolean check. Cross-fitted IPW falls
+$1.69 \rightarrow 0.23$, ending 81\% generator noise at $n = 5{,}000$. The
+unadjusted difference scores $52.8$ and is the only estimator here whose curve
+is mostly about itself. $\rho = 0$ is the boolean check as a special case;
+$0 < \rho \ll 1$ is the regime it cannot see.
+\fi
+
+\iffull
+\paragraph{Censoring silences the check, and the fix is which truth you compare
+to.} Time-to-event is the endpoint clinical trial simulation actually reports,
+so we repeated the experiment with exponential times, confounded assignment and
+administrative censoring (4 censoring levels $\times$ 7 cohort sizes $\times$
+1{,}200 replicates $\times$ 6 seeds). The blind estimator is the per-stratum
+exponential MLE, whose sufficient statistics --- events and exposure per cell
+--- are exactly the generator's, and stay so under censoring.
+
+\textbf{Against the observed data the check never misses}: $\max|\hat\theta -
+\theta_{\text{realised}}^{\text{obs}}| = 0$ in all 28 cells. \textbf{Against the
+latent event times it degrades to nothing}: $0$, $0.061$, $0.144$, $0.376$ at
+$0\%$, $12\%$, $49\%$ and $78\%$ censoring. The estimator is unchanged; the
+residual now measures what censoring hid. And a simulator author logs the
+latent times \emph{because the generator knows them} --- so the natural
+comparison is the wrong one, and it gets worse exactly as the design gets more
+realistic.
+
+By $49\%$ censoring the ordering inverts in 5 of 7 cohort sizes and by $78\%$
+in 6 of 7, the blind estimator's latent-truth residual exceeding stratified
+Cox's ($0.376$ against $0.293$ at $n = 3{,}000$); per replicate the inversion
+rate is $0.53$--$0.61$. Not a clean reversal, and we do not claim one: a
+practitioner ranking estimators by this column at high censoring picks the
+blind one \emph{more often than not}. \textbf{The rule is to evaluate realised
+truth on the observed data.} The latent truth is more precise, more available,
+and wrong for this purpose.
+\fi
+
 \paragraph{The one-line check.} Compare the estimate against the \emph{realised}
 truth rather than the parametric truth, and test whether the difference is
 identically zero --- the assertion boxed above. If it is zero, the recovery

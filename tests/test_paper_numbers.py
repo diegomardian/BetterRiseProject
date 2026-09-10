@@ -508,3 +508,102 @@ def test_no_paragraph_heading_appears_twice():
                 f"{path.name} carries {duplicated} more than once in the "
                 f"{'full' if build else 'short'} build"
             )
+
+
+# ---------------------------------------------------------------------------
+# The three experiments added 2026-09-10: the residual matrix, the information
+# ratio, censored survival, and the benchmark extensions. Same rule as above --
+# every figure quoted in the prose is re-derived from its committed table.
+
+
+@pytest.fixture(scope="module")
+def matrix() -> pd.DataFrame:
+    return pd.read_parquet(_newest("trial_blindness_residual_matrix"))
+
+
+@pytest.fixture(scope="module")
+def rho() -> pd.DataFrame:
+    return pd.read_parquet(_newest("trial_blindness_information_ratio"))
+
+
+@pytest.fixture(scope="module")
+def survival() -> pd.DataFrame:
+    return pd.read_parquet(_newest("trial_survival_headline"))
+
+
+def _cell(frame, estimator, design, truth, n=5000):
+    row = frame[
+        (frame["estimator"] == estimator)
+        & (frame["design"] == design)
+        & (frame["truth"] == truth)
+        & (frame["n_patients"] == n)
+    ]
+    assert len(row) == 1, (estimator, design, truth, n, len(row))
+    return float(row["max_residual"].iloc[0])
+
+
+def test_ols_is_blind_against_its_own_estimand(blind_tex, matrix):
+    """The pair claim: 0.0663 against one truth, machine zero against the other."""
+    _quotes(blind_tex, "has residual $0.0663$ against the standardised realised truth")
+    _quotes(blind_tex, "$3.5" + chr(92) + "times10^{-14}$, exactly blind")
+    std = _cell(matrix, "ols-stratum-dummies", "confounded-bernoulli", "standardised")
+    var = _cell(matrix, "ols-stratum-dummies", "confounded-bernoulli", "varweighted")
+    assert round(std, 4) == 0.0663
+    assert var < 1e-12 and round(var * 1e14, 1) == 3.5
+    # and the swap runs the other way
+    g_std = _cell(matrix, "gcomp-from-generator", "confounded-bernoulli", "standardised")
+    g_var = _cell(matrix, "gcomp-from-generator", "confounded-bernoulli", "varweighted")
+    assert g_std == 0.0 and round(g_var, 4) == 0.0663
+
+
+def test_block_randomisation_blinds_even_the_unadjusted_difference(blind_tex, matrix):
+    """Under 1:1 allocation the estimands coincide and everything collapses."""
+    _quotes(blind_tex, "and even the unadjusted difference")
+    for est in ("ols-stratum-dummies", "unadjusted", "ipw-saturated", "aipw-saturated"):
+        assert _cell(matrix, est, "block-randomised", "standardised") < 1e-12, est
+    # the design is what does it: confounded, the unadjusted difference is huge
+    assert _cell(matrix, "unadjusted", "confounded-bernoulli", "standardised") > 4.0
+
+
+def test_aipw_with_saturated_nuisances_is_blind(blind_tex, matrix):
+    """Cross-fitting is the only thing between AIPW and a vacuous curve."""
+    _quotes(blind_tex, "saturated nuisances and no cross-fitting is $4.4")
+    assert _cell(matrix, "aipw-saturated", "confounded-bernoulli", "standardised") < 1e-13
+    assert _cell(matrix, "ipw-cross-fitted", "confounded-bernoulli", "standardised") > 0.1
+
+
+def test_the_information_ratio_does_not_improve_with_n(blind_tex, rho):
+    """OLS sits at 0.13 at every cohort size -- 88% generator noise."""
+    _quotes(blind_tex, chr(92) + "rho$ between $0.129$ and $0.137$ at every cohort size")
+    _quotes(blind_tex, "88" + chr(92) + "% of its recovery curve is generator")
+    ols = rho[
+        (rho["estimator"] == "ols-stratum-dummies")
+        & (rho["design"] == "confounded-bernoulli")
+        & (rho["truth"] == "standardised")
+    ]
+    assert len(ols) >= 6
+    assert (round(ols["rho"].min(), 3), round(ols["rho"].max(), 3)) == (0.129, 0.137)
+    share = ols[ols["n_patients"] == 5000]["generator_noise_share"].iloc[0]
+    assert round(share * 100) == 88
+
+
+def test_censoring_silences_the_check_but_not_against_observed(blind_tex, survival):
+    """Zero against observed everywhere; growing against the latent times."""
+    _quotes(blind_tex, "= 0$ in all 28 cells")
+    _quotes(blind_tex, "$0$, $0.061$, $0.144$, $0.376$ at")
+    assert len(survival) == 28
+    assert (survival["max_blind_vs_observed"] == 0.0).all()
+    at3000 = survival[survival["n_patients"] == 3000].set_index("censoring_target")
+    got = [round(at3000.loc[c, "max_blind_vs_latent"], 3) for c in (0.0, 0.12, 0.49, 0.78)]
+    assert got == [0.0, 0.061, 0.144, 0.376], got
+
+
+def test_the_inversion_is_a_majority_not_a_reversal(blind_tex, survival):
+    """4 of 7 at 49%, 6 of 7 at 78% -- and the paper says majority, not all."""
+    _quotes(blind_tex, "inverts in 5 of 7 cohort sizes and by $78" + chr(92) + "%$")
+    _quotes(blind_tex, "in 6 of 7")
+    inverted = survival["ordering_by_latent_truth"].str.startswith("INVERTED")
+    counts = survival.assign(inv=inverted).groupby("censoring_target")["inv"].sum()
+    assert int(counts.loc[0.49]) == 5
+    assert int(counts.loc[0.78]) == 6
+    assert int(counts.loc[0.0]) == 0

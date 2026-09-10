@@ -9,15 +9,6 @@ here is written differently from the nine-page version --- both builds
 \texttt{\textbackslash input} the same files, so a number cannot differ between
 them.
 
-\subsection*{Related work}
-Cell-count filters of this shape are standard rather than novel. Pseudobulk
-pipelines drop samples below a minimum cell count \citep{crowell2020}, and
-differential-abundance methods --- scCODA \citep{buettner2021}, Milo
-\citep{dann2022}, propeller \citep{phipson2022}, DA-seq \citep{zhao2021} ---
-test composition without an expression arm, so they never face this estimand.
-cacoa \citep{petukhov2022} is closest: it separates compositional from
-expression shifts explicitly.
-
 \subsection*{What abstention buys, and which part of it}
 \input{sections/bench.tex}
 
@@ -42,6 +33,52 @@ expression shifts explicitly.
 \section{Three guards that could not fire, and the interval}
 \label{app:guards}
 \input{sections/withdrawn.tex}
+
+
+\section{Related work}
+\label{app:relatedwork}
+\input{sections/relatedwork.tex}
+
+\section{What abstention buys, per world}
+\input{sections/benchtable.tex}
+
+\section{The residual matrix}
+\label{app:matrix}
+
+\begin{table}[h]
+\small
+\centering
+\caption{Maximum $|\hat\theta - \theta_{\text{realised}}|$ at 5{,}000 patients
+per cohort, over 6 seeds. Machine zero is blindness. \textbf{Every column pair
+disagrees about at least one estimator}, which is the point: degeneracy is a
+property of the (estimator, realised-truth, design) triple, not of the
+estimator. Under block randomisation even the unadjusted difference is blind,
+because 1:1 allocation makes the two estimands coincide.}
+\label{tab:matrix}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{confounded}} & \multicolumn{2}{c}{\textbf{block-randomised}} \
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+estimator & standardised & var-weighted & standardised & var-weighted \
+\midrule
+G-computation, generator's strata & $0$          & $0.0663$     & $0$          & $9\!\times\!10^{-16}$ \
+IPW, saturated propensity         & $1\!\times\!10^{-14}$ & $0.0663$ & $7\!\times\!10^{-15}$ & $7\!\times\!10^{-15}$ \
+AIPW, saturated, no cross-fitting & $4\!\times\!10^{-15}$ & $0.0663$ & $4\!\times\!10^{-15}$ & $4\!\times\!10^{-15}$ \
+matching on stratum, all controls & $9\!\times\!10^{-16}$ & $0.0663$ & $9\!\times\!10^{-16}$ & $0$ \
+matching on stratum, 20 controls  & $0.052$      & $0.067$      & $0.037$      & $0.037$ \
+matching on stratum, 1 control    & $0.164$      & $0.182$      & $0.170$      & $0.170$ \
+OLS, stratum dummies              & $0.0663$     & $\mathbf{4\!\times\!10^{-14}}$ & $2\!\times\!10^{-14}$ & $2\!\times\!10^{-14}$ \
+IPW, cross-fitted                 & $0.599$      & $0.618$      & $0.182$      & $0.182$ \
+unadjusted difference             & $4.99$       & $4.99$       & $\mathbf{7\!\times\!10^{-15}}$ & $7\!\times\!10^{-15}$ \
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{The regularisation ladder.} The same IPW estimator with an
+$L_2$-penalised logistic propensity, confounded design, standardised truth:
+residual $0.403$, $0.045$, $0.0103$, $0.010$ at $C = 0.1, 1, 100, 10^6$, and
+$1.3\times10^{-6}$ once the solver tolerance is tightened to $10^{-8}$. Nothing
+in that ladder is a modelling decision about the trial.
 
 \section{The withdrawn guards}
 \label{app:withdrawn}
