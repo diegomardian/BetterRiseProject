@@ -1,0 +1,48 @@
+{
+  "date": "2026-09-10",
+  "utc_timestamp": "2026-09-11T01:52:11+00:00",
+  "git_sha": "dddd34fd7f2d8f8c206b5941d8422b9990f85c52",
+  "git_sha_short": "dddd34f",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "chen_subtype_falsifier_branch",
+  "n_rows": 3,
+  "columns": [
+    "weighting",
+    "branch",
+    "consequence",
+    "cdx2_excludes_zero",
+    "guca2a_excludes_zero"
+  ],
+  "table_kind": "harness",
+  "invariant_11": "no transcript-derived label may claim its own programme",
+  "label_provenance": {
+    "modality": "morphology",
+    "assay": "Chen 2021 two-pathologist H&E polyp diagnosis (cBioPortal POLYP_TYPE)",
+    "genes": "",
+    "derived_from": ""
+  },
+  "claim_provenance": {
+    "modality": "transcript",
+    "assay": "Chen 2021 snRNA-seq adenoma decomposition (lineage rung)",
+    "genes": "",
+    "derived_from": ""
+  },
+  "overlapping_genes": "",
+  "independent_endpoint": null,
+  "prereg": "docs/prereg_chen_lesion_subtype.md",
+  "prereg_locked_at": "3a6d446",
+  "granularity_rung": "lineage",
+  "min_estimable_per_arm": 8,
+  "interval_method": "welch_t",
+  "tested_term": "intrinsic",
+  "compositional_is_descriptive_only": true,
+  "branches_agree_across_weightings": false,
+  "branch": "DISAGREES ACROSS WEIGHTINGS"
+}

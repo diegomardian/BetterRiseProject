@@ -290,3 +290,68 @@ sizes in §3 and the floor in §7 are frozen as written, and only then may a
 decomposition value be joined to a label.
 
 **It does not outrank the write-up.** The WMHS deadline is 15 September 2026.
+
+
+## RESULT — RUN 2026-09-10. The branch depends on the weighting, and the controls move.
+
+`results/2026-09-10_dddd34f/`, clean tree, design locked at `3a6d446` before the
+join. Both arms clear §7's floor: 13 and 9 estimable patients, **zero
+not-estimable in either arm**, as gate 6 said in advance.
+
+### The predicted half holds; the informative half does not
+
+**GUCA2A's intrinsic difference contains zero under all three weightings** —
+doubly robust −1.263 [−5.397, +2.872], normal −2.378 [−7.927, +3.172], tumour
+−0.148 [−2.967, +2.671]. That is the prediction's first clause, and §6 already
+warned it is the half observed in §6d, so it is **not evidence**.
+
+**CDX2 excludes zero under `tumour` only**, +0.523 [+0.020, +1.026] — a lower
+bound 0.02 from zero — and contains zero under doubly robust +0.428 [−0.118,
++0.975] and normal +0.334 [−0.279, +0.946]. The `SER`-arm clause, the only
+informative one, is **not supported**.
+
+### The §7 branch is not single-valued
+
+| weighting | branch |
+|---|---|
+| doubly robust | **NOT SEPARABLE AT THIS RESOLUTION** |
+| normal | **NOT SEPARABLE AT THIS RESOLUTION** |
+| tumour | PREDICTION REPLICATES |
+
+Two of three weightings close item 3; one does not. **The pre-committed
+consequence cannot be applied**, and this is exactly what fixing "all three,
+none primary" at lock was for: choosing `tumour` would have reported a
+replication, and choosing either other would have closed the item, on the same
+data.
+
+### The pairs say the separation is not where the design looks
+
+§5 required every pair for the §6d reason, and it earns it here. Of the 15 pair
+contrasts, **every one that excludes zero involves `ACTB` or `KRT8`** —
+`ACTB − CDX2` −6.854, `ACTB − GUCA2A` −5.163, `CDX2 − KRT8` +8.660,
+`GUCA2A − KRT8` +6.969, and so on. `ACTB − KRT8` itself contains zero: the two
+controls move together. Every pair among `CDX2`, `EPCAM`, `GUCA2A` and `MS4A12`
+contains zero.
+
+Per gene, the largest and most consistent arm differences are the **controls** —
+`ACTB` −6.426 and `KRT8` −8.232 under doubly robust, both excluding zero on all
+three weightings — while the targets do not move. A contrast whose housekeeping
+and identity genes separate the arms more strongly than its targets is not
+measuring something specific to the target programme.
+
+### Reading, and what is not claimed
+
+**Item 3 is reported as NOT SEPARABLE AT THIS RESOLUTION.** The majority branch
+says so; the one dissenting weighting rests on a bound 0.02 from zero; and the
+control behaviour argues against reading any gene-specific difference as
+specific. 13 against 9 patients was named in §7 as the reason to expect this,
+so it is **not a biological null** — it is a resolution limit, and the arms are
+what this deposit has.
+
+**No mechanism is proposed and no post-hoc explanation is offered** for the
+control movement. The candidates — arm-level differences in depth, cell count,
+or mature-cell resolution — are not distinguished by anything run here, and §8
+already bars the interesting readings.
+
+The compositional term was computed and is **not reported as a finding** under
+§4, whatever it shows.

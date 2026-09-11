@@ -962,6 +962,47 @@ is a property of the data, not of the weighting`, which is backwards.
   Its verdict is **FLOOR-UNSTABLE, AND THE FLOORS DISAGREE**. Report each
   `verdict_cause`, never the shared `UNRESOLVED` label.
 
+## 6n. Chen lesion subtype — RUN 2026-09-10. Item 3 is NOT SEPARABLE.
+
+`docs/prereg_chen_lesion_subtype.md`, RESULT section; locked at `3a6d446`
+before the join; tables `results/2026-09-10_dddd34f/`. Gates in
+`docs/chen_subtype_data_gate.md`; snapshot `results/2026-09-10_2bc9bd4/`;
+identifiers `results/2026-09-10_461d20b/`; attrition `results/2026-09-10_dea2021/`.
+
+**Item 3 no longer needed Synapse.** The Chen pathology labels are open on
+cBioPortal (`crc_hta11_htan_2021`, ODbL, attribution owed), which gave 13 `AD`
+against 9 `SER` patients rather than the WES arm's 5 against 4. The labels are
+morphology against a transcript claim, so invariant 11 holds.
+
+**The result is NOT SEPARABLE AT THIS RESOLUTION**, and the interesting part is
+why that is not a single-valued verdict. Two of three weightings return that
+branch; `tumour` returns PREDICTION REPLICATES on a CDX2 lower bound **0.02**
+from zero. Choosing a primary weighting — in either direction — would have
+decided the headline. "All three, none primary" was fixed at lock for exactly
+this, and it is the strongest argument in the repo for pre-committing that
+choice.
+
+**The controls move more than the targets.** GUCA2A contains zero on all three
+weightings. `ACTB` (−6.426) and `KRT8` (−8.232) exclude zero on all three, and
+of the 15 pair contrasts **every one that excludes zero involves ACTB or
+KRT8**, while `ACTB − KRT8` itself contains zero. Every pair among CDX2, EPCAM,
+GUCA2A and MS4A12 contains zero. A contrast whose housekeeping and identity
+genes separate the arms more strongly than its targets is not measuring the
+target programme, and §5's every-pair requirement — the §6d correction — is
+what made that visible.
+
+**Not a biological null.** §7 named 13 versus 9 as the reason to expect this
+before the run. No mechanism is proposed for the control movement; depth, cell
+count and mature-cell resolution are not distinguished by anything run here.
+
+**Two things this bought that outlast the null.** The `SER` arm is 7
+hyperplastic polyps to 4 sessile serrated lesions, so an SSL-only arm is 4 and
+was never analysable — recorded in §3 before the run. And gate 2 found that
+Chen et al. reclassified histologically unconfirmed specimens from the
+transcriptomes; those sit in `Unknown` and are excluded, but
+`check_no_circular_claim` would not have caught them, since it short-circuits
+on an empty gene overlap.
+
 ## 6m. Audit of the 2026-09-08 additions — four defects, all recorded
 
 Reviewed the 24 commits after `91dec36` plus the uncommitted ML branch. Plan 1,
