@@ -962,7 +962,7 @@ is a property of the data, not of the weighting`, which is backwards.
   Its verdict is **FLOOR-UNSTABLE, AND THE FLOORS DISAGREE**. Report each
   `verdict_cause`, never the shared `UNRESOLVED` label.
 
-## 6n. Chen lesion subtype — RUN 2026-09-10. Item 3 is NOT SEPARABLE.
+## 6n. Chen lesion subtype — RUN 2026-09-10. Weighting-unstable, inconclusive.
 
 `docs/prereg_chen_lesion_subtype.md`, RESULT section; locked at `3a6d446`
 before the join; tables `results/2026-09-10_dddd34f/`. Gates in
@@ -974,30 +974,49 @@ cBioPortal (`crc_hta11_htan_2021`, ODbL, attribution owed), which gave 13 `AD`
 against 9 `SER` patients rather than the WES arm's 5 against 4. The labels are
 morphology against a transcript claim, so invariant 11 holds.
 
-**The result is NOT SEPARABLE AT THIS RESOLUTION**, and the interesting part is
-why that is not a single-valued verdict. Two of three weightings return that
-branch; `tumour` returns PREDICTION REPLICATES on a CDX2 lower bound **0.02**
-from zero. Choosing a primary weighting — in either direction — would have
-decided the headline. "All three, none primary" was fixed at lock for exactly
-this, and it is the strongest argument in the repo for pre-committing that
-choice.
+**The recorded status is `DISAGREES ACROSS WEIGHTINGS`**: two of three
+weightings return NOT SEPARABLE, `tumour` returns PREDICTION REPLICATES on a
+CDX2 lower bound **0.02** from zero. The headline is **weighting-unstable /
+inconclusive at this resolution, no target-specific conclusion** — *not* "NOT
+SEPARABLE". §5 fixes all three weightings with none primary and pre-commits no
+majority-vote rule, so counting branches would be an unregistered decision rule
+adopted after seeing the count. The first draft of the RESULT did exactly that
+and is corrected; the artifact had it right throughout.
+
+Choosing a primary weighting — in either direction — would have decided the
+headline. "All three, none primary" was fixed at lock for exactly this, and it
+is the strongest argument in the repo for pre-committing that choice.
 
 **The controls move more than the targets.** GUCA2A contains zero on all three
 weightings. `ACTB` (−6.426) and `KRT8` (−8.232) exclude zero on all three, and
 of the 15 pair contrasts **every one that excludes zero involves ACTB or
 KRT8**, while `ACTB − KRT8` itself contains zero. Every pair among CDX2, EPCAM,
 GUCA2A and MS4A12 contains zero. A contrast whose housekeeping and identity
-genes separate the arms more strongly than its targets is not measuring the
-target programme, and §5's every-pair requirement — the §6d correction — is
-what made that visible.
+genes separate the arms more strongly than its targets **does not support a
+target-programme-specific interpretation** — it does not identify the technical
+cause. §5's every-pair requirement, the §6d correction, is what made it visible.
 
-**Not a biological null.** §7 named 13 versus 9 as the reason to expect this
-before the run. No mechanism is proposed for the control movement; depth, cell
-count and mature-cell resolution are not distinguished by anything run here.
+**Not a biological null.** §7 named 13 versus 9 as the reason to expect a weak
+result before the run.
 
-**Two things this bought that outlast the null.** The `SER` arm is 7
-hyperplastic polyps to 4 sessile serrated lesions, so an SSL-only arm is 4 and
-was never analysable — recorded in §3 before the run. And gate 2 found that
+**Two follow-ups, `results/2026-09-10_4456e4d/`.** A **post-hoc** technical
+diagnostic — outside the locked design, declared so, no interval — finds the
+arms differ most in `frac_mature_tumour`: median 0.291 `AD` against 0.720
+`SER`, standardised difference **−1.677**, while `frac_mature_normal` is flat at
+0.043. `SER` also carries ~30% more depth and about twice the cells. That is
+§4's stated confound measured, and it is a description, not a demonstrated
+cause.
+
+**Family G is closed on the floor, not on access.** 5 and 4 estimable against
+§7's floor of 8 — NOT ESTIMABLE, no interval. The calls are in the open
+cBioPortal MAF, so the Synapse certification, the `syn23520239` 403 and the
+Level 3 download ACL were **never the binding constraint** on this analysis.
+
+**Two things this bought that outlast the null.** State the denominator: of the
+**11 labelled** `SER` lesions, 7 are hyperplastic and 4 sessile serrated, but
+the **analytic set is 10** — one SSL sat on the conflicted patient — so the arm
+analysed is **7 hyperplastic and 3 SSL, those 3 from only 2 patients**. An
+SSL-only arm was never analysable, recorded in §3 before the run. And gate 2 found that
 Chen et al. reclassified histologically unconfirmed specimens from the
 transcriptomes; those sit in `Unknown` and are excluded, but
 `check_no_circular_claim` would not have caught them, since it short-circuits

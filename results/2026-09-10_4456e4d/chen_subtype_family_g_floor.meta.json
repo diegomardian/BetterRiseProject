@@ -1,0 +1,50 @@
+{
+  "date": "2026-09-10",
+  "utc_timestamp": "2026-09-11T03:20:48+00:00",
+  "git_sha": "4456e4db73425deb3154a790a0e0f53f786c42a8",
+  "git_sha_short": "4456e4d",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "chen_subtype_family_g_floor",
+  "n_rows": 2,
+  "columns": [
+    "arm",
+    "n_patients",
+    "n_estimable",
+    "floor",
+    "clears_floor",
+    "estimability",
+    "mean_difference",
+    "ci_low",
+    "ci_high",
+    "label_source"
+  ],
+  "table_kind": "harness",
+  "invariant_11": "no transcript-derived label may claim its own programme",
+  "label_provenance": {
+    "modality": "genotype",
+    "assay": "Chen 2021 FFPE whole-exome somatic calls (cBioPortal MAF, hg19)",
+    "genes": "APC;BRAF",
+    "derived_from": ""
+  },
+  "claim_provenance": {
+    "modality": "transcript",
+    "assay": "Chen 2021 snRNA-seq adenoma decomposition (lineage rung)",
+    "genes": "",
+    "derived_from": ""
+  },
+  "overlapping_genes": "",
+  "independent_endpoint": null,
+  "prereg": "docs/prereg_chen_lesion_subtype.md",
+  "prereg_locked_at": "3a6d446",
+  "min_estimable_per_arm": 8,
+  "interval_reported": false,
+  "synapse_access_required": false,
+  "verdict": "NOT ESTIMABLE"
+}

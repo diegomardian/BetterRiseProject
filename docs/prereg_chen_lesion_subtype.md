@@ -88,12 +88,15 @@ all six figures reproduce, as do the conflicted patient and the three
 concordant multi-lesion patients.
 
 **The `SER` arm is mostly not sessile serrated lesions**, and that is fixed here
-rather than discovered afterwards: of its 11 lesions, **4 are sessile serrated
-lesions and 7 are hyperplastic polyps** (3 microvesicular, 2 goblet cell-rich,
-2 unqualified). Hyperplastic polyps are not the serrated precursor the
+rather than discovered afterwards. **State the denominator:** of the **11
+labelled** `SER` lesions, 4 are sessile serrated lesions and 7 are hyperplastic
+polyps (3 microvesicular, 2 goblet cell-rich, 2 unqualified). **The analytic set
+is 10 lesions, not 11** — one SSL belongs to the conflicted patient excluded by
+rule 1 — so the arm that is actually analysed is **7 hyperplastic polyps and 3
+sessile serrated lesions, and those 3 lesions come from only 2 patients.** Hyperplastic polyps are not the serrated precursor the
 AD-versus-SSL question is about. The arm is therefore named `SER`, never `SSL`,
-throughout; an SSL-only arm is 4 lesions and is **not analysable** — it is
-reported as a count and nothing else.
+throughout; an SSL-only arm is 3 analytic lesions over 2 patients and is **not
+analysable** — it is reported as a count and nothing else.
 
 Family P covers **23 of the 44** avenue-A patients. DIS/VAL splits 9/4 for `AD`
 and 6/3 for `SER`. The 21 uncovered patients are reported as attrition with
@@ -292,7 +295,7 @@ decomposition value be joined to a label.
 **It does not outrank the write-up.** The WMHS deadline is 15 September 2026.
 
 
-## RESULT — RUN 2026-09-10. The branch depends on the weighting, and the controls move.
+## RESULT — RUN 2026-09-10. Weighting-unstable; no target-specific conclusion.
 
 `results/2026-09-10_dddd34f/`, clean tree, design locked at `3a6d446` before the
 join. Both arms clear §7's floor: 13 and 9 estimable patients, **zero
@@ -341,17 +344,42 @@ measuring something specific to the target programme.
 
 ### Reading, and what is not claimed
 
-**Item 3 is reported as NOT SEPARABLE AT THIS RESOLUTION.** The majority branch
-says so; the one dissenting weighting rests on a bound 0.02 from zero; and the
-control behaviour argues against reading any gene-specific difference as
-specific. 13 against 9 patients was named in §7 as the reason to expect this,
-so it is **not a biological null** — it is a resolution limit, and the arms are
+**The recorded status is `DISAGREES ACROSS WEIGHTINGS`, and the headline is
+"weighting-unstable / inconclusive at this resolution; no target-specific
+conclusion."**
+
+**It is not "NOT SEPARABLE AT THIS RESOLUTION", and the correction matters.**
+That was written here first, on the grounds that two of three weightings return
+it. **§5 fixes all three weightings with none primary and pre-commits no
+majority-vote rule**, so counting branches is an unregistered decision rule
+adopted after seeing which way the count fell — the exact move the "none
+primary" clause exists to forbid. The artifact was right and the prose was
+wrong. Item 3 is closed as *inconclusive*, not as separated-or-not.
+
+13 against 9 patients was named in §7 as the reason to expect a weak result, so
+this is **not a biological null** — it is a resolution limit, and the arms are
 what this deposit has.
 
-**No mechanism is proposed and no post-hoc explanation is offered** for the
-control movement. The candidates — arm-level differences in depth, cell count,
-or mature-cell resolution — are not distinguished by anything run here, and §8
-already bars the interesting readings.
+**POST-HOC, and outside the locked design**
+(`results/2026-09-10_4456e4d/chen_subtype_control_diagnostic.parquet`): the arms
+do differ in measurement properties. `frac_mature_tumour` is the largest
+separation in the panel — median **0.291** in `AD` against **0.720** in `SER`,
+standardised difference **−1.677** — while `frac_mature_normal` is flat at
+**0.043**. `SER` also carries ~30% more depth (9,290 against 7,171, −0.673) and
+about twice the cells (282 against 139, −0.430).
+
+That is §4's stated confound, measured: the arms differ most in mature-cell
+fraction *in the lesion*, which is the property the pathologist reads to assign
+the label. It is a description and no interval is reported. **It does not
+establish that the depth or resolution difference caused the control movement**,
+and §8 bars the interesting readings regardless.
+
+**Family G is closed on the floor, not on access**
+(`results/2026-09-10_4456e4d/chen_subtype_family_g_floor.parquet`): 5 and 4
+estimable patients against §7's floor of 8, so **NOT ESTIMABLE**, no interval
+on any statistic. The calls came from the open cBioPortal MAF. The Synapse
+certification, the 403 on `syn23520239` and the Level 3 download ACL were never
+the binding constraint on this analysis — the arm sizes were.
 
 The compositional term was computed and is **not reported as a finding** under
 §4, whatever it shows.
