@@ -607,3 +607,38 @@ def test_the_inversion_is_a_majority_not_a_reversal(blind_tex, survival):
     assert int(counts.loc[0.49]) == 5
     assert int(counts.loc[0.78]) == 6
     assert int(counts.loc[0.0]) == 0
+
+
+def test_heterogeneity_moves_the_curve_not_the_estimator(rho):
+    """The converse result: OLS's curve wanders, its own residual does not."""
+    het = pd.read_parquet(_newest("trial_blindness_heterogeneity"))
+    appendix = (SECTIONS / "appendix.tex").read_text(encoding="utf-8")
+    _quotes(appendix, "$1.003$, $1.011$, $1.020$, $1.037$, $1.077$, $1.132$")
+    _quotes(appendix, "grows $0.094 " + chr(92) + "rightarrow 1.452$")
+
+    ols = het[het["estimator"] == "ols-stratum-dummies"]
+    std = ols[ols["truth"] == "standardised"].sort_values("sweep_value")
+    var = ols[ols["truth"] == "varweighted"].sort_values("sweep_value")
+
+    curve = [round(v, 3) for v in std["median_recovery_ratio"]]
+    assert curve == [1.003, 1.011, 1.020, 1.037, 1.077, 1.132], curve
+    assert (round(std["max_residual"].min(), 3),
+            round(std["max_residual"].max(), 3)) == (0.094, 1.452)
+    # against its own estimand it never leaves machine zero
+    assert var["max_residual"].max() < 1e-12
+
+
+def test_the_propensity_spread_is_continuous(rho):
+    """0.0033 to 0.104 as the design goes RCT -> confounded, curve flat."""
+    spread = pd.read_parquet(_newest("trial_blindness_propensity_spread"))
+    appendix = (SECTIONS / "appendix.tex").read_text(encoding="utf-8")
+    _quotes(appendix, "rises smoothly $0.0033\n" + chr(92) + "rightarrow 0.104$")
+
+    ols = spread[
+        (spread["estimator"] == "ols-stratum-dummies")
+        & (spread["truth"] == "standardised")
+    ].sort_values("sweep_value")
+    assert round(ols["max_residual"].min(), 4) == 0.0033
+    assert round(ols["max_residual"].max(), 3) == 0.104
+    # the recovery ratio says nothing about any of it
+    assert ols["median_recovery_ratio"].between(0.99, 1.01).all()

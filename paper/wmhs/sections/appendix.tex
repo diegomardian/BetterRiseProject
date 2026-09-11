@@ -83,6 +83,25 @@ residual $0.403$, $0.045$, $0.0103$, $0.010$ at $C = 0.1, 1, 100, 10^6$, and
 $1.3\times10^{-6}$ once the solver tolerance is tightened to $10^{-8}$. Nothing
 in that ladder is a modelling decision about the trial.
 
+
+\paragraph{And the converse: a curve can move for a reason that is not the
+estimator.} Sweeping effect heterogeneity $\tau$ from $0$ to $16$ (the
+population ATE held at $\theta$), OLS's recovery curve wanders off 1 ---
+$1.003$, $1.011$, $1.020$, $1.037$, $1.077$, $1.132$ --- and its residual
+against the \emph{standardised} truth grows $0.094 \rightarrow 1.452$, so by the
+column this paper proposes it looks steadily more informative.
+\textbf{Against the estimand OLS actually targets it stays at machine zero
+throughout} ($2.4\times10^{-14}$ to $9.7\times10^{-14}$). The curve moved
+because the estimand moved. Reading a wandering curve as a worsening estimator
+is the same error as reading a flat one as a working estimator, and the
+residual only separates them once it is taken against the right truth.
+
+Nor is the design a switch. Sweeping continuously from an RCT (all propensities
+$0.5$) to the confounded design, OLS's residual rises smoothly $0.0033
+\rightarrow 0.104$ while the recovery ratio sits flat at $\approx 1.00$ the
+whole way: the diagnostic's reading is a continuous function of how the trial
+allocates treatment, and the curve is blind to that too.
+
 \section{The withdrawn guards}
 \label{app:withdrawn}
 
