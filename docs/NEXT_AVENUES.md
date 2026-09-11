@@ -1048,3 +1048,51 @@ run against the source TSVs, which are not currently on disk.
 The preceding Release-7 provisional status is superseded by the clean-tree
 2026-09-09 artifact named above. It remains neither an H5AD-read license nor a
 same-cohort reanalysis authorization.
+
+
+### Strategic amendment, 2026-09-10 — the public biological comparisons are exhausted
+
+**Supersedes the ranking above.** After item 3 closed inconclusive and family G
+closed on the §7 floor, no public dataset known to this project can separate
+compositional from cell-intrinsic loss. That is not a new claim — `CLAUDE.md`
+has said the mechanism question is unidentifiable on available data since
+2026-09-05, by four routes — but the set of things left to *try* is now empty
+rather than merely unpromising.
+
+**Two choices remain, and they are different in kind.**
+
+**Choice A — a method-limit result, available now.**
+[`prereg_replogle_sensitivity.md`](prereg_replogle_sensitivity.md). Replogle
+2022 genome-scale Perturb-seq is public on Figshare+ in AnnData and supplies
+what no colorectal deposit does: cells retained by construction, DNA-level
+silencing, measured on-target knockdown, and thousands of baseline abundances.
+It measures **the instrument**, not the biology, and answers the question §6g
+could not: is silencing detectable at GUCA2A's abundance in cells that are
+present. **Only its failure direction is decisive** — success shows generic
+capacity and does not make the colorectal null biological. Perturbed cells are
+defined by **guide assignment, never expression**; the abundance bins are
+anchored to this project's own regimes and frozen before download.
+
+**Choice B — generate the data, eventually.** C1 established that **no stock
+panel carries a target and a control together**: Xenium Colon v1 has GUCA2A and
+MS4A12 and no control; CosMx 6K has KRT8/EPCAM/CDX2 and neither target. The
+decomposition needs, *in one assay*: mature-cell identification independent of
+the target, per-cell GUCA2A and CDX2, and an independent positive control known
+to be on. A custom panel does that; nothing off the shelf does. **This project
+has reached the point where the answer requires generating data, not finding
+it.**
+
+**Passive, not queued.**
+
+- **Grady spatial** — `GSE342139` (Visium) and `GSE341852` (Xenium) are
+  **still private, verified 2026-09-10** (NCBI returns no record for either).
+  Release watch only. Before any analysis, check the custom-50 panel for a
+  target and a control together, per C1.
+- **The conventional-adenoma methylation arrays** — `GSE288652` (EPIC v1, 13
+  low-grade and 19 high-grade adenomas) and `GSE233604` are public. **Do not
+  run them for the GUCA2A question.** Published work reports GUCA2A promoter
+  methylation *decreasing* in COAD, so the test would return the non-decisive
+  direction. The epigenetic claim in the literature attaches to **CDX2 in
+  serrated lesions** (Bashir: the serrated pathway proceeds via epigenetic
+  CDX2 silencing), and neither public set carries a serrated arm. Run them only
+  if a separate, explicitly non-serrated question is chosen first.
