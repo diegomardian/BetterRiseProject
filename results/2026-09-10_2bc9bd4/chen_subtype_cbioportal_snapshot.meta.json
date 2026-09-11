@@ -1,0 +1,47 @@
+{
+  "date": "2026-09-10",
+  "utc_timestamp": "2026-09-11T00:41:49+00:00",
+  "git_sha": "2bc9bd4973d62026235941f9817ca30d75c8bf69",
+  "git_sha_short": "2bc9bd4",
+  "git_branch": "submission/competitor-bench",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "chen_subtype_cbioportal_snapshot",
+  "n_rows": 3,
+  "columns": [
+    "file",
+    "path",
+    "sha256",
+    "bytes",
+    "written",
+    "n_records",
+    "n_samples",
+    "n_patients"
+  ],
+  "table_kind": "harness",
+  "invariant_11": "no transcript-derived label may claim its own programme",
+  "label_provenance": {
+    "modality": "morphology",
+    "assay": "Chen 2021 pathologist polyp diagnosis via cBioPortal HTA11 clinical attributes",
+    "genes": "",
+    "derived_from": ""
+  },
+  "claim_provenance": {
+    "modality": "transcript",
+    "assay": "Chen 2021 snRNA-seq adenoma decomposition (lineage rung)",
+    "genes": "",
+    "derived_from": ""
+  },
+  "overlapping_genes": "",
+  "independent_endpoint": null,
+  "prereg": "docs/prereg_chen_lesion_subtype.md",
+  "gate_condition": 3,
+  "study_id": "crc_hta11_htan_2021",
+  "decomposition_value_read": false,
+  "label_joined_to_value": false
+}
