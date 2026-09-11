@@ -173,9 +173,18 @@ a freshly downloaded 3.1 GB cohort against the Windows originals: 11 bit-identic
 
 ## 3. The recurring defect, which is also the paper's thesis
 
-**A check that cannot fail reports success.** It has now been found **twenty**
-times, including six times inside guards written to prevent it, and twice
-inside guards written *during* this work. Assume the next one exists.
+**A check that cannot fail reports success.** It has now been found
+**twenty-one** times, including six times inside guards written to prevent it,
+and twice inside guards written *during* this work. Assume the next one exists.
+
+**The twenty-first is the cleanest statement of the thesis in the ledger, and
+it is a confirmation rule that accepts its own negation.** A pre-registered
+falsifier branch was to fire when CDX2 *falls in the serrated arm* — `AD − SER`
+positive. It tested `excludes_zero` and nothing else, so a CDX2 result excluding
+zero in the **opposite** direction would have been recorded as the published
+prediction replicating. The check could not distinguish confirmation from
+contradiction while reporting confirmation. Found by review, not by the suite;
+`AD − SER` was positive in this run, so no result changed. §6n.
 
 **The seventeenth is not a check that could not fail — it is a quantity with no
 check at all**, which is the same failure one step earlier: the MLH1 secondary
@@ -963,6 +972,48 @@ is a property of the data, not of the weighting`, which is backwards.
   `verdict_cause`, never the shared `UNRESOLVED` label.
 
 ## 6n. Chen lesion subtype — RUN 2026-09-10. Weighting-unstable, inconclusive.
+
+### Defect twenty-one, and the second found inside a pre-registration
+
+**The material for WMHS.** `src/reference/jobs/chen_subtype_contrast.py`,
+`falsifier_branch`. §6 of the pre-registration predicts CDX2 falls in the `SER`
+arm, which on `AD − SER` means a **positive** difference. The branch read:
+
+```python
+cdx2 = bool(block.loc["CDX2", "excludes_zero"])
+if cdx2 and not guca2a:
+    branch = "PREDICTION REPLICATES"
+```
+
+`excludes_zero` is direction-free. A CDX2 interval lying entirely **below** zero
+— CDX2 *higher* in serrated lesions, the reverse of the published claim — would
+have been reported as the prediction replicating. **The rule accepted its own
+negation and called it confirmation.**
+
+Why it belongs in the ledger rather than a bug list: the pre-registration stated
+the direction in prose, in §6, one section above the branch table, and the table
+in §7 then said only "excludes zero in the predicted direction" — which the code
+reduced to its first clause. Nothing in the suite could catch it, because every
+test asserted the branch mapping the code implemented.
+
+**It changed no result.** `AD − SER` for CDX2 ran **+0.523** under `tumour` and
+positive under both other weightings, so the predicted direction held wherever
+the branch fired. The defect was found by review before reuse.
+
+**The fix** adds `cdx2_in_predicted_direction`, a fifth branch
+`CDX2 SEPARATES IN THE OPPOSITE DIRECTION` for the case §7 never anticipated,
+and a parametrised test over all six combinations of exclusion, sign and GUCA2A
+state. `tests/test_chen_subtype_contrast.py`.
+
+**A sibling worth reporting beside it, because the repo could not have caught
+it.** The first draft of the RESULT reported "NOT SEPARABLE AT THIS RESOLUTION"
+on the grounds that two of three weightings returned that branch. §5 fixes all
+three weightings with **none primary** and pre-commits no majority-vote rule, so
+counting branches is a decision rule adopted *after seeing which way the count
+fell*. The artifact recorded `DISAGREES ACROSS WEIGHTINGS` correctly throughout;
+the prose overrode it. No guard exists for a verdict asserted in a sentence, and
+that is the same failure one step further out than the seventeenth.
+
 
 `docs/prereg_chen_lesion_subtype.md`, RESULT section; locked at `3a6d446`
 before the join; tables `results/2026-09-10_dddd34f/`. Gates in

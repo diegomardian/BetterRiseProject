@@ -712,7 +712,9 @@ more than one acquisition site exists. Failure of the crosswalk, prevalence, or
 split requirement ends the avenue as **NO SUBSTRATE**, rather than replacing
 the molecular endpoint with a morphology-derived diagnosis.
 
-**3 · AD versus SSL — WES provenance/callability gate in progress, not yet an
+**3 · AD versus SSL — CLOSED 2026-09-10, inconclusive on the open pathology
+labels; the genotype arm closed on the §7 floor. See the 2026-09-10 amendment
+below. Original entry follows.** ~~WES provenance/callability gate in progress, not yet an
 analysis.** The ICBI atlas carries `polyp` with no subtype and Crowell is
 **entirely TVA**; A2's public pixel inventory remains too small and cannot make
 a biological claim. However, the Chen collection may carry a modality-orthogonal
@@ -940,8 +942,29 @@ specimen-exactly to `results/2026-09-09_0bf9734/`. Joined against the 44-patient
 lineage universe: **`AD` 13 patients versus `SER` 9** after excluding the one
 patient carrying both, against **5 versus 4** for the genotype arms.
 
-**The pre-specification is written and unlocked:
-[`prereg_chen_lesion_subtype.md`](prereg_chen_lesion_subtype.md).** Its §4 is
+**RAN 2026-09-10 — locked at `3a6d446`, closed inconclusive. See the RESULT
+section of [`prereg_chen_lesion_subtype.md`](prereg_chen_lesion_subtype.md) and
+`docs/HANDOFF.md` §6n; the paragraph below is the pre-run framing and is kept
+for the reasoning in §4, which held.**
+
+**The outcome: weighting-unstable, no target-specific conclusion.** GUCA2A's
+intrinsic difference contains zero on all three weightings. CDX2 excludes zero
+under `tumour` only, on a lower bound 0.02 from zero, and the recorded status is
+`DISAGREES ACROSS WEIGHTINGS` — §5 fixes all three with none primary and
+registers no majority-vote rule, so two-against-one is not a verdict. Of the 15
+pair contrasts every one that excludes zero involves `ACTB` or `KRT8`, while
+`ACTB − KRT8` itself contains zero: the controls separate the arms more strongly
+than the targets, which does not support a target-programme-specific reading.
+13 versus 9 patients was named in §7 as the reason to expect a weak result.
+
+**Family G is closed on the floor, not on access.** 5 and 4 estimable against
+§7's floor of 8 — NOT ESTIMABLE, no interval, from the **open** cBioPortal MAF.
+So `wes_subtype_plan.md` does **not** stay alive: the Synapse certification, the
+`syn23520239` 403 and the Level 3 download ACL were never the binding constraint
+on this analysis, and no access decision would have changed the arm sizes.
+**Do not queue the Synapse chase for this question.**
+
+**Original pre-run framing follows.** Its §4 is
 the load-bearing part and it changes what item 3 can claim: **the intrinsic term
 is a test and the compositional term is not.** A pathologist's AD/SER call reads
 crypt architecture and surface maturation, which is the compositional endpoint
@@ -949,7 +972,8 @@ in another modality — invariant 11 passes on provenance and cannot see that.
 The genotype label is clean in kind but sits at 5 versus 4 patients. So
 `wes_subtype_plan.md` stays alive for the compositional term, descriptively,
 and the pathology label carries the intrinsic one. Seven gate conditions are
-unmet; §9 lists them.
+unmet; §9 lists them. *(Superseded: six were discharged and the seventh waived
+on 2026-09-10; the genotype arm then closed on the floor.)*
 
 **§B's Becker closure rests on three reasons and one of them is contested.**
 Blomain et al., *Cancer Biol Ther* 2020 ([PMC7515455](https://pmc.ncbi.nlm.nih.gov/articles/PMC7515455))
