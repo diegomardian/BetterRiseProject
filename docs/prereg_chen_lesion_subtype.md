@@ -171,6 +171,27 @@ null. At 13 and 9 that defect is squarely in range, and a two-arm contrast
 compounds it. The precedent is
 `src/reference/jobs/mlh1_positive_control.py`, which already does this.
 
+### Two things §5 left under-determined, fixed 2026-09-10 before the run
+
+Recorded here rather than settled at the keyboard, because both would otherwise
+be choices made with the table in view.
+
+1. **The between-arm interval is Welch's t, not one-sample Student-t.** §5's
+   requirement is a t-interval rather than the percentile bootstrap, and that
+   stands. But `student_t_interval` is one-sample, and this is a two-arm
+   difference at 13 against 9. The project's own between-arm method is Welch —
+   `src/reference/interval_calibration.py:481`, *"Welch rather than Student
+   because the arms differ in size and in cell count per patient, so their
+   variances differ by construction"* — which is this situation exactly.
+   Welch is used, and named in the result.
+
+2. **All three weightings are reported and none is primary.** `normal`,
+   `tumour` and `doubly_robust`, never folded together, as
+   `prereg_adenoma_decomposition` §164 already requires. §7's branches are
+   evaluated **on each**, and whether they agree is part of the report.
+   Choosing one weighting now, with no pre-registered basis, would be selecting
+   an answer; choosing one after the run would be worse.
+
 **Genes.** The panel's target and control roles as frozen, scored as whole tiers
 and **every pair reported**, not the targets against a housekeeping comparator
 alone — the §6d correction, where reporting only `GUCA2A − X` left the claim
