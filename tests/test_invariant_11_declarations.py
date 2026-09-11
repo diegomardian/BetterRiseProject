@@ -18,6 +18,7 @@ JOBS = Path("src/reference/jobs")
 # Written after invariant 11 merged. Adding a job here is how it stays enforced.
 POST_INVARIANT_11_JOBS = (
     "becker_lesion_wnt_gate.py",
+    "chen_subtype_attrition.py",
     "chen_subtype_id_provenance.py",
     "chen_subtype_snapshot.py",
     "he_molecular_crdc_header.py",
