@@ -1,0 +1,244 @@
+# Pre-registration — the Chen adenoma decomposition by lesion subtype
+
+**Status: WRITTEN AND UNLOCKED, 2026-09-10.** Nothing here licenses a run. The
+gate conditions in §9 are unmet, the labels have not been joined to any
+decomposition output, and no subgroup estimate of any kind has been computed or
+inspected. Locking requires §9 discharged in writing and the amendment recorded.
+
+This is `docs/NEXT_AVENUES.md` roadmap item 3. It supersedes the AD-versus-SSL
+framing there, and it does **not** supersede
+[`wes_subtype_plan.md`](wes_subtype_plan.md), which remains the route for the
+genotype label and is now scoped to one term rather than both (§4).
+
+---
+
+## 1 · Question and boundary
+
+Does the **already-computed** avenue-A decomposition
+(`docs/HANDOFF.md` §6h, `lineage` rung, 44 patients) differ between polyp
+lesions that an independent modality assigns to different classes?
+
+It is a **within-study subgroup heterogeneity analysis**. It is not:
+
+- a replication of avenue A — same cohort, same cells, same estimator;
+- a claim about all conventional adenomas or all serrated lesions — the arms are
+  the lesions Chen deposited and cBioPortal labels, nothing more;
+- a mechanism result. A subtype difference is an association between a
+  morphological or genotypic class and a decomposition term.
+
+Invariant 4 forbids pooling this with any other cohort. Invariant 7 requires the
+interaction term to be reported separately and never folded into either arm.
+
+## 2 · Fixed inputs and the analysis unit
+
+| input | fixed value |
+|---|---|
+| transcript side | the committed avenue-A `lineage`-rung Chen adenoma decomposition, 44 patients. **No re-estimation, no re-tuning, no rung sweep.** |
+| label side | cBioPortal study `crc_hta11_htan_2021`, sample clinical attributes and mutation MAF, both open access |
+| join key | exact equality of `scRNA_biospecimen_id` to a cBioPortal `sampleId`. **Participant-level joins are refused**, as in `wes_subtype_plan.md` |
+| crosswalk | `results/2026-09-09_0bf9734/wes_subtype_provenance_crosswalk.parquet` |
+| unit of inference | **the patient** (invariant 5). Lesions are not independent units and are never bootstrapped over |
+| seed and sha | recorded in the result sidecar (invariant 10) |
+
+The label snapshot is pinned: the cBioPortal responses are written to
+`data/` with sha256 in `data/manifest.csv` before the first join, and the
+analysis reads the snapshot, not the live API.
+
+## 3 · Labels, their provenance, and the arms
+
+Two label families, declared separately under invariant 11.
+
+**Family P — histopathology.** `POLYP_TYPE` ∈ {`AD`, `SER`}.
+`label_provenance`: pathologist diagnosis from tissue morphology.
+`claim_provenance`: single-cell transcript decomposition. No overlap of
+derivation: the label is not computed from the transcripts.
+
+**Family G — somatic genotype.** Truncating `APC` (nonsense, frameshift, splice,
+start/stop-loss) versus `BRAF` V600E, positive-only arms.
+`label_provenance`: FFPE whole-exome somatic calls.
+`claim_provenance`: as above.
+
+**Arm sizes, fixed here before any outcome is read** (`VERIFIED`, against the
+crosswalk and the public label tables; the derivation is
+`docs/DATA_HUNT_2026-09-10.md` §1):
+
+| family | arm | lesions | **patients** |
+|---|---|---|---|
+| P | `AD` | 16 | **13** |
+| P | `SER` | 11 | **9** |
+| P | excluded — conflicting lesions within patient | 2 | 1 |
+| P | no label | 25 | 21 |
+| G | truncating `APC`, `BRAF`-negative | 6 | 5 |
+| G | `BRAF` V600E, `APC`-truncating-negative | 5 | 4 |
+| G | neither callable | 2 | 2 |
+
+**The `SER` arm is mostly not sessile serrated lesions**, and that is fixed here
+rather than discovered afterwards: of its 11 lesions, **4 are sessile serrated
+lesions and 7 are hyperplastic polyps** (3 microvesicular, 2 goblet cell-rich,
+2 unqualified). Hyperplastic polyps are not the serrated precursor the
+AD-versus-SSL question is about. The arm is therefore named `SER`, never `SSL`,
+throughout; an SSL-only arm is 4 lesions and is **not analysable** — it is
+reported as a count and nothing else.
+
+Family P covers **23 of the 44** avenue-A patients. DIS/VAL splits 9/4 for `AD`
+and 6/3 for `SER`. The 21 uncovered patients are reported as attrition with
+their `POLYP_TYPE` values (`Unknown`, or no cBioPortal record), and the
+decomposition values of the covered and uncovered sets are compared
+**descriptively** — the D2 §6a lesson is that a dropped set can differ
+systematically in the direction of the outcome, and it is cheaper to look than
+to be asked later.
+
+### Rules that must be fixed now because they are choices
+
+1. **Conflicting patients are excluded, not assigned.** A patient with both an
+   `AD` and a `SER` labelled lesion (`HTA11_6801`) enters neither arm and is
+   counted in the attrition table. Assigning them by any rule — larger lesion,
+   first sample, worse dysplasia — is a modelling choice presented as a
+   measurement.
+2. **Concordant multi-lesion patients contribute one value.** Three patients
+   (`HTA11_6818`, `HTA11_8622`, `HTA11_866`) carry two agreeing lesions. The
+   patient-level decomposition value is what avenue A already emits per patient;
+   lesions are not averaged into it and not entered twice.
+3. **`Unknown` is not a third arm.** It is missing, and it is reported as
+   missing.
+4. **Case is normalised before any field is read.** `Not Stated` and
+   `Not stated` are one category.
+
+### `ADVANCED` and `ATYPIA` are excluded as primary stratifiers
+
+Both are **34% and 23% uninformative** over the 35 covered lesions, with
+missingness that tracks the arm — `ADVANCED` is uninformative for 5 of 11 `SER`
+against 1 of 16 `AD`. Conditioning on them drops serrated lesions
+preferentially. They may appear only as a **declared sensitivity** with the
+complete-case attrition reported by arm, never as a primary contrast, and never
+as a compositional stratifier at all (§4).
+
+## 4 · The two terms have different standing, and this is the design
+
+**This section is the reason the pre-registration exists**, and it must be
+settled before the run rather than argued in a discussion section.
+
+Invariant 11 tests **provenance** — whether a label descends from the
+transcripts whose programme is then claimed. Family P passes. What invariant 11
+does not test is whether the label and the endpoint are **measurements of the
+same tissue property**.
+
+A pathologist separates `AD` from `SER` by reading crypt architecture and the
+maturation of epithelium toward the luminal surface. The **compositional** term
+is the change in mature-cell fraction. These are largely one property in two
+modalities. A compositional difference between P arms is therefore at risk of
+being definitional — lesions selected on architecture, then measured for
+architecture. The **intrinsic** term is per-cell output within mature cells,
+which no pathologist grades, and is not exposed to this.
+
+| term | family P (morphology) | family G (genotype) |
+|---|---|---|
+| **intrinsic** | **primary test** | supporting, underpowered |
+| **compositional** | **descriptive only** — confounded with the selection criterion | clean in kind, **descriptive only** — 5 versus 4 patients is below every floor here (`HANDOFF` §3a) |
+| **interaction** | reported separately (invariant 7), descriptive | descriptive |
+
+**So the pre-committed position is: there is no compositional test available on
+any label this project can currently obtain.** Family G is the cleaner of the
+two and is worth the Synapse certification it is blocked on, but it buys a
+better *descriptive* contrast, not a test. Any later report that presents a
+compositional arm difference as a finding is in breach of this section.
+
+## 5 · The primary contrast, and the interval
+
+**Primary.** The difference in the patient-level **intrinsic** term between
+family P arms, `AD` minus `SER`, at the `lineage` rung, on the corrected
+detection scale (`src/reference/detection_scale.py`).
+
+**The interval is a Student-t interval on the difference, not the percentile
+bootstrap.** `docs/HANDOFF.md` §3a: at n≈10 the project's percentile bootstrap
+is 0.82–0.91× the width it claims and excludes zero ~7% of the time under a true
+null. At 13 and 9 that defect is squarely in range, and a two-arm contrast
+compounds it. The precedent is
+`src/reference/jobs/mlh1_positive_control.py`, which already does this.
+
+**Genes.** The panel's target and control roles as frozen, scored as whole tiers
+and **every pair reported**, not the targets against a housekeeping comparator
+alone — the §6d correction, where reporting only `GUCA2A − X` left the claim
+about identity markers with no row behind it.
+
+**`None` is not `0.0`.** A patient whose arm has too few mature cells to ask is
+`not_estimable` with a reason, in both arms, and the per-arm not-estimable count
+is reported beside every estimate (invariant 1).
+
+## 6 · Directional prediction, made before the run and taken from the literature
+
+The prediction is not ours and predates the data, which is what makes this
+confirmatory rather than a subgroup hunt. Bashir et al., *Hum Pathol* 2019
+(PubMed 30716341): GUCA2A is lost in conventional adenomas, serrated adenomas
+and MSI tumours alike, while GUCY2C is near-eliminated in serrated lesions
+specifically, attributed to loss of CDX2.
+
+> **Predicted: the GUCA2A intrinsic term does not separate `AD` from `SER`.
+> CDX2 falls in the `SER` arm and not in the `AD` arm.**
+
+This is a prediction about CDX2 behaving differently between arms while GUCA2A
+does not — the opposite shape from a generic "serrated lesions are more
+different" expectation, and therefore falsifiable in a way that matters.
+
+It is also consistent with what is already committed: §6d found CDX2
+indistinguishable from housekeeping in a Chen cohort whose polyps are majority
+conventional adenoma, which is the `AD`-arm half of this prediction, already
+observed. **That half is therefore not evidence for the prediction** and is
+excluded from any claim of confirmation. Only the `SER` arm is new information.
+
+## 7 · Falsifiers and pre-committed consequences
+
+| outcome | consequence, committed now |
+|---|---|
+| CDX2 intrinsic difference excludes zero in the predicted direction, GUCA2A's contains zero | The published prediction replicates in a third modality pairing. Reported as a **tier-level, within-study heterogeneity result** in one cohort. Not a mechanism claim. |
+| Neither contrast excludes zero | Item 3 returns **NOT SEPARABLE AT THIS RESOLUTION** and closes. 13 versus 9 patients is the reason to expect this; it is written here so it is not later read as a biological null. |
+| GUCA2A's intrinsic difference excludes zero and CDX2's does not | Contradicts the published prediction. Reported as such, **without** a post-hoc mechanism, and the `SER` arm's composition is inspected for the obvious artefact (§3's hyperplastic majority). |
+| The arms differ in the compositional term only | **Not reportable as a finding** (§4). Stated as expected under the selection confound. |
+| Fewer than 8 patients survive `not_estimable` in either arm | **NOT ESTIMABLE**, no interval reported, on any statistic. |
+
+The floor in the last row is fixed now because it is the number that decides
+whether anything is reported at all, and choosing it after seeing the
+estimability counts is exactly the defect `HANDOFF` §3 catalogues.
+
+## 8 · What this cannot say, at any outcome
+
+- Nothing about survivorship. A GUCA2A-high population preferentially destroyed
+  is not transcript-detectable here or anywhere in this project.
+- Nothing about carcinoma. Five routes terminate there (`HANDOFF` §2).
+- Nothing about adenomas outside this deposit. One cohort, one centre,
+  23 patients.
+- Nothing causal about `APC` or `BRAF`. Family G is an association at n=5 and 4.
+- It does not repair avenue A's stated qualifier that it is one cohort. A
+  subgroup of one cohort is still one cohort.
+
+## 9 · Gate conditions — all unmet, all required before lock
+
+1. **Data-use terms** for HTAN/cBioPortal reviewed and recorded, in the form
+   `docs/` used for the UniToPatho CC-BY review. A public API is not a licence.
+2. **Label provenance confirmed at source**, not inferred from an attribute
+   name: that `POLYP_TYPE`/`POLYP_SUBTYPE` are pathologist diagnoses and not
+   anything derived from the deposited transcripts. Chen et al. *Cell* 2021
+   methods, plus the HTAN biospecimen data model.
+3. **Snapshot pinned** — the cBioPortal responses written under `data/` with
+   sha256 in `data/manifest.csv`, and the analysis reading the snapshot.
+4. **An `id_provenance` check** that the 27 labelled lesions are the same
+   physical specimens as the scRNA biospecimens, on the standard
+   `wes_subtype_plan.md` §1 rule: exact equality, suffix families not trusted.
+5. **`src/common/label_provenance.py` declarations written and passing** for
+   both families, before anything is read.
+6. **The attrition table produced first**, covered versus uncovered patients
+   compared on the decomposition values, and inspected before the arm contrast
+   is computed. If the uncovered 21 differ systematically, that is recorded and
+   the contrast is reported as conditional on coverage.
+7. **W2 review of the interval choice**, since §5 departs from the project's
+   default estimator. `src/harness/` is W2-owned and `CONTRIBUTING` §2–3 route
+   changes there through a PR — and `HANDOFF` §6k records that three such
+   changes have already landed without one. This one does not.
+
+## 10 · Standing
+
+Unlocked. When §9 is discharged, this document is locked by commit, the arm
+sizes in §3 and the floor in §7 are frozen as written, and only then may a
+decomposition value be joined to a label.
+
+**It does not outrank the write-up.** The WMHS deadline is 15 September 2026.

@@ -926,6 +926,42 @@ any result above.
 AD-versus-SSL as a data hunt with no substrate in hand; and the closures of
 Crowell, D2 and carcinoma.
 
+### Amendment, 2026-09-10 — item 3 is unblocked, and §B's closure has a contested reason
+
+**Supersedes item 3 above and the `Still open` table where they conflict.** The
+external data hunt is `docs/DATA_HUNT_2026-09-10.md`; it carries the corrections
+made to its own first draft.
+
+**Item 3 no longer needs Synapse to be sized.** The Chen deposit is served open
+access by cBioPortal as `crc_hta11_htan_2021`: an hg19 mutation MAF for 30
+biospecimens and sample-level pathologist labels (`POLYP_TYPE`, `POLYP_SUBTYPE`,
+`ATYPIA`, `ADVANCED`), keyed by HTAN biospecimen ID and therefore joinable
+specimen-exactly to `results/2026-09-09_0bf9734/`. Joined against the 44-patient
+lineage universe: **`AD` 13 patients versus `SER` 9** after excluding the one
+patient carrying both, against **5 versus 4** for the genotype arms.
+
+**The pre-specification is written and unlocked:
+[`prereg_chen_lesion_subtype.md`](prereg_chen_lesion_subtype.md).** Its §4 is
+the load-bearing part and it changes what item 3 can claim: **the intrinsic term
+is a test and the compositional term is not.** A pathologist's AD/SER call reads
+crypt architecture and surface maturation, which is the compositional endpoint
+in another modality — invariant 11 passes on provenance and cannot see that.
+The genotype label is clean in kind but sits at 5 versus 4 patients. So
+`wes_subtype_plan.md` stays alive for the compositional term, descriptively,
+and the pathology label carries the intrinsic one. Seven gate conditions are
+unmet; §9 lists them.
+
+**§B's Becker closure rests on three reasons and one of them is contested.**
+Blomain et al., *Cancer Biol Ther* 2020 ([PMC7515455](https://pmc.ncbi.nlm.nih.gov/articles/PMC7515455))
+report guanylin protein **and** mRNA maintained under APC heterozygosity and
+lost only after LOH — FAP normal mucosa expressing, adjacent polyps not, by
+immunofluorescence and qRT-PCR, with *Apc*^min/+ mice agreeing by RNA-seq. That
+contradicts §B's "structural to FAP" reference-arm argument. Their human arm is
+n=2 and ours is n=2 healthy donors, so this is **not resolvable either way** and
+B1 is **not** reopened: the four-paired-donor reason and the detection gate at
+`results/2026-09-07_2305f23/` are untouched. Recorded so the closure rests on
+the two reasons that survive.
+
 ### ML amendment, 2026-09-08/09 — engineering branch, separate from the biology
 
 The HTA11 H&E molecular-prediction gate remains closed. Public polyp morphology
