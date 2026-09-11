@@ -20,6 +20,8 @@ POST_INVARIANT_11_JOBS = (
     "becker_lesion_wnt_gate.py",
     "chen_subtype_attrition.py",
     "chen_subtype_contrast.py",
+    "chen_subtype_control_diagnostic.py",
+    "chen_subtype_family_g.py",
     "chen_subtype_id_provenance.py",
     "chen_subtype_snapshot.py",
     "he_molecular_crdc_header.py",

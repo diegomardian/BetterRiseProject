@@ -71,30 +71,47 @@ def test_the_compositional_term_never_carries_a_test():
 
 
 @pytest.mark.parametrize(
-    ("cdx2", "guca2a", "expected"),
+    ("cdx2", "cdx2_diff", "guca2a", "expected"),
     [
-        (True, False, "PREDICTION REPLICATES"),
-        (False, False, "NOT SEPARABLE AT THIS RESOLUTION"),
-        (False, True, "CONTRADICTS THE PUBLISHED PREDICTION"),
-        (True, True, "BOTH EXCLUDE ZERO"),
+        (True, +1.0, False, "PREDICTION REPLICATES"),
+        (False, 0.0, False, "NOT SEPARABLE AT THIS RESOLUTION"),
+        (False, 0.0, True, "CONTRADICTS THE PUBLISHED PREDICTION"),
+        (True, +1.0, True, "BOTH EXCLUDE ZERO"),
+        (True, -1.0, False, "CDX2 SEPARATES IN THE OPPOSITE DIRECTION"),
+        (True, -1.0, True, "CDX2 SEPARATES IN THE OPPOSITE DIRECTION"),
     ],
 )
-def test_every_falsifier_branch_is_pre_committed(cdx2: bool, guca2a: bool, expected: str):
+def test_every_falsifier_branch_is_pre_committed(
+    cdx2: bool, cdx2_diff: float, guca2a: bool, expected: str
+):
     table = pd.DataFrame([
         {"gene": "CDX2", "term": "intrinsic", "weighting": "w",
-         "excludes_zero": cdx2, "estimability": "estimated"},
+         "excludes_zero": cdx2, "mean_difference": cdx2_diff, "estimability": "estimated"},
         {"gene": "GUCA2A", "term": "intrinsic", "weighting": "w",
-         "excludes_zero": guca2a, "estimability": "estimated"},
+         "excludes_zero": guca2a, "mean_difference": 0.0, "estimability": "estimated"},
     ])
     assert falsifier_branch(table, "w")["branch"] == expected
+
+
+def test_a_downward_cdx2_exclusion_is_never_read_as_replication():
+    """§6 predicts CDX2 falls in SER, so AD minus SER is positive."""
+    table = pd.DataFrame([
+        {"gene": "CDX2", "term": "intrinsic", "weighting": "w",
+         "excludes_zero": True, "mean_difference": -2.0, "estimability": "estimated"},
+        {"gene": "GUCA2A", "term": "intrinsic", "weighting": "w",
+         "excludes_zero": False, "mean_difference": 0.0, "estimability": "estimated"},
+    ])
+    out = falsifier_branch(table, "w")
+    assert out["branch"] != "PREDICTION REPLICATES"
+    assert out["cdx2_in_predicted_direction"] is False
 
 
 def test_a_floor_failure_short_circuits_the_branch():
     table = pd.DataFrame([
         {"gene": "CDX2", "term": "intrinsic", "weighting": "w",
-         "excludes_zero": None, "estimability": "not_estimable"},
+         "excludes_zero": None, "mean_difference": None, "estimability": "not_estimable"},
         {"gene": "GUCA2A", "term": "intrinsic", "weighting": "w",
-         "excludes_zero": True, "estimability": "estimated"},
+         "excludes_zero": True, "mean_difference": 1.0, "estimability": "estimated"},
     ])
     assert falsifier_branch(table, "w")["branch"] == "NOT ESTIMABLE"
 

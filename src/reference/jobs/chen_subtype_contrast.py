@@ -178,7 +178,18 @@ def falsifier_branch(gene_table: pd.DataFrame, weighting: str) -> dict[str, obje
                 "consequence": "below the §7 floor; no interval reported on any statistic"}
     cdx2 = bool(block.loc["CDX2", "excludes_zero"])
     guca2a = bool(block.loc["GUCA2A", "excludes_zero"])
-    if cdx2 and not guca2a:
+    # §6 predicts CDX2 *falls in the SER arm*, so AD minus SER is positive.
+    # Excluding zero is not the prediction; excluding zero upward is. A
+    # downward exclusion is the opposite result and must not be read as
+    # replication.
+    cdx2_predicted_direction = cdx2 and float(block.loc["CDX2", "mean_difference"]) > 0.0
+    if cdx2 and not cdx2_predicted_direction:
+        branch, consequence = (
+            "CDX2 SEPARATES IN THE OPPOSITE DIRECTION",
+            "not a branch §7 anticipated; CDX2 excludes zero downward, which is "
+            "the reverse of the published prediction, and is reported as such",
+        )
+    elif cdx2_predicted_direction and not guca2a:
         branch, consequence = (
             "PREDICTION REPLICATES",
             "tier-level within-study heterogeneity in one cohort; not a mechanism claim",
@@ -202,7 +213,9 @@ def falsifier_branch(gene_table: pd.DataFrame, weighting: str) -> dict[str, obje
             "confirmation nor contradiction",
         )
     return {"weighting": weighting, "branch": branch, "consequence": consequence,
-            "cdx2_excludes_zero": cdx2, "guca2a_excludes_zero": guca2a}
+            "cdx2_excludes_zero": cdx2,
+            "cdx2_in_predicted_direction": cdx2_predicted_direction,
+            "guca2a_excludes_zero": guca2a}
 
 
 def main(argv: list[str] | None = None) -> int:
