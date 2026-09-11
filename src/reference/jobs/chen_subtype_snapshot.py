@@ -25,31 +25,19 @@ from typing import Any
 import pandas as pd
 
 from src.common.io import write_versioned_table
-from src.common.label_provenance import (
-    Measurement,
-    check_no_circular_claim,
-    provenance_meta,
-)
+from src.common.label_provenance import check_no_circular_claim, provenance_meta
 from src.common.paths import RAW_DIR
 from src.common.provenance import DEFAULT_SEED
+from src.reference.chen_subtype_labels import CLAIM, FAMILY_P
 
 STUDY_ID = "crc_hta11_htan_2021"
 API = "https://www.cbioportal.org/api"
 SNAPSHOT_DIR = RAW_DIR / "cbioportal_hta11"
 
-#: Invariant 11. The labels are a pathologist's reading of morphology; the
-#: claim this snapshot will later serve is a transcript decomposition. Declared
-#: here because the population is chosen the moment these rows are frozen.
-LABEL_PROVENANCE = Measurement(
-    modality="morphology",
-    assay="Chen 2021 pathologist polyp diagnosis via cBioPortal HTA11 clinical attributes",
-    genes=(),
-)
-CLAIM_PROVENANCE = Measurement(
-    modality="transcript",
-    assay="Chen 2021 snRNA-seq adenoma decomposition (lineage rung)",
-    genes=(),
-)
+# Invariant 11, family P. One declaration, in one place: gate 5 keeps both
+# families together so a reviewer can see how they differ.
+LABEL_PROVENANCE = FAMILY_P
+CLAIM_PROVENANCE = CLAIM
 
 
 class SnapshotError(RuntimeError):

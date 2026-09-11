@@ -25,13 +25,10 @@ from pathlib import Path
 import pandas as pd
 
 from src.common.io import write_versioned_table
-from src.common.label_provenance import (
-    Measurement,
-    check_no_circular_claim,
-    provenance_meta,
-)
+from src.common.label_provenance import check_no_circular_claim, provenance_meta
 from src.common.paths import RAW_DIR
 from src.common.provenance import DEFAULT_SEED
+from src.reference.chen_subtype_labels import CLAIM, FAMILY_P
 
 SNAPSHOT = RAW_DIR / "cbioportal_hta11" / "clinical_sample.json"
 DEFAULT_CROSSWALK = Path("results/2026-09-09_0bf9734/wes_subtype_provenance_crosswalk.parquet")
@@ -52,16 +49,10 @@ EXPECTED = {
 EXPECTED_CONFLICTED = ("HTA11_6801",)
 EXPECTED_MULTI_CONCORDANT = ("HTA11_6818", "HTA11_8622", "HTA11_866")
 
-LABEL_PROVENANCE = Measurement(
-    modality="morphology",
-    assay="Chen 2021 pathologist polyp diagnosis via pinned cBioPortal HTA11 snapshot",
-    genes=(),
-)
-CLAIM_PROVENANCE = Measurement(
-    modality="transcript",
-    assay="Chen 2021 snRNA-seq adenoma decomposition (lineage rung)",
-    genes=(),
-)
+# Invariant 11, family P. One declaration, in one place: gate 5 keeps both
+# families together so a reviewer can see how they differ.
+LABEL_PROVENANCE = FAMILY_P
+CLAIM_PROVENANCE = CLAIM
 
 
 class IdProvenanceError(RuntimeError):

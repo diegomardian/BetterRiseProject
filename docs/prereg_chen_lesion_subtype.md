@@ -62,15 +62,30 @@ start/stop-loss) versus `BRAF` V600E, positive-only arms.
 crosswalk and the public label tables; the derivation is
 `docs/DATA_HUNT_2026-09-10.md` §1):
 
-| family | arm | lesions | **patients** |
-|---|---|---|---|
-| P | `AD` | 16 | **13** |
-| P | `SER` | 11 | **9** |
-| P | excluded — conflicting lesions within patient | 2 | 1 |
-| P | no label | 25 | 21 |
-| G | truncating `APC`, `BRAF`-negative | 6 | 5 |
-| G | `BRAF` V600E, `APC`-truncating-negative | 5 | 4 |
-| G | neither callable | 2 | 2 |
+**Two lesion denominators, and they are not the same set.** *Labelled* lesions
+carry the label, including those belonging to the conflicted patient excluded
+by rule 1. *Analysable* lesions are the ones that actually enter the arm. The
+patient column is always post-exclusion. Both lesion columns are stated because
+an arm table that gives one of them beside a post-exclusion patient count reads
+as though they share a denominator, and the next person to recompute an arm is
+then wrong by one lesion without being able to tell which number was meant.
+
+| family | arm | labelled lesions | analysable lesions | **patients** |
+|---|---|---|---|---|
+| P | `AD` | 16 | 15 | **13** |
+| P | `SER` | 11 | 10 | **9** |
+| P | excluded — conflicting lesions within patient | 2 | — | 1 |
+| P | no label | 25 | — | 21 |
+| G | truncating `APC`, `BRAF`-negative | 6 | 6 | 5 |
+| G | `BRAF` V600E, `APC`-truncating-negative | 5 | 5 | 4 |
+| G | neither callable | 2 | — | 2 |
+
+Family G's two columns agree: no lesion carries both markers, so rule 1 excludes
+nobody there, and its one multi-lesion patient is concordant under rule 2.
+
+**Verified against the pinned snapshot**, gate 4, `results/2026-09-10_461d20b/`:
+all six figures reproduce, as do the conflicted patient and the three
+concordant multi-lesion patients.
 
 **The `SER` arm is mostly not sessile serrated lesions**, and that is fixed here
 rather than discovered afterwards: of its 11 lesions, **4 are sessile serrated
@@ -211,33 +226,45 @@ estimability counts is exactly the defect `HANDOFF` §3 catalogues.
 - It does not repair avenue A's stated qualifier that it is one cohort. A
   subgroup of one cohort is still one cohort.
 
-## 9 · Gate conditions — all unmet, all required before lock
+## 9 · Gate conditions — five discharged 2026-09-10, two remain
 
-1. **Data-use terms** for HTAN/cBioPortal reviewed and recorded, in the form
+Conditions 1–5 are discharged and recorded in
+`docs/chen_subtype_data_gate.md`. Conditions 6 and 7 are below in their
+original wording; 7 carries a recorded waiver.
+
+1. **DISCHARGED** · **Data-use terms** for HTAN/cBioPortal reviewed and recorded, in the form
    `docs/` used for the UniToPatho CC-BY review. A public API is not a licence.
-2. **Label provenance confirmed at source**, not inferred from an attribute
+2. **DISCHARGED** · **Label provenance confirmed at source**, not inferred from an attribute
    name: that `POLYP_TYPE`/`POLYP_SUBTYPE` are pathologist diagnoses and not
    anything derived from the deposited transcripts. Chen et al. *Cell* 2021
    methods, plus the HTAN biospecimen data model.
-3. **Snapshot pinned** — the cBioPortal responses written under `data/` with
+3. **DISCHARGED** · **Snapshot pinned** — the cBioPortal responses written under `data/` with
    sha256 in `data/manifest.csv`, and the analysis reading the snapshot.
-4. **An `id_provenance` check** that the 27 labelled lesions are the same
+4. **DISCHARGED** · **An `id_provenance` check** that the 27 labelled lesions are the same
    physical specimens as the scRNA biospecimens, on the standard
    `wes_subtype_plan.md` §1 rule: exact equality, suffix families not trusted.
-5. **`src/common/label_provenance.py` declarations written and passing** for
+5. **DISCHARGED** · **`src/common/label_provenance.py` declarations written and passing** for
    both families, before anything is read.
 6. **The attrition table produced first**, covered versus uncovered patients
    compared on the decomposition values, and inspected before the arm contrast
    is computed. If the uncovered 21 differ systematically, that is recorded and
    the contrast is reported as conditional on coverage.
-7. **W2 review of the interval choice**, since §5 departs from the project's
+7. ~~**W2 review of the interval choice**~~ — **WAIVED by the project owner,
+   2026-09-10.** The condition read: *"since §5 departs from the project's
    default estimator. `src/harness/` is W2-owned and `CONTRIBUTING` §2–3 route
    changes there through a PR — and `HANDOFF` §6k records that three such
-   changes have already landed without one. This one does not.
+   changes have already landed without one. This one does not."*
+
+   It now does. The waiver is recorded rather than the condition deleted,
+   because the reason it was written has not changed: this is the fourth
+   harness-adjacent change to proceed without the review CONTRIBUTING requires,
+   and a reader who finds a §5 interval they disagree with should be able to see
+   that no second pair of eyes was on it. No code under `src/harness/` was
+   altered under this waiver.
 
 ## 10 · Standing
 
-Unlocked. When §9 is discharged, this document is locked by commit, the arm
+Unlocked — condition 6 outstanding. When §9 is discharged, this document is locked by commit, the arm
 sizes in §3 and the floor in §7 are frozen as written, and only then may a
 decomposition value be joined to a label.
 
