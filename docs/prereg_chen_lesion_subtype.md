@@ -226,11 +226,11 @@ estimability counts is exactly the defect `HANDOFF` §3 catalogues.
 - It does not repair avenue A's stated qualifier that it is one cohort. A
   subgroup of one cohort is still one cohort.
 
-## 9 · Gate conditions — five discharged 2026-09-10, two remain
+## 9 · Gate conditions — six discharged 2026-09-10, the seventh waived
 
-Conditions 1–5 are discharged and recorded in
-`docs/chen_subtype_data_gate.md`. Conditions 6 and 7 are below in their
-original wording; 7 carries a recorded waiver.
+Conditions 1–6 are discharged and recorded in
+`docs/chen_subtype_data_gate.md`; 7 carries a recorded waiver. **§9 is
+discharged: this document is ready to lock.**
 
 1. **DISCHARGED** · **Data-use terms** for HTAN/cBioPortal reviewed and recorded, in the form
    `docs/` used for the UniToPatho CC-BY review. A public API is not a licence.
@@ -245,7 +245,7 @@ original wording; 7 carries a recorded waiver.
    `wes_subtype_plan.md` §1 rule: exact equality, suffix families not trusted.
 5. **DISCHARGED** · **`src/common/label_provenance.py` declarations written and passing** for
    both families, before anything is read.
-6. **The attrition table produced first**, covered versus uncovered patients
+6. **DISCHARGED** · **The attrition table produced first**, covered versus uncovered patients
    compared on the decomposition values, and inspected before the arm contrast
    is computed. If the uncovered 21 differ systematically, that is recorded and
    the contrast is reported as conditional on coverage.
@@ -264,7 +264,7 @@ original wording; 7 carries a recorded waiver.
 
 ## 10 · Standing
 
-Unlocked — condition 6 outstanding. When §9 is discharged, this document is locked by commit, the arm
+**Ready to lock.** §9 is discharged. On the locking commit, the arm
 sizes in §3 and the floor in §7 are frozen as written, and only then may a
 decomposition value be joined to a label.
 

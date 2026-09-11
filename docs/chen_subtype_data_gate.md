@@ -1,10 +1,10 @@
 # Chen lesion-subtype labels — terms and provenance gate
 
-**Status:** gate conditions 1–5 of `docs/prereg_chen_lesion_subtype.md` §9 are
+**Status:** gate conditions 1–6 of `docs/prereg_chen_lesion_subtype.md` §9 are
 discharged. Terms reviewed 2026-09-10; label provenance confirmed at source;
 the snapshot is pinned and checksummed; the identifier join reproduces every
-frozen arm; both label families are declared and pass. Conditions 6 and 7
-remain.
+frozen arm; both label families are declared and pass; the attrition table is
+produced and inspected. Condition 7 is waived and recorded.
 
 This gate licenses **joining a pre-registered label to a decomposition value**.
 It does not license reading an outcome, and it does not turn a morphology label
@@ -109,10 +109,42 @@ tissue architecture and the compositional term measures tissue architecture in
 another modality; the guard cannot see that and will not complain. §4 of the
 pre-registration is what handles it, by giving the two terms different standing.
 
-## 5 · What remains
+## 5 · Attrition — condition 6
 
-- **Condition 6 — attrition first.** The covered-versus-uncovered comparison on
-  decomposition values, inspected before any arm contrast. Not started.
+`results/2026-09-10_dea2021/`, produced and inspected **before** any arm
+contrast, which is what the condition's ordering is for. D2 §6a is the standing
+reason to look: there the dropped participants' GUCA2A ran *lower* than the
+retained set's, in the direction of the outcome.
+
+**Coverage.** 23 of 44 patients covered, 21 not — 8 carrying `Unknown` and 13
+with no cBioPortal record at all. The conflicted patient counts as covered:
+they are reached by the label and removed by rule 1, which is not attrition.
+
+**The comparison does not show a systematic difference.** No standardised
+difference anywhere in the table reaches 0.4. The largest is
+`KRT8`/compositional/normal at −0.391; the rest of the top five run
+`CDX2`/intrinsic +0.385, `KRT8`/compositional/doubly_robust −0.377,
+`GUCA2A`/compositional/tumour −0.360, `CDX2`/intrinsic +0.348.
+
+**On the primary term — intrinsic, `lineage`, doubly robust — GUCA2A is the
+flattest gene in the panel**: covered −3.344 against uncovered −3.384, a
+standardised difference of **0.007**. The gene the design turns on is, as far
+as this can show, unrelated to whether a patient carries a label. That is the
+opposite of the D2 pattern and it is the reason the contrast does not need to
+be reported as conditional on coverage.
+
+**One asymmetry, and it is worth stating plainly.** All 18 not-estimable
+intrinsic values — one patient across six genes and three weightings — fall in
+the **uncovered** group. Every covered patient has an estimable intrinsic term
+at `lineage`. Two consequences: the uncovered comparison group is 20 estimable
+patients rather than 21, and both arms will carry a not-estimable count of zero
+when §5 reports them (invariant 1 still requires the count be shown).
+
+**No threshold was applied**, because none was pre-committed. Inventing one
+after seeing the table is the choice this project refuses elsewhere, so the
+magnitudes are reported and the judgement is recorded here as a judgement.
+
+## 6 · What remains
 - **Condition 7 — the interval departure.** W2 review was **waived by the
   project owner on 2026-09-10**, recorded here rather than dropped. The
   requirement was written because `HANDOFF` §6k records three harness changes
