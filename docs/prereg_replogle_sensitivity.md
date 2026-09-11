@@ -174,8 +174,11 @@ The gates below are **metadata-only** — schema, checksums, licence, declaratio
 
 1. **Terms and licence** for the Replogle Figshare+ deposit reviewed and
    recorded, in the form `docs/chen_subtype_data_gate.md` used.
-2. **Snapshot pinned** — file identifiers and sha256 in `data/manifest.csv`.
-   Checksums are computed over bytes; no count is parsed.
+2. **Snapshot pinned** — file identifiers and the **publisher's md5** in
+   `docs/replogle_data_gate.md`, which pins a file without downloading it and
+   is therefore genuinely metadata-only. sha256 goes into `data/manifest.csv`
+   when a file lands and must agree with the pinned md5. *(Corrected: the first
+   draft asked for sha256 pre-lock, which requires the bytes.)*
 3. **Guide-assignment field confirmed at source** from the deposit's own schema
    and documentation, not inferred from a column name, and the
    no-confident-guide rule implemented against that schema.
