@@ -4,6 +4,21 @@
 `submission/competitor-bench`.** Read [CLAUDE.md](../CLAUDE.md) first for the
 invariants; this says what state they are in and what to do next.
 
+> **SUPERSEDED IN PART, 2026-09-11 — read
+> [DECISION_2026-09-11_scope_and_pivot.md](DECISION_2026-09-11_scope_and_pivot.md)
+> first.** An external audit of `1b3e9b2` changed the scope decision and
+> corrected eight claims made below. Four of them are in this file:
+> **§2's carcinoma constant `-5.85` is stale and sign-inconsistent** with the
+> paper-number tests, which give a limit of `+6.94` and six genes at `6.19-6.63`
+> on depth-matched inputs; **§6f's "neither paper carries the new results" is
+> stale** — the WMHS source already carries adenoma non-collapse, the three-grid
+> analysis and the interval material, so they are not untouched novelty;
+> **D2's `n=624` was the feasibility population**, not the fitted PFI model,
+> which is `n=489` with 124 events; and **§5's data table overstates local
+> availability** — 13 of 703 manifest entries are present locally, and Crowell
+> is not in the manifest. The decision record carries the rest, with each item
+> marked verified or not.
+
 ---
 
 ## 1. The one-paragraph state
