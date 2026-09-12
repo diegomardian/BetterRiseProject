@@ -1,0 +1,87 @@
+{
+  "date": "2026-09-12",
+  "utc_timestamp": "2026-09-12T07:26:20+00:00",
+  "git_sha": "63d177a514e1eaffa7dff656424dcaa0ae315ac3",
+  "git_sha_short": "63d177a",
+  "git_branch": "w1/claim-check-audit",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "interval_stress_calibration_summary",
+  "n_rows": 126,
+  "columns": [
+    "cohort",
+    "n_patients",
+    "regime",
+    "regime_kind",
+    "method",
+    "n_seeds",
+    "n_trials",
+    "fpr_median",
+    "fpr_min",
+    "fpr_max",
+    "n_miscalibrated",
+    "input_validation_fired",
+    "original_check_fired",
+    "audit_fired",
+    "detection_rate_input_validation",
+    "detection_rate_original_check",
+    "detection_rate_audit_check"
+  ],
+  "table_kind": "harness",
+  "purpose": "DECISION_2026-09-11_scope_and_pivot.md \u00a74 week 2 -- add skewed/heavy-tailed and boundary regimes to the interval calibration, quantify Monte Carlo uncertainty. Delimits the generators over which the \u00a73a result was measured.",
+  "generator": "the same Poisson thinning as interval_calibration (p = 1 - exp(-mu), mu = cp10k/1e4 * depth, scored through cloglog_rate and its boundary rule); only the distribution of the per-patient log fold change varies, standardised to unit variance and scaled by tau, with mean zero so every regime is a true null",
+  "regimes": [
+    {
+      "name": "gaussian",
+      "kind": "gaussian",
+      "cp10k": 3.0,
+      "description": "effect ~ Normal(0, tau); the committed generator, as the control"
+    },
+    {
+      "name": "skewed",
+      "kind": "skewed",
+      "cp10k": 3.0,
+      "description": "centred standardised log-normal effect; asymmetric patient spread"
+    },
+    {
+      "name": "heavy_tailed",
+      "kind": "heavy_tailed",
+      "cp10k": 3.0,
+      "description": "standardised Student-t(4) effect; a few patients carry the spread"
+    },
+    {
+      "name": "spike_slab",
+      "kind": "spike_slab",
+      "cp10k": 3.0,
+      "description": "half the patients at zero effect, half larger; overall SD still tau"
+    },
+    {
+      "name": "boundary_rare",
+      "kind": "gaussian",
+      "cp10k": 0.039,
+      "description": "gaussian effect at MLH1's abundance; detection near 0 and the boundary rule is load-bearing"
+    },
+    {
+      "name": "boundary_saturated",
+      "kind": "gaussian",
+      "cp10k": 40.0,
+      "description": "gaussian effect where detection is near 1; no room to fall"
+    }
+  ],
+  "tau": 0.2,
+  "tau_source": "Pelka's control genes measure tau ~ 0.2; see interval_heterogeneity from the interval_calibration run",
+  "check_families": {
+    "input_validation": "finite values, at least two patients, non-zero spread, finite interval; ordinary hygiene, excluded from the stop rule by name",
+    "original_check": "the pre-audit diagnostic: measured percentile rate above the closed form by more than the tolerance. Defined for percentile only; null elsewhere",
+    "audit_check": "measured rate above nominal + tolerance AND above nominal on the Wilson interval"
+  },
+  "monte_carlo_uncertainty": "binomial standard error and Wilson interval per cell; five fixed seeds per cell so seed-to-seed spread is visible",
+  "what_this_does_not_establish": "a universal claim about bootstrap intervals. These are the tested generators; the result is about them, per DECISION_2026-09-11 \u00a73.",
+  "ownership_note": "cohorts are read through interval_calibration's loader, so the stress grid runs at exactly the n and cells-per-arm the paper reports at; a second definition of an arm is what caused the 15-vs-19 defect.",
+  "exploratory": false
+}
