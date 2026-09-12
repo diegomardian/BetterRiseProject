@@ -241,11 +241,41 @@ def simulate_deltas(
     if tau < 0:
         raise CalibrationError(f"tau={tau} is a standard deviation")
 
-    mu_normal = cp10k / 1e4 * depth
     log_fc = np.full(n_cells.size, np.log(fold_change))
     if tau > 0:
         log_fc = log_fc + rng.normal(0.0, tau, n_cells.size)
+    return simulate_deltas_from_log_fc(
+        n_cells=n_cells, depth=depth, cp10k=cp10k, log_fc=log_fc, rng=rng,
+    )
 
+
+def simulate_deltas_from_log_fc(
+    *, n_cells: np.ndarray, depth: np.ndarray, cp10k: float,
+    log_fc: np.ndarray, rng: np.random.Generator,
+) -> np.ndarray:
+    """The Poisson thinning, given each patient's log fold change directly.
+
+    ``simulate_deltas`` draws ``log_fc`` from a normal and calls this. The split
+    exists so a stress generator can vary the **shape** of the per-patient
+    effect -- skewed, heavy-tailed, spiky -- without re-implementing the
+    thinning, which is where an off-by-one in the RNG order or the boundary rule
+    would silently change every calibration. One thinning, many effect
+    distributions.
+
+    ``log_fc`` is per patient and already on the natural-log fold-change scale;
+    under the null its mean is zero, so the tumour mean equals the normal mean
+    and any rejection is a false positive.
+    """
+    n_cells = np.asarray(n_cells, dtype=int)
+    depth = np.asarray(depth, dtype=float)
+    log_fc = np.asarray(log_fc, dtype=float)
+    if log_fc.shape != n_cells.shape:
+        raise CalibrationError(
+            f"log_fc has shape {log_fc.shape} and n_cells has {n_cells.shape}. "
+            f"A per-patient effect must be per patient; broadcasting a scalar "
+            f"would quietly turn a heterogeneous cohort into a homogeneous one."
+        )
+    mu_normal = cp10k / 1e4 * depth
     p_normal = 1.0 - np.exp(-mu_normal)
     p_tumour = 1.0 - np.exp(-mu_normal * np.exp(log_fc))
     k_normal = rng.binomial(n_cells, p_normal)
