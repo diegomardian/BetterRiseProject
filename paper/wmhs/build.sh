@@ -46,7 +46,10 @@ import sys
 try:
     from pypdf import PdfReader
 except ImportError:
-    print("  --    pypdf not installed; page limits NOT checked"); sys.exit(0)
+    # A check that cannot fail is worse than no check, and this one has already
+    # let an over-limit build through once. No reader, no pass.
+    print("  FAIL  pypdf not installed; page limits cannot be checked")
+    sys.exit(1)
 bad = 0
 for doc, limit in (("main", 9), ("main_short", 4)):
     pages = [(p.extract_text() or "") for p in PdfReader(f"{doc}.pdf").pages]

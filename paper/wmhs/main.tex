@@ -75,16 +75,14 @@ rule our blind curve had certified does not survive recalibration.
 
 
 % Section order follows the abstract: the blind statistic first, then what a
-% correct calibration returns, then what the rule was actually buying. The
-% benchmark closes because "where this leaves the rule" needs both routes on the
-% table. Labels are stable, so \ref works regardless of order — but the prose
-% cross-references do not, and they were checked when this was reordered.
+% correct calibration returns. The competitor benchmark is Appendix A in BOTH
+% builds --- it was the ninth page the full build did not have, and it is the
+% one section neither build's argument depends on. Labels are stable, so \ref
+% works regardless of order --- but the prose cross-references do not, and they
+% were checked when this was moved.
 \input{sections/setup.tex}
 \input{sections/blind.tex}
 \input{sections/calibration.tex}
-\iffull
-\input{sections/bench.tex}
-\fi
 
 \section{Conclusion}
 \label{sec:conclusion}

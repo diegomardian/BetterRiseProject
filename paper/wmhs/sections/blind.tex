@@ -6,7 +6,8 @@ concluded it was sound. The statistic it used was a recovery curve: generate
 samples with known composition and a known shift, run the estimator, plot
 recovered against true. Ours ran between 1.00 and 1.07 wherever the rule said
 ``estimate'' on the reference draw --- 0.86 to 1.18 on the pooled one --- and
-tightened with $n$ on both (Appendix Fig.~\ref{fig:generator}). That is what a
+tightened with $n$ on both (\iffull Fig.~\ref{fig:generator}\else Appendix
+Fig.~\ref{fig:generator}\fi). That is what a
 working estimator looks like.
 
 It is also what this one looks like with the estimator divided out. The
@@ -82,10 +83,10 @@ survives code review and leaves no trace in the curve.
 
 \paragraph{Why this is the default, not an exotic case.} Oracle arms exist
 precisely so the estimator sees clean inputs, and the cleanest available input is
-the summary the generator just computed. Wiring the estimator to the generator's
-own stratum means is the shortest path to an arm that runs, and it is the first
-arm most pipelines get. This is not a strawman we built to knock down: it is the
-arm we shipped.
+the summary the generator just computed.\iffull{} Wiring the estimator to the
+generator's own stratum means is the shortest path to an arm that runs, and it is
+the first arm most pipelines get.\fi{} This is not a strawman we built to knock
+down: it is the arm we shipped.
 
 \paragraph{What this looks like in a trial simulator.} Nothing above is about
 cells. Take an external control arm drawn from a patient simulator: the generator
@@ -121,18 +122,18 @@ The two are different methods from different literatures written in different
 code; nothing in either implementation says they are the same estimator, and
 their recovery curves agree to machine precision, so the curve does not say so
 either. We added this arm expecting a non-degenerate comparison, which is
-precisely the mistake the column prevents and reading the code did not.
+precisely the mistake the column prevents and reading the code did not.\iffull{}
 Whether an estimator shares sufficient statistics with the generator
-is not visible in the code. It is visible in one column.
+is not visible in the code. It is visible in one column.\fi
 
 Cross-fitting \citep{chernozhukov2018} breaks it. Fit the propensity on one fold and
 apply it to the
 other, so the weights on a patient come from data that patient is not in, and
 the estimator becomes a different functional: still consistent, still sitting
 near 1, but now with a residual that is non-zero at every cohort size and shrinks
-as the estimate improves. That curve is about the estimator. The unadjusted
+as the estimate improves. That curve is about the estimator.\iffull{} The unadjusted
 difference is there to show the curve is not useless --- it ignores the strata,
-so it is confounded, and the curve catches it immediately at a ratio near 2.4.
+so it is confounded, and the curve catches it immediately at a ratio near 2.4.\fi
 
 \iffull
 \textbf{Nothing has to be held out for the check to stay silent, though.} Cross-fitting
@@ -150,9 +151,11 @@ detects is a shared functional, not a shared sample --- and the two estimators
 that look like careful causal inference are the blind ones.
 \fi
 
+\iffull
 The lesson is not that oracle arms are bad. It is that \emph{near 1 and
 tightening} is compatible with the estimator having been divided out, and that
 the residual against realised truth is what separates the two.
+\fi
 
 \iffull
 \paragraph{The check is sound and not complete, and we can say how incomplete.}
@@ -256,7 +259,11 @@ certify.
 
 \begin{figure}[t]
 \centering
+\iffull
 \includegraphics[width=\linewidth]{figures/fig4_trial_recovery.pdf}
+\else
+\includegraphics[width=0.88\linewidth]{figures/fig4_trial_recovery.pdf}
+\fi
 \caption{\textbf{The recovery curve cannot distinguish an estimator from its
 generator; one column can.} A patient simulator with confounded assignment and a
 requested effect $\theta = 3$. \emph{Left:} recovery curves, median and IQR over

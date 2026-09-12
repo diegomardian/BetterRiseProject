@@ -20,23 +20,47 @@ else
   echo "  ok    no identifying strings in main.tex, sections/, refs.bib"
 fi
 
-echo "built PDF:"
-if [ -f main.pdf ]; then
-  if hits=$(grep -aoiE "$PATTERNS" main.pdf 2>/dev/null | sort -u); then
-    note "identifying strings inside main.pdf:"; echo "$hits" | sed 's/^/        /'
+echo "built PDFs:"
+# Both builds ship, so both get checked. A missing PDF is a FAIL, not a note:
+# this script's whole job is to be the thing that cannot pass without looking,
+# and "not built" was passing.
+for pdf in main.pdf main_short.pdf; do
+  if [ ! -f "$pdf" ]; then
+    note "$pdf not built - run ./build.sh, then re-run this"
+    continue
+  fi
+  if hits=$(grep -aoiE "$PATTERNS" "$pdf" 2>/dev/null | sort -u); then
+    note "identifying strings inside $pdf:"; echo "$hits" | sed 's/^/        /'
   else
-    echo "  ok    no identifying strings in main.pdf"
+    echo "  ok    no identifying strings in $pdf"
   fi
+
+  # Metadata is where an author name leaks without appearing on any page, so a
+  # missing reader is a FAIL too - silently skipping it is the same defect.
   if command -v pdfinfo >/dev/null 2>&1; then
-    if pdfinfo main.pdf | grep -qiE '^(Author|Keywords) +[^ ]'; then
-      note "main.pdf carries Author/Keywords metadata"
+    if pdfinfo "$pdf" | grep -qiE '^(Author|Keywords) +[^ ]'; then
+      note "$pdf carries Author/Keywords metadata"
     else
-      echo "  ok    no Author/Keywords metadata"
+      echo "  ok    no Author/Keywords metadata in $pdf"
     fi
+  elif python3 -c 'import pypdf' >/dev/null 2>&1; then
+    meta=$(python3 -c '
+import sys
+from pypdf import PdfReader
+info = PdfReader(sys.argv[1]).metadata or {}
+bad = {k: v for k, v in info.items()
+       if k in ("/Author", "/Keywords") and str(v).strip()}
+print("; ".join(f"{k}={v}" for k, v in bad.items()))
+' "$pdf")
+    if [ -n "$meta" ]; then
+      note "$pdf carries Author/Keywords metadata: $meta"
+    else
+      echo "  ok    no Author/Keywords metadata in $pdf"
+    fi
+  else
+    note "cannot read $pdf metadata: install poppler (pdfinfo) or pypdf"
   fi
-else
-  echo "  --    main.pdf not built; run the build and re-run this"
-fi
+done
 
 echo
 if [ "$fail" -eq 0 ]; then echo "PASS — safe to submit double-blind"; else echo "NOT SAFE TO SUBMIT"; fi

@@ -5,7 +5,7 @@ crossing still returns a stable number; a confound diagnostic whose tolerance
 sits above its own attainable bound still reports clean; a premise check
 reading a control detected in 99\% of cells reports comparable arms while those
 same controls shift by up to $0.71$ on log$_2$ expression; and the percentile
-bootstrap every one of those readings ends in is $0.82	imes$ the width it claims
+bootstrap every one of those readings ends in is $0.82\times$ the width it claims
 at $n = 10$, by a closed form containing no data. Each looked like a
 measurement, and in every case the fix was to ask what the statistic was a
 function of rather than to look harder at its output. \textbf{We wrote the
@@ -22,10 +22,8 @@ It costs one line, it runs on the sweep you already have, and in a patient
 simulator it separates two estimators whose curves agree to machine precision.
 We would rather it had been in our design document than in our findings.
 
-\iffull\else
 A synthetic benchmark (Appendix~\ref{app:benchtable}) locates what that rule was
 buying: three ungated methods invent an effect in $200/200$ replicates where the
 estimand does not exist, but a width gate suppresses that as completely as our
 count gate while costing no detections. The finiteness check, not the threshold,
 does the work.
-\fi

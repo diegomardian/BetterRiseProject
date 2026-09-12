@@ -1,18 +1,15 @@
 \appendix
 
-\iffull\else
-\section{Material carried in the full paper's main text}
+% Carried here in BOTH builds since 2026-09-11. Measured against the real style
+% geometry the nine-page build ran over the limit with this section inline, and
+% it is the most instance-specific material in the paper -- a single-cell
+% competitor benchmark -- so it is what an argument about validation statistics
+% can most afford to move. Both builds \input the same file, so a number cannot
+% differ between them, and neither build's main text depends on it.
+\section{What abstention buys, and which part of it}
 \label{app:benchtable}
 
-The four-page build moves the following out of the main text unchanged. Nothing
-here is written differently from the nine-page version --- both builds
-\texttt{\textbackslash input} the same files, so a number cannot differ between
-them.
-
-\subsection*{What abstention buys, and which part of it}
 \input{sections/bench.tex}
-
-\fi
 
 % Moved out of the main text in BOTH builds on 2026-09-09. Measured against the
 % real style geometry the nine-page build ran to eleven pages of main text, not
@@ -56,23 +53,28 @@ per cohort, over 6 seeds. Machine zero is blindness. \textbf{Every column pair
 disagrees about at least one estimator}, which is the point: degeneracy is a
 property of the (estimator, realised-truth, design) triple, not of the
 estimator. Under block randomisation even the unadjusted difference is blind,
-because 1:1 allocation makes the two estimands coincide.}
+because 1:1 allocation makes the two estimands coincide. This sweep runs
+1{,}200 replicates at each of 6 seeds; Table~\ref{tab:trial} runs 200 at one. A
+maximum over replicates grows with the replicate count, so the non-zero entries
+here are larger than that table's for the same estimator and are not comparable
+across the two. Only zero against non-zero is, and that is the reading the
+check makes.}
 \label{tab:matrix}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
-& \multicolumn{2}{c}{\textbf{confounded}} & \multicolumn{2}{c}{\textbf{block-randomised}} \
+& \multicolumn{2}{c}{\textbf{confounded}} & \multicolumn{2}{c}{\textbf{block-randomised}} \\
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}
-estimator & standardised & var-weighted & standardised & var-weighted \
+estimator & standardised & var-weighted & standardised & var-weighted \\
 \midrule
-G-computation, generator's strata & $0$          & $0.0663$     & $0$          & $9\!\times\!10^{-16}$ \
-IPW, saturated propensity         & $1\!\times\!10^{-14}$ & $0.0663$ & $7\!\times\!10^{-15}$ & $7\!\times\!10^{-15}$ \
-AIPW, saturated, no cross-fitting & $4\!\times\!10^{-15}$ & $0.0663$ & $4\!\times\!10^{-15}$ & $4\!\times\!10^{-15}$ \
-matching on stratum, all controls & $9\!\times\!10^{-16}$ & $0.0663$ & $9\!\times\!10^{-16}$ & $0$ \
-matching on stratum, 20 controls  & $0.052$      & $0.067$      & $0.037$      & $0.037$ \
-matching on stratum, 1 control    & $0.164$      & $0.182$      & $0.170$      & $0.170$ \
-OLS, stratum dummies              & $0.0663$     & $\mathbf{4\!\times\!10^{-14}}$ & $2\!\times\!10^{-14}$ & $2\!\times\!10^{-14}$ \
-IPW, cross-fitted                 & $0.599$      & $0.618$      & $0.182$      & $0.182$ \
-unadjusted difference             & $4.99$       & $4.99$       & $\mathbf{7\!\times\!10^{-15}}$ & $7\!\times\!10^{-15}$ \
+G-computation, generator's strata & $0$          & $0.0663$     & $0$          & $9\!\times\!10^{-16}$ \\
+IPW, saturated propensity         & $1\!\times\!10^{-14}$ & $0.0663$ & $7\!\times\!10^{-15}$ & $7\!\times\!10^{-15}$ \\
+AIPW, saturated, no cross-fitting & $4\!\times\!10^{-15}$ & $0.0663$ & $4\!\times\!10^{-15}$ & $4\!\times\!10^{-15}$ \\
+matching on stratum, all controls & $9\!\times\!10^{-16}$ & $0.0663$ & $9\!\times\!10^{-16}$ & $0$ \\
+matching on stratum, 20 controls  & $0.052$      & $0.067$      & $0.037$      & $0.037$ \\
+matching on stratum, 1 control    & $0.164$      & $0.182$      & $0.170$      & $0.170$ \\
+OLS, stratum dummies              & $0.0663$     & $\mathbf{3.5\!\times\!10^{-14}}$ & $2\!\times\!10^{-14}$ & $2\!\times\!10^{-14}$ \\
+IPW, cross-fitted                 & $0.599$      & $0.618$      & $0.182$      & $0.182$ \\
+unadjusted difference             & $4.99$       & $4.99$       & $\mathbf{7\!\times\!10^{-15}}$ & $7\!\times\!10^{-15}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -200,7 +202,7 @@ ones again.} Both are fixed and both carry the input that forces them to fail.
 \paragraph{What is and is not fixed.} Every defect above now carries a
 regression test that fails against the version it replaces, and they sit in one
 file under this paper's own rule: a guard with no input that forces it to fail
-is untested. The width gate's finiteness guard (\S\ref{sec:bench}) fails against
+is untested. The width gate's finiteness guard (Appendix~\ref{app:benchtable}) fails against
 the version comparing before checking. The attainable-bound identity is checked
 at four prevalences. The independent-maxima pairing is tested against a rare arm
 whose label is a \emph{pure function of depth}: paired within the arm the

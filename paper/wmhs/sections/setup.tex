@@ -77,12 +77,10 @@ different literatures both fail it, and that
 \S\ref{sec:calibration} then contradicts what the blind curve had certified.
 
 \else
-\paragraph{Related work.} Cell-count filters of this shape are standard rather
-than novel (Appendix~\ref{app:benchtable}); cacoa \citep{petukhov2022} is
-closest. Our claim is not the filter, but that the filter is a
+\paragraph{Related work.} Filters of this shape are standard rather than novel,
+and are surveyed with the simulation-study methodology in
+Appendix~\ref{app:relatedwork}. Our claim is not the filter but that it is a
 selective-prediction rule \citep{chow1970,geifman2017} --- something you can
-\emph{calibrate} and get wrong --- and that it should emit a third verdict rather
-than silently drop rows, because a dropped row and a row estimated at zero are
-indistinguishable downstream.
+\emph{calibrate} and get wrong.
 \fi
 

@@ -32,9 +32,10 @@ that choice, an implementation detail made it, and it changes the answer.
 So we report both readings rather than the one that
 yields a cutpoint. Pooled, the routine returns no cutpoint at all: discrimination
 never reaches the 0.80 target in any count bin, topping out at 0.78 across 13
-seeds at 50 replicates and at 0.75 across 8 seeds at 500. Restricted to the
-reference tissue it does return one, and that is where the second lesson of this
-paper repeats itself.
+seeds at 50 replicates and at 0.75 across 8 seeds at 500.\iffull{} Restricted to
+the reference tissue it does return one, and that is where the second lesson of
+this paper repeats itself.\else{} Restricted to the reference tissue it does
+return one, and that is where this paper's second lesson repeats itself.\fi
 
 \iffull
 \begin{figure}[t]
@@ -119,11 +120,11 @@ line:
 \begin{center}\small
 \begin{tabular}{@{}lccc@{}}
 \toprule
- & \textbf{committed} & \textbf{filled} & \textbf{dense} \
+ & \textbf{committed} & \textbf{filled} & \textbf{dense} \\
 \midrule
-crossing bracketed to & $(40, 100]$ & $(65, 90]$ & $(42.5, 70]$ \
-reported $ok$ & $100$ & $90$ & $\mathbf{70}$ \
-reported $wide$ & $40$ & $45$ & $42$ \
+crossing bracketed to & $(40, 100]$ & $(65, 90]$ & $(42.5, 70]$ \\
+reported $ok$ & $100$ & $90$ & $\mathbf{70}$ \\
+reported $wide$ & $40$ & $45$ & $42$ \\
 \bottomrule
 \end{tabular}
 \end{center}

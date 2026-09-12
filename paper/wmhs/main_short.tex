@@ -54,37 +54,29 @@ is how virtual control arms and in-silico trial pipelines are validated. We show
 the curve can be structurally incapable of seeing the estimator. If the
 estimator is a deterministic function of the sufficient statistics the generator
 drew, it cancels identically and the ratio becomes realised over requested truth
---- a property of the generator alone. That congenial methods are \emph{favoured}
-is known; the degenerate case is not a magnitude but an identity, and that
-decides how you find it. A favoured method draws a curve that looks
-suspiciously good; a cancelled one draws a curve that looks exactly right, near
-1 and tightening with $n$. \textbf{A validation that fails loudly is a nuisance;
-one that succeeds silently is a hazard.} One column separates them: compare
-against the \emph{realised} draw and test whether the difference is identically
-zero. Ours was, across 1.7M runs. In a patient simulator it catches
-G-computation, saturated-propensity weighting and non-cross-fitted AIPW --- so
-cross-fitting is what stands between the modern doubly-robust estimator and a
-vacuous curve --- while under the block randomisation real trials use, the
-verdict flips and even an unadjusted difference goes blind. The check is sound
-and not complete: an estimator can pass it with 88\% of its curve still
-generator noise, so report the residual in units of the generator's own
-sampling error. Under censoring it silences against the latent event times a
-simulator naturally logs, and holds against the observed data. The abstention
-rule our blind curve had certified does not survive recalibration.
+--- a property of the generator alone, and the curve then looks not suspicious
+but exactly right, near 1 and tightening with $n$. \textbf{A validation that
+fails loudly is a nuisance; one that succeeds silently is a hazard.} One column
+separates them: compare against the \emph{realised} draw and test whether the
+difference is identically zero. Ours was, across 1.7M runs. In a patient
+simulator it catches G-computation, saturated-propensity weighting and
+non-cross-fitted AIPW --- so cross-fitting is what stands between the modern
+doubly-robust estimator and a vacuous curve --- while under the block
+randomisation real trials use, even an unadjusted difference goes blind. The
+appendix carries what the check still cannot see, what censoring does to it, and
+the recalibration that followed.
 \end{abstract}
 
 
 % Section order follows the abstract: the blind statistic first, then what a
-% correct calibration returns, then what the rule was actually buying. The
-% benchmark closes because "where this leaves the rule" needs both routes on the
-% table. Labels are stable, so \ref works regardless of order — but the prose
-% cross-references do not, and they were checked when this was reordered.
+% correct calibration returns. The competitor benchmark is Appendix A in BOTH
+% builds --- it was the ninth page the full build did not have, and it is the
+% one section neither build's argument depends on. Labels are stable, so \ref
+% works regardless of order --- but the prose cross-references do not, and they
+% were checked when this was moved.
 \input{sections/setup.tex}
 \input{sections/blind.tex}
 \input{sections/calibration.tex}
-\iffull
-\input{sections/bench.tex}
-\fi
 
 \section{Conclusion}
 \label{sec:conclusion}
