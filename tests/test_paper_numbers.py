@@ -355,9 +355,16 @@ def test_the_carcinoma_ratio_collapses_onto_the_limit_quoted(bench_tex):
         frame, "lineage", "mean_normal", "mean_tumour"
     )
     _quotes(bench_tex, "that limit is $6.94$")
-    _quotes(bench_tex, "$m_T/m_N$ from $0.045$ to $0.109$")
-    _quotes(bench_tex, r"return ratios from $6.19$ to $6.63$, a spread of $1.07$-fold")
+    _quotes(bench_tex, "$m_T/m_N$ from $0.045$ to")
+    _quotes(bench_tex, r"$6.63$, a spread of $1.07$-fold")
+    _quotes(bench_tex, "the six of its nine" + chr(10) + "panel genes")
+    _quotes(bench_tex, "one rises $4.5$-fold between the arms")
     assert round(-limit, 2) == 6.94
+
+    # six of nine, and the three set aside are not near the limit -- the
+    # selection is the claim's premise, so the paper has to name it
+    assert len(survived) == 9
+    assert round(survived.max(), 1) == 4.5
 
     nearest = survived.nsmallest(6)
     assert (round(nearest.min(), 3), round(nearest.max(), 3)) == (0.045, 0.109)
@@ -373,9 +380,15 @@ def test_the_adenoma_ratio_does_not_collapse(bench_tex):
         frame, "lineage", "cp10k_normal", "cp10k_tumour"
     )
     _quotes(bench_tex, "the minimum\n$m_T/m_N$ is $0.374$")
-    _quotes(bench_tex, "the identical computation returns $0.27$ to\n$3.13$")
+    _quotes(bench_tex, "which on this cohort's six-gene panel takes all of them")
     _quotes(bench_tex, r"an $11.5$-fold spread where carcinoma gave $1.07$")
     assert round(survived.min(), 3) == 0.374
+
+    # "the identical computation" has to be identical: the same six-nearest-zero
+    # rule, which on a six-gene panel is every gene. If this cohort ever gains a
+    # seventh the two sides stop being comparable and the sentence is wrong.
+    assert len(survived) == 6
+    assert set(survived.nsmallest(6).index) == set(survived.index)
 
     ratios = limit * (survived - 1.0)
     assert (round(ratios.min(), 2), round(ratios.max(), 2)) == (0.27, 3.13)
