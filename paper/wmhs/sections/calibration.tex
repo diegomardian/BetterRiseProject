@@ -87,7 +87,7 @@ what made the number look like a measurement.
 The superseded internal report gave 120, and we cannot reproduce it: 120 is not
 a count the committed grid can reach. Whatever produced it was not the committed
 configuration, and the run is the uncommitted one of
-Appendix~\ref{app:withdrawn} item~3, so there is nothing left to re-derive it
+the artifact's defect log item~3, so there is nothing left to re-derive it
 from. We report that rather than reconcile it.
 \fi
 
@@ -145,65 +145,25 @@ the non-identifiability there is not a resolution artefact.
 \textbf{We do not endorse a calibrated cutpoint: the procedure returns
 grid-dependent candidates without patient-level uncertainty.} It returns its own grid, and it did so with a stability that
 survived three grids, thirteen seeds and two cohorts without once warning us.
-What the rule does on the real cohort, rather than on the sweep, is
-Appendix~\ref{app:modal}: at the resolution the compositional question is
-defined on, abstention is the modal outcome under both population definitions,
-and the coarse resolutions return \emph{not identifiable} rather than a number.
+On the real cohort, rather than on the sweep, abstention is the modal outcome
+under both population definitions at the resolution the compositional question
+is defined on, and the coarse resolutions return \emph{not identifiable}
+rather than a number.
 \fi
 
 \iffull
-\paragraph{And none of the three is a cutpoint with an interval on it.} At 50
-replicates the crossing does not resolve at all --- the returned value wanders
-between 45 and 90 with the seed. At 500 it does, 7 of 8 seeds returning
-$ok = 90$, but that stabilises Monte Carlo noise and not the quantity a reader
-will take it for. Ten
-patients with two held out per replicate admit just \textbf{45 distinct holdout
-pairs}, so at 500 replicates each pair is drawn about eleven times and the
-estimate converges to the value over those 45 pairs rather than to a population
-value. The patient-level uncertainty is unchanged by the replicate count and is
-not quantified anywhere in this paper. Read each value as what this procedure
-returns on this cohort at that grid resolution. Reporting any of them with an
-interval would be the same error this paper documents elsewhere --- the closing
-paragraph of Appendix~\ref{app:guards} shows the interval we would have reached
-for is itself narrower than it claims at exactly these $n$.
+A second cohort agrees on the verdict and not the number: its pooled draw
+returns no cutpoint on any seed, and its reference draw returns $400$ or
+$800$, the top two counts its grid can express. Eight to sixteen times the
+committed 50, by the same mechanism.
+
+\paragraph{Three further statistics, and where they are.} The same failure
+recurs three more times in this pipeline --- a confound diagnostic whose
+tolerance sat above its own attainable bound, a pre-registered criterion that
+could not pass when the hypothesis held, and a premise check whose sensitivity
+was a property of the gene it controlled. Each survives correct code and each
+is recorded in Appendix~\ref{app:guards} rather than argued here; none of this
+paper's claims rests on them. The fourth is not a guard at all.
+
+\input{sections/interval.tex}
 \fi
-
-\iffull
-\paragraph{A second cohort returns a different number, and the same verdict.}
-The two Lee cohorts are both local and both sha256-verified, and only one had
-ever been run. On the second --- six patients against ten --- the pooled draw
-again returns \emph{no} cutpoint, on every seed at both replicate counts: no
-seed meets both criteria, and discrimination alone reaches the $0.80$ target at
-50 replicates but tops out at $0.66$ at 500. The reference draw returns a
-cutpoint, and it is nowhere near the committed 50: $ok = 400$ or $800$ on both
-grids, the top two counts either can express --- and the top point of a grid is
-the same artefact as the first point above a crossing, one edge further out.
-\textbf{The pre-registered procedure returns a cutpoint between $1.4$ and $2$
-times the committed one on the first cohort depending only on grid resolution,
-and eight to sixteen times it on the second},
-which is a statement about the procedure rather than about either cohort. The
-blindness, being algebraic, replicates exactly: the residual is $0$ on all
-$1{,}711{,}200$ replicates across both.
-
-The instability is worse than the first cohort's, not better. At 50 replicates
-the second cohort returns $ok = 800$ on eleven of thirteen seeds; at 500 it
-returns $400$ on six of eight. \textbf{The majority answer moved when we added
-replicates}, which is what Appendix~\ref{app:limitations} predicts --- more
-replicates buy Monte Carlo precision, not patient-level precision, and six
-patients admit fifteen distinct holdout pairs against the first cohort's
-forty-five. The top grid point also asks for 800 mature cells per arm from a
-pool holding 844, so that end of the grid is at the edge of what the cohort can
-express in distinct cells; we report the number and the edge together.
-\fi
-
-\iffull
-\paragraph{Three more of this paper's statistics could not fail, and one of
-them is the interval.} Two grid caveats, the abstention-rate reading, three
-withdrawn guards and the percentile bootstrap every result here rests on are
-carried in Appendices~\ref{app:gridcaveats}--\ref{app:guards} rather than
-inline. The one to read first closes Appendix~\ref{app:guards}: the interval is
-$0.82\times$ the width it claims at $n = 10$, under a normal-mean approximation containing no
-data, which makes it the same failure as this section's grid one layer out ---
-and it is the layer every number in this paper passes through.
-\fi
-

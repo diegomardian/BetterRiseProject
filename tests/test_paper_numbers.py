@@ -59,10 +59,10 @@ def coexpr_meta() -> dict:
 
 @pytest.fixture(scope="module")
 def tex() -> str:
-    """The three files carrying the third guard's numbers, concatenated."""
+    """The files carrying the third guard's and the interval's numbers."""
     return "\n".join(
         (SECTIONS / f).read_text()
-        for f in ("withdrawn.tex", "conclusion.tex", "responsible.tex")
+        for f in ("withdrawn.tex", "interval.tex", "conclusion.tex", "responsible.tex")
     )
 
 
@@ -219,18 +219,20 @@ def test_the_paper_counts_its_own_withdrawn_guards(tex):
     separated here rather than summed.
     """
     withdrawn = (SECTIONS / "withdrawn.tex").read_text()
-    paragraphs = withdrawn.count("\\paragraph{")
-    not_a_guard = withdrawn.count("\\paragraph{And the fifth is not a guard at all.")
-    assert not_a_guard == 1, "the interval paragraph is missing or was retitled"
-    assert paragraphs - not_a_guard == 3, (
-        f"{paragraphs - not_a_guard} guards described, not 3"
-    )
+    interval = (SECTIONS / "interval.tex").read_text()
+    # The interval was promoted out of this appendix into the main text when
+    # the single-cell material was cut. It is still not a guard, and the two
+    # counts are still kept apart rather than summed.
+    guards = withdrawn.count("\\paragraph{")
+    assert guards == 3, f"{guards} guards described, not 3"
+    assert interval.count("\\paragraph{") == 1, "interval.tex is not one paragraph"
+    assert "guard" not in interval.split("}")[0], "the interval is being called a guard"
     _quotes(tex, "Three more guards shipped and got withdrawn")
     appendix = (SECTIONS / "appendix.tex").read_text()
     # The heading moved from a subsection of the short build's appendix to a
     # section of both builds' appendix when the page count was first measured
     # against real geometry. The count claim has to survive the move.
-    assert "\\section{Three guards that could not fire, and the interval}" in appendix
+    assert "\\section{Three guards that could not fire}" in appendix
     assert "Two more checks that could not fire" not in appendix
     assert "Two guards that could not fire" not in appendix
 
@@ -459,6 +461,10 @@ RETIRED = (
     "roughly twice as strict on both cutpoints",
     "it is the one defect in this paper that is now closed",
     "three of the four look fine",
+    # cut 2026-09-12 with the single-cell material; a merge must not restore them
+    "And none of the three is a cutpoint with an interval on it",
+    "A second cohort returns a different number, and the same verdict",
+    "the abstention point",
 )
 
 
@@ -878,3 +884,42 @@ def test_trial_replicate_counts_are_pooled_over_seeds():
         assert meta["n_replicates_per_seed"] * seed_count == 1200
         assert meta["git_sha"] and meta["seed"] is not None
         _quotes((SECTIONS / filename).read_text(), "1{,}200 replicates pooled over 6 seeds")
+
+
+def test_the_closed_form_at_the_zero_cell_point(blind_tex):
+    """``5.000``, ``2.000``, ``1.333`` with zero variance, and 1/(1-s).
+
+    An external reviewer read "the abstention point" as n = 20, found Appendix
+    A reporting 1.331-1.423 there, and reported an internal contradiction. The
+    paper was right -- the closed form holds at f_T = 0, a different grid entry
+    -- but nothing in this file said so, and the claim sat in the uncovered
+    half of the coverage boundary the paper itself states. It is covered now,
+    and the prose names the point rather than the rule.
+    """
+    _quotes(blind_tex, "exactly at the \emph{zero-cell} grid")
+    _quotes(blind_tex, "$5.000$, $2.000$ and")
+    _quotes(blind_tex, "$1.333$ at the three tested shifts")
+
+    rec = pd.read_parquet(_newest("calibration_gap_recovery_r500"))
+    zero = rec[(rec["frac_mature_tumour"] == 0.0) & (rec["grid"] == "committed")]
+    assert not zero.empty
+
+    for shift, expected in ((0.25, 1.333), (0.5, 2.000), (0.8, 5.000)):
+        rows = zero[zero["shift"] == shift]
+        assert not rows.empty, shift
+        # the closed form, and it is 1/(1-s)
+        assert round(1.0 / (1.0 - shift), 3) == expected
+        assert all(round(v, 3) == expected for v in rows["ratio_median"]), shift
+        # "with zero variance across replicates": the quartiles coincide to
+        # machine precision. They are not bit-identical -- max spread here is
+        # 8.9e-16 -- so compare with a tolerance rather than for equality.
+        spread = (rows["ratio_q75"] - rows["ratio_q25"]).abs().max()
+        assert spread < 1e-12, (shift, spread)
+        # and the median is the closed form EXACTLY, not to rounding
+        assert (rows["ratio_median"] - 1.0 / (1.0 - shift)).abs().max() == 0.0
+        assert (rows["median_n_cells_mature"] == 0).all(), shift
+
+    # and the appendix point is a DIFFERENT grid entry, which is the whole fix
+    other = rec[(rec["frac_mature_tumour"] == 0.01) & (rec["shift"] == 0.5)]
+    assert not other.empty
+    assert other["median_n_cells_mature"].max() > 0

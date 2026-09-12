@@ -53,7 +53,8 @@ statistic cannot be evaluated. The statistic still
 discriminates an estimator failing to reproduce its input, and the design
 document ships a broken-estimator control returning $0.0$ for which the ratio
 comes out zero. The oracle arm by construction is not such an estimator, so
-validating it here is circular. The value at the abstention point, read at the
+validating it here is circular. The value at the zero-cell grid point ($f_T = 0$, where no mature
+tumour cell survives), read at the
 time as a two-fold over-estimate in the dangerous direction, is exactly
 $1/(1-s)$: the realised and requested mature fractions agree there, so the
 closed form carries no scale factor.}
@@ -129,15 +130,7 @@ allocates treatment, and the curve is blind to that too.
 % out of the main text in BOTH builds on 2026-09-09, when the real style
 % geometry put the nine-page build at eleven. Both builds \input them here, so
 % the short and long versions do not differ in where a reader finds them.
-\section{What the grid was reporting, and two caveats}
-\label{app:gridcaveats}
-\input{sections/gridcaveats.tex}
-
-\section{On real data, abstention is the modal outcome}
-\label{app:modal}
-\input{sections/modaloutcome.tex}
-
-\section{Three guards that could not fire, and the interval}
+\section{Three guards that could not fire}
 \label{app:guards}
 \input{sections/withdrawn.tex}
 
@@ -198,136 +191,14 @@ threshold, catches the undefined estimand.
 \label{app:relatedwork}
 \input{sections/relatedwork.tex}
 
-\section{Three implementation defects, and a guard that fired twice}
-\label{app:withdrawn}
-
-Three defects, recorded because each one survived ordinary review and because
-the first two are this paper's argument in a third and fourth instance: a
-statistic computed over a population nobody chose, and a check that could not
-fail. Two further entries --- a leakage guard checked against a symbol list that
-could not contain the identifiers under comparison, and an acceptance test
-comparing gene symbols against Ensembl identifiers over an empty intersection ---
-were ordinary implementation errors with nothing to learn from, and are named
-here rather than described.
-
-\begin{enumerate}\itemsep3pt
-\item \textbf{A de-duplication that collapsed two population definitions.} A
-per-patient de-duplication took the first row per patient from a frame carrying
-\emph{two} pre-registered definitions of the diseased arm, selecting one by file
-order --- the same one in 224 of 224 combinations, and neither the table, its
-sidecar nor the internal report recorded which. Re-run per definition, the
-finding at the finest resolution survives under both and the coarse resolutions
-become \emph{not identifiable}, which is a stronger statement than the
-indeterminacy originally reported.
-
-\item \textbf{A join that validated its keys and never its counts.} We assembled
-the primary decomposition table by joining per-patient \emph{means} from one job
-onto per-patient \emph{fractions} and cell counts from another. The two jobs
-label cells at different quality-control thresholds, 0.10 and 0.25 of the depth
-distribution, so the mature-cell populations differ by a median factor of 1.26 on
-the reference arm and 1.35 on the comparison arm. Every term in
-Equation~\ref{eq:kitagawa} multiplied a fraction over one set of cells by a mean
-over another. The count the abstention rule reads came from the first labelling,
-the mean it gated from the second. The producing job's documentation asserts a
-loop mirroring the other pipeline exactly and enumerates the filters. The
-threshold is the single filter the loop does not mirror. The join written ``so
-the two cannot drift'' validates join keys and never the counts each side
-implies. The replacement job derives fractions, means, counts and estimability
-from a single labelling call per patient, then asserts its counts against the
-committed counting function. That assertion is the one line missing before.
-
-\item \textbf{A provenance stamp blind to uncommitted code.} Every result must
-carry a commit hash and a fixed seed, and the writer refuses a table lacking
-either --- but the dirtiness check ignored untracked files, so a table produced
-by a script that was never committed recorded a \emph{clean} hash pointing at a
-commit that did not contain the script. Three results reached an internal report
-this way, one of them the calibration behind this paper's central figure.
-Re-deriving it also surfaced the replicate count: that run used 6 per grid point
-against the design document's 50 to 100. The check now counts untracked files
-and the sidecar names them.
-\end{enumerate}
-
-Items 1 and 2 are one failure twice over. Someone trying to prevent exactly that
-failure wrote both; neither felt wrong, and both survived ordinary review. Item 3
-is why \S\ref{sec:calibration}'s numbers are re-derived here from a committed,
-seeded table rather than quoted from the report that first carried them --- and
-the check now has a committed input that forces it to fail, with the sweep
-committed alongside it.
-
-\textbf{We had written that this was the one defect in the paper that was
-closed. While preparing this revision, the guard fired again.} Two result tables
-elsewhere in the repository carry a commit hash that no longer resolves and a
-\texttt{git\_dirty} flag of true. They postdate the repair by two days and
-belong to an analysis outside this paper. The guard is working --- it caught
-them, in our own suite, without being asked --- and the defect recurred anyway,
-because a guard that fires is not the same as a guard that is heeded.
-\emph{Closed} was the wrong word for a class of failure, and this was the only
-place in the paper we used it.
-
-\paragraph{A second route around the provenance guard, and what closing it
-cost.} Item~3's repair counts untracked files, and the same invariant had a
-second route around it that the repair did not cover. The table behind the
-coarsest resolution's ``undefined on all 64 patient-by-axis rows'' was stamped
-with a commit \texttt{git cat-file} could not find: the branch it was written on
-was rebased before review, and the stamp records the pre-rebase hash. \textbf{Every
-result written on a branch is exposed to this}, and the repair for
-\emph{uncommitted} code does nothing about it.
-
-We re-derived the table on a sha that resolves. It came back bit-identical --
-256 rows, 64 epithelial, \texttt{worst\_rho} undefined on all 64 -- so the
-numbers were never in question; what had been lost was the ability to name the
-code that produced them, which is the whole of what invariant~10 buys. The
-superseded copy is deleted rather than kept, because a table whose only
-distinguishing feature is a dead stamp is not a record of anything.
-
-Two further defects surfaced while doing it, both in the writer rather than in
-any analysis. \texttt{extra\_meta} merged over the provenance record, so a
-caller could overwrite the fields the invariant exists to hold; three committed
-tables carry a GEO platform identifier in the slot recording the operating
-system, and the same hole accepted \texttt{git\_sha}, which would have let a
-table claim a commit it was not built from --- validated, in that case, by the
-very check that reads it. And every job in one workstream passed
-\texttt{allow\_dirty=True} as a literal, so that arm could not write a clean
-stamp \emph{from any tree}: its tables are not dirty because someone was
-careless, but because the guard was switched off at the call site. \textbf{We
-had been about to re-run them for clean stamps, which would have produced dirty
-ones again.} Both are fixed and both carry the input that forces them to fail.
-
-\paragraph{What is and is not fixed.} Every defect above now carries a
-regression test that fails against the version it replaces, and they sit in one
-file under this paper's own rule: a guard with no input that forces it to fail
-is untested. The width gate's finiteness guard (Appendix~\ref{app:benchtable}) fails against
-the version comparing before checking. The attainable-bound identity is checked
-at four prevalences. The independent-maxima pairing is tested against a rare arm
-whose label is a \emph{pure function of depth}: paired within the arm the
-diagnostic reports $|\rho|/\text{bound} = 1.000$, and mispaired against the
-common arm's bound it reports $0.141$ and reads clean. An arm at prevalence
-exactly $0$ is named rather than dropped. An abstention no longer enters a
-coverage denominator, and a bin where every replicate abstained returns its own
-verdict rather than a rate of zero. The leakage guard raises across identifier
-spaces instead of intersecting two disjoint namespaces. The provenance check in
-item~3 counts untracked files, against a fixture repository whose only
-difference from \texttt{HEAD} is an uncommitted producing script --- the input
-that made the old check return clean. The calibration sweep is committed with
-it, so the number and the code that produced it now travel together.
-
-\textbf{That file is the second thing we would want reused, after the one-line
-check.} It is mutation testing's premise moved from unit tests to analysis
-diagnostics. Every other test we have asserts the pass path --- given clean
-data, the check returns clean --- which is exactly the half that cannot detect a
-check returning clean on everything. These are the other half, each written as
-the input that would have caught its defect at the time rather than months
-later. Where no such input can be constructed, that is the finding rather than a
-gap in the suite.
-
 \section{Extended limitations}
 \label{app:limitations}
 
 \paragraph{Keeping the third verdict distinct.} The third verdict is a value, not
 a flag, and the results writer refuses a row carrying a number where none
 belongs. The guard is necessary and insufficient.
-Appendix~\ref{app:gridcaveats} shows the same coercion two layers up as a
-boolean, inside a rate whose denominator the writer never sees. We report the
+The same coercion appears two layers up as a boolean, inside a rate whose
+denominator the writer never sees. We report the
 interaction term separately rather than folding it into either arm. Anyone
 reusing the decomposition should keep all three properties. The method is not
 wrong. Its output flattens easily.

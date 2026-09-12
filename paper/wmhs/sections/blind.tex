@@ -39,10 +39,11 @@ statistic cannot be evaluated. The statistic still
 discriminates an estimator failing to reproduce its input, and the design
 document ships a broken-estimator control returning $0.0$ for which the ratio
 comes out zero. The oracle arm by construction is not such an estimator, so
-validating it here is circular. The value at the abstention point, read at the
-time as a two-fold over-estimate in the dangerous direction, is exactly
-$1/(1-s)$: the realised and requested mature fractions agree there, so the
-closed form carries no scale factor.}
+validating it here is circular. The value at the zero-cell grid point ($f_T = 0$, where no mature
+tumour cell survives and the rule abstains), read at the time as a two-fold
+over-estimate in the dangerous direction, is exactly $1/(1-s)$: the realised
+and requested mature fractions agree there, so the closed form carries no
+scale factor.}
 \label{fig:generator}
 \end{figure}
 \fi
@@ -76,6 +77,34 @@ validate interval coverage or an abstention threshold. Even a correctly
 implemented sample mean equals its empirical-mean reference. We use ``blind''
 only for this redundancy relative to a specified reference, not as a verdict
 on statistical validity.
+
+\paragraph{The procedure, in four steps.} Everything after this paragraph is
+evidence that the four steps are necessary. They are the contribution; run them
+on the sweep you already have.
+
+\begin{mdframed}[linewidth=0.5pt,innertopmargin=4pt,innerbottommargin=4pt]
+\begin{enumerate}\itemsep1pt\parskip0pt\topsep2pt
+\item \textbf{Pre-specify the reference $T(D)$} --- its functional form, its
+      target population and its observation process --- \emph{before} the sweep
+      runs. Which estimators the screen can see depends on this choice, so
+      choosing it afterwards chooses the answer.
+\item \textbf{Screen for equality.} Report
+      $\max_D |\hat\theta(D) - T(D)|$ per design cell, not a pooled median, with
+      \texttt{tol} set explicitly in outcome units. Count non-finite outputs
+      separately: a NaN makes the assertion pass.
+\item \textbf{Read an exact zero as redundancy, not as failure.} It proves the
+      recovery ratio is a functional of the generator; it is not a verdict on
+      the estimator. A nonzero residual certifies nothing on its own.
+\item \textbf{Report scale beside the equality screen.} Give the residual in
+      units of the generator's own sampling error, so a residual that is nonzero
+      but small relative to that error is visible as such.
+\end{enumerate}
+\end{mdframed}
+
+\noindent Step 1 is the one that is skipped, and Table~\ref{tab:matrix} is why it
+matters: the same estimator reads blind or informative depending on which
+reference was named. At a null requested effect, use differences rather than
+recovery ratios.
 
 \paragraph{How this wiring arose.} Our oracle arm used the summaries already
 computed for the draw. This is an observed failure in our pipeline, not an
@@ -231,21 +260,20 @@ audit.} Retain the requested parameter and latent targets for their distinct
 bias, coverage and information-loss evaluations.
 \fi
 
-\paragraph{The one-line check.} Specify the reference functional, its target
-population and its observation process before running the boxed screen. Report
-non-finite outputs separately; otherwise a NaN makes the assertion pass.
-Set \texttt{tol} explicitly in outcome units and report the maximum residual per
-design, not just a pooled median. Near-zero residuals motivate an algebraic
-check; nonzero residuals do not certify calibration. At a null requested effect,
-use differences rather than recovery ratios.
+\paragraph{What the screen returned here.}
 Ours was zero everywhere.\iffull{} Appendix~\ref{app:generator} carries the
 curve, and the measurement that goes with the algebra: swapping the draw pool
 moves its median from about $1.1$ to about $1.4$ and nearly doubles its spread
 while the residual stays exactly $0$ on every row of both.\fi{} In our case the
-curve takes the
-closed form $1/(1-s)$ exactly at the abstention point --- $5.000$, $2.000$ and $1.333$ at the three
-tested shifts, with zero variance across replicates --- a constant, read at the
-time as a two-fold over-estimate in the dangerous direction.
+curve takes the closed form $1/(1-s)$ exactly at the \emph{zero-cell} grid
+point --- $f_T = 0$, where no mature tumour cell survives, so the rule abstains
+and the estimand does not exist. There the ratio is $5.000$, $2.000$ and
+$1.333$ at the three tested shifts with zero variance across replicates, read
+at the time as a two-fold over-estimate in the dangerous direction. (This is
+not the sparsest \emph{non}-degenerate point, $f_T = 0.01$ at about 20 mature
+cells, where Appendix~\ref{app:generator} reports a median of $1.331$--$1.423$ and
+a wide spread. The two are different grid entries and only the first has a
+closed form.)
 
 \begin{figure}[t]
 \centering
