@@ -1,0 +1,431 @@
+# The claim-check ledger, enumerated.
+#
+# docs/HANDOFF.md §3 asserts in prose that a check unable to fail has been found
+# "twenty-one" times. Nothing in the repository enumerates those twenty-one, and
+# the ordinals are scattered across five sections (§3, §6g, §6k, §6m, §6n) while
+# §7 still says "the ledger is at seventeen". This file is the first
+# enumeration. It is DATA, not analysis: every field is a transcription or a
+# judgement, and the judgement fields name their rater.
+#
+# Written 2026-09-11 for week 1 of docs/DECISION_2026-09-11_scope_and_pivot.md.
+#
+# The count does not reconcile, and that is recorded rather than resolved:
+# transcribing every entry the repository describes yields MORE entries than the
+# prose asserts. See `claim_check_inventory.py`, which refuses to write if the
+# enumerated count silently equals the asserted one without a reconciliation.
+
+meta:
+  asserted_count: 21          # docs/HANDOFF.md §3, first paragraph
+  asserted_count_anchor: "docs/HANDOFF.md §3"
+  stale_count_elsewhere: 17   # docs/HANDOFF.md §7 — not corrected when §3 moved
+  reconciliation_note: >-
+    Enumerating every entry the repository describes gives 23 against the 21
+    asserted in docs/HANDOFF.md §3, a difference of +2. It is recorded, not
+    resolved, because resolving it means editing §3, which belongs to the
+    write-up. The two candidate sources, both visible in the text: (a) §3's
+    prose says "the five found on 2026-09-05" and then lists FOUR bullets, so
+    one member of that five is already a row in the §3 table and may be counted
+    twice here as L08 or L09; (b) L23 carries no ordinal and §6n calls it "a
+    sibling worth reporting beside" L22 rather than numbering it, so whether it
+    is a ledger entry or an annotation on L22 is undecided in the source. Under
+    reading (a)+(b) the count is 21 exactly. That is a plausible reconstruction
+    and it is not what any document says, so it is not adopted.
+  rater: rater_a
+  rater_note: >-
+    Single rater. The week-1 plan calls for two independent classifiers and
+    inter-rater agreement is NOT established by this file. A second rater writes
+    config/claim_check_ledger_rater_b.yaml with the same ids and only the
+    judgement fields; the job then reports agreement. Until that file exists the
+    inventory is one opinion with criteria attached.
+
+# Judgement vocabularies, fixed here before any entry was classified.
+classes:
+  logical_impossibility: >-
+    No dataset could have made the check fail. The compared quantity is bounded
+    away from the threshold, the comparison is vacuous, or the criterion is
+    unreachable by construction.
+  low_power: >-
+    The check could fail on some data, but not at the sample size, noise level
+    or effect size it was actually run at.
+  implementation_error: >-
+    The code computes something other than what was specified. A correct
+    specification, wrongly executed.
+  provenance_reporting_error: >-
+    Two statements of one quantity were never compared, documentation and
+    implementation diverged, or prose overrode an artifact that was correct.
+
+verdicts:
+  scientific_failure: >-
+    A check that was supposed to be able to reject a scientific claim, and could
+    not. Counts toward the week-1 stop rule.
+  algebraic_identity: >-
+    The "failure" is a mathematical identity behaving as identities do. Does NOT
+    count toward the stop rule.
+  disputed: >-
+    Contested between the repository's reading and the 2026-09-11 audit. Does
+    not count toward the stop rule until resolved.
+
+entries:
+  - id: L01
+    short_name: recovery curve
+    the_check: estimator output against known truth
+    why_it_could_not_fail: the estimator cancels, so the curve measures the generator
+    source_anchor: "docs/HANDOFF.md §3 table"
+    ordinal_claimed: null
+    found_by: review
+    guard_test: null
+    classification: logical_impossibility
+    ambiguous_with: null
+    rationale: no generator setting makes a cancelling estimator disagree with itself
+    verdict: disputed
+    dispute_note: >-
+      The 2026-09-11 audit holds that a sample mean equalling the realised
+      sample mean is an identity, that simulation can still validly measure bias,
+      variance and coverage against a population mean, and that a deterministic
+      function of the same sufficient statistics need not be the same function.
+      Under that reading this is an algebraic_identity, not a missed failure.
+      Unresolved; it is the single most consequential disagreement in the ledger
+      because the WMHS paper's thesis rests on it.
+
+  - id: L02
+    short_name: calibration grid
+    the_check: where the pre-registered criteria first hold
+    why_it_could_not_fail: the grid could not reach the crossing
+    source_anchor: "docs/HANDOFF.md §3 table"
+    ordinal_claimed: null
+    found_by: review
+    guard_test: test_the_check_cannot_fire_below_the_crossing_prevalence
+    classification: logical_impossibility
+    ambiguous_with: null
+    rationale: the crossing lies outside the evaluated support, so no grid cell can report it
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L03
+    short_name: depth confound
+    the_check: rho against a tolerance of 0.20
+    why_it_could_not_fail: "the sqrt(3p(1-p)) ceiling sits below the tolerance"
+    source_anchor: "docs/HANDOFF.md §3 table"
+    ordinal_claimed: null
+    found_by: review
+    guard_test: test_a_correlation_is_never_normalised_by_another_arms_bound
+    classification: logical_impossibility
+    ambiguous_with: null
+    rationale: the statistic's attainable maximum is below the threshold it is compared to
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L04
+    short_name: calibration rates
+    the_check: coverage and discrimination
+    why_it_could_not_fail: "`nan > x` is False, so abstention scored as failure"
+    source_anchor: "docs/HANDOFF.md §3 table"
+    ordinal_claimed: null
+    found_by: review
+    guard_test: test_an_abstention_is_not_counted_as_a_coverage_failure
+    classification: implementation_error
+    ambiguous_with: null
+    rationale: NaN comparison semantics silently recoded a third outcome as one of two
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L05
+    short_name: width gate
+    the_check: interval width against a threshold
+    why_it_could_not_fail: the same NaN coercion as L04
+    source_anchor: "docs/HANDOFF.md §3 table"
+    ordinal_claimed: null
+    found_by: review
+    guard_test: null
+    classification: implementation_error
+    ambiguous_with: null
+    rationale: same mechanism as L04 in a second consumer
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L06
+    short_name: premise control
+    the_check: ACTB and KRT8 detection
+    why_it_could_not_fail: saturated near 1.00, so there was nowhere to fall
+    source_anchor: "docs/HANDOFF.md §3 table"
+    ordinal_claimed: null
+    found_by: review
+    guard_test: test_a_saturated_control_is_not_compared_naively_on_detection
+    classification: logical_impossibility
+    ambiguous_with: null
+    rationale: a proportion at its ceiling cannot register the decrease the control exists to detect
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L07
+    short_name: premise verdict
+    the_check: point estimate against a tolerance
+    why_it_could_not_fail: no interval, and the verdict flipped with the seed
+    source_anchor: "docs/HANDOFF.md §3 table"
+    ordinal_claimed: null
+    found_by: run
+    guard_test: null
+    classification: low_power
+    ambiguous_with: implementation_error
+    rationale: >-
+      the comparison could fail, but its sampling variability exceeded the
+      distance to the tolerance, so the outcome was determined by the seed
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L08
+    short_name: invariant 1
+    the_check: "`None` is not `0.0`"
+    why_it_could_not_fail: the validating writer was used by 1 of 26 call sites
+    source_anchor: "docs/HANDOFF.md §3 table"
+    ordinal_claimed: null
+    found_by: review
+    guard_test: test_the_invariant_1_check_fires_on_a_zero_standing_in_for_none
+    classification: implementation_error
+    ambiguous_with: provenance_reporting_error
+    rationale: the check was correct and not wired into the paths it was written to protect
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L09
+    short_name: invariant 2
+    the_check: targets absent from the signature matrix
+    why_it_could_not_fail: a positional index read as a symbol; no reject option
+    source_anchor: "docs/HANDOFF.md §3 table"
+    ordinal_claimed: null
+    found_by: review
+    guard_test: test_the_leakage_guard_refuses_a_positional_index
+    classification: implementation_error
+    ambiguous_with: null
+    rationale: identifier-space mismatch made every lookup miss, so the guard passed everything
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L10
+    short_name: gene specificity
+    the_check: one gene's detection delta against another's
+    why_it_could_not_fail: >-
+      a proportion's sensitivity scales with its baseline, and the fixture
+      contained no baselines
+    source_anchor: "docs/HANDOFF.md §3 table; §6d"
+    ordinal_claimed: 14
+    found_by: review
+    guard_test: test_a_uniform_thinning_is_not_reported_as_gene_specific
+    classification: logical_impossibility
+    ambiguous_with: implementation_error
+    rationale: >-
+      relative to its fixture the guard had no baseline to vary, so no input in
+      its domain could have failed it; the underlying statistic compared
+      quantities that are not comparable across baselines
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L11
+    short_name: the interval itself
+    the_check: percentile bootstrap over patients
+    why_it_could_not_fail: >-
+      a normal quantile where a t quantile is needed, with a biased sd; 0.82x
+      the correct width at n=10
+    source_anchor: "docs/HANDOFF.md §3 table; §3a"
+    ordinal_claimed: 15
+    found_by: review
+    guard_test: test_the_calibration_check_reports_miscalibrated_on_the_interval_in_use
+    classification: implementation_error
+    ambiguous_with: low_power
+    rationale: >-
+      the estimator is misspecified rather than underpowered; the consequence is
+      anti-conservative coverage at small n
+    verdict: scientific_failure
+    dispute_note: >-
+      The audit's qualification stands and is not a dispute about the defect: the
+      width expression is a normal-approximation comparison for the sample mean,
+      not an exact distribution-free coverage formula, and the measured result is
+      about the tested generators.
+
+  - id: L12
+    short_name: the power calculation
+    the_check: simulated power at n=10
+    why_it_could_not_fail: only binomial noise in it, so patient heterogeneity could not reduce it
+    source_anchor: "docs/HANDOFF.md §3 table"
+    ordinal_claimed: 16
+    found_by: review
+    guard_test: test_power_quoted_from_one_interval_beside_another_is_refused
+    classification: logical_impossibility
+    ambiguous_with: implementation_error
+    rationale: the simulated data-generating process omitted the variance component the answer depended on
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L13
+    short_name: the secondary arm's size
+    the_check: nothing compared them
+    why_it_could_not_fail: one arm with two definitions in two files, 15 and 19
+    source_anchor: "docs/HANDOFF.md §3 table; §6g"
+    ordinal_claimed: 17
+    found_by: run
+    guard_test: test_the_mlh1_arms_have_exactly_one_definition
+    classification: provenance_reporting_error
+    ambiguous_with: null
+    rationale: a quantity with no check at all, surfaced only when two carriers were printed together
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L14
+    short_name: the denominator gate
+    the_check: arm-asymmetry threshold
+    why_it_could_not_fail: fired at 0.05 where the null's own noise runs 0.028
+    source_anchor: "docs/HANDOFF.md §3 table"
+    ordinal_claimed: 18
+    found_by: review
+    guard_test: null
+    classification: low_power
+    ambiguous_with: null
+    rationale: the threshold sits inside the null distribution's ordinary range
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L15
+    short_name: the index
+    the_check: nothing compared them
+    why_it_could_not_fail: >-
+      a prereg carrying a RESULT and a HANDOFF row saying "needs one qsub", with
+      no check between the two documents
+    source_anchor: "docs/HANDOFF.md §3 table"
+    ordinal_claimed: null
+    found_by: reader
+    guard_test: test_every_prereg_with_a_result_is_reflected_in_the_handoff
+    classification: provenance_reporting_error
+    ambiguous_with: null
+    rationale: two documents stating one status, never compared
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L16
+    short_name: Stage 4 predictor information proxy
+    the_check: "does this column carry information, read as `sd`"
+    why_it_could_not_fail: it ranked backwards on real data and both candidates passed
+    source_anchor: "docs/HANDOFF.md §3 prose, 2026-09-05 bullets"
+    ordinal_claimed: null
+    found_by: run
+    guard_test: null
+    classification: implementation_error
+    ambiguous_with: null
+    rationale: >-
+      sd is not monotone in informativeness when survivors are extreme; 4
+      informative samples of 675 scored above a column with 32
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L17
+    short_name: A1 verdict text
+    the_check: a gap justifying a rebuild
+    why_it_could_not_fail: the premise behind the claim had been retracted, leaving text able to fire for a reason that no longer existed
+    source_anchor: "docs/HANDOFF.md §3 prose, 2026-09-05 bullets"
+    ordinal_claimed: null
+    found_by: review
+    guard_test: null
+    classification: provenance_reporting_error
+    ambiguous_with: null
+    rationale: a retraction that updated the analysis and not its reporting path
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L18
+    short_name: ICBI validation bar
+    the_check: documented an ACTB log2 check, implemented a detection check
+    why_it_could_not_fail: >-
+      for a saturated control the two are not near-substitutes, so the premise
+      can flip UNRESOLVED to REFUSED while the bar still returns PASS
+    source_anchor: "docs/HANDOFF.md §3 prose, 2026-09-05 bullets"
+    ordinal_claimed: null
+    found_by: review
+    guard_test: null
+    classification: provenance_reporting_error
+    ambiguous_with: implementation_error
+    rationale: documentation and implementation diverged on which quantity is gated
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L19
+    short_name: hash-seeded fixture
+    the_check: a test fixture seeded from "hash(gene)"
+    why_it_could_not_fail: Python randomises string hashing per process, so the test exercised different data every run
+    source_anchor: "docs/HANDOFF.md §3 prose, 2026-09-05 bullets"
+    ordinal_claimed: null
+    found_by: review
+    guard_test: null
+    classification: implementation_error
+    ambiguous_with: null
+    rationale: a non-reproducible fixture cannot pin the behaviour it asserts
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L20
+    short_name: premise verdict branch named by label
+    the_check: "the prereg's §5 branch table, phrased in verdict labels"
+    why_it_could_not_fail: >-
+      UNRESOLVED is reachable by two opposite routes, so a branch satisfied by
+      the label was satisfied by an outcome meaning the opposite
+    source_anchor: "docs/HANDOFF.md §6k"
+    ordinal_claimed: 19
+    found_by: review
+    guard_test: test_read_verdict_does_not_call_a_changed_cause_stable
+    classification: provenance_reporting_error
+    ambiguous_with: null
+    rationale: the specification named an outcome label rather than the cause that distinguishes the routes
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L21
+    short_name: premise verdict branch shipped in code
+    the_check: "the job's first draft, which printed STABLE"
+    why_it_could_not_fail: it implemented the same label-based branch and printed the reverse of the truth
+    source_anchor: "docs/HANDOFF.md §6k"
+    ordinal_claimed: 20
+    found_by: review
+    guard_test: test_read_verdict_does_not_call_a_changed_cause_stable
+    classification: implementation_error
+    ambiguous_with: provenance_reporting_error
+    rationale: the code inherited the specification's defect rather than introducing its own
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L22
+    short_name: CDX2 confirmation rule
+    the_check: "`excludes_zero` as the falsifier branch for a directional prediction"
+    why_it_could_not_fail: >-
+      excludes_zero is direction-free, so an interval entirely on the wrong side
+      of zero would have been reported as the prediction replicating
+    source_anchor: "docs/HANDOFF.md §6n"
+    ordinal_claimed: 21
+    found_by: review
+    guard_test: test_chen_subtype_contrast.py (parametrised over exclusion, sign and GUCA2A state)
+    classification: implementation_error
+    ambiguous_with: provenance_reporting_error
+    rationale: >-
+      the prereg stated the direction in §6 prose and the §7 branch table
+      compressed it; the code then kept only the first clause
+    verdict: scientific_failure
+    dispute_note: null
+
+  - id: L23
+    short_name: majority vote over weightings
+    the_check: a verdict asserted in a sentence
+    why_it_could_not_fail: >-
+      no guard exists for prose overriding an artifact; the table recorded
+      DISAGREES ACROSS WEIGHTINGS correctly and the write-up counted branches
+    source_anchor: "docs/HANDOFF.md §6n, sibling paragraph"
+    ordinal_claimed: null
+    found_by: review
+    guard_test: null
+    classification: provenance_reporting_error
+    ambiguous_with: null
+    rationale: >-
+      a decision rule adopted after seeing which way the count fell, against a
+      §5 that fixes three weightings with none primary and pre-commits no
+      majority vote
+    verdict: scientific_failure
+    dispute_note: >-
+      HANDOFF calls this "the same failure one step further out than the
+      seventeenth" and gives it no ordinal, so whether it is a ledger entry or a
+      note attached to L22 is exactly the ambiguity this file exists to surface.
