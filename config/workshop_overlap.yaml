@@ -1,0 +1,208 @@
+# What the proposed BMC Bioinformatics submission would claim, against what the
+# WMHS workshop paper already claims.
+#
+# Week 1, deliverable 3 of docs/DECISION_2026-09-11_scope_and_pivot.md §4, and
+# the answer to reviewer objection 3: "this is familiar testing advice, an
+# internal case study, and overlapping workshop material."
+#
+# The honest position is that the overlap is LARGE. Declaring it precisely is
+# worth more than minimising it, and a reviewer who finds undeclared overlap
+# will not believe anything else in the paper.
+#
+# `status` vocabulary, fixed before the rows were filled:
+#   already_published  the workshop paper makes this claim. The new paper may
+#                      cite it; it may not present it as a contribution.
+#   extended           the workshop paper makes a narrower version. The new
+#                      paper must say exactly what the extension is.
+#   new                not in the workshop paper in any form.
+#   contradicted       the workshop paper says something the 2026-09-11 audit
+#                      or this week's work shows to be wrong or overstated.
+
+meta:
+  workshop_paper: "paper/wmhs — 'The recovery curve measures the simulator, not the estimator'"
+  workshop_venue: NeurIPS 2026 workshop (WMHS), double-blind
+  proposed_venue: BMC Bioinformatics
+  auditor: rater_a
+  note: >-
+    Line anchors are to the section sources as of 04073ce. They move; the claim
+    text is the durable key.
+
+rows:
+  # -- overlap between the two papers ------------------------------------
+  - id: O01
+    kind: overlap
+    claim: >-
+      A recovery curve can be structurally incapable of seeing the estimator,
+      because a deterministic function of the generator's own sufficient
+      statistics cancels identically.
+    wmhs_location: "main.tex abstract; sections/blind.tex L15-L18, L52-L65"
+    status: already_published
+    note: >-
+      This is the workshop paper's entire thesis. The new paper cites it and
+      claims none of it.
+
+  - id: O02
+    kind: overlap
+    claim: >-
+      The diagnostic is to compare against the realised draw and test whether
+      the difference is identically zero.
+    wmhs_location: "sections/blind.tex L65, L163"
+    status: already_published
+    note: not a contribution of the new paper.
+
+  - id: O03
+    kind: overlap
+    claim: >-
+      The diagnostic is sound and not complete: an estimator can pass it while
+      most of its curve is generator noise, so report the residual in units of
+      the generator's own sampling error.
+    wmhs_location: "sections/blind.tex L196-L204"
+    status: contradicted
+    note: >-
+      The completeness point stands. Its QUANTIFICATION does not: rho is a ratio
+      of median absolute deviations, and "88% of its recovery curve is generator
+      noise" reads it as a variance share. See M03.
+
+  - id: O04
+    kind: overlap
+    claim: >-
+      The percentile bootstrap of a mean is anti-conservative at small n, BCa
+      worse, and the Student-t interval calibrated, on the tested generators.
+    wmhs_location: "sections/calibration.tex"
+    status: already_published
+    note: >-
+      Measured at results/2026-09-06_a0483ae/. 14/20 percentile, 17/20 BCa,
+      0/20 Student-t miscalibrated. The new paper may re-report it as context
+      only, with the scope qualifier in M02.
+
+  - id: O05
+    kind: overlap
+    claim: >-
+      The carcinoma decomposition collapses onto a constant while the adenoma
+      one does not, at an 11.5-fold spread against 1.07.
+    wmhs_location: "sections/bench.tex"
+    status: already_published
+    note: >-
+      The decision record's §2 correction applies to both papers: the figure is
+      the formula on cohort-AVERAGED inputs and is not the patient-level
+      summary spread.
+
+  - id: O06
+    kind: overlap
+    claim: Three implementation defects, and a guard that fired twice.
+    wmhs_location: "sections/appendix.tex L203-L321"
+    status: extended
+    note: >-
+      The workshop paper narrates three. The new paper enumerates and classifies
+      twenty-three and reports that the ledger's own count does not reconcile.
+      The extension is the enumeration and the classification, not the anecdotes.
+
+  - id: O07
+    kind: overlap
+    claim: >-
+      Every guard needs a committed input that forces it to fail; a guard with
+      no such input is untested.
+    wmhs_location: "sections/appendix.tex L321; tests/test_checks_can_fail.py docstring"
+    status: already_published
+    note: >-
+      The rule is the workshop paper's. The new paper's contribution is the
+      measurement that 9 of 23 ledger entries still have no forcing input.
+
+  # -- what would actually be new ----------------------------------------
+  - id: O08
+    kind: overlap
+    claim: >-
+      A classified inventory of a real project's claim-check failures, with four
+      pre-stated classes, per-entry source anchors and a reconciliation against
+      the count the project asserts.
+    wmhs_location: null
+    status: new
+    evidence: "results/2026-09-11_04073ce/claim_check_inventory.parquet"
+    note: >-
+      Single rater. Until a second rater exists this is one opinion with criteria
+      attached, and the paper must say so.
+
+  - id: O09
+    kind: overlap
+    claim: >-
+      A harness that separates a check which missed a scientific failure from one
+      whose firing is an algebraic identity, demonstrated on matched pairs.
+    wmhs_location: null
+    status: new
+    evidence: "results/2026-09-11_7b090ae/blinded_guard_challenge.parquet"
+    note: >-
+      C03/C04 are the matched pair. This is the part that answers "does the audit
+      flag everything", and it is the part the workshop paper has no version of.
+
+  - id: O10
+    kind: overlap
+    claim: >-
+      The adenoma pattern is reportable as description and does not establish
+      cell-intrinsic silencing, with the estimability, weighting and statistic
+      disagreements published alongside.
+    wmhs_location: "sections/bench.tex, partially"
+    status: extended
+    note: >-
+      bench.tex reports the non-collapse. The removal of the causal claim, the
+      sensitivity across all three weightings and four statistics, and the
+      attrition table are the extension.
+
+  # -- the mathematical claims audit --------------------------------------
+  - id: M01
+    kind: math_claim
+    claim: >-
+      "An exact zero proves blindness": a residual of exactly zero against
+      realised truth establishes that the validation is uninformative.
+    wmhs_location: "sections/blind.tex L163"
+    status: contradicted
+    note: >-
+      Overstated as written. What an exact zero establishes is that THIS
+      comparison is uninformative about the estimator. Simulation can still
+      validly measure bias, variance and coverage against a POPULATION
+      parameter, which the sample does not reproduce exactly -- and
+      src/harness/calibration.py already says so in its coverage comment. The
+      paper's conditional form in the abstract is correct; this sentence is the
+      one that goes further than the algebra. The fix is to scope the claim to
+      the comparison rather than to the validation.
+
+  - id: M02
+    kind: math_claim
+    claim: >-
+      The percentile-bootstrap width ratio z*sqrt((n-1)/n)/t(n-1) is a closed
+      form for the interval's coverage.
+    wmhs_location: "sections/calibration.tex; docs/HANDOFF.md §3a"
+    status: contradicted
+    note: >-
+      It is a normal-approximation comparison for the SAMPLE MEAN, not an exact
+      distribution-free coverage formula. The measured false-positive rates are
+      a result about the tested generators. It does not establish that BCa is
+      generally worse or that Student-t is universally calibrated. HANDOFF §3a
+      already calls the closed form "a floor", which is the right word; the
+      paper should use it too.
+
+  - id: M03
+    kind: math_claim
+    claim: "88% of its recovery curve is generator noise."
+    wmhs_location: "sections/blind.tex L196-L204"
+    status: contradicted
+    note: >-
+      rho is med|theta_hat - theta_realised| / med|theta_realised - theta|, a
+      ratio of median absolute deviations. 1 - rho is not a share of variance
+      and "88% of the curve" asserts a decomposition the statistic does not
+      support. Report rho as what it is: the residual in units of the
+      generator's own sampling error. The sentence immediately before it already
+      says exactly that, so the fix is to delete the percentage, not to add
+      machinery.
+
+  - id: M04
+    kind: math_claim
+    claim: >-
+      Six of eight cross-block contrasts survive four-statistic agreement at the
+      lineage rung.
+    wmhs_location: "sections/bench.tex; docs/HANDOFF.md §1"
+    status: extended
+    note: >-
+      Reproduces under the doubly_robust and normal weightings and gives five of
+      eight under tumour. The headline is weighting-dependent and must be quoted
+      with its weighting. Verified 2026-09-11 against
+      results/2026-09-06_e68df69/adenoma_decomposition_scales.parquet.
