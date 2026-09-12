@@ -35,7 +35,7 @@ Simulation and Intervention-Aware Reasoning}
 \newcommand{\notest}{\textsc{not estimable}}
 
 
-\title{The recovery curve measures the simulator, not the estimator:\\
+\title{When the recovery curve reproduces the simulator:\\
 a validation blind spot in virtual control arms}
 
 \author{%
@@ -48,24 +48,7 @@ a validation blind spot in virtual control arms}
 \begin{document}
 \maketitle
 
-\begin{abstract}
-Simulate with known truth, run the estimator, plot recovered against true: this
-is how virtual control arms and in-silico trial pipelines are validated. We show
-the curve can be structurally incapable of seeing the estimator. If the
-estimator is a deterministic function of the sufficient statistics the generator
-drew, it cancels identically and the ratio becomes realised over requested truth
---- a property of the generator alone, and the curve then looks not suspicious
-but exactly right, near 1 and tightening with $n$. \textbf{A validation that
-fails loudly is a nuisance; one that succeeds silently is a hazard.} One column
-separates them: compare against the \emph{realised} draw and test whether the
-difference is identically zero. Ours was, across 1.7M runs. In a patient
-simulator it catches G-computation, saturated-propensity weighting and
-non-cross-fitted AIPW --- so cross-fitting is what stands between the modern
-doubly-robust estimator and a vacuous curve --- while under the block
-randomisation real trials use, even an unadjusted difference goes blind. The
-appendix carries what the check still cannot see, what censoring does to it, and
-the recalibration that followed.
-\end{abstract}
+\input{sections/abstract.tex}
 
 
 % Section order follows the abstract: the blind statistic first, then what a

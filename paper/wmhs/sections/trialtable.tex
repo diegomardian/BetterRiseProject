@@ -2,16 +2,16 @@
 \small
 \centering
 \caption{Five estimators of the same treatment effect, at 5{,}000 patients per
-cohort. The first four recover it; only the last three are telling you anything
-about themselves. The residual column is the one-line check, and it is the only
-column here that separates them. OLS neither shares the generator's functional
+cohort. The first four recover it; the last three depart from the standardised
+reference. The residual column tests reproduction of that reference, not
+estimator validity. OLS neither shares the generator's functional
 nor splits the sample, and recovers the effect more tightly than the cross-fitted
 comparison does.}
 \label{tab:trial}
 \begin{tabular}{@{}lccc@{}}
 \toprule
 & \textbf{recovered / requested} & \textbf{max $|\hat\theta - \theta_{\text{realised}}|$}
-& \textbf{sees the estimator?} \\
+& \textbf{departs from reference?} \\
 \midrule
 G-computation, generator's strata & $0.998$ & $0$          & no \\
 IPW, saturated propensity         & $0.998$ & $8\times10^{-15}$ & no \\

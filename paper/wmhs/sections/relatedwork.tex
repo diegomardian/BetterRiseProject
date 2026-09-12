@@ -5,17 +5,16 @@ al.~\citep{burton2006} set out how such a study should be designed and
 protocolled; ADEMP \citep{morris2019} gives the structure now in general use,
 and names the data-generating mechanism and the methods under evaluation as
 \emph{separate} items --- precisely so that the second can be assessed against
-the first. That separation is exactly the property our arm lost, and the
-guidance is right. What it does not supply is a test. It tells you the
-generating mechanism should not coincide with the analysis model; it does not
-tell you how to find out whether yours does, and in our case reading the code
-would not have told us either (\S\ref{sec:blind}).
+the first. Our audit makes one particular relationship between those items explicit: an
+estimator may equal a pre-specified empirical reference on every draw.
+This does not preclude valid simulation under a correctly specified model
+(\S\ref{sec:blind}).
 
 The case we describe is the degenerate end of that advice. It is not a
 diagnostic weakened because the generator and the estimator share assumptions.
-It is a diagnostic in which the estimator is \emph{algebraically absent} --- the
-recovery ratio is a function of the generator alone, so the curve is unchanged
-if the estimator is replaced by any other with the same property. That is
+The recovery ratio reduces to the reference over the requested parameter, so
+it cannot distinguish equivalent implementations or validate an additional
+decision rule without measuring that rule directly. That is
 checkable in one line on the sweep you already have, and our contribution is
 that line and the demonstration that two estimators from different literatures
 can both fail it.

@@ -579,16 +579,17 @@ def test_block_randomisation_blinds_even_the_unadjusted_difference(blind_tex, ma
 
 
 def test_aipw_with_saturated_nuisances_is_blind(blind_tex, matrix):
-    """Cross-fitting is the only thing between AIPW and a vacuous curve."""
+    """Saturated AIPW reproduces the reference; cross-fitted IPW does not."""
     _quotes(blind_tex, "saturated nuisances and no cross-fitting is $4.4")
     assert _cell(matrix, "aipw-saturated", "confounded-bernoulli", "standardised") < 1e-13
     assert _cell(matrix, "ipw-cross-fitted", "confounded-bernoulli", "standardised") > 0.1
 
 
 def test_the_information_ratio_does_not_improve_with_n(blind_tex, rho):
-    """OLS sits at 0.13 at every cohort size -- 88% generator noise."""
+    """OLS scale ratio and its descriptive transform, not a noise share."""
     _quotes(blind_tex, chr(92) + "rho$ between $0.129$ and $0.137$ at every cohort size")
-    _quotes(blind_tex, "88" + chr(92) + "% of its recovery curve is generator")
+    _quotes(blind_tex, "$q=1/(1+" + chr(92) + "rho)$ is $88" + chr(92) + "%$")
+    _quotes(blind_tex, "Neither $" + chr(92) + "rho$ nor $q$ decomposes total error")
     ols = rho[
         (rho["estimator"] == "ols-stratum-dummies")
         & (rho["design"] == "confounded-bernoulli")
@@ -845,7 +846,7 @@ def test_the_closed_form_is_confirmed_but_is_not_a_floor(tex):
 
 
 def test_the_censored_sweep_reports_what_it_dropped():
-    """``463 of 1,200`` at 78% censoring and n = 100, and nothing below 49%."""
+    """Paired exclusions include low-censoring cells, not just event-free arms."""
     blind = (SECTIONS / "blind.tex").read_text(encoding="utf-8")
     _quotes(blind, "$463$ of $1{,}200$ in")
     _quotes(blind, "the worst cell at each level runs $0$, $0.473$, $1.089$, $1.586$")
@@ -853,7 +854,8 @@ def test_the_censored_sweep_reports_what_it_dropped():
     worst = head.loc[head["n_replicates"].idxmin()]
     assert (worst["censoring_target"], worst["n_patients"]) == (0.78, 100)
     assert 1200 - int(worst["n_replicates"]) == 463
-    assert head[head["censoring_target"] <= 0.12]["n_replicates"].min() >= 1183
+    assert (head[head["censoring_target"] <= 0.12]["n_replicates"] < 1200).any()
+    _quotes(blind, "Exclusions occur\neven below $49" + chr(92) + "%$")
 
     survival = pd.read_parquet(_newest("trial_survival"))
     blind_arm = survival[survival["estimator"] == "exponential-mle-standardised"]
@@ -861,3 +863,18 @@ def test_the_censored_sweep_reports_what_it_dropped():
         blind_arm.groupby("censoring_target")["max_residual_vs_latent"].max().round(3)
     )
     assert list(worst_by_level) == [0.0, 0.473, 1.089, 1.586]
+
+
+def test_trial_replicate_counts_are_pooled_over_seeds():
+    """Both experiment descriptions use totals, not totals multiplied by seeds."""
+    for name, filename in (
+        ("trial_survival_headline", "blind.tex"),
+        ("trial_blindness_residual_matrix", "appendix.tex"),
+    ):
+        path = _newest(name)
+        meta = json.loads(path.with_suffix(".meta.json").read_text())
+        seed_count = len(meta["seeds"]) if "seeds" in meta else meta["n_seed_streams"]
+        assert seed_count == 6
+        assert meta["n_replicates_per_seed"] * seed_count == 1200
+        assert meta["git_sha"] and meta["seed"] is not None
+        _quotes((SECTIONS / filename).read_text(), "1{,}200 replicates pooled over 6 seeds")

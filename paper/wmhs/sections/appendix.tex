@@ -10,8 +10,7 @@ than in the argument.
 The sweep is the calibration one, run by
 \texttt{src.harness.calibration\_gap}. Its result table carries a
 \texttt{max\_abs\_residual\_vs\_realised} column, which is the one-line check
-persisted rather than re-derived: it is identically zero exactly when the curve
-cannot see the estimator. It is zero on every row.
+persisted rather than re-derived: it is identically zero exactly when the estimate reproduces the chosen reference on valid draws. It is zero on every row.
 
 \paragraph{The curve moves; the residual does not.} The two draw pools hand the
 same estimator a different set of cells to be drawn from, and change nothing
@@ -23,7 +22,8 @@ its interquartile width nearly doubles, from about $0.62$ to about $1.17$. The
 residual against realised truth is $0$ on every row of both. A reader watching
 only the curve would conclude the reference draw validates the estimator more
 tightly than the pooled one; the residual reports what is actually true, which
-is that neither carries any information about the estimator at all. This is
+is that both reproduce the chosen reference; their curves still describe its sampling
+performance. This is
 \S\ref{sec:blind}'s claim as a measurement rather than an algebraic identity.
 
 The second detail is where the statistic is not merely uninformative but
@@ -40,8 +40,7 @@ the statistic is the one point at which the statistic cannot be evaluated.
 \caption{Ratio of recovered to true intrinsic effect, median and IQR over 50
 replicates at the detectable effect, for both draw pools. An earlier internal report used this curve to
 conclude the committed cutpoint was ``validated on real cells''. The curve
-behaves well wherever the rule says ``estimate'', and on this arm carries no
-information about the estimator. The single-cell estimate applies
+behaves well wherever the rule says ``estimate'', and on this arm adds no validation beyond reproduction of the reference. The single-cell estimate applies
 \texttt{decompose()} to the sweep's own realised summary statistics and
 reproduces them exactly, with
 $\max|\hat{\imath} - i_{\text{realised}}| = 0$ over all 119{,}600 replicates of
@@ -76,8 +75,8 @@ per cohort, over 6 seeds. Machine zero is blindness. \textbf{Every column pair
 disagrees about at least one estimator}, which is the point: degeneracy is a
 property of the (estimator, realised-truth, design) triple, not of the
 estimator. Under block randomisation even the unadjusted difference is blind,
-because 1:1 allocation makes the two estimands coincide. This sweep runs
-1{,}200 replicates at each of 6 seeds; Table~\ref{tab:trial} runs 200 at one. A
+because 1:1 allocation makes the two reference functionals coincide. This sweep runs
+1{,}200 replicates pooled over 6 seeds; Table~\ref{tab:trial} runs 200 at one. A
 maximum over replicates grows with the replicate count, so the non-zero entries
 here are larger than that table's for the same estimator and are not comparable
 across the two. Only zero against non-zero is, and that is the reading the
@@ -115,11 +114,10 @@ population ATE held at $\theta$), OLS's recovery curve wanders off 1 ---
 $1.003$, $1.011$, $1.020$, $1.037$, $1.077$, $1.132$ --- and its residual
 against the \emph{standardised} truth grows $0.094 \rightarrow 1.452$, so by the
 column this paper proposes it looks steadily more informative.
-\textbf{Against the estimand OLS actually targets it stays at machine zero
-throughout} ($2.4\times10^{-14}$ to $9.7\times10^{-14}$). The curve moved
-because the estimand moved. Reading a wandering curve as a worsening estimator
-is the same error as reading a flat one as a working estimator, and the
-residual only separates them once it is taken against the right truth.
+\textbf{Against the observed-data functional equal to OLS it stays at machine zero
+throughout} ($2.4\times10^{-14}$ to $9.7\times10^{-14}$). Under heterogeneity, the variance-weighted population target can differ
+from the requested ATE. The recovery curve correctly reveals error relative to
+that ATE; equality to the OLS reference does not excuse the target mismatch.
 
 Nor is the design a switch. Sweeping continuously from an RCT (all propensities
 $0.5$) to the confounded design, OLS's residual rises smoothly $0.0033

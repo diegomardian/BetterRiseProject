@@ -1,6 +1,11 @@
 \section{Setup: a decomposition that answers when it should not}
 \label{sec:intro}
 
+A virtual-control-arm validation must distinguish recovery of a requested effect
+from reproduction of a statistic computed on the simulated patients. We audit
+that distinction in a stratified patient simulator, including randomisation and
+censoring, then examine the failed calibration that motivated the audit.
+
 A tissue model reports a differentiation marker down 90\% between a patient's
 healthy and diseased sample. Two mechanisms produce that observation and they
 imply different interventions. Either the cells making the marker have left, a
@@ -25,10 +30,9 @@ question and $m$ for their mean per-cell output:
 \label{eq:kitagawa}
 \end{equation}
 Economists know this as Oaxaca--Blinder \citep{oaxaca1973,blinder1973},
-epidemiologists as standardisation \citep{kline2011}. The same identity sits
-under synthetic control arms \citep{abadie2010} and target trial emulation
-\citep{hernan2016}. Any system reporting a group-resolved quantity inherits its
-identifiability problem.
+epidemiologists as standardisation \citep{kline2011}. Related weighting ideas appear in synthetic controls \citep{abadie2010} and
+target trial emulation \citep{hernan2016}; neither method is generally identical
+to this decomposition. Group-resolved contrasts require a defined group mean.
 
 The problem is that Equation~\ref{eq:kitagawa} returns a number for any input.
 The intrinsic term is a difference of two means over cells of one type. When the
@@ -46,41 +50,34 @@ forerunners), the differential-abundance methods that never face this
 estimand, and the selective-prediction literature the abstention rule belongs
 to are surveyed in Appendix~\ref{app:relatedwork}.
 
-\paragraph{Relation to known circularity.} That a simulation study can favour
-methods resembling its generator is not new, and we are not claiming it. Meng
-\citep{meng1994} named the condition \emph{congeniality}; the plasmode
-literature warns that synthetic benchmarks can be ``biased towards favoring
-causal inference methods that mimic the modeling choices made when generating
-the synthetic datasets'' \citep{franklin2014}; Curth et al.~\citep{curth2021}
-show semi-synthetic benchmarks systematically favouring some estimators inside
-this community, and Gentzel et al.~\citep{gentzel2019} argue for interventional
-measures over simulated ones for the same reason; Shaw et al.~\citep{shaw2026} document the mirror image, a
-generator that makes good estimators look bad; and in inverse problems the same
-practice has had a name for two decades, the \emph{inverse crime}
-\citep{wirgin2004,kaipio2007}. Simulation-based calibration
-\citep{talts2018} is the closest existing instrument, and its own recent
-critique \citep{modrak2025} is this paper's argument in another setting:
-implementations in wide use ``could never detect large classes of problems''.
+\paragraph{Relation to known circularity.} Generator--analysis alignment is
+well known: Meng's congeniality concerns compatibility of imputation and
+analysis models \citep{meng1994}; plasmode and semi-synthetic benchmarks can
+favour methods sharing modelling choices \citep{franklin2014,curth2021};
+interventional evaluation offers another comparison \citep{gentzel2019}; and
+generators can also disadvantage good estimators \citep{shaw2026}. The inverse
+crime explicitly includes identical forward and inverse ingredients
+\citep{wirgin2004,kaipio2007}. Exact reuse is therefore not a new phenomenon.
+Our contribution is an operational audit of a chosen recovery statistic,
+examples showing its dependence on reference functional and trial design, and
+a calibration conclusion that fails when tested directly.
 
-\textbf{What we add is that the degenerate case is a kind, not a degree, and
-that this reverses the practical advice.} All of the above describe a bias of
-unknown magnitude, and a bias predicts a curve that looks \emph{suspiciously
-good} --- something a careful reader might catch. The case here is an identity:
-the residual is exactly zero, the estimator is algebraically absent from the
-ratio, and the curve therefore looks \emph{exactly as a correct one should},
-near 1 and tightening with $n$. \textbf{A validation that fails loudly is a
-nuisance; one that succeeds silently is a hazard}, and inspection cannot
-separate them. So the contribution is not the phenomenon. It is the column ---
-compare against the realised draw, and require the difference not to be
-identically zero --- together with the finding that two estimators from
-different literatures both fail it, and that
-\S\ref{sec:calibration} then contradicts what the blind curve had certified.
+Simulation-based calibration (SBC) \citep{talts2018} checks posterior ranks under
+prior-predictive simulation. These point-estimator arms supply no posterior
+samples, so SBC is not directly applicable. A correct posterior can pass SBC
+while its point estimate reproduces our reference; that is not a computational
+error. Conversely, SBC can expose posterior errors that our residual cannot.
+Modr\'ak et al.~\citep{modrak2025} already show structural blind spots from the
+choice of test quantity and develop more sensitive quantities. We complement
+that work rather than claim that existing diagnostics detect only approximate
+bias. Exact functional equality permits an algebraic audit; a good-looking
+curve alone establishes neither that equality nor its absence.
 
 \else
-\paragraph{Related work.} Filters of this shape are standard rather than novel,
-and are surveyed with the simulation-study methodology in
-Appendix~\ref{app:relatedwork}. Our claim is not the filter but that it is a
-selective-prediction rule \citep{chow1970,geifman2017} --- something you can
-\emph{calibrate} and get wrong.
+\paragraph{Related work.} Exact reuse is related to the inverse crime
+\citep{wirgin2004}; diagnostic sensitivity also depends on test quantities in
+SBC \citep{modrak2025}. Our contribution is the reference-reuse audit and failed
+calibration, not a new circularity phenomenon or cell-count filter
+(Appendix~\ref{app:relatedwork}).
 \fi
 

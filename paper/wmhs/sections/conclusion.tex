@@ -6,7 +6,7 @@ sits above its own attainable bound still reports clean; a premise check
 reading a control detected in 99\% of cells reports comparable arms while those
 same controls shift by up to $0.71$ on log$_2$ expression; and the percentile
 bootstrap every one of those readings ends in is $0.82\times$ the width it claims
-at $n = 10$, by a closed form containing no data. Each looked like a
+at $n = 10$, under a normal-mean approximation containing no data. Each looked like a
 measurement, and in every case the fix was to ask what the statistic was a
 function of rather than to look harder at its output. \textbf{We wrote the
 fourth ourselves, to this rule, while writing this paper}, and it took a
@@ -15,11 +15,11 @@ the failure is structural rather than careless.
 \fi
 
 Asking what a statistic is a function of has a cheap answer for recovery curves
-specifically, and the answer generalises past our instance: compare against the
-realised draw rather than the requested parameter, and assert the difference is
-not identically zero.
-It costs one line, it runs on the sweep you already have, and in a patient
-simulator it separates two estimators whose curves agree to machine precision.
+specifically, and the answer generalises past our instance: specify an empirical reference and audit its difference from the estimate.
+A uniformly zero residual warrants an algebraic check for functional reuse.
+In our patient simulator it exposes equivalence between methods whose recovery
+curves agree to machine precision. Keep error against the requested parameter,
+interval coverage and calibration of the decision rule as separate evaluations.
 We would rather it had been in our design document than in our findings.
 
 A synthetic benchmark (Appendix~\ref{app:benchtable}) locates what that rule was

@@ -17,10 +17,11 @@ either.} Our labelling axis defines the cell state by the \emph{absence} of
 markers, because every positive marker doubles as a measurement target and a
 leakage invariant bars a target from serving as a label. Absence tracks
 sequencing depth closely, so the obvious guard correlates the maturity call
-against depth and flags anything above $|\rho| = 0.20$. The correlation between
-a continuous variable and a \emph{binary} label of prevalence $p$ carries a
-bound of $\sqrt{3p(1-p)}$. Below $p = 1.3516\%$ the 0.20 tolerance sits above
-the bound and the diagnostic reads clean whatever the data does. Our rarest rung
+against depth and flags anything above $|\rho| = 0.20$. For Spearman correlation with untied depth ranks and a \emph{binary} label
+of prevalence $p$, $\sqrt{3p(1-p)}$ is the large-sample ceiling used by our
+diagnostic, not a universal Pearson-correlation bound. Below $p = 1.3516\%$
+the 0.20 tolerance exceeds this approximate ceiling. Tied depth values require
+a tie-aware bound; the reported ceilings below use the untied approximation. Our rarest rung
 held 8 positive cells in 5{,}564, a bound of 0.066, and got filed as cleanest of
 four.
 
@@ -91,17 +92,18 @@ this data. \textbf{That is the finding a two-state check would not have let us
 reach}: it said \emph{holds}, and we would have published a mechanism.
 
 \paragraph{And the fifth is not a guard at all. It is the interval.}
-Every reading in this paper ends in a percentile bootstrap over patients. The
-bootstrap distribution of a mean has standard deviation $s\sqrt{(n-1)/n}$ --- the
-plug-in one --- so the percentile interval is approximately
-$\bar{x} \pm z\,s\sqrt{(n-1)/n}/\sqrt{n}$ against the correct
+Every reading in this paper ends in a percentile bootstrap over patients. Conditional on the sample, the
+bootstrap mean has standard deviation $s\sqrt{(n-1)/n}/\sqrt{n}$, with $s$
+the sample standard deviation. A normal approximation gives the percentile interval
+$\bar{x} \pm z\,s\sqrt{(n-1)/n}/\sqrt{n}$ against the normal-population Student-$t$ interval
 $\bar{x} \pm t_{n-1}\,s/\sqrt{n}$, and the ratio of the two widths is
 \begin{center}
 $z\sqrt{(n-1)/n} \,/\, t_{n-1}$ \quad --- \quad \textbf{a function of $n$ alone,
 with no data in it.}
 \end{center}
 Two errors running the same way: a normal quantile where a $t$ quantile is
-needed, and a biased standard deviation where an unbiased one is needed. At
+needed, and the empirical-distribution variance in place of the sample-variance
+estimate. At
 $n = 44$ the interval is $0.96\times$ the width it claims and a nominal 5\% test
 rejects 5.9\% of the time; at $n = 20$, $0.91\times$ and 7.1\%; at $n = 10$,
 $0.82\times$ and 9.6\%; at $n = 4$, $0.53\times$ and 18.8\%. Simulation at 1{,}500 trials per cell agrees

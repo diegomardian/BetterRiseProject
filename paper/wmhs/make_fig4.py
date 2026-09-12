@@ -69,9 +69,9 @@ def main() -> int:
     right.set_ylim(FLOOR / 5, 1e2)
     right.axhspan(FLOOR / 5, 1e-12, color="#ececec", zorder=0)
     right.set_ylabel(r"max $|\hat\theta - \theta_{\mathrm{realised}}|$")
-    right.set_title("the one-line check\nzero means the curve saw nothing",
+    right.set_title("the one-line check\nzero means reference reproduced",
                     fontsize=8.5, linespacing=1.5)
-    right.text(120, 2e-15, "identically zero", fontsize=7, color="#555555")
+    right.text(120, 2e-15, "numerical zero", fontsize=7, color="#555555")
 
     for ax in (left, right):
         ax.set_xlabel("patients per cohort")

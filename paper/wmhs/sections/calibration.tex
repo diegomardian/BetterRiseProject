@@ -103,8 +103,8 @@ We added nine fractions inside the gap, reaching 50, 60, 70, 80, 90, 110, 120,
 130 and 150, and changed nothing else. The answer moves to 90 --- and it moves
 \emph{within one bin}. Both grids return the interval $(76, 107]$; the committed
 grid held only $\{100\}$ there and the filled grid holds $\{80, 90, 100\}$, so
-the median fell from 100 to 90 while the bin, and the evidence in it, stayed
-put. \textbf{At the resolution of the statistic that produced it, the answer did
+the median fell from 100 to 90 while the bin boundaries stayed put; the added counts change the evidence
+aggregated within that bin. \textbf{At the resolution of the statistic that produced it, the answer did
 not move at all.} What the filled grid did buy is a genuinely new bin at
 $(55, 76]$, where discrimination reads $0.789$ --- under target, so the crossing
 lies above it.
@@ -130,9 +130,9 @@ reported $wide$ & $40$ & $45$ & $42$ \\
 \end{tabular}
 \end{center}
 
-\textbf{The reported cutpoint is a decreasing function of grid resolution, with
-no sign of converging, and no grid, cohort or seed has ever returned the
-committed 50.} Each value is the first point above a crossing, reported as
+\textbf{The reported cutpoint decreases across these tested grids; this does not
+establish monotonicity or non-convergence under further refinement. No tested
+grid, cohort or seed returned the committed 50.} Each value is the first point above a crossing, reported as
 though it were the crossing. Within any one grid $wide$ has \emph{exactly zero}
 seed-to-seed variance --- one value on all eight seeds, in all six
 cohort-by-grid cells we ran ($40$, $45$, $42$ here; $100$, $65$, $70$ on the
@@ -142,8 +142,8 @@ returns no cutpoint under any of the three grids, on any seed of either cohort,
 discrimination topping out at $0.750$ and $0.795$ against the $0.80$ target, so
 the non-identifiability there is not a resolution artefact.
 
-\textbf{We do not report a calibrated cutpoint, because the procedure does not
-return one.} It returns its own grid, and it did so with a stability that
+\textbf{We do not endorse a calibrated cutpoint: the procedure returns
+grid-dependent candidates without patient-level uncertainty.} It returns its own grid, and it did so with a stability that
 survived three grids, thirteen seeds and two cohorts without once warning us.
 What the rule does on the real cohort, rather than on the sweep, is
 Appendix~\ref{app:modal}: at the resolution the compositional question is
@@ -202,7 +202,7 @@ them is the interval.} Two grid caveats, the abstention-rate reading, three
 withdrawn guards and the percentile bootstrap every result here rests on are
 carried in Appendices~\ref{app:gridcaveats}--\ref{app:guards} rather than
 inline. The one to read first closes Appendix~\ref{app:guards}: the interval is
-$0.82\times$ the width it claims at $n = 10$, by a closed form containing no
+$0.82\times$ the width it claims at $n = 10$, under a normal-mean approximation containing no
 data, which makes it the same failure as this section's grid one layer out ---
 and it is the layer every number in this paper passes through.
 \fi

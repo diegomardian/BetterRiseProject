@@ -16,7 +16,7 @@ estimator in that arm applies Equation~\ref{eq:kitagawa} to the sample's
 all 1{,}711{,}200 replicates of four sweeps on two cohorts,
 $\max|\hat{\imath} - i_{\text{realised}}| = 0$. The ratio is therefore
 $i_{\text{realised}} / i_{\text{parametric}}$: what the generator drew over what
-it was asked for. The estimator does not appear in it.
+it was asked for. No calculation beyond that reference remains in it.
 
 \iffull
 \begin{figure}[t]
@@ -25,8 +25,7 @@ it was asked for. The estimator does not appear in it.
 \caption{Ratio of recovered to true intrinsic effect, median and IQR over 50
 replicates at the detectable effect, for both draw pools. An earlier internal report used this curve to
 conclude the committed cutpoint was ``validated on real cells''. The curve
-behaves well wherever the rule says ``estimate'', and on this arm carries no
-information about the estimator. The single-cell estimate applies
+behaves well wherever the rule says ``estimate'', and on this arm adds no validation beyond reproduction of the reference. The single-cell estimate applies
 \texttt{decompose()} to the sweep's own realised summary statistics and
 reproduces them exactly, with
 $\max|\hat{\imath} - i_{\text{realised}}| = 0$ over all 119{,}600 replicates of
@@ -48,61 +47,55 @@ closed form carries no scale factor.}
 \end{figure}
 \fi
 
-\paragraph{The general form.} Let $\theta$ be the parameter a simulator is asked
-for, $\theta_{\text{realised}}$ the value the draw actually took --- which
-differs from $\theta$ by sampling alone --- and $\hat\theta$ the estimator's
-output. A recovery curve plots $\hat\theta / \theta$. Now suppose the estimator
-is a deterministic function of the same sufficient statistics the generator used
-to construct the draw. Then $\hat\theta = \theta_{\text{realised}}$
-\emph{identically}, not approximately, and
+\paragraph{The general form.} Let $D$ be a simulated draw requested at
+$\theta$, and specify an observed-data reference $T(D)$ before comparing
+estimators. We call $T(D)$ the realised reference, written
+$\theta_{\text{realised}}$; it is not necessarily a realised causal effect.
+Suppose $T(D)=h(S(D))$ and $\hat\theta(D)=h(S(D))$ for the \emph{same}
+functional $h$ and summaries $S$. Then, for $\theta\ne0$,
 \begin{mdframed}[linewidth=0.5pt,innertopmargin=4pt,innerbottommargin=4pt,%
   nobreak=true]
 \[
 \frac{\hat\theta}{\theta} \;=\; \frac{\theta_{\text{realised}}}{\theta}
 \]
-\vspace{-1.2em}
 \begin{center}
-\texttt{assert not np.allclose(est - truth\_realised, 0.0)}
+\texttt{r = est - truth\_realised}\\
+\texttt{assert not np.allclose(r, 0.0, atol=tol)}
 \end{center}
 \end{mdframed}
-in which the estimator does not appear. The curve is a diagnostic of the
-generator's sampling behaviour. It will sit near 1, tighten with $n$, and look
-exactly like a validated estimator, because sampling error does shrink with $n$
---- and it would do all of that if the estimator were replaced by any other
-estimator with the same property.
+Sharing sufficient statistics alone is insufficient: different functions of the
+same summaries need not agree. The assertion screens for numerical equality on
+valid draws; only an algebraic argument establishes an identity. Under
+consistency for nonzero $\theta$, this ratio approaches 1 as sampling error
+shrinks.
 
-\iffull
-The condition is not that the estimator is wrong, and not that it is right. It
-is that the estimator and the generator share sufficient statistics. That is a
-property of the plumbing rather than of the model, so it survives code review,
-leaves no trace in the curve, and does not announce itself in any residual.
-\else
-The condition is not that the estimator is wrong. It is that the estimator and
-the generator share sufficient statistics --- a property of the plumbing, so it
-survives code review and leaves no trace in the curve.
-\fi
+\textbf{Equality identifies redundancy, not an invalid estimator.} The curve
+still measures this functional's sampling performance relative to $\theta$.
+It cannot distinguish algebraically equivalent implementations, or by itself
+validate interval coverage or an abstention threshold. Even a correctly
+implemented sample mean equals its empirical-mean reference. We use ``blind''
+only for this redundancy relative to a specified reference, not as a verdict
+on statistical validity.
 
-\paragraph{Why this is the default, not an exotic case.} Oracle arms exist
-precisely so the estimator sees clean inputs, and the cleanest available input is
-the summary the generator just computed.\iffull{} Wiring the estimator to the
-generator's own stratum means is the shortest path to an arm that runs, and it is
-the first arm most pipelines get.\fi{} This is not a strawman we built to knock
-down: it is the arm we shipped.
+\paragraph{How this wiring arose.} Our oracle arm used the summaries already
+computed for the draw. This is an observed failure in our pipeline, not an
+estimate of its prevalence in virtual-control-arm practice. The patient
+examples below establish possibility across methods and designs, not frequency.
 
-\paragraph{What this looks like in a trial simulator.} Nothing above is about
-cells. Take an external control arm drawn from a patient simulator: the generator
-samples covariates, assigns outcomes with a specified mean per stratum, and you
-ask it for a treatment effect $\theta$. You estimate that effect by
-standardisation over the same strata --- G-computation \citep{robins1986}, which is
-Equation~\ref{eq:kitagawa}'s identity under another name, and the estimator that
-target trial emulation \citep{hernan2016} rests on. If the estimator standardises over
-the strata the generator sampled within, weighting the stratum means the draw
-\emph{realised}, it returns $\theta_{\text{realised}}$ and the recovery curve is
-the generator's sampling error and nothing else. It will sit near 1, tighten with
-cohort size, and certify nothing about the estimator. The same holds whenever a
-virtual control arm's outcome model \emph{is} the generator's outcome model,
-which is the natural first thing to build and the natural first thing to
-validate this way.
+\paragraph{What this looks like in a trial simulator.} Consider a patient
+simulator with treatment assignment and outcomes within covariate strata.
+For stratum counts $n_g$, total $n$, and observed arm means $\bar Y_{ag}$, define
+\[
+T(D)=\sum_g\frac{n_g}{n}(\bar Y_{1g}-\bar Y_{0g}).
+\]
+Saturated G-computation \citep{robins1986} computes this reference directly.
+IPW with empirical propensities $\hat p_g=n_{1g}/n_g$ does too: each stratum's
+treated weighted sum divided by $n$ is $(n_g/n)\bar Y_{1g}$, and likewise for
+controls. This requires nonempty arms within each stratum and these weights;
+it is not an equivalence for arbitrary G-computation or propensity models.
+The reference is an observed contrast, not the finite-sample average of paired
+potential-outcome differences. Sharing a population outcome model alone does
+not imply its exact reproduction.
 
 \paragraph{So we built one.} Describing the fix is not demonstrating it, so
 Figure~\ref{fig:trial} runs that simulator: three covariate strata, treatment
@@ -115,24 +108,15 @@ validated estimator. Two of those four are exactly blind. G-computation over
 the generator's own strata returns the realised effect with
 $\max|\hat\theta - \theta_{\text{realised}}| = 0$, as the algebra says it must.
 \textbf{So does inverse-probability weighting with a saturated propensity
-model.} That these coincide is not news --- with the propensity estimated
-nonparametrically per stratum, IPW is the same functional of the same
-statistics as standardisation, and any reader of the causal literature knows
-it. The news is that the coincidence is invisible where people look for it.
-The two are different methods from different literatures written in different
-code; nothing in either implementation says they are the same estimator, and
-their recovery curves agree to machine precision, so the curve does not say so
-either. We added this arm expecting a non-degenerate comparison, which is
-precisely the mistake the column prevents and reading the code did not.\iffull{}
-Whether an estimator shares sufficient statistics with the generator
-is not visible in the code. It is visible in one column.\fi
+model.} Their equivalence is algebraic, but a recovery curve alone does not expose
+that equivalence as directly as the residual column.
 
-Cross-fitting \citep{chernozhukov2018} breaks it. Fit the propensity on one fold and
+Cross-fitting the IPW propensity \citep{chernozhukov2018} breaks it here. Fit the propensity on one fold and
 apply it to the
 other, so the weights on a patient come from data that patient is not in, and
 the estimator becomes a different functional: still consistent, still sitting
 near 1, but now with a residual that is non-zero at every cohort size and shrinks
-as the estimate improves. That curve is about the estimator.\iffull{} The unadjusted
+as the estimate improves. That residual establishes departure from this reference, not validity.\iffull{} The unadjusted
 difference is there to show the curve is not useless --- it ignores the strata,
 so it is confounded, and the curve catches it immediately at a ratio near 2.4.\fi
 
@@ -144,8 +128,8 @@ outcome on treatment and additive stratum dummies --- the estimator most people
 would actually write --- sees every record and splits nothing, and is correctly
 specified here, since the effect is additive and homogeneous. It is still not the
 generator's functional: standardisation weights each stratum by its prevalence
-and OLS weights it by the within-stratum treatment variance
-$n_g\,p_g(1 - p_g)$, and the propensities differ across strata. Its residual is
+and OLS uses normalised weights proportional to
+$n_g\,\hat p_g(1 - \hat p_g)$, with empirical $\hat p_g$, and the propensities differ across strata. Its residual is
 non-zero at every cohort size, and \emph{smaller} than cross-fitted IPW's, so
 the non-degenerate comparison here is not the weaker estimator. What the check
 detects is a shared functional, not a shared sample --- and the two estimators
@@ -160,32 +144,33 @@ the residual against realised truth is what separates the two.
 
 \iffull
 \paragraph{The check is sound and not complete, and we can say how incomplete.}
-An exact zero proves blindness: if $\hat\theta \equiv \theta_{\text{realised}}$
+An identity proves redundancy: if $\hat\theta \equiv \theta_{\text{realised}}$
 the ratio is a functional of the generator, by algebra. The converse fails, in
 three ways we can measure (Table~\ref{tab:matrix}, 14 estimators $\times$ 3
 designs $\times$ 2 realised truths $\times$ 6 cohort sizes $\times$ 6 seeds).
 
 \textbf{Degeneracy belongs to the \emph{pair}, not the estimator.} OLS on
 stratum dummies has residual $0.0663$ against the standardised realised truth
-and reads informative. Against the variance-weighted realised truth --- OLS's
-own finite-sample estimand, exact by Frisch--Waugh --- it is
+and reads informative. Against the variance-weighted realised truth --- the observed-data functional
+equal to OLS by Frisch--Waugh --- it is
 $3.5\times10^{-14}$, exactly blind. The swap runs both ways: G-computation is
 $0$ against the first and $0.0663$ against the second. Our Table~\ref{tab:trial}
-reports OLS as the row that sees the estimator; it is, relative to a truth OLS
-was never estimating.
+reports OLS as the row that sees the estimator; it departs from that reference, although both consistently estimate the
+requested homogeneous effect.
 
-\textbf{The verdict flips with the trial design.} Under stratified
-permuted-block randomisation with 1:1 allocation --- what ICH E9 trials
-actually run --- propensities are $0.5$ by construction, the two estimands
+\textbf{The verdict flips with the trial design.} Under our stratified
+permuted-block randomisation with complete blocks and 1:1 allocation, empirical
+propensities are $0.5$ by construction, the two reference functionals
 coincide, and everything except cross-fitted IPW and finite-ratio matching sits
 at machine zero: OLS $1.6\times10^{-14}$, and even the unadjusted difference
 $6.7\times10^{-15}$. No estimator changed.
 
 \textbf{Two more estimators are secretly the same functional.} AIPW with
 saturated nuisances and no cross-fitting is $4.4\times10^{-15}$: the
-augmentation term is identically zero within each stratum, so the modern
-doubly-robust estimator collapses onto standardisation, and \textbf{cross-fitting
-is the only thing standing between it and a vacuous curve.} Exact matching on
+augmentation term is identically zero within each stratum, so this
+doubly-robust implementation collapses onto standardisation. Cross-fitting is
+not necessary to avoid this identity; changing nuisance specifications can also
+change the functional. Our cross-fitted comparison is IPW, not AIPW. Exact matching on
 stratum is $8.9\times10^{-16}$ with all controls, $0.052$ at 20 and $0.164$ at
 1 --- blindness set by a matching ratio nobody thinks of as a validation
 choice. IPW with an $L_2$-penalised logistic propensity runs $0.403$, $0.045$,
@@ -193,58 +178,66 @@ $0.0103$, $0.010$ as $C$ goes $0.1, 1, 100, 10^6$, and $1.3\times10^{-6}$ once
 the solver tolerance is tightened: five orders of magnitude of apparent
 informativeness from a regularisation constant.
 
-\paragraph{So report a ratio, not a boolean.} Put the residual in units of the
+\paragraph{Report scale alongside the equality screen.} Put the residual in units of the
 generator's own sampling error,
 \[
 \rho \;=\; \frac{\mathrm{med}\,|\hat\theta - \theta_{\text{realised}}|}
                 {\mathrm{med}\,|\theta_{\text{realised}} - \theta|},
 \]
-the fraction of the recovery curve's spread the estimator is responsible for at
-all. OLS scores $\rho$ between $0.129$ and $0.137$ at every cohort size from
-100 to 5{,}000, with no trend in $n$: \textbf{88\% of its recovery curve is generator
-sampling noise}, and it passes the boolean check. Cross-fitted IPW falls
-$1.69 \rightarrow 0.23$, ending 81\% generator noise at $n = 5{,}000$. The
-unadjusted difference scores $52.8$ and is the only estimator here whose curve
-is mostly about itself. $\rho = 0$ is the boolean check as a special case;
-$0 < \rho \ll 1$ is the regime it cannot see.
+a ratio of median absolute departures, not a fraction of the curve's spread.
+OLS scores $\rho$ between $0.129$ and $0.137$ at every cohort size from
+100 to 5{,}000, with no trend in $n$. The table's descriptive transform
+$q=1/(1+\rho)$ is $88\%$ at the largest cohort; this is not a generator-noise
+share. Cross-fitted IPW falls $1.69 \rightarrow 0.23$, with $q=81\%$ at
+$n = 5{,}000$. The unadjusted difference scores $52.8$, indicating a large
+departure from the reference. In
+$\hat\theta-\theta=(\hat\theta-T)+(T-\theta)$, the terms can covary or cancel,
+and medians do not add. Neither $\rho$ nor $q$ decomposes total error or ranks
+estimator quality. A zero median can hide nonzero residuals: the identity screen
+uses the maximum, whereas $\rho$ describes typical scale when its denominator
+is nonzero.
 \fi
 
 \iffull
 \paragraph{Censoring silences the check, and the fix is which truth you compare
-to.} Time-to-event is the endpoint clinical trial simulation actually reports,
+to.} Time-to-event is a relevant clinical-trial endpoint,
 so we repeated the experiment with exponential times, confounded assignment and
 administrative censoring (4 censoring levels $\times$ 7 cohort sizes $\times$
-1{,}200 replicates $\times$ 6 seeds; draws leaving an arm with no event are
-dropped, which costs nothing below $49\%$ censoring and $463$ of $1{,}200$ in
+1{,}200 replicates pooled over 6 seeds; paired comparisons omit non-finite
+outputs, including event-free cells and Cox fitting failures. Exclusions occur
+even below $49\%$ censoring and remove $463$ of $1{,}200$ in
 the one cell at $78\%$ and $n = 100$). The blind estimator is the per-stratum
-exponential MLE, whose sufficient statistics --- events and exposure per cell
---- are exactly the generator's, and stay so under censoring.
+exponential MLE, whose observed-data reference is defined by the same
+prevalence-weighted log rate contrasts, with rate equal to events divided by
+exposure per stratum-arm cell. Re-evaluating that functional gives equality by
+construction; it is not independent evidence of validity.
 
-\textbf{Against the observed data the check never misses}: $\max|\hat\theta -
+\textbf{Against the observed reference, valid outputs agree}: $\max|\hat\theta -
 \theta_{\text{realised}}^{\text{obs}}| = 0$ in all 28 cells. \textbf{Against the
-latent event times it degrades to nothing}: at $n = 3{,}000$ the residual runs
+latent-time reference, equality disappears}: at $n = 3{,}000$ the residual runs
 $0$, $0.061$, $0.144$, $0.376$ at $0\%$, $12\%$, $49\%$ and $78\%$ censoring,
 and the worst cell at each level runs $0$, $0.473$, $1.089$, $1.586$. The estimator is unchanged; the
 residual now measures what censoring hid. And a simulator author logs the
-latent times \emph{because the generator knows them} --- so the natural
-comparison is the wrong one, and it gets worse exactly as the design gets more
-realistic.
+latent times \emph{because the generator knows them} --- so the latent comparison answers a different question about
+information lost to observation.
 
 By $49\%$ censoring the ordering inverts in 5 of 7 cohort sizes and by $78\%$
 in 6 of 7, the blind estimator's latent-truth residual exceeding stratified
 Cox's ($0.376$ against $0.293$ at $n = 3{,}000$); per replicate the inversion
-rate is $0.53$--$0.61$. Not a clean reversal, and we do not claim one: a
-practitioner ranking estimators by this column at high censoring picks the
-blind one \emph{more often than not}. \textbf{The rule is to evaluate realised
-truth on the observed data.} The latent truth is more precise, more available,
-and wrong for this purpose.
+rate is $0.53$--$0.61$. Not a clean reversal, and we do not claim one: ranking larger residuals as more informative would favour the
+reference-reproducing estimator in a majority of valid pairs. Neither ranking
+is a quality criterion. \textbf{Use an observed-data reference for the reuse
+audit.} Retain the requested parameter and latent targets for their distinct
+bias, coverage and information-loss evaluations.
 \fi
 
-\paragraph{The one-line check.} Compare the estimate against the \emph{realised}
-truth rather than the parametric truth, and test whether the difference is
-identically zero --- the assertion boxed above. If it is zero, the recovery
-curve cannot see the estimator, and the arm needs a generator whose realised
-summary statistics the estimator does not receive.
+\paragraph{The one-line check.} Specify the reference functional, its target
+population and its observation process before running the boxed screen. Report
+non-finite outputs separately; otherwise a NaN makes the assertion pass.
+Set \texttt{tol} explicitly in outcome units and report the maximum residual per
+design, not just a pooled median. Near-zero residuals motivate an algebraic
+check; nonzero residuals do not certify calibration. At a null requested effect,
+use differences rather than recovery ratios.
 Ours was zero everywhere.\iffull{} Appendix~\ref{app:generator} carries the
 curve, and the measurement that goes with the algebra: swapping the draw pool
 moves its median from about $1.1$ to about $1.4$ and nearly doubles its spread
@@ -254,17 +247,6 @@ closed form $1/(1-s)$ exactly at the abstention point --- $5.000$, $2.000$ and $
 tested shifts, with zero variance across replicates --- a constant, read at the
 time as a two-fold over-estimate in the dangerous direction.
 
-\iffull
-The statistic is not worthless: it still catches an estimator that fails to
-reproduce its input, and the design ships a broken-estimator control returning
-$0.0$ for which the ratio comes out zero. It simply could not certify the arm it
-was being used to certify.
-\else
-The statistic is not worthless --- it still catches an estimator that fails to
-reproduce its input. It simply could not certify the arm it was being used to
-certify.
-\fi
-
 \begin{figure}[t]
 \centering
 \iffull
@@ -272,8 +254,7 @@ certify.
 \else
 \includegraphics[width=0.88\linewidth]{figures/fig4_trial_recovery.pdf}
 \fi
-\caption{\textbf{The recovery curve cannot distinguish an estimator from its
-generator; one column can.} A patient simulator with confounded assignment and a
+\caption{\textbf{The residual distinguishes reference reproduction from departure.} A patient simulator with confounded assignment and a
 requested effect $\theta = 3$. \emph{Left:} recovery curves, median and IQR over
 200 replicates (197 at the smallest cohort, where three draws left an arm empty). Four estimators sit near 1 and tighten with cohort size.
 \emph{Right:} the residual against the \emph{realised} effect, log scale, shaded
@@ -281,7 +262,7 @@ band at machine zero. It is identically zero for G-computation over the
 generator's own strata \emph{and for saturated-propensity IPW}, whose curve is
 the same line --- both are the same functional of the statistics the generator
 drew. Cross-fitted IPW and OLS on stratum dummies are consistent and non-zero, so
-their curves are statements about the estimator; OLS splits no sample to get
-there. The unadjusted difference is what a working curve catches.}
+they depart from this reference; this does not certify validity. OLS splits
+no sample to get there. The unadjusted difference is what a working curve catches.}
 \label{fig:trial}
 \end{figure}
