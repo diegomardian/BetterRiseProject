@@ -812,6 +812,23 @@ def test_the_knife_edge_window_and_the_cliff_past_it(bench_tex):
     assert round(float(match["headroom_below_collapse"]), 4) == 0.0027
 
 
+#: The cohort grid the paper's interval table is about. ``interval_calibration``
+#: reports every cohort the project currently analyses, and that set has since
+#: grown: the adenoma rung curve added ``adenoma_epithelial`` and
+#: ``adenoma_crypt_position``, taking the percentile grid from 20 cells to 28.
+#: The paper's claim -- ``14 of the 20`` and ``every one of twenty`` -- is about
+#: these five cohorts, and pinning them means a legitimately larger table cannot
+#: silently move a published count. All five must be present; the test fails if
+#: the paper's grid disappears rather than quietly reading a smaller frame.
+PAPER_INTERVAL_COHORTS: tuple[str, ...] = (
+    "mlh1_methylated",
+    "mlh1_intact_mmrd",
+    "mlh1_unmethylated",
+    "adenoma_lineage",
+    "adenoma_best4",
+)
+
+
 def test_the_closed_form_is_confirmed_but_is_not_a_floor(tex):
     """``within $2.7$ percentage points`` and ``above ... in 14 of the 20``.
 
@@ -823,6 +840,12 @@ def test_the_closed_form_is_confirmed_but_is_not_a_floor(tex):
     _quotes(tex, "above} the closed form in 14 of the 20")
     _quotes(tex, "and not as a floor")
     frame = pd.read_parquet(_newest("interval_calibration"))
+    missing = set(PAPER_INTERVAL_COHORTS) - set(frame["cohort"])
+    assert not missing, (
+        f"the paper's interval cohorts are absent from the newest "
+        f"interval_calibration table: {sorted(missing)}"
+    )
+    frame = frame[frame["cohort"].isin(PAPER_INTERVAL_COHORTS)]
     pct = frame[frame["method"] == "percentile"]
     assert len(pct) == 20
     gap = 100 * (pct["false_positive_rate"] - pct["closed_form_rate"])
