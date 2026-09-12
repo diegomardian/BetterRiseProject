@@ -86,19 +86,13 @@ def write_versioned_table(
             "table. Commit first, or pass allow_dirty=True for a scratch run."
         )
 
-    base = Path(results_dir) if results_dir is not None else RESULTS_DIR
-    out_dir = base / f"{prov['date']}_{prov['git_sha_short']}"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    path = out_dir / f"{name}.parquet"
-    df.to_parquet(path, index=False)
-
-    prov |= {
-        "name": name,
-        "n_rows": int(len(df)),
-        "columns": list(df.columns),
-        "table_kind": "harness",
-    }
+    # Validate BEFORE anything reaches disk. This check used to sit after
+    # ``df.to_parquet``, so a reserved-key collision raised with the parquet
+    # already written and no sidecar beside it — and an orphan parquet is
+    # INVISIBLE to every provenance guard in the suite, because they iterate
+    # ``*.meta.json`` and there is none. A table with no sha passed invariant 10
+    # by not being checked at all. Found 2026-09-11 by a job that happened to
+    # pass ``n_rows``; ledger entry L24.
     if extra_meta:
         # extra_meta used to merge straight over the provenance record, so a
         # caller could overwrite the very fields invariant 10 exists to record.
@@ -113,8 +107,26 @@ def write_versioned_table(
                 f"These are what invariant 10 records; rename the key "
                 f"(platform -> geo_platform, seed -> sweep_seed, and so on)."
             )
+
+    base = Path(results_dir) if results_dir is not None else RESULTS_DIR
+    out_dir = base / f"{prov['date']}_{prov['git_sha_short']}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    prov |= {
+        "name": name,
+        "n_rows": int(len(df)),
+        "columns": list(df.columns),
+        "table_kind": "harness",
+    }
+    if extra_meta:
         prov |= dict(extra_meta)
+
+    # The sidecar is written FIRST for the same reason. If the parquet write
+    # fails the sidecar is a dangling record of a table that does not exist,
+    # which is loud; the reverse is silent.
     (out_dir / f"{name}.meta.json").write_text(json.dumps(prov, indent=2), encoding="utf-8")
+    path = out_dir / f"{name}.parquet"
+    df.to_parquet(path, index=False)
     return path
 
 

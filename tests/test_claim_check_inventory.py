@@ -78,7 +78,7 @@ def test_the_enumerated_count_does_not_match_the_asserted_one(doc):
     """Pinned deliberately. If someone repairs HANDOFF §3, this test tells them
     to update the note rather than letting the two drift apart again."""
     rec = reconciliation(doc)
-    assert rec.enumerated == 23
+    assert rec.enumerated == 24
     assert rec.asserted == 21
     assert not rec.reconciles
     assert rec.note, "a documented mismatch is allowed; a silent one is not"
@@ -186,3 +186,110 @@ def test_a_second_rater_supplies_only_judgement_fields():
         assert field in REQUIRED_FIELDS
     assert "source_anchor" not in JUDGEMENT_FIELDS
     assert "why_it_could_not_fail" not in JUDGEMENT_FIELDS
+
+
+# ---------------------------------------------------------------------------
+# L24, the first entry this audit found rather than transcribed
+# ---------------------------------------------------------------------------
+
+
+def test_a_reserved_key_collision_leaves_nothing_behind(tmp_path):
+    """The forcing input for L24.
+
+    ``write_versioned_table`` used to write the parquet and THEN validate
+    ``extra_meta``, so a reserved-key collision raised with a table already on
+    disk and no sidecar beside it. Every provenance guard in the suite iterates
+    ``*.meta.json``, so that table was not checked and failed -- it was not
+    checked. Invariant 10 satisfied by absence.
+    """
+    import pandas as pd
+
+    from src.common.io import ReservedMetaKeyError, write_versioned_table
+
+    with pytest.raises(ReservedMetaKeyError):
+        write_versioned_table(
+            pd.DataFrame({"a": [1]}),
+            "orphan",
+            seed=1,
+            results_dir=tmp_path,
+            extra_meta={"n_rows": 999},
+            allow_dirty=True,
+        )
+
+    left = [p for p in tmp_path.rglob("*") if p.is_file()]
+    assert not left, f"refused the write and left {[p.name for p in left]} on disk"
+
+
+def test_the_happy_path_still_writes_both_halves(tmp_path):
+    """The clean control: the fix must not stop a legitimate write."""
+    import json
+
+    import pandas as pd
+
+    from src.common.io import write_versioned_table
+
+    path = write_versioned_table(
+        pd.DataFrame({"a": [1, 2]}),
+        "fine",
+        seed=7,
+        results_dir=tmp_path,
+        extra_meta={"custom_field": "kept"},
+        allow_dirty=True,
+    )
+    meta = json.loads(path.with_suffix(".meta.json").read_text())
+    assert meta["n_rows"] == 2
+    assert meta["custom_field"] == "kept"
+    assert meta["seed"] == 7
+
+
+#: Result parquets committed before this guard existed, with no sidecar.
+#:
+#: Four are the retracted ``0.1.0-pilot`` S matrices, kept on purpose beside
+#: ``RETRACTED_s_matrices.md`` because the retraction is the record. The fifth
+#: is a genuine orphan: ``tcga_sample_reconciliation`` sits in a directory where
+#: both its siblings carry sidecars, and nothing explains why it does not.
+#:
+#: The ratchet only tightens. A file that gains a sidecar must be deleted from
+#: this list rather than left as an exemption nothing needs.
+KNOWN_ORPHAN_PARQUETS: frozenset[str] = frozenset(
+    {
+        "2026-08-17_29e8a04/tcga_sample_reconciliation.parquet",
+        "2026-08-22_a7e6f9a/S_matrix_best4_0.1.0-pilot.parquet",
+        "2026-08-22_a7e6f9a/S_matrix_crypt_position_0.1.0-pilot.parquet",
+        "2026-08-22_a7e6f9a/S_matrix_epithelial_0.1.0-pilot.parquet",
+        "2026-08-22_a7e6f9a/S_matrix_lineage_0.1.0-pilot.parquet",
+    }
+)
+
+
+def _orphan_parquets() -> list[str]:
+    from src.common.paths import RESULTS_DIR
+
+    return sorted(
+        str(p.relative_to(RESULTS_DIR))
+        for p in RESULTS_DIR.rglob("*.parquet")
+        if not p.with_suffix(".meta.json").exists()
+    )
+
+
+def test_no_new_result_parquet_is_missing_its_sidecar():
+    """A repo-wide scan for the artifact L24 produces.
+
+    Every other provenance guard iterates ``*.meta.json``, so none of them can
+    see a parquet that has none: invariant 10 is satisfied by absence rather
+    than violated. This is the one that can see it, and it found five committed
+    tables on its first run.
+    """
+    unexpected = [o for o in _orphan_parquets() if o not in KNOWN_ORPHAN_PARQUETS]
+    assert not unexpected, "result tables with no provenance sidecar:\n" + "\n".join(
+        f"  {o}" for o in unexpected
+    )
+
+
+def test_the_orphan_ratchet_only_tightens():
+    """An entry that gained a sidecar is stale bookkeeping, not an exemption."""
+    repaired = sorted(KNOWN_ORPHAN_PARQUETS - set(_orphan_parquets()))
+    assert not repaired, (
+        f"{repaired} now carry sidecars — delete them from KNOWN_ORPHAN_PARQUETS "
+        f"rather than carrying an exemption nothing needs"
+    )

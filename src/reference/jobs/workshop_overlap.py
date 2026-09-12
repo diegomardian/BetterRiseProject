@@ -34,7 +34,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     frame = build_overlap(load_overlap(args.overlap))
     summary = overlap_summary(frame)
 
-    print(f"{summary['n_rows']} rows: {summary['n_overlap_rows']} overlap, "
+    print(f"{summary['n_matrix_rows']} rows: {summary['n_overlap_rows']} overlap, "
           f"{summary['n_math_claims']} mathematical claims")
     print(f"  already published: {summary['n_already_published']}")
     print(f"  extended:          {summary['n_extended']}")

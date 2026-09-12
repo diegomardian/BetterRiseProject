@@ -84,7 +84,7 @@ def build_overlap(doc: dict) -> pd.DataFrame:
 
 def overlap_summary(frame: pd.DataFrame) -> dict:
     return {
-        "n_rows": int(len(frame)),
+        "n_matrix_rows": int(len(frame)),
         "n_overlap_rows": int((frame["kind"] == "overlap").sum()),
         "n_math_claims": int((frame["kind"] == "math_claim").sum()),
         "n_already_published": int((frame["status"] == "already_published").sum()),

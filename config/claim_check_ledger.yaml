@@ -20,7 +20,9 @@ meta:
   stale_count_elsewhere: 17   # docs/HANDOFF.md §7 — not corrected when §3 moved
   reconciliation_note: >-
     Enumerating every entry the repository describes gives 23 against the 21
-    asserted in docs/HANDOFF.md §3, a difference of +2. It is recorded, not
+    asserted in docs/HANDOFF.md §3, a difference of +2. L24 was then found by
+    this audit on 2026-09-11 and is the first entry here that was not
+    transcribed, taking the enumeration to 24 against an asserted 21. It is recorded, not
     resolved, because resolving it means editing §3, which belongs to the
     write-up. The two candidate sources, both visible in the text: (a) §3's
     prose says "the five found on 2026-09-05" and then lists FOUR bullets, so
@@ -429,3 +431,26 @@ entries:
       HANDOFF calls this "the same failure one step further out than the
       seventeenth" and gives it no ordinal, so whether it is a ledger entry or a
       note attached to L22 is exactly the ambiguity this file exists to surface.
+
+  - id: L24
+    short_name: orphan result table
+    the_check: "the reserved-meta-key guard in write_versioned_table, and every provenance guard downstream of it"
+    why_it_could_not_fail: >-
+      the guard fired correctly but AFTER df.to_parquet, leaving a result table
+      on disk with no sidecar; and every provenance guard in the suite iterates
+      *.meta.json, so a table with no sidecar is not checked at all rather than
+      checked and failed
+    source_anchor: "docs/week1_findings.md; src/common/io.py"
+    ordinal_claimed: null
+    found_by: run
+    guard_test: test_a_reserved_key_collision_leaves_nothing_behind
+    classification: implementation_error
+    ambiguous_with: provenance_reporting_error
+    rationale: >-
+      an ordering defect, whose consequence is that invariant 10 is satisfied by
+      absence: the artifact escapes the check by removing the file the check
+      iterates. Fixed 2026-09-11 by validating extra_meta before anything
+      reaches disk and by writing the sidecar first, so a half-written pair
+      fails loudly rather than silently.
+    verdict: scientific_failure
+    dispute_note: null
