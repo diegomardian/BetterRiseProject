@@ -55,7 +55,8 @@ output. A recovery curve plots $\hat\theta / \theta$. Now suppose the estimator
 is a deterministic function of the same sufficient statistics the generator used
 to construct the draw. Then $\hat\theta = \theta_{\text{realised}}$
 \emph{identically}, not approximately, and
-\begin{mdframed}[linewidth=0.5pt,innertopmargin=4pt,innerbottommargin=4pt]
+\begin{mdframed}[linewidth=0.5pt,innertopmargin=4pt,innerbottommargin=4pt,%
+  nobreak=true]
 \[
 \frac{\hat\theta}{\theta} \;=\; \frac{\theta_{\text{realised}}}{\theta}
 \]
@@ -213,14 +214,17 @@ $0 < \rho \ll 1$ is the regime it cannot see.
 to.} Time-to-event is the endpoint clinical trial simulation actually reports,
 so we repeated the experiment with exponential times, confounded assignment and
 administrative censoring (4 censoring levels $\times$ 7 cohort sizes $\times$
-1{,}200 replicates $\times$ 6 seeds). The blind estimator is the per-stratum
+1{,}200 replicates $\times$ 6 seeds; draws leaving an arm with no event are
+dropped, which costs nothing below $49\%$ censoring and $463$ of $1{,}200$ in
+the one cell at $78\%$ and $n = 100$). The blind estimator is the per-stratum
 exponential MLE, whose sufficient statistics --- events and exposure per cell
 --- are exactly the generator's, and stay so under censoring.
 
 \textbf{Against the observed data the check never misses}: $\max|\hat\theta -
 \theta_{\text{realised}}^{\text{obs}}| = 0$ in all 28 cells. \textbf{Against the
-latent event times it degrades to nothing}: $0$, $0.061$, $0.144$, $0.376$ at
-$0\%$, $12\%$, $49\%$ and $78\%$ censoring. The estimator is unchanged; the
+latent event times it degrades to nothing}: at $n = 3{,}000$ the residual runs
+$0$, $0.061$, $0.144$, $0.376$ at $0\%$, $12\%$, $49\%$ and $78\%$ censoring,
+and the worst cell at each level runs $0$, $0.473$, $1.089$, $1.586$. The estimator is unchanged; the
 residual now measures what censoring hid. And a simulator author logs the
 latent times \emph{because the generator knows them} --- so the natural
 comparison is the wrong one, and it gets worse exactly as the design gets more
@@ -241,8 +245,12 @@ truth rather than the parametric truth, and test whether the difference is
 identically zero --- the assertion boxed above. If it is zero, the recovery
 curve cannot see the estimator, and the arm needs a generator whose realised
 summary statistics the estimator does not receive.
-Ours was zero everywhere. In our case the curve takes the closed form $1/(1-s)$
-exactly at the abstention point --- $5.000$, $2.000$ and $1.333$ at the three
+Ours was zero everywhere.\iffull{} Appendix~\ref{app:generator} carries the
+curve, and the measurement that goes with the algebra: swapping the draw pool
+moves its median from about $1.1$ to about $1.4$ and nearly doubles its spread
+while the residual stays exactly $0$ on every row of both.\fi{} In our case the
+curve takes the
+closed form $1/(1-s)$ exactly at the abstention point --- $5.000$, $2.000$ and $1.333$ at the three
 tested shifts, with zero variance across replicates --- a constant, read at the
 time as a two-fold over-estimate in the dangerous direction.
 

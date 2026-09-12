@@ -9,7 +9,6 @@ the same arithmetic with the gate removed, pseudobulk differential expression,
 and a naive difference of arm means --- return a number every time
 (Table~\ref{tab:bench}).
 
-\iffull
 Ungated methods invent large effects. On a scale where the reference per-cell
 mean is 20.0, the ungated ablation and pseudobulk differential expression each
 invent a median $|$intrinsic$|$ of 7.99, and a naive difference of arm means
@@ -18,12 +17,6 @@ include that last one to fix the scale, not as a serious competitor: nobody
 proposes it as an intrinsic-effect estimator. Composition-only methods score no
 false confidence for a different reason again --- they have no intrinsic arm at
 all, which is inapplicability rather than caution.
-\else
-Ungated methods invent large effects: on a scale where the reference per-cell
-mean is 20.0, the ablation and pseudobulk DE each invent a median
-$|$intrinsic$|$ of 7.99, and the naive difference reports the entire 20.0-point
-drop as silencing in cells that are not there.
-\fi
 
 \paragraph{The result that went against us.} The fair competitor is the width
 gate, and it does the job as well as ours for free. It suppresses false
@@ -38,14 +31,6 @@ selection effect, not an accuracy gain: it drops the noisy low-$n$ cases.
 \S\ref{sec:calibration} found the same cutpoint unsupported by a second and
 independent route.
 
-\iffull\else
-\paragraph{The finiteness guard is one line, and easy to omit.} With no mature
-cell in an arm the standard error is undefined, and \texttt{nan > threshold} is
-\texttt{False} in numpy and in pandas, so a width gate written the obvious way
-\emph{declines to abstain} in exactly the world the estimand does not exist. We
-check finiteness before comparing.
-\fi
-\iffull
 \paragraph{The finiteness guard is one line, and easy to omit.} With no mature
 cell in an arm the standard error is undefined, and \texttt{nan > threshold} is
 \texttt{False} in numpy and in pandas. A width gate written the obvious way
@@ -54,7 +39,6 @@ exist. We check finiteness before comparing, which makes this competitor
 stronger than the version most people would write. It is also the coercion that
 was sitting inside our own calibration routine (\S\ref{sec:calibration}), where
 it arrived as a boolean in a rate instead of a number in a column.
-\fi
 
 \paragraph{Why a count cutpoint at all, rather than conformal prediction?}
 Conformal methods give distribution-free coverage for a target that exists but
@@ -100,27 +84,33 @@ where it does not. We draw no biological conclusion from either cohort
 prove that rather than hope it.} Appendix~\ref{app:bench} limitation~1 said this
 benchmark tests the gate and not robustness to a misspecified generator. For the
 finiteness guard specifically that limitation is now closed. Re-running
-\texttt{annihilated} under negative-binomial arms at dispersion $10$, $2$ and
-$0.5$, and zero-inflated NB at $\pi = 0.3$, the count gate and the width gate
-each refuse $200/200$ in every model while the ungated ablation answers
-$200/200$ in every model. There is an analytic reason and it is why this is a
-result: the world sets the mature fraction to \emph{exactly} zero, so no mature
-cell exists whatever the count distribution, and no amount of overdispersion or
-zero-inflation can manufacture one. \textbf{It does not extend to the width
-gate.} In \texttt{depleted\_wide} the count gate refuses 95--99 of 200 across
-all five models while the width gate refuses $0$, $0$, $1$ and $13.7$: its
-non-binding is a property of the expression model, and the finiteness guard's
-behaviour is not.
+\texttt{annihilated} under six expression models --- Poisson, negative binomial
+at dispersion $10$, $2$ and $0.5$, zero-inflated NB at $\pi = 0.3$ and
+dispersion $2$, and zero-inflated Poisson at $\pi = 0.3$ --- over three seeds
+at 200 replicates each, the count gate and the width gate each refuse $200/200$
+in every model while the ungated ablation answers $200/200$ in every model.
+There is an analytic reason and it is why this is a result: the world sets the
+mature fraction to \emph{exactly} zero, so no mature cell exists whatever the
+count distribution, and no amount of overdispersion or zero-inflation can
+manufacture one. \textbf{It does not extend to the width gate.} In
+\texttt{depleted\_wide} the count gate refuses 90 to 99 of 200 in every model,
+averaging over the three seeds, and 83 to 105 across the eighteen
+model-by-seed cells --- a spread the expression model barely widens. The width
+gate refuses \emph{none} of 200 under Poisson, NB at $10$ and $2$, and
+zero-inflated Poisson; one under zero-inflated NB; and fourteen under NB at
+dispersion $0.5$. Its non-binding is a property of the expression model, and
+the finiteness guard's behaviour is not.
 
 \paragraph{And the width gate matches ours on a knife edge.} Sweeping the
 detectable effect locates where the width criterion starts to bind, and the
 answer is sharper than ``it never does''. There \emph{is} a setting reproducing
 our count gate's 88 refusals in \texttt{depleted\_wide} --- but only for
 $s_{\text{detect}} \in [0.928776, 0.928981]$, \textbf{a window $0.000204$
-wide}. And $0.029$ above it, at $s_{\text{detect}} = 0.958$, the gate collapses
-into refusing in \texttt{depleted\_estimable} and \texttt{compositional\_only},
-where the estimand plainly exists. So the width gate does not dominate ours for
-free. It matches ours in a parameter nobody calibrated, with a cliff just past
+wide}. And $0.029$ above it, at $s_{\text{detect}} = 0.958$, the gate starts
+refusing in \texttt{depleted\_estimable}, where the estimand plainly exists,
+with \texttt{compositional\_only} following at $0.961$. The whole interval in
+which it refuses everything in \texttt{depleted\_wide} and nothing it should
+not is $0.0027$ wide. So the width gate does not dominate ours for free. It matches ours in a parameter nobody calibrated, with a cliff just past
 it --- which is this paper's thesis arriving in our own preferred competitor.
 
 \paragraph{Where this leaves the rule.} Two independent routes now say the same

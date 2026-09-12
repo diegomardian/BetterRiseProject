@@ -1,43 +1,66 @@
 \appendix
 
-% Carried here in BOTH builds since 2026-09-11. Measured against the real style
-% geometry the nine-page build ran over the limit with this section inline, and
-% it is the most instance-specific material in the paper -- a single-cell
-% competitor benchmark -- so it is what an argument about validation statistics
-% can most afford to move. Both builds \input the same file, so a number cannot
-% differ between them, and neither build's main text depends on it.
-\section{What abstention buys, and which part of it}
-\label{app:benchtable}
+\section{The curve itself}
+\label{app:generator}
 
-\input{sections/bench.tex}
+\S\ref{sec:blind} states the general form and the one-line check. This appendix
+carries the curve it was read off, and two details that belong with it rather
+than in the argument.
 
-% Moved out of the main text in BOTH builds on 2026-09-09. Measured against the
-% real style geometry the nine-page build ran to eleven pages of main text, not
-% the 7.7 a stub had estimated. These three are the most instance-specific
-% material in the paper -- two grid caveats, the abstention-rate reading, and
-% the withdrawn guards -- so they are what an argument about validation
-% statistics can most afford to carry in an appendix. Both builds now \input
-% them here, which also means the short and long versions no longer differ in
-% where a reader finds them.
-\section{What the grid was reporting, and two caveats}
-\label{app:gridcaveats}
-\input{sections/gridcaveats.tex}
+The sweep is the calibration one, run by
+\texttt{src.harness.calibration\_gap}. Its result table carries a
+\texttt{max\_abs\_residual\_vs\_realised} column, which is the one-line check
+persisted rather than re-derived: it is identically zero exactly when the curve
+cannot see the estimator. It is zero on every row.
 
-\section{On real data, abstention is the modal outcome}
-\label{app:modal}
-\input{sections/modaloutcome.tex}
+\paragraph{The curve moves; the residual does not.} The two draw pools hand the
+same estimator a different set of cells to be drawn from, and change nothing
+else --- not the code, not the grid, not the seed. At the sparsest
+non-degenerate point of the committed grid ($f_T = 0.01$, about 20 mature cells,
+$s = 0.5$, 500 replicates) the recovery curve's median runs $1.331$ to $1.423$ across eight
+seeds on the pooled draw against $1.075$ to $1.108$ on the reference draw, and
+its interquartile width nearly doubles, from about $0.62$ to about $1.17$. The
+residual against realised truth is $0$ on every row of both. A reader watching
+only the curve would conclude the reference draw validates the estimator more
+tightly than the pooled one; the residual reports what is actually true, which
+is that neither carries any information about the estimator at all. This is
+\S\ref{sec:blind}'s claim as a measurement rather than an algebraic identity.
 
-\section{Three guards that could not fire, and the interval}
-\label{app:guards}
-\input{sections/withdrawn.tex}
+The second detail is where the statistic is not merely uninformative but
+undefined. At $s = 1$ --- the design's own null control, the arm that exists to
+confirm the estimator recovers zero when nothing happened --- the parametric
+intrinsic term is exactly $0$, so the ratio divides by zero. 29{,}900 of the
+sweep's rows carry no value at all. The one point the design included to check
+the statistic is the one point at which the statistic cannot be evaluated.
 
-
-\section{Related work}
-\label{app:relatedwork}
-\input{sections/relatedwork.tex}
-
-\section{What abstention buys, per world}
-\input{sections/benchtable.tex}
+\iffull\else
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{figures/fig3_generator_statistic.pdf}
+\caption{Ratio of recovered to true intrinsic effect, median and IQR over 50
+replicates at the detectable effect, for both draw pools. An earlier internal report used this curve to
+conclude the committed cutpoint was ``validated on real cells''. The curve
+behaves well wherever the rule says ``estimate'', and on this arm carries no
+information about the estimator. The single-cell estimate applies
+\texttt{decompose()} to the sweep's own realised summary statistics and
+reproduces them exactly, with
+$\max|\hat{\imath} - i_{\text{realised}}| = 0$ over all 119{,}600 replicates of
+the sweep plotted here, and over all 1{,}711{,}200 of four sweeps on two
+cohorts, leaving the ratio equal to
+$i_{\text{realised}}/i_{\text{parametric}}$. A further 29{,}900 replicates
+carry no ratio at all: at $s = 1$ the parametric intrinsic term is exactly zero,
+so the design's own null control is the one point where this validation
+statistic cannot be evaluated. The statistic still
+discriminates an estimator failing to reproduce its input, and the design
+document ships a broken-estimator control returning $0.0$ for which the ratio
+comes out zero. The oracle arm by construction is not such an estimator, so
+validating it here is circular. The value at the abstention point, read at the
+time as a two-fold over-estimate in the dangerous direction, is exactly
+$1/(1-s)$: the realised and requested mature fractions agree there, so the
+closed form carries no scale factor.}
+\label{fig:generator}
+\end{figure}
+\fi
 
 \section{Five estimators of the same effect}
 \input{sections/trialtable.tex}
@@ -45,7 +68,7 @@
 \section{The residual matrix}
 \label{app:matrix}
 
-\begin{table}[h]
+\begin{table}[htbp]
 \small
 \centering
 \caption{Maximum $|\hat\theta - \theta_{\text{realised}}|$ at 5{,}000 patients
@@ -104,7 +127,80 @@ $0.5$) to the confounded design, OLS's residual rises smoothly $0.0033
 whole way: the diagnostic's reading is a continuous function of how the trial
 allocates treatment, and the curve is blind to that too.
 
-\section{The withdrawn guards}
+% The grid caveats, the abstention-rate reading and the withdrawn guards moved
+% out of the main text in BOTH builds on 2026-09-09, when the real style
+% geometry put the nine-page build at eleven. Both builds \input them here, so
+% the short and long versions do not differ in where a reader finds them.
+\section{What the grid was reporting, and two caveats}
+\label{app:gridcaveats}
+\input{sections/gridcaveats.tex}
+
+\section{On real data, abstention is the modal outcome}
+\label{app:modal}
+\input{sections/modaloutcome.tex}
+
+\section{Three guards that could not fire, and the interval}
+\label{app:guards}
+\input{sections/withdrawn.tex}
+
+% Carried here in BOTH builds since 2026-09-11. Measured against the real style
+% geometry the nine-page build ran over the limit with this section inline, and
+% it is the most instance-specific material in the paper -- a single-cell
+% competitor benchmark -- so it is what an argument about validation statistics
+% can most afford to move. Both builds \input the same file, so a number cannot
+% differ between them, and neither build's main text depends on it.
+\section{What abstention buys, and which part of it}
+\label{app:benchtable}
+
+\input{sections/bench.tex}
+
+\section{The competitor benchmark}
+\label{app:bench}
+
+Six worlds, 200 replicates, 2{,}000 cells per arm, seed 20260829. Mature cells
+express $\mathrm{Poisson}(\mu)$ in reference tissue and $\mathrm{Poisson}(\mu s)$
+in diseased tissue; immature cells express nothing. The arm mean is
+$f \times$ (mean among mature), exactly what Equation~\ref{eq:kitagawa} splits,
+so the truth is available in closed form rather than by simulation. The world
+that matters sets the diseased mature fraction to zero: no diseased mature cell
+survives and the intrinsic estimand has no referent.
+
+Six methods, of which five run. \texttt{cacoa} ships as an adapter that reports
+its own unavailability rather than being silently absent --- it installs from
+GitHub and is not in the pinned environment --- so it appears as a named skip
+with a reason.
+
+\paragraph{The width gate.} Abstain when the 95\% half-width on the intrinsic
+term exceeds the detectable effect, both taken from the same design document as
+the count cutpoint, so neither gate is tuned against the other here. The
+per-cell moments are recovered from the full arm without needing the mature-cell
+mask, because immature cells express exactly zero and contribute nothing to
+either the sum or the sum of squares. \textbf{Finiteness is checked before the
+comparison.} Written the obvious way --- comparing first --- the gate returns
+\texttt{False} on an undefined standard error and declines to abstain in exactly
+the world that motivates it.
+
+\paragraph{Limitations.} Everything here is synthetic, and the generative model
+is exactly the one Equation~\ref{eq:kitagawa} assumes, which is a favourable
+setting. It tests the gate, not robustness to a misspecified model. The
+competitors are faithful reimplementations, not the published software. The
+naive difference of arm means and pseudobulk DE answer a slightly different
+question, so their bias is partly unfair to them; the false-confidence result
+does not depend on them and the ablation does not depend on them at all. That
+the width criterion never binds is a statement about these regimes: a halving of
+per-cell output is large relative to sampling error at 2{,}000 cells per arm, and
+a smaller detectable effect or a heavier-tailed expression model would move the
+binding point. What survives regardless is that the finiteness guard, not the
+threshold, catches the undefined estimand.
+
+\section{What abstention buys, per world}
+\input{sections/benchtable.tex}
+
+\section{Related work}
+\label{app:relatedwork}
+\input{sections/relatedwork.tex}
+
+\section{Three implementation defects, and a guard that fired twice}
 \label{app:withdrawn}
 
 Three defects, recorded because each one survived ordinary review and because
@@ -226,114 +322,13 @@ the input that would have caught its defect at the time rather than months
 later. Where no such input can be constructed, that is the finding rather than a
 gap in the suite.
 
-\section{The curve itself}
-\label{app:generator}
-
-\S\ref{sec:blind} states the general form and the one-line check. This appendix
-carries the curve it was read off, and two details that belong with it rather
-than in the argument.
-
-The sweep is the calibration one, run by
-\texttt{src.harness.calibration\_gap}. Its result table carries a
-\texttt{max\_abs\_residual\_vs\_realised} column, which is the one-line check
-persisted rather than re-derived: it is identically zero exactly when the curve
-cannot see the estimator. It is zero on every row.
-
-\paragraph{The curve moves; the residual does not.} The two draw pools hand the
-same estimator a different set of cells to be drawn from, and change nothing
-else --- not the code, not the grid, not the seed. At the sparsest
-non-degenerate point of the committed grid ($f_T = 0.01$, about 20 mature cells,
-$s = 0.5$, 500 replicates) the recovery curve's median runs $1.331$ to $1.423$ across eight
-seeds on the pooled draw against $1.075$ to $1.108$ on the reference draw, and
-its interquartile width nearly doubles, from about $0.62$ to about $1.19$. The
-residual against realised truth is $0$ on every row of both. A reader watching
-only the curve would conclude the reference draw validates the estimator more
-tightly than the pooled one; the residual reports what is actually true, which
-is that neither carries any information about the estimator at all. This is
-\S\ref{sec:blind}'s claim as a measurement rather than an algebraic identity.
-
-The second detail is where the statistic is not merely uninformative but
-undefined. At $s = 1$ --- the design's own null control, the arm that exists to
-confirm the estimator recovers zero when nothing happened --- the parametric
-intrinsic term is exactly $0$, so the ratio divides by zero. 29{,}900 of the
-sweep's rows carry no value at all. The one point the design included to check
-the statistic is the one point at which the statistic cannot be evaluated.
-
-\iffull\else
-\begin{figure}[h]
-\centering
-\includegraphics[width=\linewidth]{figures/fig3_generator_statistic.pdf}
-\caption{Ratio of recovered to true intrinsic effect, median and IQR over 50
-replicates at the detectable effect, for both draw pools. An earlier internal report used this curve to
-conclude the committed cutpoint was ``validated on real cells''. The curve
-behaves well wherever the rule says ``estimate'', and on this arm carries no
-information about the estimator. The single-cell estimate applies
-\texttt{decompose()} to the sweep's own realised summary statistics and
-reproduces them exactly, with
-$\max|\hat{\imath} - i_{\text{realised}}| = 0$ over all 119{,}600 replicates of
-the sweep plotted here, and over all 1{,}711{,}200 of four sweeps on two
-cohorts, leaving the ratio equal to
-$i_{\text{realised}}/i_{\text{parametric}}$. A further 29{,}900 replicates
-carry no ratio at all: at $s = 1$ the parametric intrinsic term is exactly zero,
-so the design's own null control is the one point where this validation
-statistic cannot be evaluated. The statistic still
-discriminates an estimator failing to reproduce its input, and the design
-document ships a broken-estimator control returning $0.0$ for which the ratio
-comes out zero. The oracle arm by construction is not such an estimator, so
-validating it here is circular. The value at the abstention point, read at the
-time as a two-fold over-estimate in the dangerous direction, is exactly
-$1/(1-s)$: the realised and requested mature fractions agree there, so the
-closed form carries no scale factor.}
-\label{fig:generator}
-\end{figure}
-\fi
-
-\section{The competitor benchmark}
-\label{app:bench}
-
-Six worlds, 200 replicates, 2{,}000 cells per arm, seed 20260829. Mature cells
-express $\mathrm{Poisson}(\mu)$ in reference tissue and $\mathrm{Poisson}(\mu s)$
-in diseased tissue; immature cells express nothing. The arm mean is
-$f \times$ (mean among mature), exactly what Equation~\ref{eq:kitagawa} splits,
-so the truth is available in closed form rather than by simulation. The world
-that matters sets the diseased mature fraction to zero: no diseased mature cell
-survives and the intrinsic estimand has no referent.
-
-Six methods, of which five run. \texttt{cacoa} ships as an adapter that reports
-its own unavailability rather than being silently absent --- it installs from
-GitHub and is not in the pinned environment --- so it appears as a named skip
-with a reason.
-
-\paragraph{The width gate.} Abstain when the 95\% half-width on the intrinsic
-term exceeds the detectable effect, both taken from the same design document as
-the count cutpoint, so neither gate is tuned against the other here. The
-per-cell moments are recovered from the full arm without needing the mature-cell
-mask, because immature cells express exactly zero and contribute nothing to
-either the sum or the sum of squares. \textbf{Finiteness is checked before the
-comparison.} Written the obvious way --- comparing first --- the gate returns
-\texttt{False} on an undefined standard error and declines to abstain in exactly
-the world that motivates it.
-
-\paragraph{Limitations.} Everything here is synthetic, and the generative model
-is exactly the one Equation~\ref{eq:kitagawa} assumes, which is a favourable
-setting. It tests the gate, not robustness to a misspecified model. The
-competitors are faithful reimplementations, not the published software. The
-naive difference of arm means and pseudobulk DE answer a slightly different
-question, so their bias is partly unfair to them; the false-confidence result
-does not depend on them and the ablation does not depend on them at all. That
-the width criterion never binds is a statement about these regimes: a halving of
-per-cell output is large relative to sampling error at 2{,}000 cells per arm, and
-a smaller detectable effect or a heavier-tailed expression model would move the
-binding point. What survives regardless is that the finiteness guard, not the
-threshold, catches the undefined estimand.
-
 \section{Extended limitations}
 \label{app:limitations}
 
 \paragraph{Keeping the third verdict distinct.} The third verdict is a value, not
 a flag, and the results writer refuses a row carrying a number where none
 belongs. The guard is necessary and insufficient.
-\S\ref{sec:calibration}\emph{(ii)} shows the same coercion two layers up as a
+Appendix~\ref{app:gridcaveats} shows the same coercion two layers up as a
 boolean, inside a rate whose denominator the writer never sees. We report the
 interaction term separately rather than folding it into either arm. Anyone
 reusing the decomposition should keep all three properties. The method is not
@@ -403,3 +398,4 @@ exclusion cap shows ambient signal manufacturing an intrinsic term of about 4.6\
 of a real compositional term, and never manufacturing a compositional one. The
 asymmetry matters. Ambient contaminates the arm this work reports as unestimable,
 not the arm it reports as measurable.
+

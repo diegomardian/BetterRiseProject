@@ -462,7 +462,7 @@ def test_retired_prose_stays_retired():
 
 
 def _render(text: str, *, full: bool) -> str:
-    """The lines LaTeX would typeset for one build.
+    r"""The lines LaTeX would typeset for one build.
 
     A naive duplicate check flags ``bench.tex``, which carries one paragraph
     heading in each branch of an ``\iffull`` -- correct, and never duplicated
@@ -642,3 +642,209 @@ def test_the_propensity_spread_is_continuous(rho):
     assert round(ols["max_residual"].max(), 3) == 0.104
     # the recovery ratio says nothing about any of it
     assert ols["median_recovery_ratio"].between(0.99, 1.01).all()
+
+
+# ---------------------------------------------------------------------------
+# The numbers a 2026-09-11 audit found had drifted from their tables.
+#
+# Every one of these was wrong in the committed paper and every one was
+# reachable from a committed table, which is the definition of a claim this
+# file should already have been asserting. Six of them were single-seed rows
+# quoted as if they were summaries; two overstated an agreement; one named a
+# world that was not refusing yet. They are pinned here so the next edit that
+# moves one without its table fails instead of shipping.
+
+
+def _reference_bins(cohort: str) -> pd.DataFrame:
+    """Coarse and dense grids' per-bin rates, reference pool, one frame."""
+    suffix = "" if cohort == "smc" else f"_{cohort}"
+    coarse = pd.read_parquet(_newest(f"calibration_gap_bins{suffix}_r500"))
+    dense = pd.read_parquet(_newest(f"cutpoint_dense_grid_bins_{cohort}_r200"))
+    frame = pd.concat([coarse, dense], ignore_index=True)
+    return frame[frame["pool"] == "reference"]
+
+
+def _median_discrimination(frame: pd.DataFrame, grid: str, count: float) -> float:
+    cell = frame[(frame["grid"] == grid) & (frame["n_cells_mature"] == count)]
+    assert len(cell) == 8, f"{grid}@{count} has {len(cell)} seeds, expected 8"
+    return round(float(cell["discrimination"].median()), 3)
+
+
+def test_the_three_grids_agree_on_medians_not_on_one_seed(calibration_tex):
+    """``medians over eight seeds of 0.712, 0.728 and 0.726 near 40``.
+
+    These six were seed 1's rows, quoted as a cross-grid agreement. At seed 1
+    they read 0.712/0.728/0.728 and 0.882/0.858/0.878; the medians are two
+    digits away from that. The agreement claim survives the correction, which
+    is why the fix was the number and not the sentence -- but a single draw
+    presented as an agreement is this section's own subject.
+    """
+    _quotes(
+        calibration_tex,
+        "(medians over eight seeds of $0.712$, $0.728$ and $0.726$ near 40, and $0.880$,"
+        + chr(10)
+        + "$0.858$ and $0.878$ near 100)",
+    )
+    bins = _reference_bins("smc")
+    assert [
+        _median_discrimination(bins, "committed", 40.0),
+        _median_discrimination(bins, "extended", 45.0),
+        _median_discrimination(bins, "dense", 42.5),
+    ] == [0.712, 0.728, 0.726]
+    assert [
+        _median_discrimination(bins, "committed", 100.0),
+        _median_discrimination(bins, "extended", 90.0),
+        _median_discrimination(bins, "dense", 105.0),
+    ] == [0.880, 0.858, 0.878]
+
+
+def test_the_new_bin_reads_the_same_in_both_builds(calibration_tex):
+    """``discrimination reads 0.789``, and the short build says 0.789 too.
+
+    The full build quoted seed 1 (0.790) and the short build the median
+    (0.789) for one bin. Both builds read the same files, so a number
+    differing between them is the one failure the build promises cannot
+    happen -- and it had happened, in the last digit.
+    """
+    _quotes(calibration_tex, "where discrimination reads $0.789$")
+    _quotes(calibration_tex, "$0.789$ at 65 and $0.858$ at 90")
+    bins = _reference_bins("smc")
+    assert _median_discrimination(bins, "extended", 65.0) == 0.789
+
+
+def test_the_pooled_curve_widens_by_the_factor_quoted():
+    """``from about 0.62 to about 1.17`` -- medians over the eight seeds."""
+    appendix = (SECTIONS / "appendix.tex").read_text(encoding="utf-8")
+    _quotes(appendix, "from about $0.62$ to about $1.17$")
+    _quotes(appendix, "$1.331$ to $1.423$ across eight")
+    _quotes(appendix, "against $1.075$ to $1.108$ on the reference draw")
+    frame = pd.read_parquet(_newest("calibration_gap_recovery_r500"))
+    point = frame[
+        (frame["grid"] == "committed")
+        & (frame["shift"] == 0.5)
+        & (frame["frac_mature_tumour"] == 0.01)
+    ]
+    widths, medians = {}, {}
+    for pool, block in point.groupby("pool"):
+        assert len(block) == 8
+        widths[pool] = round(float((block["ratio_q75"] - block["ratio_q25"]).median()), 2)
+        medians[pool] = (
+            round(float(block["ratio_median"].min()), 3),
+            round(float(block["ratio_median"].max()), 3),
+        )
+        # the whole point: the curve moves and the residual does not
+        assert block["max_abs_residual_vs_realised"].max() == 0.0
+    assert (widths["reference"], widths["pooled"]) == (0.62, 1.17)
+    assert medians["pooled"] == (1.331, 1.423)
+    assert medians["reference"] == (1.075, 1.108)
+
+
+def test_the_finiteness_guard_holds_under_every_generator(bench_tex):
+    """Six expression models, not five, and 200/200 in all of them."""
+    _quotes(bench_tex, "under six expression models")
+    _quotes(bench_tex, "over three seeds")
+    frame = pd.read_parquet(_newest("misspecified_generator_refusals"))
+    assert frame["seed"].nunique() == 3
+    assert frame["expression_model"].nunique() == 6
+
+    killed = frame[frame["world"] == "annihilated"]
+    for gate in ("count_gate", "width_gate"):
+        block = killed[killed["gate"] == gate]
+        assert (block["n_refused"] == 200).all(), gate
+    ablation = killed[killed["gate"] == "no_gate"]
+    assert (ablation["n_returned_a_number"] == 200).all()
+
+
+def test_the_width_gate_binding_is_a_property_of_the_count_model(bench_tex):
+    """``refuses 90 to 99 ... and 83 to 105`` and the width gate's 0 / 1 / 14.
+
+    The paper said 95--99 across "all five models". There are six, and two of
+    them sit below 95. The count gate's range and the width gate's per-model
+    refusals are both asserted here because the contrast between them is the
+    paragraph's whole claim.
+    """
+    _quotes(bench_tex, "the count gate refuses 90 to 99 of 200 in every model")
+    _quotes(bench_tex, "and 83 to 105 across the eighteen")
+    _quotes(bench_tex, "one under zero-inflated NB; and fourteen under NB at")
+    frame = pd.read_parquet(_newest("misspecified_generator_refusals"))
+    wide = frame[frame["world"] == "depleted_wide"]
+
+    counts = wide[wide["gate"] == "count_gate"]
+    per_model = counts.groupby("expression_model")["n_refused"].mean()
+    assert (per_model.round() >= 90).all() and (per_model.round() <= 99).all()
+    assert len(counts) == 18
+    assert (int(counts["n_refused"].min()), int(counts["n_refused"].max())) == (83, 105)
+
+    widths = wide[wide["gate"] == "width_gate"].groupby("expression_model")["n_refused"]
+    means = widths.mean().round().astype(int).to_dict()
+    assert {m for m, v in means.items() if v == 0} == {
+        "poisson",
+        "nb_disp10",
+        "nb_disp2",
+        "zip_pi0.3",
+    }
+    assert means["zinb_pi0.3_disp2"] == 1
+    assert means["nb_disp0.5"] == 14
+
+
+def test_the_knife_edge_window_and_the_cliff_past_it(bench_tex):
+    """``[0.928776, 0.928981]``, ``0.958``, ``0.961`` and the 0.0027 headroom.
+
+    The paper had the gate collapsing into two worlds at 0.958. Only one of
+    them is refusing there; the second starts at 0.961.
+    """
+    _quotes(bench_tex, r"\in [0.928776, 0.928981]$")
+    _quotes(bench_tex, "a window $0.000204$")
+    _quotes(bench_tex, "refusing in \\texttt{depleted\\_estimable}, where the estimand")
+    _quotes(bench_tex, "following at $0.961$")
+    _quotes(bench_tex, "is $0.0027$ wide")
+
+    step = pd.read_parquet(_newest("width_gate_step_location"))
+    step = step.set_index("world")
+    match = step.loc["depleted_wide"]
+    assert round(float(match["s_detect_matching_count_gate_lo"]), 6) == 0.928776
+    assert round(float(match["s_detect_matching_count_gate_hi"]), 6) == 0.928981
+    assert round(float(match["matching_window_width"]), 6) == 0.000204
+    # the first world where the estimand plainly exists starts refusing here
+    assert round(float(match["collapse_onset_s_detect"]), 3) == 0.958
+    assert round(float(step.loc["depleted_estimable", "s_star_min"]), 3) == 0.958
+    assert round(float(step.loc["compositional_only", "s_star_min"]), 3) == 0.961
+    assert round(float(match["headroom_below_collapse"]), 4) == 0.0027
+
+
+def test_the_closed_form_is_confirmed_but_is_not_a_floor(tex):
+    """``within $2.7$ percentage points`` and ``above ... in 14 of the 20``.
+
+    The paper claimed agreement within 1.5 points with the excess positive
+    everywhere, and called the closed form a floor. The worst gap is 2.65
+    points and six cells fall below it, so the floor claim does not hold.
+    """
+    _quotes(tex, "to within $2.7$ percentage points in every one of twenty")
+    _quotes(tex, "above} the closed form in 14 of the 20")
+    _quotes(tex, "and not as a floor")
+    frame = pd.read_parquet(_newest("interval_calibration"))
+    pct = frame[frame["method"] == "percentile"]
+    assert len(pct) == 20
+    gap = 100 * (pct["false_positive_rate"] - pct["closed_form_rate"])
+    assert gap.abs().max() < 2.7
+    assert int((gap > 0).sum()) == 14
+    assert int((gap < 0).sum()) == 6      # the floor claim, refuted
+
+
+def test_the_censored_sweep_reports_what_it_dropped():
+    """``463 of 1,200`` at 78% censoring and n = 100, and nothing below 49%."""
+    blind = (SECTIONS / "blind.tex").read_text(encoding="utf-8")
+    _quotes(blind, "$463$ of $1{,}200$ in")
+    _quotes(blind, "the worst cell at each level runs $0$, $0.473$, $1.089$, $1.586$")
+    head = pd.read_parquet(_newest("trial_survival_headline"))
+    worst = head.loc[head["n_replicates"].idxmin()]
+    assert (worst["censoring_target"], worst["n_patients"]) == (0.78, 100)
+    assert 1200 - int(worst["n_replicates"]) == 463
+    assert head[head["censoring_target"] <= 0.12]["n_replicates"].min() >= 1183
+
+    survival = pd.read_parquet(_newest("trial_survival"))
+    blind_arm = survival[survival["estimator"] == "exponential-mle-standardised"]
+    worst_by_level = (
+        blind_arm.groupby("censoring_target")["max_residual_vs_latent"].max().round(3)
+    )
+    assert list(worst_by_level) == [0.0, 0.473, 1.089, 1.586]

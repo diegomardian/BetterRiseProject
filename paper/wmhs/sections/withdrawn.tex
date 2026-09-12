@@ -91,7 +91,6 @@ this data. \textbf{That is the finding a two-state check would not have let us
 reach}: it said \emph{holds}, and we would have published a mechanism.
 
 \paragraph{And the fifth is not a guard at all. It is the interval.}
-\label{sec:interval}
 Every reading in this paper ends in a percentile bootstrap over patients. The
 bootstrap distribution of a mean has standard deviation $s\sqrt{(n-1)/n}$ --- the
 plug-in one --- so the percentile interval is approximately
@@ -105,10 +104,14 @@ Two errors running the same way: a normal quantile where a $t$ quantile is
 needed, and a biased standard deviation where an unbiased one is needed. At
 $n = 44$ the interval is $0.96\times$ the width it claims and a nominal 5\% test
 rejects 5.9\% of the time; at $n = 20$, $0.91\times$ and 7.1\%; at $n = 10$,
-$0.82\times$ and 9.6\%; at $n = 4$, $0.53\times$ and 18.8\%. Simulation at 1{,}500
-trials per cell agrees with the closed form to within 1.5 percentage points at
-every $n$, and the excess is positive everywhere --- the gap is the skew a normal
-approximation drops, so the closed form is a floor.
+$0.82\times$ and 9.6\%; at $n = 4$, $0.53\times$ and 18.8\%. Simulation at 1{,}500 trials per cell agrees
+with the closed form to within $2.7$ percentage points in every one of twenty
+cells, against a Monte Carlo standard error of $0.6$ to $1.0$ points at these
+rates. The simulated rate sits \emph{above} the closed form in 14 of the 20,
+which is the direction the skew a normal approximation drops would produce, but
+at this trial count that majority is what chance alone gives about one time in
+seventeen --- so we report the closed form as an approximation the simulation
+confirms, and not as a floor.
 
 \textbf{Neither sophisticated repair works, and one is worse.} BCa is
 miscalibrated in 17 of 20 cells against the percentile's 14, because its bias

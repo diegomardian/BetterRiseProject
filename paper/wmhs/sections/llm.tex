@@ -28,15 +28,18 @@ fixed seed, and \texttt{tests/test\_paper\_numbers.py} re-derives a subset of
 them from those tables and asserts them against the literal strings in the
 sources, so editing prose or table alone fails continuous integration. \textbf{That
 subset is not yet the whole paper.} It covers the third withdrawn guard, the
-cutpoint grids, the recovery ranges of \S\ref{sec:blind} and the ratio
-collapse; the trial simulator's table and the benchmark are checked by their own
-modules' tests but are not tied to the prose this way. We state the boundary
+premise check and its intervals, the cutpoint grids, the recovery ranges and
+ratio collapse, and the trial simulator --- the blind pair, the design flip, the
+information ratio, censoring and the heterogeneity sweep. What it does not cover
+is the synthetic competitor benchmark: its numbers are checked against its own
+tables by that module's tests, but nothing fails if the appendix quotes them
+wrongly. We state the boundary
 rather than imply it does not exist --- an earlier draft of this sentence
 claimed every number was covered, which was the same overclaim this paper
 documents elsewhere, made about this paper's own provenance. Two figures are
 exceptions we name rather than smooth over: those reproduced
 from the superseded internal report are labelled as such in their captions, and
-the paired rates in \S\ref{sec:calibration}\emph{(ii)} are quoted from that
+the paired rates in Appendix~\ref{app:gridcaveats} are quoted from that
 report because the run that produced them was never committed --- which is
 Appendix~\ref{app:withdrawn} item 3, and the reason the calibration was re-derived
 for this paper rather than cited from it. Every number was independently

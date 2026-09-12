@@ -106,14 +106,15 @@ grid held only $\{100\}$ there and the filled grid holds $\{80, 90, 100\}$, so
 the median fell from 100 to 90 while the bin, and the evidence in it, stayed
 put. \textbf{At the resolution of the statistic that produced it, the answer did
 not move at all.} What the filled grid did buy is a genuinely new bin at
-$(55, 76]$, where discrimination reads $0.790$ --- under target, so the crossing
+$(55, 76]$, where discrimination reads $0.789$ --- under target, so the crossing
 lies above it.
 
 \textbf{A third grid, and the number keeps falling.} A denser grid reaching
 below 20 --- attainable counts $\{2.5, 10, 17.5, 27.5, 42.5, 70, 105, 150, 400,
 800\}$ --- returns $ok = 70$ on eight of eight seeds. Discrimination against
 count is smooth, and the three grids agree on it wherever they overlap
-($0.712$, $0.728$, $0.728$ near 40; $0.882$, $0.858$, $0.878$ near 100). What
+(medians over eight seeds of $0.712$, $0.728$ and $0.726$ near 40, and $0.880$,
+$0.858$ and $0.878$ near 100). What
 differs is only which point each grid happens to carry first above the $0.80$
 line:
 
@@ -144,6 +145,10 @@ the non-identifiability there is not a resolution artefact.
 \textbf{We do not report a calibrated cutpoint, because the procedure does not
 return one.} It returns its own grid, and it did so with a stability that
 survived three grids, thirteen seeds and two cohorts without once warning us.
+What the rule does on the real cohort, rather than on the sweep, is
+Appendix~\ref{app:modal}: at the resolution the compositional question is
+defined on, abstention is the modal outcome under both population definitions,
+and the coarse resolutions return \emph{not identifiable} rather than a number.
 \fi
 
 \iffull
@@ -158,8 +163,8 @@ estimate converges to the value over those 45 pairs rather than to a population
 value. The patient-level uncertainty is unchanged by the replicate count and is
 not quantified anywhere in this paper. Read each value as what this procedure
 returns on this cohort at that grid resolution. Reporting any of them with an
-interval would be the same error this paper documents elsewhere, one section
-later --- and \S\ref{sec:interval} shows the interval we would have reached
+interval would be the same error this paper documents elsewhere --- the closing
+paragraph of Appendix~\ref{app:guards} shows the interval we would have reached
 for is itself narrower than it claims at exactly these $n$.
 \fi
 
@@ -196,7 +201,7 @@ express in distinct cells; we report the number and the edge together.
 them is the interval.} Two grid caveats, the abstention-rate reading, three
 withdrawn guards and the percentile bootstrap every result here rests on are
 carried in Appendices~\ref{app:gridcaveats}--\ref{app:guards} rather than
-inline. The one to read first is \S\ref{sec:interval}: the interval is
+inline. The one to read first closes Appendix~\ref{app:guards}: the interval is
 $0.82\times$ the width it claims at $n = 10$, by a closed form containing no
 data, which makes it the same failure as this section's grid one layer out ---
 and it is the layer every number in this paper passes through.

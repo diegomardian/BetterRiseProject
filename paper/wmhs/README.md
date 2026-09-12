@@ -37,7 +37,7 @@ about a page short. A literal TAB had also eaten the `\t` of `\times` in
 only a measurement if `errors` is 0 — read that line before the page line.**
 
 With the errors fixed the full build ran to ten pages of main text, so §4, the
-single-cell competitor benchmark, moved to Appendix A in **both** builds. It is
+single-cell competitor benchmark, moved into the appendix in **both** builds. It is
 the most instance-specific section in the paper and the one neither build's
 argument depends on; the conclusion now carries its result and a pointer in both
 builds. The full build is 8 pages with room to spare.
@@ -129,8 +129,8 @@ python -m src.harness.calibration_gap --replicates 500 --seeds 8
 ```
 
 That module is the sweep behind Figure 1. It did not exist when the figure was
-first drawn — the run came from an uncommitted script, which is Appendix A
-item 3, and re-deriving the number is why the module is here.
+first drawn — the run came from an uncommitted script, which is item 3 of the
+implementation-defects appendix, and re-deriving it is why the module is here.
 
 ## Before submitting
 
@@ -169,6 +169,27 @@ item 3, and re-deriving the number is why the module is here.
       recommendation** and the reasons are under "Two builds, one source";
       `main_short.tex` is ready if you want it.
 
+## Appendix order
+
+Reordered 2026-09-11 to follow the main text rather than the order things were
+written in. §2's support first, then §3's, then the benchmark as one run of
+three consecutive sections instead of three scattered ones, then context and
+record:
+
+```
+A  The curve itself                    G  What abstention buys, and which part
+B  Five estimators of the same effect  H  The competitor benchmark
+C  The residual matrix                 I  What abstention buys, per world
+D  What the grid was reporting         J  Related work
+E  Abstention is the modal outcome     K  Three implementation defects
+F  Three guards that could not fire    L  Extended limitations
+                                       M  Use of large language models
+```
+
+F and K used to be called "Three guards that could not fire" and "The withdrawn
+guards" — two titles for two different things. F is the analysis guards, K is
+the implementation defects.
+
 ## Layout
 
 ```
@@ -179,9 +200,9 @@ sections/blind.tex       §2  the recovery curve, the general form, the
                              trial-simulator instantiation, the one-line check
 sections/calibration.tex §3  what a correct calibration returns (Figure 3)
 sections/withdrawn.tex       three more checks that could not fire — appendix
-sections/conclusion.tex  §4  the closer, and the pointer to Appendix A
+sections/conclusion.tex  §4  the closer, and the pointer to the benchmark
 sections/responsible.tex §5  the mandatory responsible-use statement
-sections/bench.tex           Appendix A — what abstention buys, BOTH builds
+sections/bench.tex           appendix in BOTH builds — what abstention buys
 sections/benchtable.tex      Table 1, appendix in both builds
 sections/gridcaveats.tex     appendix in both builds
 sections/modaloutcome.tex    ditto
