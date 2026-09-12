@@ -121,12 +121,20 @@ def write_versioned_table(
     if extra_meta:
         prov |= dict(extra_meta)
 
-    # The sidecar is written FIRST for the same reason. If the parquet write
-    # fails the sidecar is a dangling record of a table that does not exist,
-    # which is loud; the reverse is silent.
-    (out_dir / f"{name}.meta.json").write_text(json.dumps(prov, indent=2), encoding="utf-8")
+    meta_path = out_dir / f"{name}.meta.json"
+    # Publish provenance before the table so an interrupted process cannot
+    # leave an unlabelled parquet. On an ordinary parquet-write exception,
+    # remove that provisional sidecar before re-raising. A process crash can
+    # still interrupt a two-file publication, so the repository-wide pair
+    # guards check both directions rather than treating either ordering as
+    # atomic.
+    meta_path.write_text(json.dumps(prov, indent=2), encoding="utf-8")
     path = out_dir / f"{name}.parquet"
-    df.to_parquet(path, index=False)
+    try:
+        df.to_parquet(path, index=False)
+    except Exception:
+        meta_path.unlink(missing_ok=True)
+        raise
     return path
 
 

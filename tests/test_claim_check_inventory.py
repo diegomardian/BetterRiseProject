@@ -242,6 +242,36 @@ def test_the_happy_path_still_writes_both_halves(tmp_path):
     assert meta["seed"] == 7
 
 
+def test_a_parquet_write_failure_leaves_nothing_behind(tmp_path, monkeypatch):
+    """The other half of L24's forcing input.
+
+    Writing the sidecar first avoids an unlabelled table if the process is
+    interrupted between two files. That ordering used to leave a dangling
+    sidecar when ``to_parquet`` raised. Ordinary write failures must clean up;
+    a crash at exactly a publication boundary is covered by the bidirectional
+    repository scan below.
+    """
+    import pandas as pd
+
+    from src.common.io import write_versioned_table
+
+    def fail(*_args, **_kwargs):
+        raise OSError("forced parquet failure")
+
+    monkeypatch.setattr(pd.DataFrame, "to_parquet", fail)
+    with pytest.raises(OSError, match="forced parquet failure"):
+        write_versioned_table(
+            pd.DataFrame({"a": [1]}),
+            "partial",
+            seed=1,
+            results_dir=tmp_path,
+            allow_dirty=True,
+        )
+
+    left = [p for p in tmp_path.rglob("*") if p.is_file()]
+    assert not left, f"failed write left {[p.name for p in left]} on disk"
+
+
 #: Result parquets committed before this guard existed, with no sidecar.
 #:
 #: Four are the retracted ``0.1.0-pilot`` S matrices, kept on purpose beside
@@ -272,6 +302,17 @@ def _orphan_parquets() -> list[str]:
     )
 
 
+def _orphan_sidecars() -> list[str]:
+    """Sidecars whose tables are absent: the inverse half of L24's guard."""
+    from src.common.paths import RESULTS_DIR
+
+    return sorted(
+        str(p.relative_to(RESULTS_DIR))
+        for p in RESULTS_DIR.rglob("*.meta.json")
+        if not p.with_suffix("").with_suffix(".parquet").exists()
+    )
+
+
 def test_no_new_result_parquet_is_missing_its_sidecar():
     """A repo-wide scan for the artifact L24 produces.
 
@@ -283,6 +324,19 @@ def test_no_new_result_parquet_is_missing_its_sidecar():
     unexpected = [o for o in _orphan_parquets() if o not in KNOWN_ORPHAN_PARQUETS]
     assert not unexpected, "result tables with no provenance sidecar:\n" + "\n".join(
         f"  {o}" for o in unexpected
+    )
+
+
+def test_no_result_sidecar_is_missing_its_table():
+    """A pair is provenance only when both halves exist.
+
+    The original L24 defect made parquets invisible by omitting their sidecar.
+    The repair must not merely invert that blind spot by allowing a sidecar
+    without its table to pass all provenance checks.
+    """
+    dangling = _orphan_sidecars()
+    assert not dangling, "provenance sidecars with no result table:\n" + "\n".join(
+        f"  {o}" for o in dangling
     )
 
 
