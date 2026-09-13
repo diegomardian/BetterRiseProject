@@ -1,0 +1,42 @@
+% BMC structured abstract: Background / Results / Conclusions.
+% CONTRACT: every number here must also appear in Results, sourced to a table.
+% The abstract is where an overclaim is most expensive and least noticed.
+\begin{abstract}
+\noindent\textbf{Background.}
+Validation checks in computational analysis pipelines state failure conditions
+they do not always detect. We audit one single-cell differential-composition
+workflow, in which a differentiation-marker change is decomposed into
+compositional, cell-intrinsic and interaction terms with an explicit
+not-estimable verdict, and we ask of each validation check whether it can detect
+the failure it names.
+
+\noindent\textbf{Results.}
+Across seven cohorts, six generators and three interval methods, the percentile
+bootstrap and BCa over-reject under every non-saturated generator, with median
+false-positive rates of 7.0--8.6\% against a nominal 5\%, while the Student-$t$
+interval is calibrated except under skew at the smallest cohort, at 7.0\%. A
+cutpoint summary that requires both coverage and discrimination silently drops a
+coverage-only crossing on both cohorts; reporting crossings as brackets recovers
+it. Recomputing the adenoma decomposition across all weightings, rungs,
+denominators and four scale-free statistics shows the primary portion is
+identical to the committed table, and the load-bearing statistic separates all
+eight cross-block contrasts at the claimed rung, while agreement across all four
+statistics holds for six of eight under two weightings and five of eight under
+the third. Two suppressed readings reproduce exactly from committed derived
+inputs. The audit also found that the project's table resolver ordered same-date
+runs by commit hash rather than by time: 23 table/date pairs disagreed and 9 held
+different content, though no published number is wrong. The blinded challenge
+that would validate the audit has not been executed.
+
+\noindent\textbf{Conclusions.}
+Executable counterexamples expose validation checks that miss their stated
+failure conditions while passing, and calibration and sensitivity analyses
+delimit which descriptive estimates remain reportable. In this workflow the
+reportable claim is a descriptive pattern in selected, depth-matched populations;
+we do not establish cell-intrinsic silencing. The procedure transfers to other
+pipelines, but its validation depends on a held-out challenge we have not yet
+run.
+
+\noindent\textbf{Keywords:}
+single-cell; validation; simulation; calibration; reproducibility
+\end{abstract}

@@ -1,0 +1,51 @@
+% CONTRACT
+%   Establishes: why validation checks in this class of workflow can pass while
+%   the property they name goes untested. Introduces the decomposition only as
+%   far as the audit needs it.
+%   Sources: no result tables — this section carries no measured numbers.
+%   May not claim: anything about silencing, and any field-wide prevalence rate.
+%     The 21 ledger entries are a starting taxonomy, NOT a measured field-wide
+%     rate (decision record §5).
+%   Must contain: an explicit statement that the adenoma example is subordinate.
+
+\subsection{The estimand, and the third verdict}
+A change in a differentiation marker between two conditions can be written as the
+sum of a compositional term (the fraction of a cell type changed), an intrinsic
+term (the per-cell output changed), and an interaction
+\cite{kitagawa1955,blinder1973,oaxaca1973}. The decomposition is useful only if
+each term can be estimated from the data at hand, and for many samples it cannot:
+too few cells of the relevant type survive to ask. We therefore report three
+outcomes rather than two, and an unestimable intrinsic term is recorded as not
+estimable rather than as zero. Conflating the two turns an absent measurement
+into a measurement of absence, and every aggregate that absorbs it inherits the
+error.
+
+\subsection{The problem: a check that cannot fail}
+A validation check states a failure condition. Whether it can detect that
+condition is a separate question from whether it passes, and a passing check
+answers only the second. The failure mode is silent: an interval reported at 95\%
+that covers less often; a calibration reported at a threshold the grid cannot
+reach; a guard whose fixture supplies the quantity it is supposed to test. None
+raises. This is the shape we are concerned with, and it is not specific to this
+workflow.
+
+\subsection{What this paper does}
+We audit one differential-composition workflow by executable counterexample: for
+each check, construct the input that must make it fail, run it, and measure the
+consequence. Where a check cannot be made to fail, that is the finding. We report
+the audit's measured consequences, including a failure the audit found in its own
+infrastructure, and we apply the same procedure to the workflow's descriptive
+result to establish which of its estimates remain reportable. The colorectal
+observation is the worked example that makes the audit concrete; it is
+subordinate to the validation question and is not the contribution.
+
+\subsection{Related work}
+Simulation studies are routinely reported against frameworks such as ADEMP, which
+ask that aims, data-generating mechanism, estimands, methods and performance
+measures be stated in advance \cite{morris2019}; plasmode simulation draws the
+data-generating mechanism from real data \cite{franklin2014}; and congeniality
+asks whether the simulation and the analysis are compatible \cite{meng1994}. Our
+concern is adjacent but distinct: not whether a simulation is well designed, but
+whether a validation check can detect the failure it names. Selective
+classification and risk control \cite{geifman2017,elyaniv2010} share the
+abstention framing we use for the third verdict.

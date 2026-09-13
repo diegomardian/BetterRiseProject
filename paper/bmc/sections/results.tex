@@ -1,0 +1,180 @@
+% CONTRACT
+%   Every subsection states which table it reads. A number with no table is a
+%   defect, not a draft. Resolve via paper/bmc/_tables.py (newest_by_time).
+%   Quote weighting-dependent statistics WITH their weighting and denominator.
+
+\subsection{Interval methods are miscalibrated under the tested generators}
+\label{sec:interval-stress}
+% TABLE: interval_stress_calibration_summary (126), _calibration (630)
+% Contract kept: a result about these TESTED GENERATORS, never a general claim.
+% Numbers re-derived in tests/test_bmc_paper_numbers.py.
+
+We varied only the distribution of the per-patient effect, holding the Poisson
+thinning, the cohorts and the nominal level fixed. Seven cohorts, six generators,
+three interval methods, five fixed seeds and 800 trials per cell give 630 cells,
+each with a binomial standard error and a Wilson interval. Every regime is a true
+null --- the effect has mean zero --- so a rejection is a false positive and the
+measured rate is a false-positive rate.
+
+The gaussian regime is the generator the committed calibration used, and it acts
+as the control: it reproduces the committed rates. Percentile over-rejection is
+$9.9\%$ on the MLH1-methylated arm against the committed $10.7\%$, and $6.1\%$ on
+the adenoma lineage rung against $5.7\%$.
+
+Under every non-saturated generator the percentile bootstrap and BCa over-reject
+(Table~\ref{tab:stress}). The Student-$t$ interval is calibrated in the same
+cells, with one exception: under skewed effects on the MLH1-methylated arm
+($n=10$), where its median false-positive rate reaches $7.0\%$. The boundary
+regimes separate two mechanisms. Where detection saturates every method is
+conservative ($0.0\%$), not because the interval is good but because both arms
+detect every cell, so the per-patient deltas are identically zero; ordinary input
+validation fires on $35$ of $35$ such cells. In the interior it is nearly blind,
+firing on at most one of $35$ cells for any method under gaussian, skewed,
+heavy-tailed or spike-slab effects. Where detection is near zero it fires on at
+most $3$ of $35$ cells, while the audit fires on $17$ of $35$ percentile cells.
+
+\begin{table}[h]
+\centering
+\caption{Median false-positive rate (\%), by interval method and generator,
+across seven cohorts, five seeds and 800 trials per cell. Nominal is $5\%$. Every
+regime is a true null. The gaussian column is the committed generator and the
+control.}
+\label{tab:stress}
+\begin{tabular}{lrrrrrr}
+\toprule
+ & gaussian & skewed & heavy-tailed & spike-slab & boundary-rare & boundary-sat. \\
+\midrule
+percentile  & 7.0 & 7.9 & 7.8 & 6.6 & 6.4 & 0.0 \\
+BCa         & 7.1 & 7.8 & 8.6 & 7.1 & 7.1 & 0.0 \\
+Student-$t$ & 4.8 & 5.9 & 4.9 & 4.4 & 4.9 & 0.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The pre-audit diagnostic --- compare the percentile rate to the closed-form
+normal approximation --- catches skew ($12$ of $35$ percentile cells) but misses
+heavy tails ($3$ of $35$), because the closed form is a function of $n$ alone and
+carries no information about the effect distribution. Across the seven cohorts
+the measured percentile rate tracks the closed form closely under gaussian
+effects ($19.1\%$ against $18.8\%$ at $n=4$) and departs from it under skew.
+
+\textbf{What this does and does not establish.} This is a result about the tested
+generators (decision record \S3). It does not establish that BCa is generally
+worse, that the width expression is an exact coverage formula, or that
+Student-$t$ is universally calibrated.
+
+\subsection{Reported cutpoints are brackets, and one rule silently drops a
+crossing}
+\label{sec:brackets}
+% TABLE: cutpoint_crossing_brackets_summary (8), _brackets (64)
+% Contract kept: report a bracket, never a precise threshold.
+
+A calibration returns the smallest bin-median mature-cell count that meets a
+criterion. That is a point on a coarse grid, and the crossing it reports lies
+somewhere between the last failing and the first passing bin. We report that
+interval instead of the point. The two criteria are kept apart: \emph{wide} is
+coverage alone; \emph{ok} is coverage and discrimination.
+
+The separation is what exposes a silent loss. The point rule requires
+\emph{ok}, so when no bin is \emph{ok} it writes \emph{wide} as None. On the
+pooled draw pool that is exactly what happens, and a coverage crossing exists
+anyway: on both cohorts the \emph{wide} bracket is $[42.5, 70]$ mature cells,
+stable across all eight seeds, while \emph{ok} is \notest{} on all eight. The
+bracket table recovers a crossing the point rule discards.
+
+The cohorts are reported separately and never pooled. SMC's reference pool gives
+\emph{wide} $[27.5, 42.5]$ and \emph{ok} $[42.5, 70]$, both stable. KUL3's
+reference \emph{wide} is $[42.5, 70]$, stable, while its \emph{ok} bracket is
+unstable: $[150, 400]$ on one seed and $[400, 800]$ on the others. A precise
+threshold would hide that spread; the bracket is the reported quantity.
+
+\subsection{The descriptive adenoma pattern, and what fixing each choice costs}
+\label{sec:adenoma}
+% TABLE: adenoma_claim_sensitivity_summary (90), _sensitivity (2700),
+%        estimability_attrition (144)
+% Contract kept: no silencing claim; statistics quoted with weighting.
+
+Recomputing the adenoma summaries across all three weightings, four rungs, both
+denominators and all four scale-free statistics gives 2700 contrast rows and 144
+attrition rows. The primary (resolved) portion is bit-identical to the committed
+scale-free table: all 1260 rows agree on centre, interval, verdict and patient
+count.
+
+The denominator is not cosmetic. Under the primary (resolved) denominator the
+load-bearing statistic, $\log(|i|/|c|)$, is undefined on 792 of the epithelial
+rows, because the compositional term is exactly zero there by construction; under
+the rejected all-epithelial denominator only 4 rows are undefined. At the lineage
+rung, where the descriptive claim is made, the load-bearing statistic separates
+all 8 cross-block contrasts from zero under every weighting and both
+denominators. Requiring all four statistics to agree instead, 6 of 8 cross-block
+contrasts survive under doubly-robust and normal weighting and 5 of 8 under
+tumour weighting. \textbf{Those are the numbers to quote, with their weighting;
+on the load-bearing statistic the two target genes are not distinguishable at any
+rung, and that lack of a distinction does not establish their equivalence}, so no
+gene-specific claim follows.
+
+Attrition is reported rather than assumed. At lineage the resolved denominator
+retains 44 patients, one of whom is \notest{}; at best4 it retains 20, two of
+whom are \notest{}. We do not report a share of loss as a share of variance: the
+mean absolute intrinsic share is $|i|/(|i|+|c|)$, which discards signs and
+excludes the interaction from its denominator.
+
+\subsection{Two reproductions from committed derived inputs}
+\label{sec:reproductions}
+% TABLE: crowell_summary_reproduction (5), disval_reproduction (64)
+% Contract kept: labelled reproduction from derived inputs, not replication.
+
+Two readings whose raw material is no longer on disk are reproduced from derived
+tables already in version control, and labelled as such. The Crowell spatial
+summary is recomputed from the committed per-section feasibility tables: all 5
+genes reproduce exactly against the canonical run, with a zero difference in mean,
+interval, block count and interval verdict. The DIS/VAL stability split is
+rebuilt from the committed patient-to-collection assignment rather than the
+interim atlas cache, and all 64 cells (4 halves $\times$ 4 statistics $\times$ 4
+contrasts) reproduce exactly.
+
+Neither is a raw-data replication. The Crowell result remains supporting
+evidence for a tissue-level pattern and is not an independent replication of the
+decomposition or of its mechanism.
+
+\subsection{A resolver that cannot say which run it read}
+\label{sec:resolver}
+% TABLE: table_resolution_ambiguity (23 rows). This is the audit's own finding.
+
+Versioned result directories are named \texttt{\{date\}\_\{sha\}}, and the
+project's resolver took the lexicographically last, which orders runs within a
+date by commit hash rather than by time. Enumerating every table with more than
+one same-date run and comparing the two candidate frames: 23 table/date pairs
+disagree between name order and time order, and 9 of them hold different content.
+It is not hypothetical --- it produced a wrong Crowell comparison in this audit
+before it was caught. The affected \texttt{icbi\_coexpression} table feeds a
+calibration presented above, but its Pelka rows are byte-identical between the
+candidates, so no published number is wrong.
+
+Neither rule is universally right. For the panel-coverage table and the
+lesion-subtype falsifier branch the name-order pick is canonical; for Crowell,
+Becker, the MLH1 power tables and the interval calibration the time-order pick is.
+The repair is therefore not a blanket resolver change but an explicit one:
+resolve by sidecar timestamp where a comparison needs the latest run, and record
+the ambiguity as a table. This finding came from the audit running on the audit's
+own infrastructure, which is the strongest available evidence that the failure
+mode is structural rather than careless.
+
+\subsection{What the audit could not evaluate}
+\label{sec:not-evaluated}
+% TABLE: blinded_guard_challenge (12 rows), the blocked rows of
+%        reproduction_manifest. This is why the audit is not yet validated.
+
+The blinded challenge has not been executed. The committed set of 12 cases (6
+clean controls) was constructed by a worker who had read the ledger, so every
+case carries \texttt{saw\_ledger=true}; \texttt{is\_held\_out\_evaluation} is
+false, and the week-one stop rule is not readable from the table. In the
+reproduction index both the challenge and its results table carry status
+\textsc{blocked} rather than \textsc{present}. The blinded challenger and the
+second ledger rater are unfilled.
+
+Until that is discharged, the audit's stop rule --- withdraw the methods
+submission if no additional decision-relevant failure is found --- cannot be
+applied, and this manuscript cannot be submitted. This is stated in the main text
+rather than buried in the Discussion because it is the reason the reader cannot
+yet take the audit as validated.

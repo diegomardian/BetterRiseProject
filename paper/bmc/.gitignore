@@ -1,0 +1,12 @@
+# LaTeX build products. Never commit these — `./build.sh` regenerates them.
+main.pdf
+main.aux
+main.log
+main.out
+main.bbl
+main.blg
+main.bcf
+main.run.xml
+main.fls
+main.fdb_latexmk
+texput.log

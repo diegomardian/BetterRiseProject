@@ -1,0 +1,59 @@
+% BMC Bioinformatics — Methodology article.
+%
+% BMC ships a `bmcart` class. It is deliberately NOT vendored (same arrangement
+% as WMHS and neurips_2026.sty). Until it is dropped in beside this file the
+% document builds under `article` so the prose can be worked on — but THE BUILT
+% PDF IS NOT SUBMISSION GEOMETRY and no page count taken off it means anything.
+%
+% Section order is BMC's, not ours: Background, Implementation, Results,
+% Discussion, Conclusions, Declarations. Do not reorder to suit the argument.
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+
+% The one macro the whole paper depends on being right. An unestimable
+% intrinsic term is None, never 0.0 — invariant 1.
+\newcommand{\notest}{\textsc{not estimable}}
+
+\title{\textbf{[TITLE — not yet fixed]}\\
+\large Executable counterexamples for validation checks in a single-cell
+differential-composition workflow}
+
+\author{[authors — BMC is not double-blind; fill before submission]}
+\date{}
+
+\begin{document}
+\maketitle
+
+\input{sections/abstract.tex}
+
+\section{Background}
+\input{sections/background.tex}
+
+\section{Implementation}
+\input{sections/implementation.tex}
+
+\section{Results}
+\input{sections/results.tex}
+
+\section{Discussion}
+\input{sections/discussion.tex}
+
+\section{Conclusions}
+\input{sections/conclusions.tex}
+
+\input{sections/declarations.tex}
+
+\bibliographystyle{plain}
+\bibliography{refs}
+
+\end{document}

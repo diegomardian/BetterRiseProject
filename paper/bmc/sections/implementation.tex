@@ -1,0 +1,61 @@
+% CONTRACT
+%   Establishes: the audit procedure, reproducibly, so another group can run it.
+%   Sources: reproduction_manifest (the command column is the ground truth for
+%     every procedure described here).
+%   May not claim: that the 55 existing tests are held-out evaluation. They are
+%     development material (decision record §4, week 1).
+
+\subsection{The claim-check inventory}
+We assembled the validation checks the project had identified as unable to fail
+and classified each into logical impossibility, low power, implementation error,
+or provenance/reporting error. The inventory carries 24 entries against the 21
+the project's prose asserted; transcribing the ordinals scattered through the
+documentation gives 23, and one further entry was found by running new code
+rather than by review. Of the 24, 10 are implementation errors, 6 logical
+impossibilities, 6 provenance/reporting errors and 2 low-power; 15 name a
+committed input that forces the check to fail, and one is disputed.
+
+\textbf{One worker classified them, and inter-rater agreement is not
+established.} The table records a single rater and no second classification. A
+rater compared with themselves is a check that cannot fail, so the inventory
+does not claim reliability it does not have. The classification is a starting
+taxonomy, not a field-wide prevalence estimate.
+
+\subsection{The challenge protocol}
+A blinded challenger constructs previously unseen clean and violating cases
+against the checks, seals each expectation before running it, and classifies the
+consequence as decision-relevant, input-validation or algebraic-identity. A case
+counts toward the stop rule only when it was constructed without reading the
+ledger, so the existing twelve cases do not count and neither do the project's
+own regression tests. The protocol is described here as a design; Results reports
+that it has not been executed.
+
+\subsection{Stress calibration}
+We hold the Poisson detection model, the cohorts and the nominal level fixed and
+vary only the distribution of the per-patient effect: gaussian, skewed,
+heavy-tailed, spike-slab, and two boundary regimes where detection is near zero or
+near one. Each shape is standardised to unit variance and given mean zero, so the
+between-patient scale is the same everywhere and every regime is a true null.
+Seven cohorts are kept separate, with six generators, three interval methods,
+five fixed seeds and 800 trials per cell; each cell carries a binomial standard
+error and a Wilson interval.
+
+\subsection{Bracket reporting}
+A calibration returns the smallest bin-median mature-cell count meeting a
+criterion, which is a point on a coarse grid. We report instead the interval
+between the last failing and first passing bin, and we keep the two criteria
+apart: \emph{wide} is coverage alone, \emph{ok} is coverage and discrimination.
+Reporting them separately is what makes a crossing that the point rule discards
+visible at all.
+
+\subsection{Sensitivity design}
+The descriptive adenoma summaries are recomputed across all three weightings,
+four granularity rungs, both denominators and all four scale-free statistics,
+with patient counts and missingness, and with the estimability gates counted
+separately. No unestimable term enters a contrast as a zero.
+
+\subsection{Table resolution}
+Every number in this paper is read from a versioned result table by its sidecar
+timestamp, not by directory name; where a table has more than one same-date run
+the choice is recorded rather than implied. The reproduction index lists the
+producing command for each deliverable.
