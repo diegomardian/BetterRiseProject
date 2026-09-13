@@ -21,7 +21,11 @@ from pathlib import Path
 from src.common.io import write_versioned_table
 from src.common.paths import RESULTS_DIR
 from src.common.provenance import DEFAULT_SEED
-from src.reference.reproduction import build_manifest, missing_deliverables
+from src.reference.reproduction import (
+    STATUSES,
+    build_manifest,
+    unavailable_deliverables,
+)
 
 log = logging.getLogger(__name__)
 
@@ -36,16 +40,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     manifest = build_manifest(RESULTS_DIR)
     log.info("\n%s\nAUDIT REPRODUCTION INDEX\n%s", "=" * 72, "=" * 72)
     log.info("%s", manifest[[
-        "week", "area", "table", "present", "git_sha", "seed", "n_rows",
+        "week", "area", "table", "status", "table_committed", "git_sha",
+        "seed", "n_rows",
     ]].to_string(index=False))
 
-    missing = missing_deliverables(manifest)
-    if missing.empty:
-        log.info("\n  every deliverable resolves to a committed result")
+    counts = manifest["status"].value_counts().to_dict()
+    log.info("\n  status: %s", ", ".join(f"{s}={counts.get(s, 0)}" for s in STATUSES))
+    unavailable = unavailable_deliverables(manifest)
+    if unavailable.empty:
+        log.info("  every deliverable is present and usable")
     else:
-        log.info("\n  %d deliverable(s) have no committed result yet:", len(missing))
-        for row in missing.itertuples():
-            log.info("    week %s %-28s %s", row.week, row.table, row.note)
+        log.info("  %d deliverable(s) are not done:", len(unavailable))
+        for row in unavailable.itertuples():
+            log.info("    week %s %-28s %-8s %s",
+                     row.week, row.table, row.status, row.note)
 
     meta = {
         "purpose": (
@@ -56,15 +64,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         "what_this_is": (
             "a machine-readable index. Each row names a deliverable, the module "
             "that reproduces it, and the newest versioned result's sha, seed and "
-            "row count, resolved by sidecar time rather than directory name."
+            "row count, resolved by sidecar time rather than directory name. "
+            "Paths are repo-relative."
         ),
-        "what_this_is_not": (
-            "a claim that a blocked deliverable is done. guard_challenge_results "
-            "and the blinded challenge carry present=False and a note naming the "
-            "unassigned role."
+        "status_definition": {
+            "present": "committed and usable for its purpose",
+            "blocked": (
+                "cannot be used for its purpose regardless of whether a table "
+                "is committed -- e.g. every challenge case saw the ledger, so "
+                "the stop rule is not readable"
+            ),
+            "absent": "no committed result and not otherwise blocked",
+        },
+        "not_a_claim_of_done": (
+            "a blocked deliverable is not done. guard_challenge_results and "
+            "blinded_guard_challenge carry status=blocked with the unassigned "
+            "role named."
+        ),
+        "paths_are_repo_relative": (
+            "no absolute worktree path is recorded, so a fresh checkout of this "
+            "branch reproduces the index"
         ),
         "n_deliverables": int(len(manifest)),
-        "n_missing": int(len(missing)),
+        "status_counts": {s: int(counts.get(s, 0)) for s in STATUSES},
         "exploratory": False,
     }
     path = write_versioned_table(
