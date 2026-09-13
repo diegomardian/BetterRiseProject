@@ -665,6 +665,19 @@ def test_the_abstract_introduces_no_number_absent_from_results(results_tex):
     assert not extra, f"abstract has numbers not in Results: {sorted(extra)}"
 
 
+def test_the_retired_phrase_is_nowhere_in_the_paper():
+    """The n=10 error was in results.tex and the abstract.
+
+    Fixing only the section the test looked at would have left the abstract
+    wrong, which is how the phrase survived the first fix. Scan every section.
+    """
+    tex = "\n".join(
+        p.read_text()
+        for p in (REPO_ROOT / "paper" / "bmc" / "sections").glob("*.tex")
+    )
+    assert "smallest cohort" not in tex
+
+
 def test_the_conclusions_introduce_no_number_absent_from_results(results_tex):
     conclusions = (
         REPO_ROOT / "paper" / "bmc" / "sections" / "conclusions.tex"
