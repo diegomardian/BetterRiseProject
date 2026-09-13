@@ -1,0 +1,33 @@
+\paragraph{Scope and interpretation.}
+This paper makes methods and validation claims, not biological or clinical
+claims. The pre-committed control panel included genes expected to change
+compositionally, genes expected to change intrinsically, and a retained-gene
+control. In the primary cohort, the retained-gene control changed by
+$-1.000$ to $-0.951$ relative to baseline, almost matching the compositional
+controls' $-1.000$ to $-0.952$ range. The intrinsic control was too weakly
+expressed to provide a useful test (0.04 CP10K versus 19.4 and 24.9 for the two
+abundant compositional controls; CP10K denotes counts per 10,000).
+The controls therefore did not establish the intended mechanistic separation.
+A second cohort reproduced the pattern, without resolving its interpretation.
+
+\paragraph{Misuse and limitations.}
+\notest{} must not be read as ``no effect'' or as evidence that surviving cells
+are behaving normally. A separate within-cell analysis over three cohorts and
+42 patients also remained unresolved because its comparability checks returned
+\emph{undecided} (Appendix~\ref{app:guards}). Calibration here covers one gene,
+one labelling axis and one weighting on two small cohorts. It challenges this
+rule's justification, not cell-count rules in general. The draw-pool choice was
+underspecified, repeated simulations do not add independent patients, and
+patient-level uncertainty in the candidate cutpoints remains unquantified.
+The absence-defined labelling axis remains sensitive to sequencing depth
+(Appendix~\ref{app:limitations}). The patient simulations illustrate possible
+functional equalities; they do not estimate their prevalence in deployed
+virtual control arms.
+
+\paragraph{Data and impact.}
+The single-cell cohorts are public, de-identified and previously published.
+The release policy covers derived summaries and code, rather than cell-level
+matrices. A system reporting group-specific quantities should distinguish an
+unavailable comparison from an estimated null and should evaluate the coverage
+and discrimination of any abstention rule. Publishing failed calibration
+attempts helps prevent unsupported thresholds from being treated as validated.

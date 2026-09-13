@@ -1,0 +1,60 @@
+\section{Motivation: recovery and decision-rule validation}
+\label{sec:intro}
+
+Validation of a virtual control arm must distinguish recovery of a requested
+effect from reproduction of a statistic computed on the simulated patients.
+These comparisons can coincide even for correctly implemented estimators.
+We examine this equality in a stratified patient simulator, including
+randomisation and censoring, and revisit the failed calibration that motivated
+the audit.
+
+Our motivating application separates two explanations for differentiation-marker
+loss in colorectal cancer: fewer marker-producing cells (a \emph{compositional}
+change), or lower output from the cells that remain (an \emph{intrinsic}
+change). These explanations suggest different biological interpretations.
+Single-cell measurements can distinguish them only when the relevant population
+is observed in both tissues. Let $f_N,f_T$ denote the relevant cell fractions
+in reference and diseased tissue, and $m_N,m_T$ their mean per-cell output.
+A reference-based decomposition, related to demographic standardisation and
+Oaxaca--Blinder decompositions \citep{kitagawa1955,oaxaca1973,blinder1973}, is
+\begin{equation}
+\underbrace{(f_T-f_N)m_N}_{\text{compositional}} +
+\underbrace{f_N(m_T-m_N)}_{\text{intrinsic}} +
+\underbrace{(f_T-f_N)(m_T-m_N)}_{\text{interaction}}
+= f_Tm_T-f_Nm_N.
+\label{eq:kitagawa}
+\end{equation}
+The interaction is reported separately. If no relevant cells are observed in
+an arm, its sample mean is undefined; the identity cannot supply the missing
+mean. In a synthetic population with no such cells, the corresponding
+conditional mean itself has no referent. Substituting zero in either case
+turns an unavailable contrast into an apparent effect.
+
+Our implementation therefore reports an estimate, a wide-interval estimate, or
+\notest{}, stored as \texttt{None} rather than $0.0$. The committed rule uses
+$n$, the relevant-cell count in the diseased arm: estimate at $n\geq50$, flag a
+wide interval at 20--49, and abstain below 20. The question is whether the
+validation used to justify these cutpoints actually tested their coverage and
+discrimination requirements.
+
+\paragraph{Relation to existing validation methods.}
+Generator--analysis alignment is well known. Congeniality concerns compatibility
+of imputation and analysis models \citep{meng1994}; plasmode and semi-synthetic
+benchmarks can favour methods sharing modelling choices
+\citep{franklin2014,curth2021}; interventional evaluation offers another
+comparison \citep{gentzel2019}; and generators can disadvantage good estimators
+\citep{shaw2026}. The inverse crime includes reuse of forward and inverse
+ingredients \citep{wirgin2004,kaipio2007}. Our contribution is an operational
+audit of a chosen recovery statistic, examples showing its dependence on the
+reference and trial design, and a decision-rule calibration that fails when
+evaluated directly. Appendix~\ref{app:relatedwork} places the audit alongside
+simulation-study methodology and selective prediction.
+
+Simulation-based calibration (SBC) checks posterior ranks under prior-predictive
+simulation \citep{talts2018}. Our point-estimator arms provide no posterior
+samples, so SBC is not directly applicable. A correct posterior can pass SBC
+while its point estimate equals our reference; conversely, SBC can expose
+posterior errors that our residual cannot. Diagnostic sensitivity also depends
+on the chosen test quantity \citep{modrak2025}. The proposed audit complements
+these checks by asking whether the estimator and reference are the same
+functional of the draw.

@@ -23,12 +23,8 @@ Simulation and Intervention-Aware Reasoning}
 
 \captionsetup{font=small,labelfont=bf}
 
-% Build switch. main.tex is the nine-page full paper; main_short.tex sets this
-% false for the four-page extended abstract. BOTH read the same sections/ files,
-% so the short version is a strict subset of the same prose rather than a
-% rewrite — a number cannot say one thing in one build and something else in the
-% other, which given what this paper is about would be an embarrassing way to be
-% wrong. What the short build drops from the main text, its appendix carries.
+% Full-paper revisions live in sections/full/; the extended abstract keeps
+% its original sections/ sources. Shared numerical tables and figures are unchanged.
 \newif\iffull
 \fulltrue
 
@@ -48,34 +44,32 @@ a validation blind spot in virtual control arms}
 \begin{document}
 \maketitle
 
-\input{sections/abstract.tex}
+\input{sections/full/abstract.tex}
 
 
-% Section order follows the abstract: the blind statistic first, then what a
-% correct calibration returns. The competitor benchmark is Appendix A in BOTH
-% builds --- it was the ninth page the full build did not have, and it is the
-% one section neither build's argument depends on. Labels are stable, so \ref
-% works regardless of order --- but the prose cross-references do not, and they
-% were checked when this was moved.
-\input{sections/setup.tex}
+% Main argument, calibration, and supporting appendix. Only sections with a
+% full-paper revision live in sections/full/; blind, calibration and appendix
+% are shared with the extended abstract, so their tables and figures cannot
+% differ between the two builds.
+\input{sections/full/setup.tex}
 \input{sections/blind.tex}
 \input{sections/calibration.tex}
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-\input{sections/conclusion.tex}
+\input{sections/full/conclusion.tex}
 
 \section{Responsible use, limitations and impact}
 \label{sec:responsible}
 
-\input{sections/responsible.tex}
+\input{sections/full/responsible.tex}
 
 \bibliographystyle{plainnat}
 \bibliography{refs}
 
 \clearpage
 \input{sections/appendix.tex}
-\input{sections/llm.tex}
+\input{sections/full/llm.tex}
 
 \end{document}

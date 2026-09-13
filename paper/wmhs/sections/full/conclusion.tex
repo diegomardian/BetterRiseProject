@@ -1,0 +1,20 @@
+A recovery curve can describe sampling performance while adding no comparison
+beyond a specified empirical reference. Reporting the residual against that
+reference makes this limitation visible. In our patient simulator, equality
+depends on the estimator, reference functional and treatment-assignment design;
+under censoring, observed-data and latent-time references answer different
+questions. Neither equality nor departure ranks estimator quality.
+
+The motivating calibration shows why the distinction matters. The recovery
+curve was used to justify a cell-count rule whose direct coverage and
+discrimination evaluation returned either no qualifying cutpoint or candidates
+that depended on the grid and cohort. A separate synthetic benchmark
+(Appendix~\ref{app:bench}) found that checking for an undefined comparison
+prevented the same false interpretations as the count gate, with fewer refusals
+under the tested Poisson model.
+
+Pre-specify the reference, report non-finite outputs and residual scale, and
+investigate numerical equality algebraically. Continue to evaluate error
+against the requested parameter, interval coverage and the decision rule
+separately. These checks establish different properties; a convincing recovery
+curve cannot substitute for all of them.
