@@ -1,0 +1,60 @@
+{
+  "date": "2026-09-12",
+  "utc_timestamp": "2026-09-13T01:19:18+00:00",
+  "git_sha": "334007f9ec22db13e300e73c783cb0cbe41ef13e",
+  "git_sha_short": "334007f",
+  "git_branch": "w1/claim-check-audit",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "adenoma_claim_sensitivity_summary",
+  "n_rows": 90,
+  "columns": [
+    "denominator",
+    "granularity_rung",
+    "weighting",
+    "statistic",
+    "n_contrasts",
+    "n_excluding_zero",
+    "n_patients_min",
+    "n_patients_max",
+    "share_excluding_zero",
+    "load_bearing"
+  ],
+  "table_kind": "harness",
+  "purpose": "DECISION_2026-09-11_scope_and_pivot.md \u00a74 week 3: recompute the Chen adenoma summaries across all weightings, rungs, both denominators and all four scale-free statistics, with patient counts and missingness, to answer the second reviewer objection.",
+  "provenance_kind": "reproduction from derived inputs, NOT a replication from raw data. Every row is recomputed from committed per-patient tables already in git; no new endpoint is opened.",
+  "sources": {
+    "primary": "results/2026-09-06_5791c01/adenoma_decomposition.parquet",
+    "all_epithelial": "results/2026-09-06_5791c01/adenoma_decomposition_all_epithelial.parquet",
+    "compositional": "results/2026-09-06_5791c01/adenoma_decomposition_compositional_estimability.parquet"
+  },
+  "denominators": {
+    "resolved": "mature cells over cells resolved to a maturity bin (decision #14 primary)",
+    "all_epithelial": "mature cells over all epithelial cells (the denominator #14 rejected)"
+  },
+  "weightings": [
+    "doubly_robust",
+    "normal",
+    "tumour"
+  ],
+  "statistics": [
+    "log_ratio",
+    "ratio",
+    "share_abs",
+    "share_signed"
+  ],
+  "rungs": [
+    "best4",
+    "crypt_position",
+    "epithelial",
+    "lineage"
+  ],
+  "not_included": "detection-scale statistics (cloglog, log2_cp10k, detection) are a different estimand on a different scale and are reported in adenoma_specificity_disagreements.parquet. Including them here would compare two estimands and call it a sensitivity analysis.",
+  "none_is_not_zero": "a None intrinsic term is dropped before any contrast and counted in estimability_attrition; it never enters a numerator as zero",
+  "exploratory": false
+}
