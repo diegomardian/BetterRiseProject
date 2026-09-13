@@ -1,0 +1,49 @@
+{
+  "date": "2026-09-13",
+  "utc_timestamp": "2026-09-13T07:15:35+00:00",
+  "git_sha": "1b8ae5bba1067cdf324ecfe9cd53168c62f52f84",
+  "git_sha_short": "1b8ae5b",
+  "git_branch": "w1/bmc-manuscript",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "reproduction_manifest",
+  "n_rows": 14,
+  "columns": [
+    "week",
+    "area",
+    "deliverable",
+    "table",
+    "command",
+    "note",
+    "status",
+    "table_committed",
+    "path",
+    "git_sha",
+    "git_dirty",
+    "seed",
+    "n_rows",
+    "utc_timestamp"
+  ],
+  "table_kind": "harness",
+  "purpose": "DECISION_2026-09-11_scope_and_pivot.md \u00a74 week 4: package the audit for another researcher, with executable examples and reproduction instructions.",
+  "what_this_is": "a machine-readable index. Each row names a deliverable, the module that reproduces it, and the newest versioned result's sha, seed and row count, resolved by sidecar time rather than directory name. Paths are repo-relative.",
+  "status_definition": {
+    "present": "committed and usable for its purpose",
+    "blocked": "cannot be used for its purpose regardless of whether a table is committed -- e.g. every challenge case saw the ledger, so the stop rule is not readable",
+    "absent": "no committed result and not otherwise blocked"
+  },
+  "not_a_claim_of_done": "a blocked deliverable is not done. guard_challenge_results and blinded_guard_challenge carry status=blocked with the unassigned role named.",
+  "paths_are_repo_relative": "no absolute worktree path is recorded, so a fresh checkout of this branch reproduces the index",
+  "n_deliverables": 14,
+  "status_counts": {
+    "present": 12,
+    "blocked": 2,
+    "absent": 0
+  },
+  "exploratory": false
+}
