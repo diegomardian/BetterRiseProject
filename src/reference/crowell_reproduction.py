@@ -19,6 +19,9 @@ kind of green light this project is about.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pandas as pd
 
 #: Absolute tolerance for a reproduction match. The aggregate is a mean and a
@@ -29,6 +32,37 @@ MATCH_ATOL: float = 1e-9
 
 class ReproductionError(ValueError):
     """A summary frame that cannot be compared to the committed one."""
+
+
+def newest_by_time(results_dir: Path, name: str) -> Path | None:
+    """The most recently *written* ``name`` table, by its sidecar timestamp.
+
+    NOT ``sorted(...)[-1]``, and the reason is not hypothetical. The Crowell
+    multisection job ran six times on 2026-09-07, and a directory name is
+    ``{date}_{sha7}``: sorting names orders them by sha, not by time, and picks
+    ``2026-09-07_e1b1cc4`` -- the second-earliest of the six. The canonical
+    table is ``2026-09-07_da1f46b``, written at 22:17. ``paper/icbinb/_tables.py``
+    already had to fix this same resolver; the jobs had not.
+
+    Falls back to mtime only when a sidecar is absent or unreadable, so a table
+    without provenance is not silently dropped.
+    """
+    matches = sorted(results_dir.glob(f"*/{name}.parquet"))
+    if not matches:
+        return None
+
+    def written_at(path: Path) -> tuple[str, float]:
+        sidecar = path.with_suffix("").with_suffix(".meta.json")
+        if not sidecar.exists():
+            sidecar = path.parent / f"{name}.meta.json"
+        stamp = ""
+        try:
+            stamp = str(json.loads(sidecar.read_text()).get("utc_timestamp") or "")
+        except (OSError, ValueError):
+            stamp = ""
+        return stamp, path.stat().st_mtime
+
+    return max(matches, key=written_at)
 
 
 def compare_summaries(

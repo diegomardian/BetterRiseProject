@@ -29,15 +29,10 @@ import pandas as pd
 from src.common.io import write_versioned_table
 from src.common.paths import RESULTS_DIR
 from src.common.provenance import DEFAULT_SEED
-from src.reference.crowell_reproduction import compare_summaries
+from src.reference.crowell_reproduction import compare_summaries, newest_by_time
 from src.reference.jobs.crowell_multisection import aggregate, per_block_did
 
 log = logging.getLogger(__name__)
-
-
-def newest(name: str) -> Path | None:
-    matches = sorted(RESULTS_DIR.glob(f"*/{name}.parquet"))
-    return matches[-1] if matches else None
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -50,7 +45,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    committed_path = args.committed or newest("crowell_multisection_summary")
+    committed_path = args.committed or newest_by_time(
+        RESULTS_DIR, "crowell_multisection_summary"
+    )
     if committed_path is None:
         raise SystemExit("no results/*/crowell_multisection_summary.parquet to "
                          "compare against")
