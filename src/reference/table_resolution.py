@@ -61,18 +61,54 @@ def newest_by_time(results_dir: Path, name: str) -> Path | None:
     return max(matches, key=written_at)
 
 
-def ambiguous_same_date(results_dir: Path) -> list[dict[str, object]]:
+def _tracked_paths(results_dir: Path) -> set[Path] | None:
+    """Resolved paths git tracks under ``results_dir``, or None if git fails.
+
+    The ambiguity audit must reflect the **committed** repository. A working
+    tree also holds the run you are doing right now, and writing a second
+    ``reproduction_manifest`` under today's date would create an ambiguity that
+    exists only because the audit ran -- the table would change every time it
+    was regenerated. Filtering to tracked paths makes the finding a function of
+    the commit, which is what a reproduction needs.
+    """
+    import subprocess
+
+    root = results_dir.parent
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--", str(results_dir)],
+            capture_output=True, text=True, check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return {(root / line).resolve() for line in proc.stdout.splitlines() if line}
+
+
+def ambiguous_same_date(
+    results_dir: Path, *, committed_only: bool = False
+) -> list[dict[str, object]]:
     """Every ``(table, date)`` where name order and time order disagree.
 
     The audit's finding, as a function rather than a paragraph: a resolver that
     cannot say which of two runs it read is a check that cannot fail one level
     out. Returns one row per disagreement with both candidate directories, so a
     caller can report the ambiguity instead of resolving it silently.
+
+    ``committed_only`` restricts the scan to git-tracked result tables; see
+    ``_tracked_paths`` for why the audit should use it.
     """
     from collections import defaultdict
 
+    metas = sorted(results_dir.glob("*/*.meta.json"))
+    if committed_only:
+        tracked = _tracked_paths(results_dir)
+        if tracked is not None:
+            metas = [meta for meta in metas if meta.resolve() in tracked]
+
     by_name: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for meta in results_dir.glob("*/*.meta.json"):
+    for meta in metas:
         name = meta.name[: -len(".meta.json")]
         try:
             stamp = str(json.loads(meta.read_text()).get("utc_timestamp") or "")
@@ -121,10 +157,12 @@ def candidate_content(
     }
 
 
-def ambiguity_audit(results_dir: Path) -> list[dict[str, object]]:
+def ambiguity_audit(
+    results_dir: Path, *, committed_only: bool = False
+) -> list[dict[str, object]]:
     """``ambiguous_same_date`` plus whether each disagreement has consequences."""
     rows = []
-    for row in ambiguous_same_date(results_dir):
+    for row in ambiguous_same_date(results_dir, committed_only=committed_only):
         content = candidate_content(
             results_dir, str(row["table"]),
             str(row["name_order_picks"]), str(row["time_order_picks"]),

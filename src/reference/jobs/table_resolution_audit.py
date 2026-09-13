@@ -47,7 +47,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    rows = ambiguity_audit(RESULTS_DIR)
+    rows = ambiguity_audit(RESULTS_DIR, committed_only=True)
     frame = pd.DataFrame(rows)
     if frame.empty:
         log.info("no ambiguous same-date resolution found")
@@ -78,6 +78,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             "disposition='differs' iff the two candidate frames are not exactly "
             "equal including row order; 'identical' means the ambiguity is "
             "harmless for this table because both runs hold the same bytes."
+        ),
+        "scan_scope": (
+            "git-tracked result tables only. The audit must be a function of the "
+            "commit, not of the working tree: running this job writes a result, "
+            "and a second same-date run of any table it reports on would "
+            "otherwise invent an ambiguity that exists only because the audit "
+            "ran."
         ),
         "n_ambiguous": int(len(frame)),
         "n_consequential": int(len(consequential)),
