@@ -28,6 +28,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pandas as pd
+
 
 def newest(results_dir: Path, name: str) -> Path | None:
     """Newest ``name`` table by directory name. Ambiguous within a date."""
@@ -95,3 +97,39 @@ def ambiguous_same_date(results_dir: Path) -> list[dict[str, object]]:
                     "time_order_picks": time_last,
                 })
     return sorted(rows, key=lambda r: (str(r["table"]), str(r["date"])))
+
+
+def candidate_content(
+    results_dir: Path, table: str, name_pick: str, time_pick: str
+) -> dict[str, object]:
+    """Whether the two candidate runs actually differ, not just their names.
+
+    An ambiguous resolver is only consequential when the two runs hold different
+    content. Measuring that turns "23 ambiguities" into "N of them matter",
+    which is the number the audit can act on. ``frames_identical`` is exact
+    frame equality including row order, so a table that was merely re-emitted is
+    reported identical and a superseded one is not.
+    """
+    left = pd.read_parquet(results_dir / name_pick / f"{table}.parquet")
+    right = pd.read_parquet(results_dir / time_pick / f"{table}.parquet")
+    same_columns = sorted(map(str, left.columns)) == sorted(map(str, right.columns))
+    return {
+        "name_pick_rows": int(len(left)),
+        "time_pick_rows": int(len(right)),
+        "same_columns": bool(same_columns),
+        "frames_identical": bool(same_columns and left.equals(right)),
+    }
+
+
+def ambiguity_audit(results_dir: Path) -> list[dict[str, object]]:
+    """``ambiguous_same_date`` plus whether each disagreement has consequences."""
+    rows = []
+    for row in ambiguous_same_date(results_dir):
+        content = candidate_content(
+            results_dir, str(row["table"]),
+            str(row["name_order_picks"]), str(row["time_order_picks"]),
+        )
+        rows.append(row | content | {
+            "disposition": "identical" if content["frames_identical"] else "differs",
+        })
+    return rows

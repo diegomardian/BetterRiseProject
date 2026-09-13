@@ -10,8 +10,12 @@ from __future__ import annotations
 
 import json
 
+import pandas as pd
+
 from src.reference.table_resolution import (
+    ambiguity_audit,
     ambiguous_same_date,
+    candidate_content,
     newest,
     newest_by_time,
 )
@@ -72,3 +76,47 @@ def test_newest_by_time_falls_back_to_mtime_without_sidecars(tmp_path):
     # No sidecars anywhere, so mtime decides and the newer file wins despite its
     # name sorting first.
     assert newest_by_time(tmp_path, "thing").parent.name == "2026-01-01_zzzzzzz"
+
+
+def _result_with_table(tmp_path, dirname, stamp, values):
+    d = tmp_path / dirname
+    d.mkdir()
+    pd.DataFrame({"a": values, "b": [1.0] * len(values)}).to_parquet(
+        d / "thing.parquet"
+    )
+    (d / "thing.meta.json").write_text(json.dumps({"utc_timestamp": stamp}))
+    return d
+
+
+def test_candidate_content_separates_harmless_from_consequential(tmp_path):
+    _result_with_table(tmp_path, "2026-09-07_e1b1cc4", "2026-09-07T19:49:01+00:00",
+                       [1, 2, 3])
+    _result_with_table(tmp_path, "2026-09-07_da1f46b", "2026-09-07T22:17:00+00:00",
+                       [1, 2, 3])
+    same = candidate_content(
+        tmp_path, "thing", "2026-09-07_e1b1cc4", "2026-09-07_da1f46b"
+    )
+    assert same["frames_identical"]
+    assert same["same_columns"]
+    assert same["name_pick_rows"] == same["time_pick_rows"] == 3
+
+
+def test_candidate_content_flags_a_superseded_run(tmp_path):
+    _result_with_table(tmp_path, "2026-09-07_e1b1cc4", "2026-09-07T19:49:01+00:00",
+                       [1, 2, 3])
+    _result_with_table(tmp_path, "2026-09-07_da1f46b", "2026-09-07T22:17:00+00:00",
+                       [9, 9, 9])
+    out = candidate_content(
+        tmp_path, "thing", "2026-09-07_e1b1cc4", "2026-09-07_da1f46b"
+    )
+    assert not out["frames_identical"]
+
+
+def test_ambiguity_audit_marks_consequence(tmp_path):
+    _result_with_table(tmp_path, "2026-09-07_e1b1cc4", "2026-09-07T19:49:01+00:00",
+                       [1, 2, 3])
+    _result_with_table(tmp_path, "2026-09-07_da1f46b", "2026-09-07T22:17:00+00:00",
+                       [9, 9, 9])
+    rows = ambiguity_audit(tmp_path)
+    assert len(rows) == 1
+    assert rows[0]["disposition"] == "differs"
