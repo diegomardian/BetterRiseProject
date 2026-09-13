@@ -573,9 +573,18 @@ def test_aipw_with_saturated_nuisances_is_blind(blind_tex, matrix):
 
 
 def test_the_information_ratio_does_not_improve_with_n(blind_tex, rho):
-    """OLS sits at 0.13 at every cohort size -- 88% generator noise."""
+    """OLS sits at 0.13 at every cohort size -- and is not a variance share.
+
+    The prose used to call the complement "88% of its recovery curve is
+    generator noise", which asserts a decomposition the statistic does not
+    support: rho is a ratio of median absolute deviations. It now states the
+    ratio and drops the percentage (M03); this test pins both.
+    """
     _quotes(blind_tex, chr(92) + "rho$ between $0.129$ and $0.137$ at every cohort size")
-    _quotes(blind_tex, "88" + chr(92) + "% of its recovery curve is generator")
+    _quotes(blind_tex, "a ratio of median absolute deviations")
+    # The retired claim must not come back. The complement is still in the
+    # table; what changed is that the prose no longer names it a noise share.
+    assert "88" + chr(92) + "% of its recovery curve" not in blind_tex
     ols = rho[
         (rho["estimator"] == "ols-stratum-dummies")
         & (rho["design"] == "confounded-bernoulli")

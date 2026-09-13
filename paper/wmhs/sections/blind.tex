@@ -160,8 +160,12 @@ the residual against realised truth is what separates the two.
 
 \iffull
 \paragraph{The check is sound and not complete, and we can say how incomplete.}
-An exact zero proves blindness: if $\hat\theta \equiv \theta_{\text{realised}}$
-the ratio is a functional of the generator, by algebra. The converse fails, in
+An exact zero proves that \emph{this comparison} is blind: if
+$\hat\theta \equiv \theta_{\text{realised}}$ the ratio is a functional of the
+generator, by algebra, so it carries no information about the estimator. It does
+not follow that the validation is uninformative --- simulation can still measure
+bias, variance and coverage against a population parameter the sample does not
+reproduce exactly. The converse fails, in
 three ways we can measure (Table~\ref{tab:matrix}, 14 estimators $\times$ 3
 designs $\times$ 2 realised truths $\times$ 6 cohort sizes $\times$ 6 seeds).
 
@@ -199,14 +203,15 @@ generator's own sampling error,
 \rho \;=\; \frac{\mathrm{med}\,|\hat\theta - \theta_{\text{realised}}|}
                 {\mathrm{med}\,|\theta_{\text{realised}} - \theta|},
 \]
-the fraction of the recovery curve's spread the estimator is responsible for at
-all. OLS scores $\rho$ between $0.129$ and $0.137$ at every cohort size from
-100 to 5{,}000, with no trend in $n$: \textbf{88\% of its recovery curve is generator
-sampling noise}, and it passes the boolean check. Cross-fitted IPW falls
-$1.69 \rightarrow 0.23$, ending 81\% generator noise at $n = 5{,}000$. The
-unadjusted difference scores $52.8$ and is the only estimator here whose curve
-is mostly about itself. $\rho = 0$ is the boolean check as a special case;
-$0 < \rho \ll 1$ is the regime it cannot see.
+a ratio of median absolute deviations --- the estimator's median residual in
+units of the generator's own sampling error, not a share of any variance. OLS
+scores $\rho$ between $0.129$ and $0.137$ at every cohort size from $100$ to
+$5{,}000$, with no trend in $n$: its median residual is about an eighth of the
+generator's, and it passes the boolean check. Cross-fitted IPW falls
+$1.69 \rightarrow 0.23$ by $n = 5{,}000$. The unadjusted difference scores
+$52.8$ and is the only estimator here whose residual exceeds the generator's.
+$\rho = 0$ is the boolean check as a special case; $0 < \rho \ll 1$ is the
+regime it cannot see.
 \fi
 
 \iffull

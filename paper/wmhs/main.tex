@@ -66,9 +66,9 @@ G-computation, saturated-propensity weighting and non-cross-fitted AIPW --- so
 cross-fitting is what stands between the modern doubly-robust estimator and a
 vacuous curve --- while under the block randomisation real trials use, the
 verdict flips and even an unadjusted difference goes blind. The check is sound
-and not complete: an estimator can pass it with 88\% of its curve still
-generator noise, so report the residual in units of the generator's own
-sampling error. Under censoring it silences against the latent event times a
+and not complete: an estimator can pass it with a median residual still a small
+fraction of the generator's own sampling error, so report that residual as a
+ratio rather than a boolean. Under censoring it silences against the latent event times a
 simulator naturally logs, and holds against the observed data. The abstention
 rule our blind curve had certified does not survive recalibration.
 \end{abstract}
