@@ -29,8 +29,9 @@ import pandas as pd
 from src.common.io import write_versioned_table
 from src.common.paths import RESULTS_DIR
 from src.common.provenance import DEFAULT_SEED
-from src.reference.crowell_reproduction import compare_summaries, newest_by_time
+from src.reference.crowell_reproduction import compare_summaries
 from src.reference.jobs.crowell_multisection import aggregate, per_block_did
+from src.reference.table_resolution import newest_by_time
 
 log = logging.getLogger(__name__)
 

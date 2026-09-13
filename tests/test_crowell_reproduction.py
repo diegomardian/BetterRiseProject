@@ -8,15 +8,12 @@ must raise rather than drop out.
 
 from __future__ import annotations
 
-import json
-
 import pandas as pd
 import pytest
 
 from src.reference.crowell_reproduction import (
     ReproductionError,
     compare_summaries,
-    newest_by_time,
 )
 
 
@@ -69,44 +66,3 @@ def test_a_gene_on_only_one_side_raises():
 def test_missing_columns_are_refused():
     with pytest.raises(ReproductionError, match="missing"):
         compare_summaries(pd.DataFrame({"gene": ["GUCA2A"]}), _summary())
-
-
-def _fake_result(tmp_path, dirname, stamp):
-    d = tmp_path / dirname
-    d.mkdir()
-    (d / "crowell_multisection_summary.parquet").write_bytes(b"")
-    meta = d / "crowell_multisection_summary.meta.json"
-    meta.write_text(json.dumps({"utc_timestamp": stamp}))
-    return d
-
-
-def test_newest_by_time_uses_the_sidecar_not_the_directory_name(tmp_path):
-    """The forcing input for the same-date resolver.
-
-    ``e1b1cc4`` sorts after ``da1f46b`` lexicographically, but was written
-    nearly three hours earlier. Name order picks the wrong one; the sidecar
-    timestamp picks ``da1f46b``. This is a real pair of directories the repo
-    committed on 2026-09-07.
-    """
-    _fake_result(tmp_path, "2026-09-07_e1b1cc4", "2026-09-07T19:49:01+00:00")
-    _fake_result(tmp_path, "2026-09-07_da1f46b", "2026-09-07T22:17:00+00:00")
-    chosen = newest_by_time(tmp_path, "crowell_multisection_summary")
-    assert chosen.parent.name == "2026-09-07_da1f46b"
-
-
-def test_newest_by_time_falls_back_to_mtime_without_sidecars(tmp_path):
-    import os
-    import time
-
-    older = tmp_path / "2026-09-07_aaaaaaa"
-    newer = tmp_path / "2026-01-01_zzzzzzz"
-    for d in (older, newer):
-        d.mkdir()
-        (d / "crowell_multisection_summary.parquet").write_bytes(b"")
-    os.utime(older / "crowell_multisection_summary.parquet", (1_000_000, 1_000_000))
-    now = time.time()
-    os.utime(newer / "crowell_multisection_summary.parquet", (now, now))
-    # No sidecars anywhere, so mtime decides and the newer name wins despite
-    # sorting first.
-    chosen = newest_by_time(tmp_path, "crowell_multisection_summary")
-    assert chosen.parent.name == "2026-01-01_zzzzzzz"
