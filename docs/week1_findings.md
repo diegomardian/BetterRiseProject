@@ -142,12 +142,18 @@ Unblocked by [week1_challenge_protocol.md](week1_challenge_protocol.md).
 
 ## 6. What the overlap matrix says about the submission
 
-Of ten overlap rows: **5 already published, 3 extended, 2 new.** Novelty share
-**0.20**. The two new rows are the classified inventory and the harness's
-identity-versus-failure discrimination. The recovery-curve thesis, the
-realised-draw diagnostic, the interval calibration grid, the
-carcinoma-versus-adenoma non-collapse and the forcing-input rule are all the
-workshop paper's, cited rather than claimed.
+Of ten overlap rows: **5 already published, 2 extended, 2 new, and 1 whose claim
+the audit contradicts** (O03, which carries the retired "generator noise"
+overstatement). Novelty share **0.20**. The two new rows are the classified
+inventory and the harness's identity-versus-failure discrimination. The
+recovery-curve thesis, the realised-draw diagnostic, the interval calibration
+grid, the carcinoma-versus-adenoma non-collapse and the forcing-input rule are
+all the workshop paper's, cited rather than claimed.
+
+*Corrected 2026-09-13.* This paragraph said "3 extended" and counted the
+contradicted row as an extension; the committed
+`workshop_overlap.parquet` has 2 extended and 1 contradicted. Found while
+writing the BMC Prior-presentation declaration against the table.
 
 **This is the honest answer to reviewer objection 3 and it is not a comfortable
 one.** A reviewer who finds undeclared overlap will not believe anything else in

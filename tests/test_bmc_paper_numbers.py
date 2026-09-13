@@ -628,3 +628,70 @@ def test_the_stress_design_is_the_prose_design(stress_cells, results_tex):
         results_tex,
         "three interval methods, five fixed seeds and 800 trials per cell give 630 cells",
     )
+
+
+# ---------------------------------------------------------------------------
+# Discussion, Conclusions and Declarations
+# ---------------------------------------------------------------------------
+
+
+def test_the_discussion_repeats_the_results_numbers():
+    discussion = (
+        REPO_ROOT / "paper" / "bmc" / "sections" / "discussion.tex"
+    ).read_text()
+    _quotes(discussion, "separates all eight cross-block contrasts from zero under every")
+    _quotes(discussion, "six of eight")
+    _quotes(discussion, "five of eight under tumour")
+    # The same table as Results, so the Discussion cannot state a different one.
+    summary = pd.read_parquet(
+        newest_by_time(RESULTS_DIR, "adenoma_claim_sensitivity_summary")
+    )
+    lineage = summary[
+        (summary["granularity_rung"] == "lineage")
+        & (summary["statistic"] == "log_ratio")
+    ]
+    assert lineage["n_excluding_zero"].eq(8).all()
+
+
+def _numbers(tex: str) -> set[str]:
+    return set(re.findall(r"\d+(?:\.\d+)?", tex))
+
+
+def test_the_abstract_introduces_no_number_absent_from_results(results_tex):
+    abstract = (
+        REPO_ROOT / "paper" / "bmc" / "sections" / "abstract.tex"
+    ).read_text()
+    extra = _numbers(abstract) - _numbers(results_tex)
+    assert not extra, f"abstract has numbers not in Results: {sorted(extra)}"
+
+
+def test_the_conclusions_introduce_no_number_absent_from_results(results_tex):
+    conclusions = (
+        REPO_ROOT / "paper" / "bmc" / "sections" / "conclusions.tex"
+    ).read_text()
+    extra = _numbers(conclusions) - _numbers(results_tex)
+    assert not extra, f"Conclusions has numbers not in Results: {sorted(extra)}"
+
+
+def test_the_prior_presentation_numbers_are_the_overlap_table():
+    declarations = (
+        REPO_ROOT / "paper" / "bmc" / "sections" / "declarations.tex"
+    ).read_text()
+    overlap = pd.read_parquet(newest_by_time(RESULTS_DIR, "workshop_overlap"))
+    assert overlap["kind"].value_counts().to_dict() == {"overlap": 10, "math_claim": 4}
+    statuses = (
+        overlap[overlap["kind"] == "overlap"]["status"].value_counts().to_dict()
+    )
+    # The earlier record said "3 extended"; the table has 2 extended and 1
+    # contradicted (O03 carries the retired "generator noise" claim).
+    assert statuses == {
+        "already_published": 5, "extended": 2, "new": 2, "contradicted": 1,
+    }
+    novelty = statuses["new"] / sum(statuses.values())
+    assert round(novelty, 2) == 0.20
+
+    _quotes(declarations, "5 already published, 2")
+    _quotes(declarations, "novelty share of $0.20$")
+    # The submission gate is disclosed in the Declarations too.
+    _quotes(declarations, r"present in the index as")
+    _quotes(declarations, r"\textsc{blocked}, not as done")
