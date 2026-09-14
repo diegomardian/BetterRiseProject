@@ -335,7 +335,55 @@ audit, no amendment was made.
 
 ### Amendment log
 
-*(none yet)*
+#### A-1 — 2026-09-13 — relaxed query strings after six of ten returned zero
+
+**What changed.** Six of the ten pre-registered query strings (Q1, Q2, Q3, Q5,
+Q6, Q7) returned **zero** results. This is not a statement about the field; it
+is GitHub's search semantics. `gh search repos` matches multi-word queries as a
+conjunction over repository *name, description and topics* only — it does not
+index READMEs — so `synthetic control arm clinical trial simulation` requires
+all six words in one short description. `gh search code` likewise ANDs terms, so
+`"true_ate" simulate` requires both tokens in the same file.
+
+Verified at the time of amendment: `gh search code '"true_ate"'` returns
+results, `gh search code '"true_ate" simulate'` returns none.
+
+**Prompted by.** No repository. The amendment is prompted by a mechanical
+property of the search tool, observed before any repository's code was opened.
+At the time of writing this amendment, the only repository-level information
+seen was the name, description and star count returned by Q4 and Q10 in their
+own result lists. No file inside any repository had been read.
+
+**Why the original was inadequate.** The original strings were written as
+natural-language topic descriptions rather than as index queries. Left
+unamended, the audit would have screened from Q4 and the three web queries
+alone, losing the synthetic-control-arm, external-control-arm and target-trial
+domains entirely — the domains the paper's claim is actually about.
+
+**The amended strings.** Each is the original with the non-indexing terms
+removed; no new topic is introduced and no repository was selected into a
+query.
+
+| id | replaces | source | amended query string | n results |
+|----|----------|--------|----------------------|-----------|
+| Q1b | Q1 | S1 | `synthetic control arm` | 2 |
+| Q2b | Q2 | S1 | `external control arm` | 2 |
+| Q3b | Q3 | S1 | `target trial emulation` | 8 |
+| Q5b | Q5 | S1 | `causal estimator simulation` | 0 |
+| Q6b | Q6 | S2 | `"true_ate"` | 15 hits / 10 repos |
+| Q7b | Q7 | S2 | `"true_effect"` | 15 hits / 8 repos |
+
+Q4, Q8, Q9 and Q10 ran **as pre-registered** and are unamended. Q5b still
+returns zero and is recorded as a zero-yield query, not replaced again.
+
+**Re-application to repositories already examined.** None had been examined.
+The amendment therefore requires no re-classification. Every queue entry
+records the query that produced it, so a reader can discount anything reached
+by an amended query (§2.2).
+
+**What did not change.** The classification rule (§3), the inclusion criteria
+(§2.3), the round-robin selection rule (§2.4), the target N (§5) and the
+null-result commitment (§6) are untouched.
 
 ---
 
