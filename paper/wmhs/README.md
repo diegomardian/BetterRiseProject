@@ -24,7 +24,7 @@ Fresh-environment commands for the independent lifelines comparison and the
 residual/performance clean control are in [REPRODUCE.md](REPRODUCE.md).
 
 Both manuscripts are compiled and page-limited in CI. The full build's main
-text is 6 pages (limit 9), and the extended abstract is 4 pages (limit 4), with
+text is 7 pages (limit 9), and the extended abstract is 4 pages (limit 4), with
 zero LaTeX errors, undefined references/citations, or overfull boxes. The
 anonymity check passes. Paper-number tests now cover claims in both source
 trees, including the newly adopted controlled and sensitivity results.

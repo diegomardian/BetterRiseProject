@@ -79,7 +79,7 @@ worth looking, not findings:
 **Do not spend review on these.** They are settled, and flagging them tells the
 authors nothing:
 - Page limits, LaTeX build, and the mandatory responsible-use statement: both
-  builds compile with zero errors and fit (full 6 of 9, short 4 of 4).
+  builds compile with zero errors and fit (full 7 of 9, short 4 of 4).
 - "Only one instance / one gene / two cohorts" — stated repeatedly, in the
   limitations.
 - "You make no biological claim" — deliberate and pre-committed; a falsification
@@ -123,7 +123,7 @@ space and hour of work, and implement in that order until you run out of either.
    `sections/full/*.tex`; `main_short.tex` reads `sections/*.tex`. Review both,
    and require every shared numerical claim to agree. Do not assume an edit to
    one reaches the other.
-4. **Space is not free.** The full build has three pages of slack. **The
+4. **Space is not free.** The full build has two pages of slack. **The
    short build has none — it is at exactly 4 of 4.** Anything you add to a
    shared file must either be `\iffull`-gated or paid for with a cut.
 5. **Do not modify `neurips_2024.sty` or `neurips_2026.sty`,** and add no

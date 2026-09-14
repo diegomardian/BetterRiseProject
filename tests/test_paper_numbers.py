@@ -82,6 +82,11 @@ def full_blind_tex() -> str:
     return (FULL_SECTIONS / "blind.tex").read_text()
 
 
+@pytest.fixture(scope="module")
+def full_refdesign_tex() -> str:
+    return (FULL_SECTIONS / "refdesign.tex").read_text()
+
+
 def _quotes(tex: str, literal: str) -> None:
     """Assert the paper contains this literal.
 
@@ -952,10 +957,10 @@ def test_the_pinned_survival_table_has_the_boundary_fix_and_neutral_outcomes():
 
 
 def test_the_rct_bernoulli_residuals_are_checked_in_the_full_build(
-    full_blind_tex, matrix
+    full_refdesign_tex, matrix
 ):
     """The two full-only residuals come from the pinned residual matrix."""
-    _quotes(full_blind_tex, "$9.51\\times10^{-4}$ and $0.562$")
+    _quotes(full_refdesign_tex, "$9.51\\times10^{-4}$ and $0.562$")
     ols = _cell(matrix, "ols-stratum-dummies", "rct-bernoulli", "standardised")
     unadjusted = _cell(matrix, "unadjusted", "rct-bernoulli", "standardised")
     assert f"{ols:.2e}" == "9.51e-04"
