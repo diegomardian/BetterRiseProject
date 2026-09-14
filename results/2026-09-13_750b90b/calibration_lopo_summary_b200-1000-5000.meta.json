@@ -1,0 +1,54 @@
+{
+  "date": "2026-09-13",
+  "utc_timestamp": "2026-09-14T01:20:50+00:00",
+  "git_sha": "750b90bcaee7a77c1989b2d210f99675979dab26",
+  "git_sha_short": "750b90b",
+  "git_branch": "wmhs/build-fixes",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "name": "calibration_lopo_summary_b200-1000-5000",
+  "n_rows": 4,
+  "columns": [
+    "cohort",
+    "criterion",
+    "n_patients",
+    "n_changing_conclusion",
+    "changing_patients"
+  ],
+  "table_kind": "harness",
+  "cohorts": [
+    "smc",
+    "kul3"
+  ],
+  "count_windows": {
+    "smc": [
+      40,
+      50,
+      60,
+      70,
+      80,
+      90,
+      100,
+      110
+    ],
+    "kul3": [
+      200,
+      300,
+      400,
+      600,
+      800
+    ]
+  },
+  "inner_bootstrap_budgets": [
+    200,
+    1000,
+    5000
+  ],
+  "outer_samples": "Every two-patient holdout pair, enumerated once per count.",
+  "uncertainty_separation": "Inner-budget rows repeat fixed outer samples. Patient-influence rows drop every baseline holdout pair containing that patient without regenerating retained pairs. This is not a population confidence interval."
+}

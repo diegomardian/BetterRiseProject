@@ -925,6 +925,32 @@ def test_the_censored_sweep_reports_what_it_dropped(full_blind_tex):
     assert list(worst_by_level) == [0.0, 0.473, 1.089, 1.586]
 
 
+def test_the_pinned_survival_table_has_the_boundary_fix_and_neutral_outcomes():
+    survival = pd.read_parquet(_pinned("trial_survival"))
+    required = {
+        "n_valid_pairs",
+        "n_valid_observed_pairs",
+        "n_invalid_pairs",
+        "n_invalid_observed_pairs",
+    }
+    assert required <= set(survival)
+    verdicts = set(survival["verdict_vs_latent"]) | set(
+        survival["verdict_vs_observed"]
+    )
+    assert verdicts <= {
+        "numerical_equality",
+        "numerical_departure",
+        "insufficient_valid_pairs",
+    }
+    corrected = survival[
+        (survival["estimator"] == "exponential-rmst-standardised")
+        & (survival["censoring_target"] == 0.78)
+        & (survival["n_patients"] == 100)
+    ]
+    assert len(corrected) == 1
+    assert round(float(corrected["max_residual_vs_observed"].iloc[0]), 4) == 0.2120
+
+
 def test_the_rct_bernoulli_residuals_are_checked_in_the_full_build(
     full_blind_tex, matrix
 ):
@@ -989,3 +1015,67 @@ def test_the_closed_form_at_the_zero_cell_point(blind_tex, full_appendix_tex):
     other = rec[(rec["frac_mature_tumour"] == 0.01) & (rec["shift"] == 0.5)]
     assert not other.empty
     assert other["median_n_cells_mature"].max() > 0
+
+
+def test_the_controlled_union_grid_numbers_are_the_pinned_run():
+    """The full paper's isolated grid/binning claims use one shared sweep."""
+    full = (FULL_SECTIONS / "calibration.tex").read_text()
+    crossings = pd.read_parquet(_pinned("controlled_grid_crossings_r200_b200"))
+    combined = crossings[
+        (crossings["criterion"] == "coverage_and_discrimination")
+        & (crossings["binning"] == "fixed_bins")
+        & (crossings["pool"] == "reference")
+    ]
+
+    smc = combined[combined["cohort"] == "smc"].groupby("grid")["candidate"]
+    assert set(smc.get_group("committed")) == {100.0}
+    assert set(smc.get_group("extended")) == {70.0}
+    assert set(smc.get_group("dense")) == {70.0}
+    _quotes(full, "returns 100 on the committed grid and 70 on both expanded")
+
+    kul3 = combined[combined["cohort"] == "kul3"].groupby("grid")["candidate"]
+    for _, candidates in kul3:
+        assert candidates.value_counts().to_dict() == {400.0: 6, 800.0: 2}
+    _quotes(full, "six seeds return 400 and two\nreturn 800")
+
+    pooled = crossings[
+        (crossings["criterion"] == "coverage_and_discrimination")
+        & (crossings["pool"] == "pooled")
+    ]
+    assert (pooled["status"] == "no_crossing").all()
+
+    rates = pd.read_parquet(_pinned("controlled_grid_rates_r200_b200"))
+    largest_mc_se = rates[["coverage_mc_se", "discrimination_mc_se"]].max().max()
+    assert 0.035 < largest_mc_se < 0.036
+    _quotes(full, "largest binomial Monte Carlo standard error is 0.036")
+
+
+def test_inner_budget_and_patient_influence_claims_are_seed_preserving():
+    """Pair identities preserve streams; only omitted pairs leave the table."""
+    full = (FULL_SECTIONS / "calibration.tex").read_text()
+    inner = pd.read_parquet(
+        _pinned("calibration_inner_budget_crossings_b200-1000-5000")
+    )
+    combined = inner[inner["criterion"] == "coverage_and_discrimination"]
+    by_cohort = {
+        cohort: rows.sort_values("inner_bootstrap")["candidate"].tolist()
+        for cohort, rows in combined.groupby("cohort")
+    }
+    assert by_cohort == {"kul3": [400.0, 300.0, 400.0], "smc": [70.0, 70.0, 70.0]}
+    _quotes(full, "leaves the first cohort's candidate at 70")
+    _quotes(full, "400 to 300 and back to 400")
+
+    influence = pd.read_parquet(
+        _pinned("calibration_lopo_summary_b200-1000-5000")
+    ).set_index(["cohort", "criterion"])
+    assert influence.loc[("smc", "coverage_and_discrimination"), "n_changing_conclusion"] == 0
+    assert influence.loc[("kul3", "coverage_and_discrimination"), "n_changing_conclusion"] == 3
+    assert (
+        influence.loc[("kul3", "coverage_and_discrimination"), "changing_patients"]
+        == "KUL01,KUL30,KUL31"
+    )
+    assert influence.loc[("smc", "coverage_only"), "n_changing_conclusion"] == 5
+    assert influence.loc[("kul3", "coverage_only"), "n_changing_conclusion"] == 0
+    _quotes(full, "none of ten patients in the first\ncohort and three of six")
+    _quotes(full, "KUL01, KUL30 and KUL31")
+    _quotes(full, "five of ten and zero of\nsix")

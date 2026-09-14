@@ -31,8 +31,8 @@ three-state rule. Left: the implemented pooled-cell generator returns no
 qualifying cutpoint at any tested count. Right: the reference-only generator
 returns a candidate of 90 on seven of eight seeds in the plotted filled-grid
 run, rather than the committed 50. Shaded curve bands span the eight seeds;
-they are not patient-level confidence intervals. The three-grid comparison
-below reports configuration sensitivity rather than an isolated grid effect.}
+    they are not patient-level confidence intervals. The historical three-grid
+    comparison below is followed by a controlled union-grid analysis.}
 \label{fig:calibration}
 \end{figure}
 
@@ -68,28 +68,33 @@ replicates per grid point & $500$ & $500$ & $200$ \\
 \end{tabular}
 \end{center}
 
-These brackets describe adjacent reported count summaries, not confidence
-intervals. The comparison does not isolate grid resolution: the dense run uses
-200 replicates per point rather than 500, and extending below 20 changes the
-log-spaced bin boundaries. Seeds also depend on each point's position in the
-grid, so shared count settings use different draws after points are added.
-The candidates establish sensitivity to these configurations, not the size of
-a pure grid effect or monotonicity under further refinement. No tested grid,
-cohort or seed returned the committed 50.
-The $wide$ candidate has zero seed-to-seed variance in all six cohort-by-grid
-combinations ($40$, $45$, $42$ here; $100$, $65$, $70$ in the second cohort).
-That stability alone cannot establish precision when only a few output values
-are available. Pooled draws return no qualifying cutpoint on any grid or seed
-in either cohort; the dense-grid discrimination maxima are $0.750$ and $0.795$.
+These historical brackets describe adjacent reported count summaries, not
+confidence intervals. Because their budgets, bin boundaries and streams also
+differed, they established configuration sensitivity but did not isolate its
+source. We therefore simulated the union of counts once for each cohort, draw
+pool and eight seeds (200 outer replicates and 200 inner bootstrap draws), then
+formed every grid and binning summary from those same draws. With common fixed
+bins, the first cohort returns 100 on the committed grid and 70 on both expanded
+grids on all eight seeds. Adaptive bins instead return 65 on seven of eight
+filled-grid seeds (90 on one) and 70 on every dense-grid seed. The original
+100/90/70 sequence therefore combined missing count support with binning and
+new random draws; it was not a pure resolution effect. In the second cohort,
+every grid and binning scheme agrees within a seed: six seeds return 400 and two
+return 800. Pooled draws still return no qualifying cutpoint in either cohort.
+The largest binomial Monte Carlo standard error is 0.036, conditional on the
+fixed cohorts; it is not patient-sampling uncertainty.
 
 \paragraph{Simulation precision is not patient-level uncertainty.}
-On the filled reference grid, 50 replicates yield candidates between 45 and 90
-across seeds; at 500, seven of eight seeds return 90. More replicates reduce
-Monte Carlo noise conditional on the available cohort. Ten patients with two
-held out per replicate provide only 45 distinct holdout pairs, so 500
-replicates revisit each pair about eleven times on average. This does not
-quantify uncertainty from sampling patients from a larger population.
-We therefore report grid-dependent candidates, not an endorsed calibrated
+Enumerating all 45 and 15 two-patient holdout pairs separates patient omission
+from repeated simulation. Keying streams to the sorted pair identifiers keeps
+every retained pair fixed. Raising the inner bootstrap budget from 200 to 1{,}000
+and 5{,}000 leaves the first cohort's candidate at 70, but moves the second's
+400 to 300 and back to 400. Omitting one source patient changes the joint
+coverage-and-discrimination candidate for none of ten patients in the first
+cohort and three of six in the second (KUL01, KUL30 and KUL31). For the
+coverage-only candidate, the corresponding counts are five of ten and zero of
+six. These are cohort-conditional influence checks, not intervals for a larger
+patient population. We therefore report candidates, not an endorsed calibrated
 cutpoint. Appendix~\ref{app:gridcaveats} records denominator and coincident-cutpoint
 issues, and Appendix~\ref{app:guards} examines small-sample interval calibration.
 

@@ -79,12 +79,13 @@ worth looking, not findings:
 **Do not spend review on these.** They are settled, and flagging them tells the
 authors nothing:
 - Page limits, LaTeX build, and the mandatory responsible-use statement: both
-  builds compile with zero errors and fit (full 8 of 9, short 4 of 4).
+  builds compile with zero errors and fit (full 6 of 9, short 4 of 4).
 - "Only one instance / one gene / two cohorts" — stated repeatedly, in the
   limitations.
 - "You make no biological claim" — deliberate and pre-committed; a falsification
   rule fired and the authors took it.
-- Numbers disagreeing between the two builds — impossible, they share sources.
+- Drift in shared numerical claims between builds: the sources are distinct,
+  and the paper-number tests explicitly check those retained in both.
 
 # Job 2 — Score
 
@@ -122,7 +123,7 @@ space and hour of work, and implement in that order until you run out of either.
    `sections/full/*.tex`; `main_short.tex` reads `sections/*.tex`. Review both,
    and require every shared numerical claim to agree. Do not assume an edit to
    one reaches the other.
-4. **Space is not free.** The full build has about one page of slack. **The
+4. **Space is not free.** The full build has three pages of slack. **The
    short build has none — it is at exactly 4 of 4.** Anything you add to a
    shared file must either be `\iffull`-gated or paid for with a cut.
 5. **Do not modify `neurips_2024.sty` or `neurips_2026.sty`,** and add no
@@ -142,9 +143,9 @@ under-reports its own length, which has already produced one bad page
 measurement in this repo's history. Then run `./check_anonymity.sh`; it must
 exit 0.
 
-`build.sh` needs `neurips_2026.sty`, which is deliberately not committed. If it
-is missing, the four-line recipe that stands in for it (the official 2024 style
-behind a shim) is in `paper/wmhs/README.md` under "Two builds, one source."
+`build.sh` uses the tracked `neurips_2026.sty` compatibility shim over the
+tracked 2024 style. Replace the shim with the official 2026 workshop style when
+it is published, without editing that official file.
 
 ---
 

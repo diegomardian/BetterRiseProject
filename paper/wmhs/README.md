@@ -2,10 +2,9 @@
 
 ## Current full-paper revision — 2026-09-13
 
-`main.tex` now reads `sections/full/`, including the revised abstract and
-condensed appendix. The original extended abstract still reads `sections/`;
-its source files were not edited. Both versions retain the same numerical
-values in the three supporting tables. The full paper uses an editorial
+`main.tex` reads `sections/full/`, including the revised abstract and condensed
+appendix. The extended abstract reads `sections/`; its one stale historical-grid
+qualification was updated without adding the new full-paper results. The full paper uses an editorial
 variant of Figure 3 labelled "candidate", regenerated from the existing table
 with `python paper/wmhs/make_fig1_full.py` from the repo root; the original
 figure used by the shorter version is unchanged.
@@ -16,23 +15,21 @@ directory ordering; update the manifest explicitly when adopting a new result.
 CI requires every pinned file, follows the recursive `main.tex` input graph
 through `sections/full/`, and compiles both manuscript variants.
 
-A follow-up editorial pass adds the saved Bernoulli-randomisation and RMST
-controls, a simulation-settings table, and the grid comparison's replicate,
-binning and random-stream qualifications. Untraceable historical rates and
-repetitive diagnostic history were removed. No new experiments were run.
-The proposed follow-up work is in [the additional-runs plan](../../docs/wmhs_next_runs_plan.md).
+A follow-up pass adds the saved Bernoulli-randomisation and RMST controls, a
+simulation-settings table, and the final controlled-grid, inner-budget and
+seed-preserving patient-influence results. Untraceable historical rates and
+repetitive diagnostic history were removed. The completed follow-up plan is in
+[the additional-runs plan](../../docs/wmhs_next_runs_plan.md).
 Fresh-environment commands for the independent lifelines comparison and the
 residual/performance clean control are in [REPRODUCE.md](REPRODUCE.md).
 
-The full PDF is **12 pages total**, down from 20. Main text ends on page 7,
-references occupy the remainder of page 7 and page 8, and the appendix is
-**4 pages** (pages 9–12), down from 10. The full build has zero LaTeX errors,
-undefined references/citations, and overfull boxes. All pages were rendered and
-visually checked. The anonymity check and 36 existing paper-number tests pass;
-those tests target the original section files, so the revised supporting tables
-and selected retained claims were additionally checked against their sources.
+Both manuscripts are compiled and page-limited in CI. The full build's main
+text is 6 pages (limit 9), and the extended abstract is 4 pages (limit 4), with
+zero LaTeX errors, undefined references/citations, or overfull boxes. The
+anonymity check passes. Paper-number tests now cover claims in both source
+trees, including the newly adopted controlled and sensitivity results.
 
-The installed `neurips_2026.sty` is still the local compatibility shim over the
+The tracked `neurips_2026.sty` is the local compatibility shim over the
 2024 style described below. These page counts apply to that installed style.
 The official submission style still needs to be supplied before submission.
 
@@ -125,14 +122,9 @@ Limits verified against the CFP's own text on 2026-08-31: *"Full Papers: at most
 References and appendices do not count toward the page limit, but the main text
 must be self-contained."* The extended-abstract cap is **4**, not 6.
 
-Both `\input` the same `sections/` files and differ only in the `\iffull` flag
-set at the top. **The short build is a strict subset of the same prose, not a
-rewrite** — so a number cannot say one thing in one version and something else
-in the other, which given what this paper argues is the one way it must not be
-wrong. Whatever the short build drops from the main text, its appendix carries
-verbatim. The one place the two files hold separate prose is the abstract, which
-lives in `main.tex` and `main_short.tex` rather than in `sections/`; the short
-one states fewer results, never different ones.
+The current builds have distinct source trees: `main.tex` reads
+`sections/full/`, while `main_short.tex` reads `sections/`. Shared numerical
+claims are checked against both source files and their pinned result tables.
 
 The short build drops from the main text: the sound-and-not-complete analysis
 with the residual matrix and the information ratio, the censoring experiment,
@@ -155,12 +147,9 @@ judgment on page 2 never gets there.
 
 Or by hand: `pdflatex main && bibtex main && pdflatex main && pdflatex main`.
 
-`neurips_2026.sty` is **not vendored here.** Download the official workshop
-style from the NeurIPS site and drop it beside `main.tex`. The document loads it
-as `\usepackage[dblblindworkshop]{neurips_2026}` with `\workshoptitle{...}`,
-which is the workshop track's own interface — do not modify the style file, the
-style file says tweaking it risks desk rejection, and the page budget is met by
-writing less.
+The tracked `neurips_2026.sty` is a compatibility shim over the tracked official
+2024 style. Replace it with the official workshop style when that file is
+published, rerun the build gates, and do not modify the official style.
 
 ## Figures — regenerate, never transcribe
 
@@ -170,10 +159,9 @@ python paper/wmhs/make_fig4.py     # Figure 2 — the trial recovery curve
 python paper/wmhs/make_fig1.py     # Figure 3 — the calibration
 ```
 
-Both read the newest matching table under `results/` and **print the path they
-used**, so every number on an axis traces to a versioned table with a commit
-hash and a fixed seed. Neither hard-codes a sha: the sweep gets re-derived, and
-a hard-coded path silently goes stale rather than failing.
+The scripts read paths pinned in `results_manifest.json` and **print the path
+they used**, so every number on an axis traces to a versioned table with a
+commit hash and a fixed seed. A later result cannot silently change a figure.
 
 The tables come from:
 

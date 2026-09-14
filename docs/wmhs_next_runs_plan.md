@@ -1,29 +1,25 @@
 # WMHS: proposed additional runs
 
-Status: all four experiment paths were implemented and exercised on 2026-09-13.
-The boundary fixes, pinned submission inputs, full-paper verification, CI
-compilation gate, clean control, calibration sensitivity and independent
-lifelines comparison are implemented. Experiment 1's controlled union-grid
-pilot completed. Its initial 200-hour projection was invalid because it scaled
-a load-dominated pilot; timing at the real budget is about 41 seconds per
-cohort/pool/seed cell, or roughly 20--25 minutes for all 32 cells on one core.
-The exact eight-seed, 200-replicate final run should therefore be run from a
-clean producing SHA rather than deferred. Do not turn the one-replicate pilot
-into a claim.
+Status: complete on 2026-09-13. All four experiment paths were run from clean
+producing commits and their summaries are versioned under `results/`. The
+boundary fixes, pinned submission inputs, full-paper verification and CI
+compilation gate are also implemented.
 
-The completed scratch runs are versioned under `/private/tmp` and their
-sidecars truthfully record a dirty tree. They are verification evidence, not
-submission inputs. Adopt results only after committing the producing code and
-rerunning from that clean SHA. The shorter paper remains unchanged.
-
-- Controlled-grid pilot: both cohorts, both draw pools, one seed, one outer
-  replicate and 10 inner draws; 47.95 seconds.
-- Clean control: 2,000 replicates at each of the null and non-null effects.
-- Calibration sensitivity: fixed 45 SMC and 15 KUL3 holdout pairs at 200,
-  1,000 and 5,000 inner draws, plus separate leave-one-patient-out runs;
-  74.32 seconds.
+- Controlled grid: both cohorts, both draw pools, eight seeds, 200 outer
+  replicates and 200 inner draws. The final 32-cell run completed in the
+  expected roughly 20--25 minute single-core window at commit `cc02592`; the
+  original 200-hour projection had incorrectly scaled a load-dominated pilot.
+- Clean control: 2,000 replicates at each of the null and non-null effects,
+  produced at `cc02592`.
+- Calibration sensitivity: all 45 SMC and 15 KUL3 holdout pairs at 200, 1,000
+  and 5,000 inner draws, plus seed-preserving patient omission, produced at
+  `750b90b`. The joint candidate is unchanged by all ten SMC omissions and
+  changes for KUL01, KUL30 and KUL31 in KUL3.
 - Independent Cox comparison: eight bespoke/lifelines pairs, all valid and
-  within the fixed `1e-5` tolerance (maximum difference about `1.4e-7`).
+  within the fixed `1e-5` tolerance (maximum difference about `1.4e-7`),
+  produced at `cc02592`.
+- The survival tables invalidated by the boundary correction were regenerated
+  at `cc02592` and repinned; the manuscript's headline values are unchanged.
 
 ## Before any new experiment
 
