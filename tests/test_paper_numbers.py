@@ -1051,8 +1051,8 @@ def test_the_controlled_union_grid_numbers_are_the_pinned_run():
 
     rates = pd.read_parquet(_pinned("controlled_grid_rates_r200_b200"))
     largest_mc_se = rates[["coverage_mc_se", "discrimination_mc_se"]].max().max()
-    assert 0.035 < largest_mc_se < 0.036
-    _quotes(full, "largest binomial Monte Carlo standard error is 0.036")
+    assert round(float(largest_mc_se), 3) == 0.035
+    _quotes(full, "largest binomial Monte Carlo standard error is 0.035")
 
 
 def test_inner_budget_and_patient_influence_claims_are_seed_preserving():
