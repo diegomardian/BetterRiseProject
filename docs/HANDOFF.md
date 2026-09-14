@@ -1446,3 +1446,40 @@ Jobs do **not** commit their own tables. Read them, then
 
 **Merging, never rebasing.** `git pull --no-rebase` on this branch — the
 sidecars point at specific shas and a rebase orphans them.
+
+---
+
+## WMHS · the learned-generator prediction — RAN 2026-09-13. A CLEAN NEGATIVE.
+
+`docs/prereg_learned_generator.md` RESULT; tables `results/2026-09-13_19e016b/`.
+**Do not queue it — it is done.** Tests the prediction
+`paper/wmhs/sections/full/refdesign.tex` makes and flags as unrun: that a
+learned generative patient model degrades the `T(D)` equality from exact to
+approximate, so `np.allclose` goes blind while `rho` still sees it.
+
+**Prediction (a) is FALSE AS STATED.** `gcomp-saturated` — "compute the effect
+on the cohort you just generated" — has `max|theta_hat - T_draw| = 0.0`
+**bitwise**, in 42 of 42 cells, for four mixture generators and an MLP
+generator exactly as for the parametric control. The paper's mechanism ("share
+most but not all of their inputs") describes a comparison the screen never
+makes: `T(D~)` and `theta_hat(D~)` are both functionals of the *same* synthetic
+cohort, so the generator cannot enter. F1 and F3 fired.
+
+**And (b)'s remedy fails with it.** `rho` is identically `0.0` on that wiring,
+for the same reason `allclose` is True — the numerator is the residual. The
+scale statistic the paper offers as the safeguard is blind in exactly the case
+it is offered for. F7 fired; this is the most useful line in the result.
+
+**The replacement claim, supported:** approximate equality is a property of
+**regularised estimation**, not of the generator being learned. All 41
+blind-band cells are Ridge arms, their residual is a closed form in the penalty
+(`8.65e-05`, `8.64e-03`, `0.780` at `alpha = 1e-5, 1e-3, 1e-1`), and the same
+magnitudes appear under the parametric generator. Second independent instance
+after `trial_blindness.ipw_logistic_l2`. Generator capacity does not move the
+`T_draw` residual at all (F4 fired); a penalised estimator caught by both
+screens at `n=100` crosses **into** the blind band by `n=500` and stays there,
+so more data makes the reuse harder to detect, not easier.
+
+Amendment 1 records this document's OWN mechanism failing first, by
+measurement: the EM identity holds after any M-step, so `GaussianMixture(tol=)`
+sets no floor (`3.6e-15` at `tol=1e-3` vs `5.3e-15` at `tol=1e-10`).

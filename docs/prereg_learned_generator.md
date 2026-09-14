@@ -443,8 +443,244 @@ the paper's and are reported as wrong if they are wrong.
 
 ## RESULT
 
-**Not run.** This section is filled in after the tables exist, in the same
-commit that adds them.
+**Run 2026-09-13** at `19e016b`, tables in `results/2026-09-13_19e016b/` —
+`trial_learned_generator_primary.parquet` (840 rows), `_trend.parquet` (140),
+`_capacity.parquet` (480), each with a `.meta.json` sidecar. 7 generators x 10
+estimators x 6 cohort sizes x 6 seeds x 30 replicates = **180 draws per cell**,
+52,920 estimates. Seed `20260913`.
+
+**Headline: prediction (a) is FALSE AS STATED, and prediction (b) fails in a way
+worse than "the boolean screen is blind" — the residual scale rho, which the
+paper offers as the remedy, is blind in exactly the same case.**
+
+### 1 · F1 and F3 FIRED — the natural wiring is bitwise zero, learned or not
+
+`gcomp-saturated` is the wiring `refdesign.tex` describes: compute the effect on
+the cohort you just generated. Its residual against `T_draw`:
+
+```
+max |theta_hat - T_draw| = 0.0     exactly, in 42 of 42 cells
+                                   30 of 30 learned-generator cells
+                                   is_exactly_zero = True everywhere
+```
+
+Not `1e-15`. **Bitwise zero**, at every cohort size, for `gmm-joint-K1/K2/K4/K8`
+and `mlp-conditional-gaussian` exactly as for `parametric-oracle`. The
+parametric control and the learned arms are the same number in the same table:
+`0` and `0`.
+
+**F1 fired**: the equality did not degrade to approximate. **F3 fired**: the
+residual is identical for parametric and learned generators, so the generator's
+learnedness is not the operative variable.
+
+**F2 did not fire.** `np.allclose(residual, 0.0)` is `True` on the natural
+wiring — but because the equality is *exact*, not because it is approximate. The
+paper is right that a practitioner running `allclose` finds nothing, and wrong
+about why.
+
+### 2 · F7 FIRED — both halves of (b) fail together, and this is the finding
+
+Prediction (b) has two halves: `allclose` returns True and sees nothing, **while
+the residual scale rho remains nonzero and does see it.** The second half is the
+remedy the paper offers for the first.
+
+```
+rho for gcomp-saturated, over every generator and every cohort size:
+    unique values = [0.0]
+```
+
+**rho is identically zero, for the same reason `allclose` is True: the residual
+is identically zero.** `rho = median|theta_hat - T| / median|T - theta|` has a
+zero numerator, so the scale statistic is blind in precisely the case it is
+offered to rescue. There is no regime here in which `allclose` misses something
+that rho catches.
+
+This is a failure of the **proposed remedy**, not only of the predicted
+mechanism, and it is the most useful thing in this experiment: a reader who
+accepts the paper's audit and adds rho as the safeguard has added nothing.
+
+### 3 · The blind band is real, and only PENALISATION reaches it
+
+41 of 420 `T_draw` cells land strictly between the two screens. **Every one of
+them is a Ridge arm.** Nothing else in the experiment is anywhere near the band:
+every other estimator is either machine-precision or caught by both screens.
+
+```
+                               max |theta_hat - T_draw|, over all cohort sizes
+gcomp-saturated                0                      <- invisible to both
+ipw-saturated                  1.62e-14               <- invisible to both
+gcomp-gmm-outcome-K1           9.33e-15               <- invisible to both
+gcomp-gmm-outcome-K4           2.22e-14               <- invisible to both
+gcomp-ridge-outcome-a1e-5      8.65e-05               <- BLIND BAND (31 cells)
+gcomp-ridge-outcome-a1e-3      8.64e-03               <- BLIND BAND (10 cells)
+gcomp-ridge-outcome-a1e-1      0.780                  <- caught by both
+gcomp-mlp-outcome              3.30                   <- caught by both
+ols-stratum-dummies            1.71                   <- caught by both
+unadjusted                     11.3                   <- caught by both
+```
+
+**The two flip tolerances, side by side.** `np.allclose(a,b)` tests
+`|a-b| <= atol + rtol*|b|`, so the second argument is the one `rtol` scales:
+
+| screen | threshold | at theta=3 |
+|---|---|---|
+| `np.allclose(residual, 0.0)` | `atol + rtol*0` = **`atol` alone** | **`1e-8`** |
+| `np.allclose(estimate, reference)` | `atol + rtol*abs(T)` | **`~3.0e-5`** |
+
+The band between them is a factor of **~3,000**, and it is not hypothetical: at
+`n=5000`, `gcomp-ridge-outcome-a1e-5` on `gmm-joint-K4` has residual
+`9.567e-08`, `flip_atol = 9.567e-08` and `flip_atol_paired = 0.0` — the first
+screen fires, the second never does at any cohort size. **Which of the two lines
+a practitioner types decides whether the reuse is reported or invisible.**
+
+**F8 did not fire**: the band is reachable, so the verdict on (b) is a measured
+verdict and not "not tested".
+
+### 4 · Both proposed mechanisms for (a) are dead, for different reasons
+
+**The paper's mechanism — "a learned generator and a re-fit outcome model share
+most but not all of their inputs" — fails on the algebra.** The screen never
+compares the fitted generator with the outcome model. It compares `T(D~)` and
+`theta_hat(D~)`, both functionals of the *same* synthetic cohort. How `D~` was
+produced cannot enter. §1's bitwise zeros are that argument measured.
+
+**This document's own mechanism — an EM convergence floor — fails on the
+measurement.** §8 predicted `gcomp-gmm-outcome-*` would sit near zero with a
+floor set by `GaussianMixture(tol=...)`. Measured:
+
+```
+GaussianMixture(K=4, tol=1e-3 )  ->  |sum_k pi_k mu_k - ybar| = 3.6e-15
+GaussianMixture(K=4, tol=1e-10)  ->  |sum_k pi_k mu_k - ybar| = 5.3e-15
+```
+
+Four orders of magnitude of tolerance, no movement. The identity holds after
+**any M-step** — it needs only that responsibilities sum to one — so convergence
+is irrelevant and the mixture outcome model is degenerate to machine precision
+(`9.33e-15` at K=1, `2.22e-14` at K=4). Recorded as wrong in Amendment 1, before
+the grid ran, and asserted as a parametrised test.
+
+Both mechanisms are stated here because a reader holding the paper's claim will
+propose one of the two.
+
+### 5 · The replacement claim, as the data support it
+
+**Approximate equality is a property of REGULARISED ESTIMATION, not of the
+generator being learned.** The only arms in the blind band are penalised, their
+residual is a closed form in the penalty — `ybar_gd * n_gd / (n_gd + alpha)` on
+an orthogonal cell design — and it tracks `alpha` across three decades:
+`8.65e-05`, `8.64e-03`, `0.780` at `alpha = 1e-5, 1e-3, 1e-1`. The generator is
+irrelevant to it: the same three magnitudes appear under `parametric-oracle`.
+
+This is the **second independent instance** of the phenomenon in this
+repository. `trial_blindness.ipw_logistic_l2` already records that an
+L2-penalised logistic propensity's residual is "a function of a regularisation
+constant" and that turning the penalty off leaves a floor at the solver's `tol`.
+Arriving again, in a different estimator class, against a different reference,
+under a learned generator, makes it general rather than an artefact of one
+sklearn default.
+
+**So the paper's framing — that this matters *more* for learned generative
+models — is wrong as stated.** What the data support instead: *the residual
+screen's blind band is entered by penalised and iteratively-fitted estimators,
+whose distance from the reference is set by a regularisation constant or a
+convergence tolerance rather than by any statistical decision; this is
+independent of whether the generator was learned.*
+
+### 6 · Capacity, cohort size, and the saturation column
+
+**F4 FIRED — capacity does not move the residual under `T_draw`.**
+
+```
+max |theta_hat - T_draw| by mixture components K:   K=1      K=2      K=4      K=8
+gcomp-saturated                                       0        0        0        0
+gcomp-gmm-outcome-K1                           6.66e-15 7.55e-15 9.33e-15 7.99e-15
+ipw-saturated                                  1.07e-14 1.62e-14 9.77e-15 1.33e-14
+```
+
+Flat, as the algebra requires: capacity changes the synthetic cohort's
+*distribution*, and the screen compares two functionals *of* that cohort. Under
+`T_model` capacity does move things (`4.07 -> 2.86 -> 2.72 -> 2.96`), because
+that reference is a statement about the generator. **This is the cleanest
+statement in the experiment that learnedness is not the operative variable.**
+
+**Cohort size: the residual shrinks, and that makes detection WORSE.**
+
+```
+estimator                  trend                 log10 slope   n=100      n=5000
+gcomp-saturated            at-machine-precision          --        0           0
+gcomp-ridge-outcome-a1e-5  shrinks                    -1.73  8.65e-05    1.03e-07
+gcomp-ridge-outcome-a1e-3  shrinks                    -1.73  8.64e-03    1.03e-05
+ols-stratum-dummies        shrinks                   -0.818     1.71       0.118
+```
+
+The penalised arms fall like `n^-1.7`. Tracking one cell of
+`gcomp-ridge-outcome-a1e-5` on `gmm-joint-K4` across the sweep:
+
+```
+n=100   5.54e-05   caught-by-both
+n=200   3.97e-05   caught-by-both
+n=500   2.55e-06   BLIND BAND
+n=1000  8.24e-07   BLIND BAND
+n=2000  3.09e-07   BLIND BAND
+n=5000  9.57e-08   BLIND BAND
+```
+
+**A penalised estimator that both screens catch at n=100 crosses into the blind
+band at n=500 and stays there.** More data does not ease the problem; it moves
+the estimator further into the screen's blind spot, because the estimator
+converges onto the reference's functional as the penalty is swamped. This was
+not anticipated in §8.
+
+**Saturation (prereg 2.3), reported and not filtered.** `parametric-plugin` is
+saturated by construction at exactly `0.0`, which calibrates the column. **No
+learned generator is saturated** — deviations `9.60` (K=1), `4.65` (K=2), `2.56`
+(K=4), `2.28` (K=8), `0.032` (MLP) — so §1's bitwise zeros are not the parametric
+generator in disguise. **F5 did not fire for any learned arm.** Capacity does
+bring the generators closer to the training cell means, monotonically, and the
+`T_draw` residual stays at `0` throughout.
+
+**F6 did not fire.** The negative control `ols-stratum-dummies` has minimum
+`max_residual = 0.0334` over every cell, above its pre-specified `1e-2` floor,
+so the screen separates shared-functional from merely-accurate and the rows
+above are readable.
+
+### 7 · Evidence for claim (c)
+
+`T_model` costs what §3.2 said it would. Its Monte-Carlo standard error is
+`0.0196`-`0.0266` for the mixture generators against `0` for the closed-form
+ones, so it **cannot resolve residuals below ~2e-2** — six orders of magnitude
+coarser than `T_draw`, which resolves `0` from `1e-14`. Worse, it does not
+discriminate estimators at all: `max_residual` against `T_model` is `4.07` for
+*eight* of the ten estimators, because the generator's own bias dominates every
+estimator's departure. **Choosing the model-based reference makes the screen
+measure the generator instead of the estimator.** Claim (c) is supported, in the
+specific sense that the reference choice is consequential and the cheap-looking
+one is the wrong one.
+
+### 8 · Exclusions and environment
+
+Non-finite outputs are counted, not dropped silently: 41 draws lost the
+reference to a positivity failure (an empty stratum-arm cell), and
+`gcomp-gmm-outcome-K1/K4` additionally abstained on 109 and 417 draws where a
+cell held fewer records than components. `gcomp-saturated` retains `7,517` valid
+pairs. No cell reached zero valid pairs; the `no-valid-pairs` abstention is
+exercised by its forcing test instead.
+
+The interpreter is **newer than `env/*.yml` pins** and the gap is in every
+sidecar: `scikit-learn` 1.5.1 pinned / **1.7.2 live**, `numpy` 1.26.4 / **2.3.5**,
+`pandas` 2.2.2 / **2.3.3**, `scipy` 1.13.1 / **1.16.3**. This matters here more
+than usual: §4 and §5 turn on solver defaults, and those move between versions.
+The bitwise-zero results in §1 are algebraic and do not.
+
+### 9 · What this does not say
+
+It does not say the paper's audit is wrong. The residual screen works: it
+separated the degenerate estimators from the informative ones at every cohort
+size, and the negative control behaved. It says that **(a) is false as stated,
+(b)'s remedy fails with it, and the phenomenon the paper attributes to learned
+generators belongs to regularised estimation instead.** One generator family,
+one outcome type, one effect structure, `theta = 3`; the algebraic results in §1
+and §2 generalise, the magnitudes in §3 and §6 are this design's.
 
 ---
 
