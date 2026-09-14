@@ -340,7 +340,8 @@ def test_invariance_guard_fails_on_a_single_model_sweep():
     single = misspecification_sweep(
         n_replicates=5, models=(POISSON,), worlds=(ANNIHILATED,)
     )
-    with pytest.raises(InvarianceViolation, match="at least\n?\\s*two count models|two count models"):
+    message = "at least\n?\\s*two count models|two count models"
+    with pytest.raises(InvarianceViolation, match=message):
         check_annihilated_refusal_is_model_invariant(single)
 
 

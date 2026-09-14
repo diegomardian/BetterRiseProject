@@ -671,7 +671,11 @@ def check_annihilated_refusal_is_model_invariant(sweep: pd.DataFrame) -> None:
         distinct = sorted(set(rows["n_refused"].astype(int)))
         if len(distinct) > 1:
             offenders[f"{world}/{gate}"] = dict(
-                zip(rows["expression_model"], rows["n_refused"].astype(int))
+                zip(
+                    rows["expression_model"],
+                    rows["n_refused"].astype(int),
+                    strict=False,
+                )
             )
     if offenders:
         raise InvarianceViolation(

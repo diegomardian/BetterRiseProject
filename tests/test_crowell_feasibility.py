@@ -388,7 +388,9 @@ def test_a_synthetic_section_round_trips_through_the_reader(tmp_path):
         obs=pd.DataFrame({"region": domains},
                          index=[f"c{i}" for i in range(matrix.shape[0])]),
         var=pd.DataFrame(index=names))
-    path = tmp_path / "232.h5ad"
+    # A synthetic fixture must not impersonate a pinned Zenodo section: the
+    # production reader correctly enforces the published byte count for 232.
+    path = tmp_path / "synthetic.h5ad"
     adata.write_h5ad(path)
 
     reread = open_section(path, backed=False)
