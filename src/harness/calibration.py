@@ -10,6 +10,7 @@ records them in its report rather than reading them off the data.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 
 import numpy as np
@@ -81,6 +82,7 @@ def coverage_and_discrimination(
     criteria: CalibrationCriteria = PREREGISTERED,
     *,
     n_bins: int = 12,
+    bin_edges: Sequence[float] | None = None,
 ) -> pd.DataFrame:
     """Per mature-count bin: how often the CI covers truth and excludes zero.
 
@@ -105,7 +107,15 @@ def coverage_and_discrimination(
             "discrimination are undefined. Attach CIs first — see the docstring."
         )
 
-    edges = _bin_edges(rows["n_cells_mature"], n_bins)
+    edges = (
+        _bin_edges(rows["n_cells_mature"], n_bins)
+        if bin_edges is None
+        else np.asarray(bin_edges, dtype=float)
+    )
+    if len(edges) < 2 or not np.isfinite(edges).all() or not np.all(np.diff(edges) > 0):
+        raise ValueError("bin_edges must be finite and strictly increasing")
+    if rows["n_cells_mature"].min() < edges[0] or rows["n_cells_mature"].max() > edges[-1]:
+        raise ValueError("bin_edges do not cover every mature-cell count")
     rows["bin"] = pd.cut(rows["n_cells_mature"], bins=edges, include_lowest=True)
 
     # Coverage is measured against the PARAMETRIC truth, and the choice is
@@ -157,9 +167,64 @@ def coverage_and_discrimination(
         .sort_values("n_cells_mature")
     )
     out["n_estimated"] = out["n_estimated"].astype(int)
+    out["n_attempted"] = out["n_replicates"]
     out["n_abstained"] = out["n_replicates"] - out["n_estimated"]
     # `.where()` on a boolean column yields object dtype, and an object-dtype
     # rate compares in ways a float one does not. Rates are floats.
+    out["coverage"] = out["coverage"].astype(float)
+    out["discrimination"] = out["discrimination"].astype(float)
+    out["shift"] = criteria.detectable_shift
+    out["verdict"] = [
+        _verdict(c, d, criteria)
+        for c, d in zip(out["coverage"], out["discrimination"], strict=True)
+    ]
+    return out.reset_index(drop=True)
+
+
+def coverage_and_discrimination_by_count(
+    sweep: pd.DataFrame,
+    criteria: CalibrationCriteria = PREREGISTERED,
+) -> pd.DataFrame:
+    """Unbinned calibration rates at each realised mature-cell count.
+
+    This is the control for a crossing that moves because adaptive bin edges
+    changed. Each count is summarised independently, with the same attempted,
+    valid and abstention accounting as :func:`coverage_and_discrimination`.
+    """
+    rows = sweep[
+        (sweep["arm"] == criteria.arm) & (sweep["shift"] == criteria.detectable_shift)
+    ].copy()
+    if rows.empty:
+        raise ValueError(
+            f"sweep has no arm={criteria.arm!r} rows at the pre-registered "
+            f"detectable shift {criteria.detectable_shift}"
+        )
+    if rows[["ci_low", "ci_high"]].isna().all().all():
+        raise ValueError("sweep carries no confidence intervals")
+
+    truth = rows["intrinsic_true_parametric"]
+    has_ci = rows["ci_low"].notna() & rows["ci_high"].notna()
+    rows = rows.assign(
+        _has_ci=has_ci,
+        _covered=((rows["ci_low"] <= truth) & (truth <= rows["ci_high"])).where(has_ci),
+        _excludes_zero=((rows["ci_low"] > 0) | (rows["ci_high"] < 0)).where(has_ci),
+        _width=(rows["ci_high"] - rows["ci_low"]).where(has_ci),
+    )
+    out = (
+        rows.groupby("n_cells_mature", observed=True)
+        .agg(
+            n_replicates=("replicate", "count"),
+            n_estimated=("_has_ci", "sum"),
+            coverage=("_covered", "mean"),
+            discrimination=("_excludes_zero", "mean"),
+            median_ci_width=("_width", "median"),
+        )
+        .reset_index()
+        .sort_values("n_cells_mature")
+    )
+    out["n_estimated"] = out["n_estimated"].astype(int)
+    out["n_attempted"] = out["n_replicates"]
+    out["n_abstained"] = out["n_replicates"] - out["n_estimated"]
     out["coverage"] = out["coverage"].astype(float)
     out["discrimination"] = out["discrimination"].astype(float)
     out["shift"] = criteria.detectable_shift
@@ -190,6 +255,7 @@ def calibrate_cutpoints(
     *,
     n_bins: int = 12,
     source: str | None = None,
+    bin_edges: Sequence[float] | None = None,
 ) -> CalibrationReport:
     """Smallest mature-cell counts meeting each criterion. Week-5 deliverable.
 
@@ -204,7 +270,12 @@ def calibrate_cutpoints(
     function — it is gate criterion **G4** firing, and it means
     non-identifiability is the headline result rather than a caveat.
     """
-    table = coverage_and_discrimination(sweep, criteria, n_bins=n_bins)
+    table = coverage_and_discrimination(
+        sweep,
+        criteria,
+        n_bins=n_bins,
+        bin_edges=bin_edges,
+    )
 
     ok_bins = table[table["verdict"] == "ok"]
     if ok_bins.empty:

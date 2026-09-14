@@ -700,6 +700,7 @@ def run_grid(
                             "estimator": name,
                             "theta_requested": trial.theta_requested,
                             "estimate": estimate,
+                            "difference_vs_requested": estimate - trial.theta_requested,
                         }
                         for truth_name, truth_value in truths.items():
                             row[f"truth_{truth_name}"] = truth_value
@@ -714,7 +715,8 @@ def _long_residuals(runs: pd.DataFrame) -> pd.DataFrame:
     for truth_name in TRUTHS:
         part = runs[
             ["design", "seed_index", "n_patients", "replicate", "estimator",
-             "theta_requested", "estimate", f"truth_{truth_name}",
+             "theta_requested", "estimate", "difference_vs_requested",
+             f"truth_{truth_name}",
              f"residual_vs_{truth_name}"]
         ].copy()
         part = part.rename(
@@ -741,12 +743,23 @@ def residual_matrix(runs: pd.DataFrame) -> pd.DataFrame:
             n_replicates=("replicate", "count"),
             max_residual=("residual", "max"),
             median_residual=("residual", "median"),
-            median_recovery_ratio=("estimate", "median"),
+            median_estimate=("estimate", "median"),
+            median_difference_vs_requested=("difference_vs_requested", "median"),
+            rmse_vs_requested=(
+                "difference_vs_requested",
+                lambda s: float(np.sqrt(np.mean(np.square(s)))),
+            ),
         )
         .reset_index()
     )
-    out["median_recovery_ratio"] = out["median_recovery_ratio"] / float(
-        long["theta_requested"].iloc[0]
+    requested = long["theta_requested"].drop_duplicates()
+    if len(requested) != 1:
+        raise ValueError("residual_matrix requires one requested effect")
+    denominator = float(requested.iloc[0])
+    out["median_recovery_ratio"] = (
+        out["median_estimate"] / denominator
+        if denominator != 0.0
+        else float("nan")
     )
     out["measured_degenerate"] = out["max_residual"] < DEGENERATE_BELOW
     out["declared_degenerate"] = [
@@ -858,6 +871,7 @@ def run_sweep(
                         "estimator": name,
                         "theta_requested": trial.theta_requested,
                         "estimate": estimate,
+                        "difference_vs_requested": estimate - trial.theta_requested,
                     }
                     for truth_name, truth_value in truths.items():
                         row[f"truth_{truth_name}"] = truth_value
@@ -887,11 +901,22 @@ def summarise_sweep(runs: pd.DataFrame) -> pd.DataFrame:
             median_residual=("residual", "median"),
             median_estimate=("estimate", "median"),
             median_truth=("theta_realised", "median"),
+            median_difference_vs_requested=("difference_vs_requested", "median"),
+            rmse_vs_requested=(
+                "difference_vs_requested",
+                lambda s: float(np.sqrt(np.mean(np.square(s)))),
+            ),
         )
         .reset_index()
     )
-    out["median_recovery_ratio"] = out["median_estimate"] / float(
-        runs["theta_requested"].iloc[0]
+    requested = runs["theta_requested"].drop_duplicates()
+    if len(requested) != 1:
+        raise ValueError("summarise_sweep requires one requested effect")
+    denominator = float(requested.iloc[0])
+    out["median_recovery_ratio"] = (
+        out["median_estimate"] / denominator
+        if denominator != 0.0
+        else float("nan")
     )
     out["measured_degenerate"] = out["max_residual"] < DEGENERATE_BELOW
     return out.sort_values(["sweep_arm", "estimator", "truth", "sweep_value"]).reset_index(

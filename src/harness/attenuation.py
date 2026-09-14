@@ -115,6 +115,36 @@ def _composition(mature_frac: float, types: list[str], mature_label: str) -> dic
     return {mature_label: mature_frac} | {t: rest for t in others}
 
 
+def _configuration_seed(
+    base_seed: int,
+    *,
+    n_cells: int,
+    mature_fraction: float,
+    shift: float,
+    replicate: int,
+) -> int:
+    """Seed one draw from its scientific configuration, never grid position.
+
+    The same setting can appear at a different ``grid_id`` in the committed,
+    extended, dense and union grids. Encoding the two floats by their IEEE-754
+    bits makes that shared setting reuse an identical stream without relying on
+    display rounding or Python's process-randomised hash.
+    """
+
+    def words(value: float) -> tuple[int, int]:
+        bits = int(np.float64(value).view(np.uint64))
+        return bits & 0xFFFF_FFFF, bits >> 32
+
+    entropy = [
+        int(base_seed),
+        int(n_cells),
+        *words(mature_fraction),
+        *words(shift),
+        int(replicate),
+    ]
+    return int(np.random.SeedSequence(entropy).generate_state(1, dtype=np.uint32)[0])
+
+
 def _oracle_interval(sample, target_gene: str, weighting: str, n_boot: int, seed: int):
     """Per-patient interval for the oracle arm. See ``harness.interval``.
 
@@ -174,6 +204,8 @@ def run_sweep(
     seed: int,
     weighting: str = "normal",
     arms: Sequence[str] = ARMS,
+    seed_strategy: str = "grid_position",
+    holdout_schedule: Sequence[Sequence[str]] | None = None,
 ) -> pd.DataFrame:
     """Run the grid and return an ``attenuation``-shaped frame.
 
@@ -191,12 +223,25 @@ def run_sweep(
     passed, running ``arms=("oracle",)`` and saying so is more honest than
     reporting a bulk column nobody should read. Dropping the bulk arm to make a
     number look better would not be; the sidecar records which arms ran.
+
+    ``seed_strategy="grid_position"`` preserves the historical sweeps exactly.
+    Controlled comparisons use ``"configuration"`` so a shared fraction,
+    effect, cell budget and replicate reuse the same draw across grid layouts.
     """
     unknown = [a for a in arms if a not in ARMS]
     if unknown:
         raise ValueError(f"unknown arm(s) {unknown}; known: {list(ARMS)}")
     if not arms:
         raise ValueError("no arms requested")
+    if seed_strategy not in {"grid_position", "configuration"}:
+        raise ValueError(
+            "seed_strategy must be 'grid_position' or 'configuration', got "
+            f"{seed_strategy!r}"
+        )
+    if holdout_schedule is not None and len(holdout_schedule) != grid.n_replicates:
+        raise ValueError(
+            "holdout_schedule must contain exactly one entry per replicate"
+        )
     counts = np.asarray(config.counts)
     cell_type = np.asarray(config.cell_type)
     patient_id = np.asarray(config.patient_id)
@@ -215,10 +260,29 @@ def run_sweep(
         comp_n = _composition(grid.frac_mature_normal, types, config.mature_label)
 
         for rep in range(grid.n_replicates):
-            rep_seed = seed + grid_id * 10_000 + rep
-            train, held = patient_holdout(
-                patient_id, n_held_out=grid.n_held_out, seed=rep_seed
+            rep_seed = (
+                _configuration_seed(
+                    seed,
+                    n_cells=grid.n_cells,
+                    mature_fraction=mature_frac,
+                    shift=shift,
+                    replicate=rep,
+                )
+                if seed_strategy == "configuration"
+                else seed + grid_id * 10_000 + rep
             )
+            if holdout_schedule is None:
+                train, held = patient_holdout(
+                    patient_id, n_held_out=grid.n_held_out, seed=rep_seed
+                )
+            else:
+                held = set(holdout_schedule[rep])
+                known = set(patient_id.tolist())
+                if len(held) != grid.n_held_out or not held <= known:
+                    raise ValueError(
+                        f"invalid holdout_schedule entry at replicate {rep}: {sorted(held)}"
+                    )
+                train = known - held
             sample = generate_pseudobulk(
                 counts, cell_type, patient_id, genes,
                 composition_normal=comp_n, composition_tumour=comp_t,

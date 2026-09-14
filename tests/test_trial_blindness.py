@@ -558,6 +558,37 @@ def test_the_matrix_check_can_fail():
     assert not wrong.empty
 
 
+def test_zero_requested_effect_retains_differences_without_a_ratio():
+    runs = tb.run_grid(
+        seed=718,
+        theta=0.0,
+        n_seeds=2,
+        cohort_sizes=(500,),
+        n_replicates=4,
+        designs=("confounded-bernoulli",),
+        estimators=("gcomp-from-generator", "ols-stratum-dummies"),
+    )
+    matrix = tb.residual_matrix(runs)
+    assert matrix["median_recovery_ratio"].isna().all()
+    assert np.isfinite(matrix["median_difference_vs_requested"]).all()
+    assert np.isfinite(matrix["rmse_vs_requested"]).all()
+
+    sweep = tb.run_sweep(
+        seed=719,
+        arm="spread",
+        values=(0.0, 1.0),
+        theta=0.0,
+        n_seeds=2,
+        n_patients=500,
+        n_replicates=4,
+        estimators=("ols-stratum-dummies",),
+    )
+    summary = tb.summarise_sweep(sweep)
+    assert summary["median_recovery_ratio"].isna().all()
+    assert np.isfinite(summary["median_difference_vs_requested"]).all()
+    assert np.isfinite(summary["rmse_vs_requested"]).all()
+
+
 def test_the_degeneracy_threshold_sits_in_an_empty_region():
     """``DEGENERATE_BELOW`` must not be a knob.
 

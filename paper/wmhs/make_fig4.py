@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Figure 2 — the curve cannot tell these apart; one column can.
 
-Reads the newest ``results/<date>_<sha>/trial_recovery.parquet``. Run from the
-repo root:
+Reads the versioned ``trial_recovery.parquet`` pinned in
+``results_manifest.json``. Run from the repo root:
 
     python paper/wmhs/make_fig4.py
 

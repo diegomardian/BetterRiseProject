@@ -1,5 +1,59 @@
 # WMHS @ NeurIPS 2026 — submission source
 
+## Current full-paper revision — 2026-09-13
+
+`main.tex` now reads `sections/full/`, including the revised abstract and
+condensed appendix. The original extended abstract still reads `sections/`;
+its source files were not edited. Both versions retain the same numerical
+values in the three supporting tables. The full paper uses an editorial
+variant of Figure 3 labelled "candidate", regenerated from the existing table
+with `python paper/wmhs/make_fig1_full.py` from the repo root; the original
+figure used by the shorter version is unchanged.
+
+`results_manifest.json` pins every result table read by the paper checks and
+figure scripts. Re-running an experiment no longer changes the submission by
+directory ordering; update the manifest explicitly when adopting a new result.
+CI requires every pinned file, follows the recursive `main.tex` input graph
+through `sections/full/`, and compiles both manuscript variants.
+
+A follow-up editorial pass adds the saved Bernoulli-randomisation and RMST
+controls, a simulation-settings table, and the grid comparison's replicate,
+binning and random-stream qualifications. Untraceable historical rates and
+repetitive diagnostic history were removed. No new experiments were run.
+The proposed follow-up work is in [the additional-runs plan](../../docs/wmhs_next_runs_plan.md).
+Fresh-environment commands for the independent lifelines comparison and the
+residual/performance clean control are in [REPRODUCE.md](REPRODUCE.md).
+
+The full PDF is **12 pages total**, down from 20. Main text ends on page 7,
+references occupy the remainder of page 7 and page 8, and the appendix is
+**4 pages** (pages 9–12), down from 10. The full build has zero LaTeX errors,
+undefined references/citations, and overfull boxes. All pages were rendered and
+visually checked. The anonymity check and 36 existing paper-number tests pass;
+those tests target the original section files, so the revised supporting tables
+and selected retained claims were additionally checked against their sources.
+
+The installed `neurips_2026.sty` is still the local compatibility shim over the
+2024 style described below. These page counts apply to that installed style.
+The official submission style still needs to be supplied before submission.
+
+Build the full paper alone from this directory:
+
+```sh
+pdflatex -halt-on-error main.tex
+bibtex main
+pdflatex -halt-on-error main.tex
+pdflatex -halt-on-error main.tex
+./check_anonymity.sh
+```
+
+`build.sh` still builds both versions. `make_overleaf.sh` now includes the
+nested full-paper sources. The notes below describe the earlier shared-source
+build and are retained as historical context; their page counts, section map
+and statements that both versions use identical prose are superseded above.
+
+---
+
+
 **Venue:** [World Models for High-Stakes Health: Reliable Clinical Trial
 Simulation and Intervention-Aware Reasoning](https://wmhs-neurips.github.io/WMHS/),
 NeurIPS 2026, Atlanta.

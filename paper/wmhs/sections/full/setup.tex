@@ -38,23 +38,18 @@ validation used to justify these cutpoints actually tested their coverage and
 discrimination requirements.
 
 \paragraph{Relation to existing validation methods.}
-Generator--analysis alignment is well known. Congeniality concerns compatibility
-of imputation and analysis models \citep{meng1994}; plasmode and semi-synthetic
-benchmarks can favour methods sharing modelling choices
-\citep{franklin2014,curth2021}; interventional evaluation offers another
-comparison \citep{gentzel2019}; and generators can disadvantage good estimators
-\citep{shaw2026}. The inverse crime includes reuse of forward and inverse
-ingredients \citep{wirgin2004,kaipio2007}. Our contribution is an operational
-audit of a chosen recovery statistic, examples showing its dependence on the
-reference and trial design, and a decision-rule calibration that fails when
-evaluated directly. Appendix~\ref{app:relatedwork} places the audit alongside
-simulation-study methodology and selective prediction.
+Generator--analysis alignment is established in congeniality
+\citep{meng1994}, plasmode and semi-synthetic benchmarks
+\citep{franklin2014,curth2021}, interventional evaluation
+\citep{gentzel2019}, and the inverse crime \citep{wirgin2004,kaipio2007}.
+Generators can also disadvantage good estimators \citep{shaw2026}.
+Our contribution is an operational audit, examples of reference and design
+dependence, and a decision-rule calibration that fails direct evaluation
+(Appendix~\ref{app:relatedwork}).
 
 Simulation-based calibration (SBC) checks posterior ranks under prior-predictive
-simulation \citep{talts2018}. Our point-estimator arms provide no posterior
-samples, so SBC is not directly applicable. A correct posterior can pass SBC
-while its point estimate equals our reference; conversely, SBC can expose
-posterior errors that our residual cannot. Diagnostic sensitivity also depends
-on the chosen test quantity \citep{modrak2025}. The proposed audit complements
-these checks by asking whether the estimator and reference are the same
-functional of the draw.
+simulation \citep{talts2018}; our point-estimator arms supply no posterior
+samples. A correct posterior can pass SBC while its point estimate equals our
+reference; SBC can also expose errors the residual misses. Test quantities
+affect diagnostic sensitivity \citep{modrak2025}. Our audit complements these
+checks by asking whether estimate and reference are the same functional.

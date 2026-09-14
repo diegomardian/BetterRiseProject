@@ -15,8 +15,8 @@ rm -rf "$OUT" "$OUT.zip"
 mkdir -p "$OUT/sections" "$OUT/figures"
 
 cp main.tex main_short.tex refs.bib "$OUT/"
-cp sections/*.tex "$OUT/sections/"
-cp figures/*.pdf "$OUT/figures/"
+cp -R sections/. "$OUT/sections/"
+cp -R figures/. "$OUT/figures/"
 
 cat > "$OUT/READ_ME_FIRST.txt" <<'EOF'
 WMHS @ NeurIPS 2026 — Overleaf project
@@ -27,23 +27,23 @@ BEFORE IT WILL COMPILE
   style and is not bundled here. Do not modify it — the style file warns that
   tweaking it risks desk rejection.
 
-TWO DOCUMENTS, ONE SOURCE
-  main.tex        full paper        6 pages of main text (limit 9)
-  main_short.tex  extended abstract 4 pages of main text (limit 4)
+TWO DOCUMENTS
+  main.tex        revised full paper (main-text limit 9 pages)
+  main_short.tex  original extended abstract (main-text limit 4 pages)
 
-  Both \input the same sections/ files and differ only in the \iffull flag on
-  line 33. The short version is a strict subset of the same prose, so a number
-  cannot differ between them. Pick which one to compile in Overleaf under
-  Menu > Settings > Main document.
+  The revised full paper reads sections/full/, including its condensed appendix.
+  The extended abstract retains sections/. Figures and bibliography are shared.
+  Select the document under Menu > Settings > Main document.
 
 COMPILER
   pdfLaTeX. Overleaf runs bibtex automatically; if references show as [?],
   recompile once more.
 
 BEFORE YOU SUBMIT
-  §5 contains a red [ANONYMISED-ARTIFACT-URL] placeholder. Replace
-  \artifacturl in main.tex (and main_short.tex) with the anonymised mirror
-  URL. It is red so it cannot ship unnoticed.
+  Use the official workshop style, rebuild, and check the page limit and
+  anonymity. The responsible-use statement is in section 5. No artifact URL
+  is included in this submission.
+
 EOF
 
 if command -v zip >/dev/null 2>&1; then

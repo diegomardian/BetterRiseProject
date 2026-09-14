@@ -78,9 +78,10 @@ dev = [
     # next person to check it would find 0.12 installs fine and loosen a cap
     # that is doing real work.
     "anndata>=0.10,<0.11",
-    "lifelines>=0.29",  # src/bulk/survival.py (lazy import, still needed)
+    "lifelines>=0.29",  # required Cox cross-check; src/bulk/survival.py also uses it
     "diptest>=0.5",  # src/bulk/premise.py (lazy import, still needed)
     "matplotlib>=3.7",  # src/bulk/premise.py, src/bulk/run_survival.py — figures
+    "pypdf>=4",  # paper/wmhs/build.sh — enforced manuscript page limits
     "requests>=2.31",  # src/bulk/{gdc,cdr,clinical,purity,replication}.py — fetchers
     # Module-level in src/reference/{icbi,ingest}.py, so its absence kills
     # collection rather than failing one test. Added in #13, lost when #12 and

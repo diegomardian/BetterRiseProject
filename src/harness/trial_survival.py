@@ -66,11 +66,11 @@ fitted rate -- is silenced exactly like the log-hazard-ratio case. The breakdown
 is specific to functionals that depend on the unobserved tail, not to censoring
 as such.
 
-Estimators are hand-rolled in closed form. ``lifelines`` is deliberately not
-added to ``env/w2_harness.yml``: a claim that an estimator is *identically* the
-generator's functional needs exact control of the functional, not a library's
-choice of tie handling. It is used in ``tests/test_trial_survival.py`` only, as
-an independent cross-check of the Cox implementation.
+Estimators are hand-rolled in closed form: a claim that an estimator is
+*identically* the generator's functional needs exact control of the functional,
+not a library's choice of tie handling. ``lifelines`` is required by the dev
+environment and used by ``src.harness.lifelines_check`` as an independent Cox
+cross-check.
 """
 
 from __future__ import annotations
@@ -454,19 +454,25 @@ def unadjusted_cox(records: pd.DataFrame) -> float:
 def _km_rmst(time: np.ndarray, event: np.ndarray, tau: float) -> float:
     """Restricted mean survival on ``[0, tau]`` from the Kaplan-Meier estimate.
 
-    NaN when ``tau`` exceeds the last observation: the curve is undefined past
-    it, and the alternative is an extrapolation the data do not support.
+    NaN when ``tau`` exceeds the last observation *and* the estimated survival
+    there is positive: that tail is unidentified.  If the curve has already
+    reached zero, its remaining contribution to RMST is known to be zero and
+    the integral remains identified beyond the final observation.
     """
-    if len(time) == 0 or tau > time.max():
+    if len(time) == 0 or not np.isfinite(tau) or tau < 0:
         return float("nan")
     order = np.argsort(time, kind="stable")
     time, event = time[order], event[order]
     is_event = (event > 0) & (time <= tau)
     if not is_event.any():
-        return float(tau)  # no events before tau: S == 1 throughout
+        # S == 1 over the observed part, but extending it beyond follow-up
+        # would assert an unobserved tail.
+        return float(tau) if tau <= time.max() else float("nan")
     unique_times, counts = np.unique(time[is_event], return_counts=True)
     at_risk = len(time) - np.searchsorted(time, unique_times, side="left")
     survival = np.cumprod(1.0 - counts / at_risk)
+    if tau > time.max() and survival[-1] > 0.0:
+        return float("nan")
     edges = np.concatenate(([0.0], unique_times, [tau]))
     levels = np.concatenate(([1.0], survival))
     return float((levels * np.diff(edges)).sum())
@@ -653,6 +659,11 @@ def summarise(runs: pd.DataFrame) -> pd.DataFrame:
         runs.groupby(["estimator", "scale", "role", "censoring_target", "n_patients"])
         .agg(
             n_replicates=("replicate", "count"),
+            n_valid_pairs=("residual_vs_latent", lambda s: int(np.isfinite(s).sum())),
+            n_valid_observed_pairs=(
+                "residual_vs_observed",
+                lambda s: int(np.isfinite(s).sum()),
+            ),
             censored_fraction=("censored_fraction", "mean"),
             max_residual_vs_latent=("residual_vs_latent", "max"),
             median_residual_vs_latent=("residual_vs_latent", "median"),
@@ -662,16 +673,42 @@ def summarise(runs: pd.DataFrame) -> pd.DataFrame:
         )
         .reset_index()
     )
-    out["verdict_vs_latent"] = np.where(
-        out["max_residual_vs_latent"] < 1e-9,
-        "flagged: shares the generator's functional",
-        "passed: looks independent of the generator",
+    out["n_invalid_pairs"] = out["n_replicates"] - out["n_valid_pairs"]
+    out["n_invalid_observed_pairs"] = (
+        out["n_replicates"] - out["n_valid_observed_pairs"]
     )
-    out["verdict_vs_observed"] = np.where(
-        out["max_residual_vs_observed"] < 1e-9,
-        "flagged: shares the generator's functional",
-        "passed: looks independent of the generator",
-    )
+
+    def audit_outcome(max_residual: float, n_valid: int, n_total: int) -> str:
+        """Classify arithmetic evidence without turning it into a quality claim.
+
+        One finite departure disproves numerical equality even if other outputs
+        are invalid.  Equality, however, needs every attempted pair to be
+        finite; otherwise the group has insufficient valid pairs.
+        """
+        if n_valid and np.isfinite(max_residual) and max_residual >= 1e-9:
+            return "numerical_departure"
+        if n_valid < n_total:
+            return "insufficient_valid_pairs"
+        return "numerical_equality"
+
+    out["verdict_vs_latent"] = [
+        audit_outcome(r, int(v), int(n))
+        for r, v, n in zip(
+            out["max_residual_vs_latent"],
+            out["n_valid_pairs"],
+            out["n_replicates"],
+            strict=True,
+        )
+    ]
+    out["verdict_vs_observed"] = [
+        audit_outcome(r, int(v), int(n))
+        for r, v, n in zip(
+            out["max_residual_vs_observed"],
+            out["n_valid_observed_pairs"],
+            out["n_replicates"],
+            strict=True,
+        )
+    ]
     out["rule"] = RULE
     return out.sort_values(
         ["scale", "estimator", "censoring_target", "n_patients"]

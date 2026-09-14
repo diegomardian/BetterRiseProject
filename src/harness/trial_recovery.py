@@ -355,8 +355,16 @@ def run(
                         "theta_requested": trial.theta_requested,
                         "theta_realised": trial.theta_realised,
                         "estimate": estimate,
+                        "difference_vs_requested": estimate - trial.theta_requested,
+                        "absolute_error_vs_requested": abs(
+                            estimate - trial.theta_requested
+                        ),
                         "residual_vs_realised": abs(estimate - trial.theta_realised),
-                        "recovery_ratio": estimate / trial.theta_requested,
+                        "recovery_ratio": (
+                            estimate / trial.theta_requested
+                            if trial.theta_requested != 0.0
+                            else float("nan")
+                        ),
                     }
                 )
     return pd.DataFrame(rows)
@@ -371,6 +379,12 @@ def summarise(runs: pd.DataFrame) -> pd.DataFrame:
             ratio_median=("recovery_ratio", "median"),
             ratio_q25=("recovery_ratio", lambda s: s.quantile(0.25)),
             ratio_q75=("recovery_ratio", lambda s: s.quantile(0.75)),
+            estimate_median=("estimate", "median"),
+            mean_difference_vs_requested=("difference_vs_requested", "mean"),
+            rmse_vs_requested=(
+                "difference_vs_requested",
+                lambda s: float(np.sqrt(np.mean(np.square(s)))),
+            ),
             max_residual_vs_realised=("residual_vs_realised", "max"),
         )
         .reset_index()

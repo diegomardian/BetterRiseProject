@@ -172,6 +172,7 @@ def run_one(
     n_replicates: int,
     criteria: CalibrationCriteria = PREREGISTERED,
     n_bins: int = N_BINS,
+    seed_strategy: str = "grid_position",
 ) -> tuple[pd.DataFrame, dict, pd.DataFrame]:
     """One (pool, grid, seed) cell: sweep, then calibrate.
 
@@ -185,7 +186,13 @@ def run_one(
         n_replicates=n_replicates,
         n_cells=N_CELLS,
     )
-    sweep = run_sweep(config, grid, seed=seed, arms=("oracle",))
+    sweep = run_sweep(
+        config,
+        grid,
+        seed=seed,
+        arms=("oracle",),
+        seed_strategy=seed_strategy,
+    )
     bins = coverage_and_discrimination(sweep, criteria, n_bins=n_bins)
 
     row: dict = {
@@ -222,11 +229,13 @@ def run_calibration_gap(
     target_gene: str = TARGET_GENE,
     mature_label: str = MATURE_BIN,
     criteria: CalibrationCriteria = PREREGISTERED,
+    seed_strategy: str = "grid_position",
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Every (pool, grid, seed) cell. Returns ``(bins, cutpoints, recovery)``.
 
-    Everything except pool, grid and seed is held fixed, so a difference between
-    two rows is attributable to one of those three.
+    Everything except pool, grid and seed is held fixed. The historical default
+    retains position-keyed streams; pass ``seed_strategy="configuration"`` for
+    comparisons where shared settings across grids must reuse identical draws.
     """
     grids = GRIDS if grids is None else grids
     tissue = pd.Series(np.asarray(tissue))
@@ -258,6 +267,7 @@ def run_calibration_gap(
                 bins, row, rec = run_one(
                     config, fractions, seed=seed,
                     n_replicates=n_replicates, criteria=criteria,
+                    seed_strategy=seed_strategy,
                 )
                 bin_frames.append(bins.assign(pool=pool, grid=grid_name, seed=seed))
                 rec_frames.append(rec.assign(pool=pool, grid=grid_name, seed=seed))

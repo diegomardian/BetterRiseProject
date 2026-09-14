@@ -9,6 +9,8 @@ unqualified estimate, and the smallest meeting coverage alone for a
 wide-interval estimate. The panel, labelling axes and falsification rule are
 frozen in configuration and checked against exact values in the test suite.
 These safeguards record the specification; they do not establish its adequacy.
+Appendix~\ref{app:methods} specifies the cohorts and within-arm cell bootstrap,
+which is distinct from patient resampling for population inference.
 
 \paragraph{The draw pool changes the result.}
 The generator filters eligibility by held-out patient, pooling cells from both
@@ -20,16 +22,17 @@ replicates, and $0.75$ across eight seeds at 500. The reference-only pool does
 return candidates, but does not recover the committed count of 50
 (Figure~\ref{fig:calibration}).
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{figures/fig1_calibration.pdf}
+\includegraphics[width=\linewidth]{figures/full/fig1_calibration.pdf}
 \caption{Direct coverage and discrimination evaluation of the cell-count rule.
 Dashed lines mark the pre-specified targets; shading marks the committed
 three-state rule. Left: the implemented pooled-cell generator returns no
 qualifying cutpoint at any tested count. Right: the reference-only generator
-returns candidates whose reported values depend on the grid ($100$, $90$ and
-$70$ across three grids), rather than the committed 50. These candidates do
-not carry patient-level uncertainty estimates.}
+returns a candidate of 90 on seven of eight seeds in the plotted filled-grid
+run, rather than the committed 50. Shaded curve bands span the eight seeds;
+they are not patient-level confidence intervals. The three-grid comparison
+below reports configuration sensitivity rather than an isolated grid effect.}
 \label{fig:calibration}
 \end{figure}
 
@@ -37,9 +40,7 @@ not carry patient-level uncertainty estimates.}
 The committed grid varies mature-cell fractions at 2{,}000 cells per arm,
 reaching counts $\{0,20,40,100,200,400,800\}$. It has no point between 40 and
 100. On the reference pool it returns $ok=100$ on all eight seeds at 500
-replicates, and twelve of thirteen at 50. A superseded report gave 120, which
-this configuration cannot produce; the provenance defect is recorded in
-Appendix~\ref{app:withdrawn}.
+replicates, and twelve of thirteen at 50.
 
 Coverage and discrimination are aggregated into twelve log-spaced count bins.
 Each reported count is the median of the counts landing in its bin, rather
@@ -50,12 +51,9 @@ contributes $\{80,90,100\}$. The additional counts also change the evidence
 aggregated within the bin. The newly populated bin $(55,76]$ has median
 discrimination $0.789$, below target.
 
-A third grid, reaching below 20, returns $ok=70$ on all eight seeds. Its count
-summaries are $\{2.5,10,17.5,27.5,42.5,70,105,150,400,800\}$; fractional
-values are summaries, not fractional cells. Discrimination is similar near
-shared count ranges: medians over eight seeds are $0.712$, $0.728$ and $0.726$
-near 40, and $0.880$, $0.858$ and $0.878$ near 100. The reported crossing
-brackets and candidates nevertheless differ:
+A third grid, reaching below 20, returns $ok=70$ on all eight seeds.
+Its fractional count summaries are bin medians, not fractional cells.
+The reported crossing brackets and candidates differ:
 
 \begin{center}\small
 \begin{tabular}{@{}lccc@{}}
@@ -65,14 +63,19 @@ brackets and candidates nevertheless differ:
 crossing bracketed to & $(40,100]$ & $(65,90]$ & $(42.5,70]$ \\
 reported $ok$ & $100$ & $90$ & $70$ \\
 reported $wide$ & $40$ & $45$ & $42$ \\
+replicates per grid point & $500$ & $500$ & $200$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 These brackets describe adjacent reported count summaries, not confidence
-intervals. The decreasing candidates across these three grids establish
-sensitivity to the tested configurations, not monotonicity under further
-refinement. No tested grid, cohort or seed returned the committed 50.
+intervals. The comparison does not isolate grid resolution: the dense run uses
+200 replicates per point rather than 500, and extending below 20 changes the
+log-spaced bin boundaries. Seeds also depend on each point's position in the
+grid, so shared count settings use different draws after points are added.
+The candidates establish sensitivity to these configurations, not the size of
+a pure grid effect or monotonicity under further refinement. No tested grid,
+cohort or seed returned the committed 50.
 The $wide$ candidate has zero seed-to-seed variance in all six cohort-by-grid
 combinations ($40$, $45$, $42$ here; $100$, $65$, $70$ in the second cohort).
 That stability alone cannot establish precision when only a few output values

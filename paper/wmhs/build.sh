@@ -4,10 +4,8 @@
 # main.tex       full paper, 9 pages of main text
 # main_short.tex extended abstract, 4 pages of main text
 #
-# Both \input the same sections/, differing only in \iffull. The short build is
-# a strict subset of the same prose, so a number cannot say one thing in one and
-# something else in the other — which, given what this paper is about, is the
-# one way it must not be wrong. What the short build drops, its appendix carries.
+# The revised full paper reads sections/full/, while the extended abstract
+# retains its original sections/ sources. Figures and bibliography are shared.
 #
 # References and appendices do not count toward either limit, so the check is
 # "where does the bibliography start", not "how many pages is the PDF".
@@ -22,11 +20,12 @@ fi
 
 build() {
   local doc=$1
-  pdflatex -interaction=batchmode "$doc.tex" >/dev/null 2>&1
-  bibtex "$doc" >/dev/null 2>&1
-  pdflatex -interaction=batchmode "$doc.tex" >/dev/null 2>&1
-  pdflatex -interaction=batchmode "$doc.tex" >/dev/null 2>&1
-  [ -f "$doc.pdf" ]
+  local status=0
+  pdflatex -halt-on-error -interaction=batchmode "$doc.tex" >/dev/null 2>&1 || status=1
+  bibtex "$doc" >/dev/null 2>&1 || status=1
+  pdflatex -halt-on-error -interaction=batchmode "$doc.tex" >/dev/null 2>&1 || status=1
+  pdflatex -halt-on-error -interaction=batchmode "$doc.tex" >/dev/null 2>&1 || status=1
+  [ "$status" -eq 0 ] && [ -f "$doc.pdf" ]
 }
 
 fail=0

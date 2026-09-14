@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """Figure 1, read from the committed calibration table.
 
-Every number on the axes comes from
-the newest ``results/<date>_<sha>/calibration_gap_bins_r500.parquet``, and the
-path it used is printed. Nothing is transcribed. Run from the repo root:
+Every number on the axes comes from the versioned
+``calibration_gap_bins_r500.parquet`` pinned in ``results_manifest.json``, and
+the path it used is printed. Nothing is transcribed. Run from the repo root:
 
     python paper/wmhs/make_fig1.py
 """
@@ -75,7 +75,7 @@ def panel(ax, rows: pd.DataFrame, *, title: str, subtitle: str) -> None:
         ax.spines[side].set_visible(False)
 
 
-def main() -> int:
+def main(*, out: Path = OUT, annotation: str = "calibrated") -> int:
     bins = pd.read_parquet(newest(TABLE_NAME))
     ext = bins[bins["grid"] == "extended"]
 
@@ -98,7 +98,7 @@ def main() -> int:
     )
     axes[1].axvline(90, color="#111111", ls=":", lw=1.2, zorder=3)
     axes[1].annotate(
-        "calibrated\n$ok = 90$", xy=(90, 0.12), xytext=(150, 0.06),
+        f"{annotation}\n$ok = 90$", xy=(90, 0.12), xytext=(150, 0.06),
         fontsize=7.5, color="#111111",
         arrowprops=dict(arrowstyle="-", lw=0.7, color="#111111"),
     )
@@ -110,9 +110,9 @@ def main() -> int:
     fig.supxlabel("cells available to the intrinsic comparison, $n$",
                   fontsize=7.5, y=0.06)
     fig.tight_layout(rect=(0, 0.06, 1, 1))
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT, bbox_inches="tight")
-    print(f"wrote {OUT}")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, bbox_inches="tight")
+    print(f"wrote {out}")
     return 0
 
 

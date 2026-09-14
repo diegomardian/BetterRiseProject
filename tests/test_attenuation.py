@@ -15,6 +15,7 @@ from src.harness.attenuation import (
     DEFAULT_SHIFTS,
     SweepConfig,
     SweepGrid,
+    _configuration_seed,
     bulk_overconfidence,
     null_arm_noise_ratio,
     null_arm_recovers_zero,
@@ -31,6 +32,7 @@ from src.harness.calibration import (
     CalibrationCriteria,
     calibrate_cutpoints,
     coverage_and_discrimination,
+    coverage_and_discrimination_by_count,
 )
 from src.harness.deconvolve import NuSVRDeconvolver
 from src.harness.results import validate_harness_table
@@ -147,6 +149,83 @@ def test_sweep_is_reproducible(cohort):
     pd.testing.assert_frame_equal(a, b)
 
 
+def test_shared_grid_settings_reuse_identical_draws(cohort):
+    """Grid order and extra settings cannot change a shared configuration."""
+    counts, ctypes, patients = cohort
+    cfg = SweepConfig(counts, ctypes, patients, GENES, TARGET)
+    common = dict(shifts=(1.0, 0.5), n_replicates=2, n_cells=400)
+    first = run_sweep(
+        cfg,
+        SweepGrid(mature_fractions=(0.4, 0.2), **common),
+        seed=17,
+        arms=("oracle",),
+        seed_strategy="configuration",
+    )
+    second = run_sweep(
+        cfg,
+        SweepGrid(mature_fractions=(0.1, 0.2, 0.4), **common),
+        seed=17,
+        arms=("oracle",),
+        seed_strategy="configuration",
+    )
+
+    keys = ["frac_mature_tumour", "shift", "replicate", "arm"]
+    left = first[first["frac_mature_tumour"] == 0.2].sort_values(keys)
+    right = second[second["frac_mature_tumour"] == 0.2].sort_values(keys)
+    pd.testing.assert_frame_equal(
+        left.drop(columns="grid_id").reset_index(drop=True),
+        right.drop(columns="grid_id").reset_index(drop=True),
+    )
+
+
+def test_configuration_seed_changes_with_each_key():
+    baseline = _configuration_seed(
+        17, n_cells=400, mature_fraction=0.2, shift=0.5, replicate=3
+    )
+    alternatives = {
+        _configuration_seed(18, n_cells=400, mature_fraction=0.2, shift=0.5, replicate=3),
+        _configuration_seed(17, n_cells=401, mature_fraction=0.2, shift=0.5, replicate=3),
+        _configuration_seed(17, n_cells=400, mature_fraction=0.1, shift=0.5, replicate=3),
+        _configuration_seed(17, n_cells=400, mature_fraction=0.2, shift=0.8, replicate=3),
+        _configuration_seed(17, n_cells=400, mature_fraction=0.2, shift=0.5, replicate=4),
+    }
+    assert baseline not in alternatives
+    assert len(alternatives) == 5
+
+
+def test_explicit_holdout_schedule_is_balanced_and_reproducible(cohort):
+    counts, ctypes, patients = cohort
+    cfg = SweepConfig(counts, ctypes, patients, GENES, TARGET)
+    schedule = (("P00", "P01"), ("P02", "P03"))
+    grid = SweepGrid(
+        mature_fractions=(0.2,),
+        shifts=(1.0, 0.5),
+        n_replicates=len(schedule),
+        n_cells=400,
+        n_held_out=2,
+    )
+    first = run_sweep(
+        cfg,
+        grid,
+        seed=21,
+        arms=("oracle",),
+        seed_strategy="configuration",
+        holdout_schedule=schedule,
+    )
+    second = run_sweep(
+        cfg,
+        grid,
+        seed=21,
+        arms=("oracle",),
+        seed_strategy="configuration",
+        holdout_schedule=schedule,
+    )
+    pd.testing.assert_frame_equal(first, second)
+
+    with pytest.raises(ValueError, match="one entry per replicate"):
+        run_sweep(cfg, grid, seed=21, holdout_schedule=schedule[:1])
+
+
 def test_mature_count_and_estimability_track_the_swept_fraction(small_sweep):
     oracle = small_sweep[small_sweep["arm"] == "oracle"]
     medians = oracle.groupby("frac_mature_tumour")["n_cells_mature"].median()
@@ -206,6 +285,34 @@ def test_sweep_rejects_a_target_not_in_the_gene_list(cohort):
     grid = SweepGrid(mature_fractions=(0.2,), shifts=(1.0,), n_replicates=1, n_cells=200)
     with pytest.raises(KeyError, match="not in the gene list"):
         run_sweep(SweepConfig(counts, ctypes, patients, GENES, "NOTAGENE"), grid, seed=1)
+
+
+def test_fixed_bins_and_per_count_rates_keep_attempts_and_abstentions_visible():
+    sweep = _sweep_with_cis(n_per_bin=4)
+    sweep.loc[(sweep["n_cells_mature"] == 30) & (sweep["replicate"] == 0), [
+        "ci_low", "ci_high"
+    ]] = np.nan
+
+    fixed = coverage_and_discrimination(
+        sweep,
+        bin_edges=(0, 20, 50, 100, 500),
+    )
+    assert fixed["n_replicates"].sum() == len(sweep)
+    assert fixed["n_abstained"].sum() == 1
+
+    per_count = coverage_and_discrimination_by_count(sweep)
+    at_30 = per_count[per_count["n_cells_mature"] == 30].iloc[0]
+    assert at_30["n_replicates"] == 4
+    assert at_30["n_estimated"] == 3
+    assert at_30["n_abstained"] == 1
+
+
+def test_fixed_bins_must_cover_the_counts_and_increase():
+    sweep = _sweep_with_cis(n_per_bin=2)
+    with pytest.raises(ValueError, match="strictly increasing"):
+        coverage_and_discrimination(sweep, bin_edges=(0, 50, 20, 500))
+    with pytest.raises(ValueError, match="cover every"):
+        coverage_and_discrimination(sweep, bin_edges=(0, 20, 50))
 
 
 # ---------------------------------------------------------------------------

@@ -16,7 +16,7 @@ reference divided by the requested intrinsic term. The curve describes the
 sampling performance of that reference but does not directly test the
 abstention rule.
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{figures/fig3_generator_statistic.pdf}
 \caption{Single-cell recovery ratios at the detectable effect, shown as median
@@ -94,7 +94,7 @@ Its residual is smaller than cross-fitted IPW's at every tested cohort size.
 Thus the audit concerns a shared functional, not simply a shared sample
 (Table~\ref{tab:trial}).
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{figures/fig4_trial_recovery.pdf}
 \caption{Patient simulation with confounded assignment and requested effect
@@ -110,7 +110,8 @@ Departure is not a validity criterion.}
 
 \paragraph{The reference and trial design determine equality.}
 A broader sweep crosses 14 estimators, three designs, two realised references,
-six cohort sizes and six seeds (Table~\ref{tab:matrix}). Under confounded
+six cohort sizes and six seeds (Table~\ref{tab:matrix}; settings in
+Appendix~\ref{app:methods}). Under confounded
 assignment, OLS has maximum residual $0.0663$ against the standardised
 reference at $n=5{,}000$, but $3.5\times10^{-14}$ against the
 variance-weighted reference equal to OLS by the Frisch--Waugh identity.
@@ -120,7 +121,12 @@ Both consistently estimate the requested homogeneous effect.
 With complete, stratified permuted blocks and 1:1 allocation, empirical
 propensities are $0.5$ in every stratum. The two references coincide, and
 OLS and even the unadjusted contrast reproduce them to numerical precision
-($1.6\times10^{-14}$ and $6.7\times10^{-15}$). Non-cross-fitted AIPW with
+($1.6\times10^{-14}$ and $6.7\times10^{-15}$). Independent Bernoulli
+assignment at probability $0.5$ does not enforce this realised balance:
+at $n=5{,}000$, OLS and the unadjusted contrast have maximum residuals
+$9.51\times10^{-4}$ and $0.562$, respectively, against the standardised
+reference. Thus 1:1 randomisation in expectation is insufficient for the
+identity. Non-cross-fitted AIPW with
 saturated nuisances also equals standardisation: its within-stratum
 augmentation sums vanish (residual $4.4\times10^{-15}$ in the confounded
 design). Exact matching using all controls within each stratum agrees to
@@ -169,6 +175,14 @@ rates are $0.53$--$0.61$. Neither ordering is a quality criterion: a larger
 residual cannot be read as a more informative validation. Use an observed-data
 reference for the reuse audit, and retain requested parameters and latent
 targets for their separate error, coverage and information-loss evaluations.
+
+A restricted-mean survival time (RMST) comparison provides a control.
+Its horizon is fixed at $\tau=2$, below every administrative censoring time
+in the sweep. Standardised Kaplan--Meier RMST therefore reproduces the empirical
+latent truncated-mean contrast to numerical precision across all 28 cells
+(maximum residual $2.8\times10^{-15}$ on valid outputs). Censoring has hidden
+no information within this horizon. The observation process matters through
+its effect on the chosen functional, not simply through the fraction censored.
 
 \paragraph{Applying the audit.}
 Specify the reference functional, target population and observation process

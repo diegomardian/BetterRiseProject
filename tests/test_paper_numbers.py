@@ -26,9 +26,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.common.paths import REPO_ROOT, RESULTS_DIR
+from src.common.paths import REPO_ROOT
 
 SECTIONS = REPO_ROOT / "paper" / "wmhs" / "sections"
+RESULT_MANIFEST = REPO_ROOT / "paper" / "wmhs" / "results_manifest.json"
 
 #: The guard's own tolerances, quoted in the prose. Imported rather than
 #: retyped, so moving one in the code breaks the paper here rather than in
@@ -40,10 +41,11 @@ from src.reference.jobs.coexpression_silencing import (  # noqa: E402
 
 
 def _newest(name: str) -> Path:
-    matches = sorted(RESULTS_DIR.glob(f"*/{name}.parquet"))
-    if not matches:
-        pytest.skip(f"no results/*/{name}.parquet committed")
-    return matches[-1]
+    manifest = json.loads(RESULT_MANIFEST.read_text(encoding="utf-8"))
+    assert name in manifest, f"paper result {name!r} is not pinned in the manifest"
+    path = REPO_ROOT / manifest[name]
+    assert path.is_file(), f"pinned paper result is missing: {path}"
+    return path
 
 
 @pytest.fixture(scope="module")

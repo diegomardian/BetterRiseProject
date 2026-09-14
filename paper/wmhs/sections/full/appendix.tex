@@ -1,0 +1,224 @@
+\appendix
+
+\input{sections/full/methods.tex}
+
+\section{Supporting simulation results}
+\label{app:generator}
+
+\paragraph{Draw-pool sensitivity and the null case.}
+The sweep in \texttt{src.harness.calibration\_gap} stores a zero maximum
+residual on every row. At $f_T=0.01$ (about 20
+mature cells), $s=0.5$ and 500 replicates, median recovery across eight seeds
+ranges from $1.331$ to $1.423$ for pooled draws and $1.075$ to $1.108$ for
+reference draws. The IQR width increases from about $0.62$ to $1.17$, while
+the residual remains zero. At the abstention point, the recovery ratio has
+closed form $1/(1-s)$, giving $5.000$, $2.000$ and $1.333$ at the three tested
+shifts with zero replicate variance. At $s=1$, the requested intrinsic term is
+zero and recovery ratios are undefined; differences remain available.
+
+\paragraph{Five estimators of one requested effect.}
+Table~\ref{tab:trial} reports the patient simulator's five-method comparison
+at $n=5{,}000$ with 200 replicates and one seed. The reference is the standardised observed contrast.
+\input{sections/full/trialtable.tex}
+
+\subsection{Reference and design sensitivity}
+\label{app:matrix}
+
+\begin{table}[htbp]
+\small
+\centering
+\caption{Maximum absolute residual at 5{,}000 patients, with 1{,}200 replicates
+pooled over 6 seeds. Values near $10^{-14}$ reflect numerical equality.
+Changing the reference or using complete 1:1 blocks changes which estimators
+reproduce the reference. These maxima use more replicates than
+Table~\ref{tab:trial}, so their nonzero magnitudes are not directly comparable.}
+\label{tab:matrix}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{confounded}} & \multicolumn{2}{c}{\textbf{block-randomised}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+estimator & standardised & var-weighted & standardised & var-weighted \\
+\midrule
+G-computation, generator's strata & $0$          & $0.0663$     & $0$          & $9\!\times\!10^{-16}$ \\
+IPW, saturated propensity         & $1\!\times\!10^{-14}$ & $0.0663$ & $7\!\times\!10^{-15}$ & $7\!\times\!10^{-15}$ \\
+AIPW, saturated, no cross-fitting & $4\!\times\!10^{-15}$ & $0.0663$ & $4\!\times\!10^{-15}$ & $4\!\times\!10^{-15}$ \\
+matching on stratum, all controls & $9\!\times\!10^{-16}$ & $0.0663$ & $9\!\times\!10^{-16}$ & $0$ \\
+matching on stratum, 20 controls  & $0.052$      & $0.067$      & $0.037$      & $0.037$ \\
+matching on stratum, 1 control    & $0.164$      & $0.182$      & $0.170$      & $0.170$ \\
+OLS, stratum dummies              & $0.0663$     & $\mathbf{3.5\!\times\!10^{-14}}$ & $2\!\times\!10^{-14}$ & $2\!\times\!10^{-14}$ \\
+IPW, cross-fitted                 & $0.599$      & $0.618$      & $0.182$      & $0.182$ \\
+unadjusted difference             & $4.99$       & $4.99$       & $\mathbf{7\!\times\!10^{-15}}$ & $7\!\times\!10^{-15}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Regularisation also changes the residual. For logistic-propensity IPW in the
+confounded design, maximum residuals against the standardised reference are
+$0.403$, $0.045$, $0.0103$ and $0.010$ at $C=0.1,1,100,10^6$; tightening
+solver tolerance to $10^{-8}$ reduces the final value to $1.3\times10^{-6}$.
+Both nuisance-model fitting and numerical convergence affect an equality screen.
+
+Under increasing effect heterogeneity ($\tau=0$ to 16, holding the population
+ATE fixed), OLS recovery ratios are $1.003$, $1.011$, $1.020$, $1.037$,
+$1.077$ and $1.132$. Its maximum standardised-reference residual grows from
+$0.094$ to $1.452$, while its own variance-weighted-reference residual remains
+between $2.4\times10^{-14}$ and $9.7\times10^{-14}$. The recovery curve
+correctly detects a target mismatch: under heterogeneity, OLS's
+variance-weighted population target can differ from the requested ATE.
+Likewise, increasing propensity differences from randomised toward confounded
+assignment raises OLS's standardised-reference residual from $0.0033$ to
+$0.104$ while recovery remains approximately 1.00. Residual size alone cannot
+rank either calibration or accuracy.
+
+\section{Calibration and real-data caveats}
+\label{app:gridcaveats}
+
+\paragraph{Denominators and coincident cutpoints.}
+Undefined intervals were previously counted as coverage and discrimination
+failures because comparisons with \texttt{NaN} evaluated to false.
+The corrected routine reports abstentions separately and conditions interval
+rates on defined outputs; an all-abstaining bin has no coverage estimate.
+At one of thirteen seeds in the 50-replicate filled-grid sweep, $ok=wide=45$,
+so the fitted rule has no middle state. Calibrating a three-state rule does
+not guarantee three distinct output regions.
+
+\subsection{Abstention and annotation resolution}
+\label{app:modal}
+At the finest annotation resolution, $28/28$ patients abstain under one
+pre-registered population definition and $24/28$ under the other. Both exceed
+the pre-committed $50\%$ limit. At coarser resolutions, all six combinations
+remain \emph{not identifiable}: two because the population definitions disagree,
+and four because at least one arm is unresolved.
+
+The coarsest resolution labels every epithelial cell mature, forcing the
+compositional term to zero on all 1{,}728 rows. At the finest resolution,
+1{,}080 of 1{,}296 rows are \notest{}, none receives an unqualified estimate,
+and the median mature-cell count is three. The middle two resolutions assign
+the same mature sets on all 30 patients of the primary axis: Jaccard similarity
+is 1.000 for 29 and undefined for the patient with two empty sets.
+
+\subsection{Diagnostic reachability and interval calibration}
+\label{app:guards}
+
+\paragraph{Saturated controls can miss expression changes.}
+An exploratory within-cell analysis used housekeeping-gene detection to assess
+comparability between tissues. Across three cohorts and 42 patients, 83 of 84
+control rows fell within a 0.10 tolerance despite output changes of 1.19--1.64
+fold. Detection near one limits sensitivity: under Poisson thinning,
+$d'=1-(1-d)^s$. Patient-bootstrap log$_2$ expression intervals instead crossed
+the accepted range's boundaries, $[-0.5,0.5]$, in every cohort, leaving all
+three comparisons \emph{undecided}.
+
+\paragraph{Small-sample bootstrap intervals need separate calibration.}
+For a mean of $n$ observations with sample standard deviation $s$, the
+conditional bootstrap standard deviation is $s\sqrt{(n-1)/n}/\sqrt n$.
+A normal approximation to a percentile interval therefore has width, relative
+to a normal-population Student-$t$ interval,
+\[
+\frac{z\sqrt{(n-1)/n}}{t_{n-1}}.
+\]
+This approximation applies to a mean, not arbitrary percentile intervals.
+At $n=10$ the width ratio is $0.82$, with an implied normal-population
+rejection rate of $9.6\%$ for a nominal $5\%$ test. In the twenty-cell
+sweep (1{,}500 trials per cell), percentile intervals are miscalibrated in 14
+cells and BCa in 17 under the sweep's criterion. Student-$t$ intervals are
+calibrated in 19 and conservative in one, with worst rejection rate $5.9\%$.
+These results concern the tested settings and do not establish that one
+interval method is universally preferable. More resamples reduce simulation
+noise, not uncertainty from a small patient sample.
+
+\section{Synthetic abstention benchmark}
+\label{app:bench}
+\label{app:benchtable}
+
+The benchmark uses six synthetic worlds, 200 replicates per world, 2{,}000
+cells per arm and seed 20260829. Mature-cell expression is
+$\mathrm{Poisson}(\mu)$ in reference tissue and $\mathrm{Poisson}(\mu s)$ in
+diseased tissue; immature cells express zero. The decomposition truth follows
+from Equation~\ref{eq:kitagawa}. In \texttt{annihilated}, the diseased mature
+fraction is exactly zero, so the diseased mature-cell mean has no referent.
+
+The count gate is compared with identical arithmetic without gating and with
+a width gate that abstains when the standard error is non-finite or the 95\%
+half-width exceeds the pre-specified detectable effect. Check finiteness first:
+\texttt{nan > threshold} is false and would otherwise permit an undefined
+comparison. Five of six planned methods run; \texttt{cacoa} is unavailable in the pinned
+environment. Competitors are reimplementations.
+
+Both gates refuse all 200 annihilated replicates. The ungated ablation,
+pseudobulk differential expression and a naive arm-mean difference return a
+number in all 200. The latter two estimate different contrasts; their returned
+values are not intrinsically erroneous, but cannot be interpreted as an
+intrinsic effect in absent cells. The matched-arithmetic ablation establishes
+the gate's effect without that estimand mismatch (Table~\ref{tab:bench}).
+\input{sections/full/benchtable.tex}
+
+\paragraph{Finiteness and width play different roles.}
+Under Poisson expression, the width criterion never binds: in
+\texttt{depleted\_wide}, the largest 95\% half-width is 1.081 versus a
+detectable effect of 3.967. Its finiteness check prevents undefined outputs,
+while the count gate makes 88 additional refusals without improving the
+benchmark's false-confidence rate. The count gate's lower median error is
+conditional on selecting fewer, less noisy cases.
+
+The existence result persists under six expression models: Poisson, negative
+binomial with dispersion 10, 2 or 0.5, zero-inflated negative binomial with
+$\pi=0.3$ and dispersion 2, and zero-inflated Poisson with $\pi=0.3$.
+Across three seeds and 200 replicates each, both gates refuse all annihilated
+replicates in every model, while the ungated ablation returns a number in all.
+This follows from setting the mature fraction to zero, independently of the
+expression distribution. Width behaviour does change: in
+\texttt{depleted\_wide}, mean refusals range from zero to fourteen across
+these models, compared with 90--99 for the count gate (83--105 across individual
+model-by-seed cells).
+
+Changing the detectable effect also changes width-based refusals. Matching the
+count gate's 88 refusals requires
+$s_{\mathrm{detect}}\in[0.928776,0.928981]$ in this sweep. Refusals begin in
+\texttt{depleted\_estimable} at $0.958$ and in \texttt{compositional\_only} at
+$0.961$. Width-based refusals therefore depend on the model and threshold. Existence
+and uncertainty checks require separate evaluation.
+
+\section{Related work}
+\label{app:relatedwork}
+Simulation-study methodology separates the generator, estimand, methods and
+performance measures \citep{burton2006,morris2019}. Our audit examines whether
+a method equals a specified empirical reference. Cell-count filters are
+established in pseudobulk analysis \citep{crowell2020}; scCODA, Milo, propeller
+and DA-seq address composition \citep{buettner2021,dann2022,phipson2022,zhao2021},
+while cacoa separates compositional and expression changes \citep{petukhov2022}.
+The connection to selective prediction is the need to evaluate decisions to
+answer or abstain \citep{chow1970,elyaniv2010,geifman2017}. Conformal coverage
+for prediction targets \citep{vovk2005,angelopoulos2023} neither defines a missing
+conditional population nor automatically supplies confidence intervals for the
+intrinsic parameter here.
+
+\section{Implementation corrections and provenance}
+\label{app:withdrawn}
+Corrections to the motivating analysis separated population definitions that
+had been collapsed by de-duplication, derived fractions and means from a single
+labelling call, and included untracked producing scripts in provenance checks.
+The calibration was re-derived with the committed sweep. Regression fixtures
+exercise mismatched identifiers, mispaired correlation bounds, undefined
+interval denominators and untracked scripts. These implementation checks do
+not establish the statistical validity of the resulting estimates.
+
+\section{Extended limitations}
+\label{app:limitations}
+Neither draw pool reproduces the real tissue contrast: each supplies both
+synthetic arms. They differ jointly in expression dispersion, distinct
+mature-cell counts (662 versus 3{,}824, sampled with replacement) and tissue
+mixture; the experiment does not isolate these contributions.
+
+Depth matching discards roughly three quarters of the cells and moves about
+half the remaining estimable rows below the count threshold. Estimates are
+calculated per study, but only one study-by-resolution comparison supports the
+intended summary after matching, so multi-study synthesis is unavailable.
+Real-data inference resamples patients, not cells, and remains subject to the
+small-sample limitations in Appendix~\ref{app:guards}.
+
+Keep abstention counts, conditional interval performance and the interaction
+term explicit downstream. Storing \texttt{None} prevents substitution with zero
+but cannot prevent an undefined interval from entering a rate denominator.
+The benchmark supports conclusions about the tested gate implementations and
+regimes, not general robustness or clinical utility.

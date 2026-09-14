@@ -35,6 +35,16 @@ jobs:
         # a frozen contract moved — read the failure, do not adjust the test.
         run: pytest -q
 
+      - name: Install manuscript toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y texlive-latex-base texlive-latex-extra texlive-fonts-recommended
+
+      - name: Verify manuscript builds
+        run: |
+          paper/wmhs/build.sh
+          paper/wmhs/check_anonymity.sh
+
   no-data-committed:
     runs-on: ubuntu-latest
     steps:

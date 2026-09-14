@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """Appendix Figure 2 — the recovery curve, and why it carries no estimator.
 
-Every number on the axes comes from
-the newest ``results/<date>_<sha>/calibration_gap_recovery.parquet`` (the 50-
-replicate run). Nothing is transcribed. Run from the repo root:
+Every number on the axes comes from the versioned
+``calibration_gap_recovery.parquet`` pinned in ``results_manifest.json`` (the
+50-replicate run). Nothing is transcribed. Run from the repo root:
 
     python paper/wmhs/make_fig3.py
 

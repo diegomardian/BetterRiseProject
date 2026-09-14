@@ -252,3 +252,15 @@ def test_the_blind_curves_are_indistinguishable_from_each_other():
     a = out[out["estimator"] == "gcomp-from-generator"]["ratio_median"].to_numpy()
     b = out[out["estimator"] == "ipw-saturated"]["ratio_median"].to_numpy()
     assert np.allclose(a, b, atol=1e-9)
+
+
+def test_a_zero_requested_effect_keeps_differences_without_a_ratio():
+    runs = run(seed=12, theta=0.0, cohort_sizes=(500,), n_replicates=8)
+    assert runs["recovery_ratio"].isna().all()
+    assert np.isfinite(runs["difference_vs_requested"]).all()
+    assert np.isfinite(runs["absolute_error_vs_requested"]).all()
+
+    out = summarise(runs)
+    assert out["ratio_median"].isna().all()
+    assert np.isfinite(out["mean_difference_vs_requested"]).all()
+    assert np.isfinite(out["rmse_vs_requested"]).all()

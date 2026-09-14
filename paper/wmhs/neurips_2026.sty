@@ -1,0 +1,7 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{neurips_2026}
+\DeclareOption{dblblindworkshop}{}
+\DeclareOption*{\PassOptionsToPackage{\CurrentOption}{neurips_2024}}
+\ProcessOptions\relax
+\RequirePackage{neurips_2024}
+\newcommand{\workshoptitle}[1]{}

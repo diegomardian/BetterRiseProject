@@ -15,10 +15,9 @@ and the negative controls are, respectively, the stratified Cox model (which
 must NOT be caught), the observed-data truth (against which the residual must
 stay identically zero), and the 0% row (where the ordering must be correct).
 
-The Cox implementation is cross-checked against ``lifelines`` in one dev-only
-test. ``lifelines`` is deliberately absent from ``env/w2_harness.yml`` -- the
-degeneracy claims need exact control of the functional -- and is used here only
-as an independent implementation to check the hand-rolled one against.
+The Cox implementation is cross-checked against ``lifelines`` in the required
+development environment. The degeneracy claims still use the hand-rolled
+functional so its exact definition remains under project control.
 """
 
 from __future__ import annotations
@@ -40,6 +39,7 @@ from src.harness.trial_survival import (
     RMST_TAU,
     _cox,
     _extra_meta,
+    _km_rmst,
     _partial_likelihood,
     censor,
     censoring_time_for,
@@ -305,6 +305,16 @@ def test_a_horizon_past_the_last_observation_is_not_estimable():
     assert not np.isnan(km_rmst_standardised(trial.records, tau=RMST_TAU))
 
 
+def test_rmst_past_follow_up_is_identified_after_survival_reaches_zero():
+    """A completed survival curve has a known zero tail, not an unknown one."""
+    time = np.array([1.0, 2.0])
+    all_events = np.array([1, 1])
+    censored_tail = np.array([1, 0])
+
+    assert _km_rmst(time, all_events, tau=5.0) == pytest.approx(1.5)
+    assert np.isnan(_km_rmst(time, censored_tail, tau=5.0))
+
+
 # ---------------------------------------------------------------------------
 # Estimability. None is not 0.0 here either.
 # ---------------------------------------------------------------------------
@@ -382,16 +392,16 @@ def test_two_cohorts_with_the_same_observed_data_give_the_same_estimates():
 
 
 def test_the_cox_implementation_agrees_with_lifelines():
-    """Dev-only cross-check. ``lifelines`` is not in ``env/w2_harness.yml`` and
-    must not be added there: these claims need exact control of the functional.
-    It is in the ``[dev]`` extra, so it can be an independent implementation to
-    check against.
+    """Required dev-environment check against an independent implementation.
+
+    ``lifelines`` is imported directly so a missing dependency fails instead
+    of silently skipping this comparison.
 
     Event times here are continuous, so ties have probability zero and Breslow
     and lifelines' Efron coincide. Tie handling is checked separately below,
     against a brute-force Breslow likelihood, because this test cannot see it.
     """
-    lifelines = pytest.importorskip("lifelines")
+    import lifelines
 
     for target in (0.0, 0.12, 0.49, 0.78):
         trial = _trial(target, n=1500, seed=5)
@@ -525,10 +535,54 @@ def test_the_summary_carries_both_verdicts_so_the_table_shows_the_reversal():
     runs = run(seed=9, n_seeds=1, cohort_sizes=(1000,), n_replicates=25)
     table = summarise(runs).set_index(["estimator", "censoring_target"])
     blind = "exponential-mle-standardised"
-    assert table.loc[(blind, 0.0), "verdict_vs_latent"].startswith("flagged")
-    assert table.loc[(blind, 0.78), "verdict_vs_latent"].startswith("passed")
+    assert table.loc[(blind, 0.0), "verdict_vs_latent"] == "numerical_equality"
+    assert table.loc[(blind, 0.78), "verdict_vs_latent"] == "numerical_departure"
     for target in CENSORING_TARGETS:
-        assert table.loc[(blind, target), "verdict_vs_observed"].startswith("flagged")
+        assert table.loc[(blind, target), "verdict_vs_observed"] == "numerical_equality"
+
+
+def test_undefined_survival_groups_never_receive_an_endorsing_outcome():
+    runs = run(seed=19, n_seeds=1, cohort_sizes=(100,), n_replicates=3)
+    target = (runs["estimator"] == "exponential-mle-standardised") & (
+        runs["censoring_target"] == 0.0
+    )
+    runs.loc[target, ["estimate", "residual_vs_latent", "residual_vs_observed"]] = np.nan
+
+    row = summarise(runs)
+    row = row[(row["estimator"] == "exponential-mle-standardised") & (
+        row["censoring_target"] == 0.0
+    )].iloc[0]
+    assert row["n_valid_pairs"] == 0
+    assert row["n_invalid_pairs"] == 3
+    assert row["verdict_vs_latent"] == "insufficient_valid_pairs"
+    assert row["verdict_vs_observed"] == "insufficient_valid_pairs"
+
+
+def test_mixed_valid_and_invalid_survival_outputs_are_counted():
+    runs = run(seed=20, n_seeds=1, cohort_sizes=(100,), n_replicates=3)
+    target = (runs["estimator"] == "exponential-mle-standardised") & (
+        runs["censoring_target"] == 0.0
+    )
+    first = runs[target].index[0]
+    runs.loc[first, ["estimate", "residual_vs_latent", "residual_vs_observed"]] = np.nan
+
+    row = summarise(runs)
+    row = row[(row["estimator"] == "exponential-mle-standardised") & (
+        row["censoring_target"] == 0.0
+    )].iloc[0]
+    assert row["n_valid_pairs"] == 2
+    assert row["n_invalid_pairs"] == 1
+    assert row["verdict_vs_latent"] == "insufficient_valid_pairs"
+
+    # A finite counterexample is enough to establish departure even when a
+    # different replicate is invalid; the invalid output remains counted.
+    finite = runs[target & runs["residual_vs_observed"].notna()].index[0]
+    runs.loc[finite, "residual_vs_observed"] = 0.1
+    row = summarise(runs)
+    row = row[(row["estimator"] == "exponential-mle-standardised") & (
+        row["censoring_target"] == 0.0
+    )].iloc[0]
+    assert row["verdict_vs_observed"] == "numerical_departure"
 
 
 def test_the_sidecar_does_not_overwrite_the_provenance_record():

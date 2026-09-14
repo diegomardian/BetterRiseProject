@@ -24,7 +24,7 @@ Simulation and Intervention-Aware Reasoning}
 \captionsetup{font=small,labelfont=bf}
 
 % Full-paper revisions live in sections/full/; the extended abstract keeps
-% its original sections/ sources. Shared numerical tables and figures are unchanged.
+% its original sections/ sources. Table values and figure assets are unchanged.
 \newif\iffull
 \fulltrue
 
@@ -47,9 +47,8 @@ a validation blind spot in virtual control arms}
 \input{sections/full/abstract.tex}
 
 
-% Main argument, calibration, and supporting appendix. The full paper uses its
-% own revisions where they exist; appendix is shared with the extended abstract,
-% so its tables cannot differ between the two builds.
+% Full-paper revisions, including the condensed appendix.
+% The extended abstract retains its original sections/ sources.
 \input{sections/full/setup.tex}
 \input{sections/full/blind.tex}
 \input{sections/full/calibration.tex}
@@ -68,7 +67,7 @@ a validation blind spot in virtual control arms}
 \bibliography{refs}
 
 \clearpage
-\input{sections/appendix.tex}
+\input{sections/full/appendix.tex}
 \input{sections/full/llm.tex}
 
 \end{document}
