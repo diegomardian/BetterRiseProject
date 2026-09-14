@@ -1,0 +1,39 @@
+\paragraph{The same failure, one layer out: the interval.}
+Every reading in this paper ends in a percentile bootstrap over patients. Conditional on the sample, the
+bootstrap mean has standard deviation $s\sqrt{(n-1)/n}/\sqrt{n}$, with $s$
+the sample standard deviation. A normal approximation gives the percentile interval
+$\bar{x} \pm z\,s\sqrt{(n-1)/n}/\sqrt{n}$ against the normal-population Student-$t$ interval
+$\bar{x} \pm t_{n-1}\,s/\sqrt{n}$, and the ratio of the two widths is
+\begin{center}
+$z\sqrt{(n-1)/n} \,/\, t_{n-1}$ \quad --- \quad \textbf{a function of $n$ alone,
+with no data in it.}
+\end{center}
+Two errors running the same way: a normal quantile where a $t$ quantile is
+needed, and the empirical-distribution variance in place of the sample-variance
+estimate. At
+$n = 44$ the interval is $0.96\times$ the width it claims and a nominal 5\% test
+rejects 5.9\% of the time; at $n = 20$, $0.91\times$ and 7.1\%; at $n = 10$,
+$0.82\times$ and 9.6\%; at $n = 4$, $0.53\times$ and 18.8\%. Simulation at 1{,}500 trials per cell agrees
+with the closed form to within $2.7$ percentage points in every one of twenty
+cells, against a Monte Carlo standard error of $0.6$ to $1.0$ points at these
+rates. The simulated rate sits \emph{above} the closed form in 14 of the 20,
+which is the direction the skew a normal approximation drops would produce, but
+at this trial count that majority is what chance alone gives about one time in
+seventeen --- so we report the closed form as an approximation the simulation
+confirms, and not as a floor.
+
+\textbf{Neither sophisticated repair works, and one is worse.} BCa is
+miscalibrated in 17 of 20 cells against the percentile's 14, because its bias
+correction and jackknife acceleration are estimated from the same ten numbers.
+Raising the bootstrap replicate count does nothing at all: the error is not
+Monte Carlo error, so more replicates estimate the wrong thing more precisely.
+The plain Student-$t$ interval is calibrated in 19 of 20 cells and conservative
+in the twentieth, worst case 5.9\%.
+
+This is the same failure as the four above, one layer out. A guard that cannot
+fail turns absence of evidence into a green light; an interval narrower than it
+claims turns noise into a finding. Neither announces itself, and both are
+functions of something other than the quantity a reader thinks they measure ---
+\textbf{which is why the diagnostic this paper proposes is a question about the
+statistic rather than a closer look at its output.} We did not find this by
+inspecting intervals. We found it by asking what ours was a function of.
