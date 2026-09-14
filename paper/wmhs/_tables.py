@@ -14,8 +14,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = Path(__file__).with_name("results_manifest.json")
 
 
-def newest(name: str) -> Path:
-    """Return the submission-pinned table (legacy function name)."""
+def pinned(name: str) -> Path:
+    """Return the submission-pinned table named by the manifest."""
     entries = json.loads(MANIFEST.read_text(encoding="utf-8"))
     if name not in entries:
         print(

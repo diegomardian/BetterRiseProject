@@ -4,7 +4,11 @@ import itertools
 
 import pandas as pd
 
-from src.harness.calibration_sensitivity import holdout_pairs, influence_summary
+from src.harness.calibration_sensitivity import (
+    holdout_pairs,
+    influence_summary,
+    retained_pair_rows,
+)
 
 
 def test_holdout_pairs_enumerate_each_pair_once():
@@ -28,3 +32,14 @@ def test_influence_summary_counts_and_names_changed_patients():
     assert summary["n_patients"] == 3
     assert summary["n_changing_conclusion"] == 2
     assert summary["changing_patients"] == "P1,P3"
+
+
+def test_patient_omission_drops_only_pairs_containing_that_patient():
+    sweep = pd.DataFrame(
+        {
+            "held_out_pair": ["P1|P2", "P1|P3", "P2|P3"],
+            "seed": [11, 12, 13],
+        }
+    )
+    retained = retained_pair_rows(sweep, "P1")
+    assert retained.to_dict("records") == [{"held_out_pair": "P2|P3", "seed": 13}]

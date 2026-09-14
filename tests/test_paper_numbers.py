@@ -23,12 +23,16 @@ import json
 import re
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from src.common.paths import REPO_ROOT
+from submission.bench import BENCH_WORLDS, generate_sample
+from submission.competitors import VarianceGateKitagawaMethod
 
 SECTIONS = REPO_ROOT / "paper" / "wmhs" / "sections"
+FULL_SECTIONS = SECTIONS / "full"
 RESULT_MANIFEST = REPO_ROOT / "paper" / "wmhs" / "results_manifest.json"
 
 #: The guard's own tolerances, quoted in the prose. Imported rather than
@@ -40,7 +44,7 @@ from src.reference.jobs.coexpression_silencing import (  # noqa: E402
 )
 
 
-def _newest(name: str) -> Path:
+def _pinned(name: str) -> Path:
     manifest = json.loads(RESULT_MANIFEST.read_text(encoding="utf-8"))
     assert name in manifest, f"paper result {name!r} is not pinned in the manifest"
     path = REPO_ROOT / manifest[name]
@@ -50,12 +54,12 @@ def _newest(name: str) -> Path:
 
 @pytest.fixture(scope="module")
 def coexpr() -> pd.DataFrame:
-    return pd.read_parquet(_newest("coexpression_silencing"))
+    return pd.read_parquet(_pinned("coexpression_silencing"))
 
 
 @pytest.fixture(scope="module")
 def coexpr_meta() -> dict:
-    path = _newest("coexpression_silencing_summary")
+    path = _pinned("coexpression_silencing_summary")
     return json.loads(path.with_suffix("").with_suffix(".meta.json").read_text())
 
 
@@ -66,6 +70,16 @@ def tex() -> str:
         (SECTIONS / f).read_text()
         for f in ("withdrawn.tex", "interval.tex", "conclusion.tex", "responsible.tex")
     )
+
+
+@pytest.fixture(scope="module")
+def full_appendix_tex() -> str:
+    return (FULL_SECTIONS / "appendix.tex").read_text()
+
+
+@pytest.fixture(scope="module")
+def full_blind_tex() -> str:
+    return (FULL_SECTIONS / "blind.tex").read_text()
 
 
 def _quotes(tex: str, literal: str) -> None:
@@ -105,7 +119,7 @@ def test_the_control_pass_rate_is_the_table_s(tex, coexpr):
     assert (inside, len(controls)) == (83, 84)
 
 
-def test_the_controls_moved_by_the_fold_range_quoted(tex, coexpr):
+def test_the_controls_moved_by_the_fold_range_quoted(tex, full_appendix_tex, coexpr):
     """``factors of $1.19$ to $1.64$`` in per-cell output.
 
     Per study and gene, since a per-patient extreme is a different and larger
@@ -115,6 +129,7 @@ def test_the_controls_moved_by_the_fold_range_quoted(tex, coexpr):
     mean_log2 = controls.groupby(["study_id", "gene"])["log2_cp10k_ratio"].mean()
     folds = 2.0 ** mean_log2.abs()
     _quotes(tex, "factors of $1.19$ to $1.64$ in")
+    _quotes(full_appendix_tex, "output changes of 1.19--1.64")
     assert (round(folds.min(), 2), round(folds.max(), 2)) == (1.19, 1.64)
 
 
@@ -275,8 +290,8 @@ def bench_tex() -> str:
 def _cutpoints(cohort: str) -> pd.DataFrame:
     """Committed, extended and dense grids for one cohort, in one frame."""
     suffix = "" if cohort == "smc" else f"_{cohort}"
-    coarse = pd.read_parquet(_newest(f"calibration_gap_cutpoints{suffix}_r500"))
-    dense = pd.read_parquet(_newest(f"cutpoint_dense_grid_cutpoints_{cohort}_r200"))
+    coarse = pd.read_parquet(_pinned(f"calibration_gap_cutpoints{suffix}_r500"))
+    dense = pd.read_parquet(_pinned(f"cutpoint_dense_grid_cutpoints_{cohort}_r200"))
     return pd.concat([coarse, dense], ignore_index=True)
 
 
@@ -354,7 +369,7 @@ def _ratio_terms(frame: pd.DataFrame, rung: str, normal: str, tumour: str):
 
 def test_the_carcinoma_ratio_collapses_onto_the_limit_quoted(bench_tex):
     """``$6.94$``, and six genes inside a ``$1.07$-fold`` spread."""
-    frame = pd.read_parquet(_newest("decomposition_summary_matched"))
+    frame = pd.read_parquet(_pinned("decomposition_summary_matched"))
     limit, survived = _ratio_terms(
         frame, "lineage", "mean_normal", "mean_tumour"
     )
@@ -379,7 +394,7 @@ def test_the_carcinoma_ratio_collapses_onto_the_limit_quoted(bench_tex):
 
 def test_the_adenoma_ratio_does_not_collapse(bench_tex):
     """The negative control: ``$0.27$ to\n$3.13$``, an ``$11.5$-fold`` spread."""
-    frame = pd.read_parquet(_newest("icbi_adenoma"))
+    frame = pd.read_parquet(_pinned("icbi_adenoma"))
     limit, survived = _ratio_terms(
         frame, "lineage", "cp10k_normal", "cp10k_tumour"
     )
@@ -423,7 +438,7 @@ def test_the_recovery_ranges_are_the_figures(blind_tex):
     """
     from src.harness.positivity import CUTPOINTS
 
-    rec = pd.read_parquet(_newest("calibration_gap_recovery"))
+    rec = pd.read_parquet(_pinned("calibration_gap_recovery"))
     at_effect = rec[(rec["shift"] == 0.5) & (rec["grid"] == "extended")]
 
     _quotes(blind_tex, "Ours ran between 1.00 and 1.07 wherever the rule said")
@@ -473,7 +488,9 @@ RETIRED = (
 def test_retired_prose_stays_retired():
     """Nothing a rewrite deleted has been merged back in."""
     body = "\n".join(
-        p.read_text(encoding="utf-8") for p in sorted(SECTIONS.glob("*.tex"))
+        p.read_text(encoding="utf-8")
+        for root in (SECTIONS, FULL_SECTIONS)
+        for p in sorted(root.glob("*.tex"))
     )
     resurrected = [line for line in RETIRED if line in body]
     assert not resurrected, (
@@ -520,8 +537,8 @@ def _render(text: str, *, full: bool) -> str:
 def test_no_paragraph_heading_appears_twice():
     """Two paragraphs with one title means a merge duplicated a block."""
     pattern = re.escape(chr(92)) + r"paragraph\{([^}]{12,})\}"
-    for build in (True, False):
-        for path in sorted(SECTIONS.glob("*.tex")):
+    for build, root in ((True, FULL_SECTIONS), (False, SECTIONS)):
+        for path in sorted(root.glob("*.tex")):
             rendered = _render(path.read_text(encoding="utf-8"), full=build)
             headings = re.findall(pattern, rendered)
             duplicated = {h for h in headings if headings.count(h) > 1}
@@ -539,17 +556,17 @@ def test_no_paragraph_heading_appears_twice():
 
 @pytest.fixture(scope="module")
 def matrix() -> pd.DataFrame:
-    return pd.read_parquet(_newest("trial_blindness_residual_matrix"))
+    return pd.read_parquet(_pinned("trial_blindness_residual_matrix"))
 
 
 @pytest.fixture(scope="module")
 def rho() -> pd.DataFrame:
-    return pd.read_parquet(_newest("trial_blindness_information_ratio"))
+    return pd.read_parquet(_pinned("trial_blindness_information_ratio"))
 
 
 @pytest.fixture(scope="module")
 def survival() -> pd.DataFrame:
-    return pd.read_parquet(_newest("trial_survival_headline"))
+    return pd.read_parquet(_pinned("trial_survival_headline"))
 
 
 def _cell(frame, estimator, design, truth, n=5000):
@@ -633,7 +650,7 @@ def test_the_inversion_is_a_majority_not_a_reversal(blind_tex, survival):
 
 def test_heterogeneity_moves_the_curve_not_the_estimator(rho):
     """The converse result: OLS's curve wanders, its own residual does not."""
-    het = pd.read_parquet(_newest("trial_blindness_heterogeneity"))
+    het = pd.read_parquet(_pinned("trial_blindness_heterogeneity"))
     appendix = (SECTIONS / "appendix.tex").read_text(encoding="utf-8")
     _quotes(appendix, "$1.003$, $1.011$, $1.020$, $1.037$, $1.077$, $1.132$")
     _quotes(appendix, "grows $0.094 " + chr(92) + "rightarrow 1.452$")
@@ -652,7 +669,7 @@ def test_heterogeneity_moves_the_curve_not_the_estimator(rho):
 
 def test_the_propensity_spread_is_continuous(rho):
     """0.0033 to 0.104 as the design goes RCT -> confounded, curve flat."""
-    spread = pd.read_parquet(_newest("trial_blindness_propensity_spread"))
+    spread = pd.read_parquet(_pinned("trial_blindness_propensity_spread"))
     appendix = (SECTIONS / "appendix.tex").read_text(encoding="utf-8")
     _quotes(appendix, "rises smoothly $0.0033\n" + chr(92) + "rightarrow 0.104$")
 
@@ -680,8 +697,8 @@ def test_the_propensity_spread_is_continuous(rho):
 def _reference_bins(cohort: str) -> pd.DataFrame:
     """Coarse and dense grids' per-bin rates, reference pool, one frame."""
     suffix = "" if cohort == "smc" else f"_{cohort}"
-    coarse = pd.read_parquet(_newest(f"calibration_gap_bins{suffix}_r500"))
-    dense = pd.read_parquet(_newest(f"cutpoint_dense_grid_bins_{cohort}_r200"))
+    coarse = pd.read_parquet(_pinned(f"calibration_gap_bins{suffix}_r500"))
+    dense = pd.read_parquet(_pinned(f"cutpoint_dense_grid_bins_{cohort}_r200"))
     frame = pd.concat([coarse, dense], ignore_index=True)
     return frame[frame["pool"] == "reference"]
 
@@ -740,7 +757,7 @@ def test_the_pooled_curve_widens_by_the_factor_quoted():
     _quotes(appendix, "from about $0.62$ to about $1.17$")
     _quotes(appendix, "$1.331$ to $1.423$ across eight")
     _quotes(appendix, "against $1.075$ to $1.108$ on the reference draw")
-    frame = pd.read_parquet(_newest("calibration_gap_recovery_r500"))
+    frame = pd.read_parquet(_pinned("calibration_gap_recovery_r500"))
     point = frame[
         (frame["grid"] == "committed")
         & (frame["shift"] == 0.5)
@@ -765,7 +782,7 @@ def test_the_finiteness_guard_holds_under_every_generator(bench_tex):
     """Six expression models, not five, and 200/200 in all of them."""
     _quotes(bench_tex, "under six expression models")
     _quotes(bench_tex, "over three seeds")
-    frame = pd.read_parquet(_newest("misspecified_generator_refusals"))
+    frame = pd.read_parquet(_pinned("misspecified_generator_refusals"))
     assert frame["seed"].nunique() == 3
     assert frame["expression_model"].nunique() == 6
 
@@ -788,7 +805,7 @@ def test_the_width_gate_binding_is_a_property_of_the_count_model(bench_tex):
     _quotes(bench_tex, "the count gate refuses 90 to 99 of 200 in every model")
     _quotes(bench_tex, "and 83 to 105 across the eighteen")
     _quotes(bench_tex, "one under zero-inflated NB; and fourteen under NB at")
-    frame = pd.read_parquet(_newest("misspecified_generator_refusals"))
+    frame = pd.read_parquet(_pinned("misspecified_generator_refusals"))
     wide = frame[frame["world"] == "depleted_wide"]
 
     counts = wide[wide["gate"] == "count_gate"]
@@ -809,19 +826,20 @@ def test_the_width_gate_binding_is_a_property_of_the_count_model(bench_tex):
     assert means["nb_disp0.5"] == 14
 
 
-def test_the_knife_edge_window_and_the_cliff_past_it(bench_tex):
+def test_the_knife_edge_window_and_the_cliff_past_it(bench_tex, full_appendix_tex):
     """``[0.928776, 0.928981]``, ``0.958``, ``0.961`` and the 0.0027 headroom.
 
     The paper had the gate collapsing into two worlds at 0.958. Only one of
     them is refusing there; the second starts at 0.961.
     """
     _quotes(bench_tex, r"\in [0.928776, 0.928981]$")
+    _quotes(full_appendix_tex, r"\in[0.928776,0.928981]$")
     _quotes(bench_tex, "a window $0.000204$")
     _quotes(bench_tex, "refusing in \\texttt{depleted\\_estimable}, where the estimand")
     _quotes(bench_tex, "following at $0.961$")
     _quotes(bench_tex, "is $0.0027$ wide")
 
-    step = pd.read_parquet(_newest("width_gate_step_location"))
+    step = pd.read_parquet(_pinned("width_gate_step_location"))
     step = step.set_index("world")
     match = step.loc["depleted_wide"]
     assert round(float(match["s_detect_matching_count_gate_lo"]), 6) == 0.928776
@@ -834,6 +852,38 @@ def test_the_knife_edge_window_and_the_cliff_past_it(bench_tex):
     assert round(float(match["headroom_below_collapse"]), 4) == 0.0027
 
 
+def test_the_width_gate_margin_is_rederived_for_both_builds(
+    bench_tex, full_appendix_tex
+):
+    """The widest interval and its same-replicate detection threshold."""
+    world = next(w for w in BENCH_WORLDS if w.name == "depleted_wide")
+    method = VarianceGateKitagawaMethod()
+    margins = []
+    for replicate in range(200):
+        sample = generate_sample(world, seed=20260829, replicate=replicate)
+        n_t = sample.n_mature_tumour
+        n_n = round(sample.frac_mature_normal * sample.expr_normal.size)
+        _, var_t = method._mature_moments(sample.expr_tumour, n_t)
+        _, var_n = method._mature_moments(sample.expr_normal, n_n)
+        half_width = method.Z * sample.frac_mature_normal * np.sqrt(
+            var_t / n_t + var_n / n_n
+        )
+        detectable = abs(
+            sample.frac_mature_normal
+            * (method.DETECTABLE_SHIFT - 1.0)
+            * sample.mean_normal
+        )
+        margins.append((half_width, detectable))
+
+    widest, threshold = max(margins)
+    _quotes(bench_tex, "widest interval over 200\nreplicates is 1.081")
+    _quotes(bench_tex, "same replicate's detectable effect of 3.914")
+    _quotes(full_appendix_tex, "largest 95\\% half-width is 1.081")
+    _quotes(full_appendix_tex, "same replicate's detectable effect of 3.914")
+    assert round(widest, 3) == 1.081
+    assert round(threshold, 3) == 3.914
+
+
 def test_the_closed_form_is_confirmed_but_is_not_a_floor(tex):
     """``within $2.7$ percentage points`` and ``above ... in 14 of the 20``.
 
@@ -844,7 +894,7 @@ def test_the_closed_form_is_confirmed_but_is_not_a_floor(tex):
     _quotes(tex, "to within $2.7$ percentage points in every one of twenty")
     _quotes(tex, "above} the closed form in 14 of the 20")
     _quotes(tex, "and not as a floor")
-    frame = pd.read_parquet(_newest("interval_calibration"))
+    frame = pd.read_parquet(_pinned("interval_calibration"))
     pct = frame[frame["method"] == "percentile"]
     assert len(pct) == 20
     gap = 100 * (pct["false_positive_rate"] - pct["closed_form_rate"])
@@ -853,24 +903,37 @@ def test_the_closed_form_is_confirmed_but_is_not_a_floor(tex):
     assert int((gap < 0).sum()) == 6      # the floor claim, refuted
 
 
-def test_the_censored_sweep_reports_what_it_dropped():
+def test_the_censored_sweep_reports_what_it_dropped(full_blind_tex):
     """Paired exclusions include low-censoring cells, not just event-free arms."""
     blind = (SECTIONS / "blind.tex").read_text(encoding="utf-8")
     _quotes(blind, "$463$ of $1{,}200$ in")
+    _quotes(full_blind_tex, "remove $463$ of $1{,}200$ draws")
     _quotes(blind, "the worst cell at each level runs $0$, $0.473$, $1.089$, $1.586$")
-    head = pd.read_parquet(_newest("trial_survival_headline"))
+    _quotes(full_blind_tex, "sizes are $0$, $0.473$, $1.089$ and $1.586$")
+    head = pd.read_parquet(_pinned("trial_survival_headline"))
     worst = head.loc[head["n_replicates"].idxmin()]
     assert (worst["censoring_target"], worst["n_patients"]) == (0.78, 100)
     assert 1200 - int(worst["n_replicates"]) == 463
     assert (head[head["censoring_target"] <= 0.12]["n_replicates"] < 1200).any()
     _quotes(blind, "Exclusions occur\neven below $49" + chr(92) + "%$")
 
-    survival = pd.read_parquet(_newest("trial_survival"))
+    survival = pd.read_parquet(_pinned("trial_survival"))
     blind_arm = survival[survival["estimator"] == "exponential-mle-standardised"]
     worst_by_level = (
         blind_arm.groupby("censoring_target")["max_residual_vs_latent"].max().round(3)
     )
     assert list(worst_by_level) == [0.0, 0.473, 1.089, 1.586]
+
+
+def test_the_rct_bernoulli_residuals_are_checked_in_the_full_build(
+    full_blind_tex, matrix
+):
+    """The two full-only residuals come from the pinned residual matrix."""
+    _quotes(full_blind_tex, "$9.51\\times10^{-4}$ and $0.562$")
+    ols = _cell(matrix, "ols-stratum-dummies", "rct-bernoulli", "standardised")
+    unadjusted = _cell(matrix, "unadjusted", "rct-bernoulli", "standardised")
+    assert f"{ols:.2e}" == "9.51e-04"
+    assert round(unadjusted, 3) == 0.562
 
 
 def test_trial_replicate_counts_are_pooled_over_seeds():
@@ -879,7 +942,7 @@ def test_trial_replicate_counts_are_pooled_over_seeds():
         ("trial_survival_headline", "blind.tex"),
         ("trial_blindness_residual_matrix", "appendix.tex"),
     ):
-        path = _newest(name)
+        path = _pinned(name)
         meta = json.loads(path.with_suffix(".meta.json").read_text())
         seed_count = len(meta["seeds"]) if "seeds" in meta else meta["n_seed_streams"]
         assert seed_count == 6
@@ -888,7 +951,7 @@ def test_trial_replicate_counts_are_pooled_over_seeds():
         _quotes((SECTIONS / filename).read_text(), "1{,}200 replicates pooled over 6 seeds")
 
 
-def test_the_closed_form_at_the_zero_cell_point(blind_tex):
+def test_the_closed_form_at_the_zero_cell_point(blind_tex, full_appendix_tex):
     """``5.000``, ``2.000``, ``1.333`` with zero variance, and 1/(1-s).
 
     An external reviewer read "the abstention point" as n = 20, found Appendix
@@ -899,10 +962,11 @@ def test_the_closed_form_at_the_zero_cell_point(blind_tex):
     and the prose names the point rather than the rule.
     """
     _quotes(blind_tex, r"exactly at the \emph{zero-cell} grid")
+    _quotes(full_appendix_tex, "At the zero-cell grid point")
     _quotes(blind_tex, "$5.000$, $2.000$ and")
     _quotes(blind_tex, "$1.333$ at the three tested shifts")
 
-    rec = pd.read_parquet(_newest("calibration_gap_recovery_r500"))
+    rec = pd.read_parquet(_pinned("calibration_gap_recovery_r500"))
     zero = rec[(rec["frac_mature_tumour"] == 0.0) & (rec["grid"] == "committed")]
     assert not zero.empty
 

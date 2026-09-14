@@ -1,8 +1,8 @@
 # Review-and-revise prompt — WMHS @ NeurIPS 2026
 
-Hand the model this file plus the repository (or `main.pdf` and `sections/*.tex`
-if it cannot run a build). Everything below the line is written to be pasted
-as-is.
+Hand the model this file plus the repository (or `main.pdf`,
+`sections/full/*.tex` and `sections/*.tex` if it cannot run a build). Everything
+below the line is written to be pasted as-is.
 
 ---
 
@@ -118,12 +118,10 @@ space and hour of work, and implement in that order until you run out of either.
    it. If a number looks wrong, report it; do not correct it by guessing.
 2. **No new experiments** unless you state plainly that the result is worth
    missing the deadline for.
-3. **Both builds read the same `sections/*.tex`.** `main.tex` sets `\fulltrue`,
-   `main_short.tex` sets `\fullfalse`. The short build is a strict subset of the
-   same prose, so **a number must never say one thing in one build and something
-   else in the other** — which, given what this paper argues, is the one way it
-   must not be wrong. Use `\iffull ... \else ... \fi` for anything
-   build-specific.
+3. **The builds now have distinct sources.** `main.tex` reads
+   `sections/full/*.tex`; `main_short.tex` reads `sections/*.tex`. Review both,
+   and require every shared numerical claim to agree. Do not assume an edit to
+   one reaches the other.
 4. **Space is not free.** The full build has about one page of slack. **The
    short build has none — it is at exactly 4 of 4.** Anything you add to a
    shared file must either be `\iffull`-gated or paid for with a cut.

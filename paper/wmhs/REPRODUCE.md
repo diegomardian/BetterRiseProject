@@ -61,10 +61,12 @@ bootstrap budgets and then performs patient omission as a separate analysis:
 ```
 
 The SMC run enumerates all 45 two-patient holdout pairs and KUL3 enumerates all
-15. Its output includes per-count coverage and discrimination, crossing
-brackets, and the number and identities of source patients whose omission
-changes each candidate. These are cohort-conditional sensitivity results, not
-population confidence intervals.
+15. Random streams are keyed to the sorted pair identifiers. Patient omission
+drops only baseline pairs containing that patient, so retained pairs are not
+re-randomised. Its output includes per-count coverage and discrimination,
+crossing brackets, and the number and identities of source patients whose
+omission changes each candidate. These are cohort-conditional sensitivity
+results, not population confidence intervals.
 
 ## Controlled grid and binning comparison
 
@@ -78,8 +80,10 @@ dense grids under adaptive, fixed and per-count summaries:
   --results-dir /tmp/wmhs-reproduction
 ```
 
-This is a long CPU run (the 2026-09-13 pilot projected roughly 200 CPU-hours).
-Use scheduled compute and a clean committed SHA. For a smoke test only, set
+The initial load-dominated pilot overstated this run as roughly 200 CPU-hours.
+Timing at the real budget is about 41 seconds per cohort/pool/seed cell, so the
+32-cell run takes roughly 20--25 minutes on one core.
+Run it from a clean committed SHA. For a smoke test only, set
 `--replicates 1 --n-boot 10 --seeds 1` and label the output as a pilot.
 
 ## Focused verification

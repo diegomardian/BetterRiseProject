@@ -146,6 +146,7 @@ def crossing_brackets(
     ]
     rows: list[dict] = []
     for key, group in rates.groupby(keys, dropna=False, sort=True):
+        group_start = len(rows)
         key_values = (key,) if len(keys) == 1 else key
         base = dict(zip(keys, key_values, strict=True))
         ordered = group.sort_values("n_cells_mature").reset_index(drop=True)
@@ -190,12 +191,12 @@ def crossing_brackets(
                 }
             )
             candidates[criterion] = candidate
-        if (
+        coincident = bool(
             np.isfinite(candidates["coverage_and_discrimination"])
             and candidates["coverage_and_discrimination"] == candidates["coverage_only"]
-        ):
-            for row in rows[-2:]:
-                row["status"] = "coincident_cutpoints"
+        )
+        for row in rows[group_start:]:
+            row["criteria_coincident"] = coincident
     return pd.DataFrame(rows)
 
 

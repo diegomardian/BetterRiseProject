@@ -1,12 +1,15 @@
 # WMHS: proposed additional runs
 
 Status: all four experiment paths were implemented and exercised on 2026-09-13.
-The boundary fixes, pinned submission inputs, recursive full-paper verification,
-CI compilation gate, clean control, calibration sensitivity and independent
+The boundary fixes, pinned submission inputs, full-paper verification, CI
+compilation gate, clean control, calibration sensitivity and independent
 lifelines comparison are implemented. Experiment 1's controlled union-grid
-pilot completed, but its exact eight-seed, 200-replicate final run is deferred:
-the pilot projects roughly 200 CPU-hours, and the current working tree contains
-uncommitted manuscript work. Do not turn its one-replicate pilot into a claim.
+pilot completed. Its initial 200-hour projection was invalid because it scaled
+a load-dominated pilot; timing at the real budget is about 41 seconds per
+cohort/pool/seed cell, or roughly 20--25 minutes for all 32 cells on one core.
+The exact eight-seed, 200-replicate final run should therefore be run from a
+clean producing SHA rather than deferred. Do not turn the one-replicate pilot
+into a claim.
 
 The completed scratch runs are versioned under `/private/tmp` and their
 sidecars truthfully record a dirty tree. They are verification evidence, not

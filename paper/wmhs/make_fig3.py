@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 import matplotlib
-from _tables import newest
+from _tables import pinned
 
 matplotlib.use("Agg")
 # Drawn at the width it is printed at (\linewidth = 5.5in), so point
@@ -42,7 +42,7 @@ POOL_STYLE = {
 
 
 def main() -> int:
-    rec = pd.read_parquet(newest(TABLE_NAME))
+    rec = pd.read_parquet(pinned(TABLE_NAME))
 
     residual = float(rec["max_abs_residual_vs_realised"].max())
     n_rows = int(rec["n_replicates"].sum())

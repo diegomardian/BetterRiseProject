@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 import matplotlib
-from _tables import newest
+from _tables import pinned
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -41,7 +41,7 @@ FLOOR = 1e-16  # so exact zeros are drawable on a log axis
 
 
 def main() -> int:
-    df = pd.read_parquet(newest(TABLE_NAME))
+    df = pd.read_parquet(pinned(TABLE_NAME))
 
     fig, (left, right) = plt.subplots(1, 2, figsize=(9.4, 3.4))
 

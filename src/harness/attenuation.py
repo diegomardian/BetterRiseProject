@@ -33,6 +33,7 @@ it. The dependency is one-way and it is on W4's public API.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Final
@@ -122,6 +123,7 @@ def _configuration_seed(
     mature_fraction: float,
     shift: float,
     replicate: int,
+    holdout_ids: Sequence[str] | None = None,
 ) -> int:
     """Seed one draw from its scientific configuration, never grid position.
 
@@ -132,7 +134,8 @@ def _configuration_seed(
     """
 
     def words(value: float) -> tuple[int, int]:
-        bits = int(np.float64(value).view(np.uint64))
+        canonical = 0.0 if value == 0.0 else value
+        bits = int(np.float64(canonical).view(np.uint64))
         return bits & 0xFFFF_FFFF, bits >> 32
 
     entropy = [
@@ -140,8 +143,13 @@ def _configuration_seed(
         int(n_cells),
         *words(mature_fraction),
         *words(shift),
-        int(replicate),
     ]
+    if holdout_ids is None:
+        entropy.append(int(replicate))
+    else:
+        pair = "\0".join(sorted(map(str, holdout_ids))).encode("utf-8")
+        digest = hashlib.blake2s(pair, digest_size=16).digest()
+        entropy.extend(np.frombuffer(digest, dtype="<u4").astype(int).tolist())
     return int(np.random.SeedSequence(entropy).generate_state(1, dtype=np.uint32)[0])
 
 
@@ -227,6 +235,9 @@ def run_sweep(
     ``seed_strategy="grid_position"`` preserves the historical sweeps exactly.
     Controlled comparisons use ``"configuration"`` so a shared fraction,
     effect, cell budget and replicate reuse the same draw across grid layouts.
+    For an explicit holdout schedule, the sorted patient IDs replace the
+    replicate index in the key, so filtering or reordering pairs does not
+    re-randomise an unaffected pair.
     """
     unknown = [a for a in arms if a not in ARMS]
     if unknown:
@@ -260,6 +271,15 @@ def run_sweep(
         comp_n = _composition(grid.frac_mature_normal, types, config.mature_label)
 
         for rep in range(grid.n_replicates):
+            scheduled = None
+            if holdout_schedule is not None:
+                scheduled = set(holdout_schedule[rep])
+                known = set(patient_id.tolist())
+                if len(scheduled) != grid.n_held_out or not scheduled <= known:
+                    raise ValueError(
+                        f"invalid holdout_schedule entry at replicate {rep}: "
+                        f"{sorted(scheduled)}"
+                    )
             rep_seed = (
                 _configuration_seed(
                     seed,
@@ -267,21 +287,17 @@ def run_sweep(
                     mature_fraction=mature_frac,
                     shift=shift,
                     replicate=rep,
+                    holdout_ids=scheduled,
                 )
                 if seed_strategy == "configuration"
                 else seed + grid_id * 10_000 + rep
             )
-            if holdout_schedule is None:
+            if scheduled is None:
                 train, held = patient_holdout(
                     patient_id, n_held_out=grid.n_held_out, seed=rep_seed
                 )
             else:
-                held = set(holdout_schedule[rep])
-                known = set(patient_id.tolist())
-                if len(held) != grid.n_held_out or not held <= known:
-                    raise ValueError(
-                        f"invalid holdout_schedule entry at replicate {rep}: {sorted(held)}"
-                    )
+                held = scheduled
                 train = known - held
             sample = generate_pseudobulk(
                 counts, cell_type, patient_id, genes,
@@ -298,6 +314,7 @@ def run_sweep(
             base = {
                 "grid_id": grid_id,
                 "replicate": rep,
+                "held_out_pair": "|".join(sorted(held)),
                 "gene": target,
                 "weighting": weighting,
                 "frac_mature_tumour": mature_frac,

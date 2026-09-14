@@ -1,9 +1,9 @@
 """Separate inner-bootstrap noise from patient-omission sensitivity.
 
 Outer samples enumerate every two-patient holdout pair (45 for SMC, 15 for
-KUL3). The same configuration-keyed samples are reused at each inner-bootstrap
-budget. Leave-one-patient-out runs are separate experiments over the remaining
-patients and are never described as extra simulation replicates.
+KUL3). The same pair-keyed samples are reused at each inner-bootstrap budget.
+Patient influence is assessed by removing every baseline pair containing that
+patient; unaffected pairs are neither regenerated nor re-randomised.
 """
 
 from __future__ import annotations
@@ -40,12 +40,10 @@ def holdout_pairs(patient_ids: Sequence[str]) -> tuple[tuple[str, str], ...]:
     return tuple(itertools.combinations(patients, 2))
 
 
-def _reference_config(arrays: dict, *, omit: str | None = None) -> SweepConfig:
+def _reference_config(arrays: dict) -> SweepConfig:
     tissue = np.asarray(arrays["tissue"])
     patient = np.asarray(arrays["patient_id"])
     mask = tissue == "normal"
-    if omit is not None:
-        mask &= patient != omit
     return SweepConfig(
         counts=np.asarray(arrays["counts"])[mask],
         cell_type=np.asarray(arrays["cell_type"])[mask].tolist(),
@@ -84,6 +82,16 @@ def _one_sensitivity_run(
     return sweep, rates
 
 
+def retained_pair_rows(sweep: pd.DataFrame, omitted_patient: str) -> pd.DataFrame:
+    """Drop pairs containing one patient without changing any retained draw."""
+    if "held_out_pair" not in sweep:
+        raise ValueError("sweep must identify each scheduled pair in held_out_pair")
+    contains = sweep["held_out_pair"].str.split("|").map(
+        lambda pair: omitted_patient in pair
+    )
+    return sweep.loc[~contains].copy()
+
+
 def run_inner_budget_comparison(
     arrays_by_cohort: dict[str, dict],
     *,
@@ -112,6 +120,7 @@ def run_inner_budget_comparison(
                     "frac_mature_tumour",
                     "shift",
                     "replicate",
+                    "held_out_pair",
                     "intrinsic_true_parametric",
                     "intrinsic_true_realised",
                     "intrinsic_hat",
@@ -147,29 +156,35 @@ def run_inner_budget_comparison(
 
 def run_leave_one_patient_out(
     arrays_by_cohort: dict[str, dict],
-    baseline_rates: pd.DataFrame,
     *,
     n_boot: int = 200,
     seed: int = DEFAULT_SEED,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    baseline_crossings = crossing_brackets(
-        baseline_rates[baseline_rates["inner_bootstrap"] == n_boot]
-    )
     rate_frames: list[pd.DataFrame] = []
     influence_rows: list[dict] = []
     for cohort, arrays in arrays_by_cohort.items():
-        all_patients = sorted(set(_reference_config(arrays).patient_id))
-        base = baseline_crossings[baseline_crossings["cohort"] == cohort].set_index(
-            "criterion"
+        config = _reference_config(arrays)
+        all_patients = sorted(set(config.patient_id))
+        baseline_sweep, baseline_rates = _one_sensitivity_run(
+            config,
+            counts=COUNT_WINDOWS[cohort],
+            n_boot=n_boot,
+            seed=seed,
         )
+        baseline_labelled = baseline_rates.assign(
+            cohort=cohort,
+            pool="reference",
+            seed=seed,
+            grid="count_window",
+            binning="per_count",
+            inner_bootstrap=n_boot,
+            n_holdout_pairs=len(holdout_pairs(config.patient_id)),
+        )
+        base = crossing_brackets(baseline_labelled).set_index("criterion")
         for omitted in all_patients:
-            config = _reference_config(arrays, omit=omitted)
-            _, rates = _one_sensitivity_run(
-                config,
-                counts=COUNT_WINDOWS[cohort],
-                n_boot=n_boot,
-                seed=seed,
-            )
+            retained = retained_pair_rows(baseline_sweep, omitted)
+            rates = coverage_and_discrimination_by_count(retained)
+            n_retained_pairs = retained["held_out_pair"].nunique()
             labelled = rates.assign(
                 cohort=cohort,
                 omitted_patient=omitted,
@@ -178,7 +193,7 @@ def run_leave_one_patient_out(
                 grid="count_window",
                 binning="per_count",
                 inner_bootstrap=n_boot,
-                n_holdout_pairs=len(holdout_pairs(config.patient_id)),
+                n_holdout_pairs=n_retained_pairs,
             )
             rate_frames.append(labelled)
             crossed = crossing_brackets(labelled).set_index("criterion")
@@ -249,7 +264,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ValueError("leave-one-patient-out comparison requires budget 200")
         omission_rates, influence = run_leave_one_patient_out(
             arrays,
-            rates,
             n_boot=200,
             seed=args.seed,
         )
@@ -266,9 +280,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "inner_bootstrap_budgets": list(args.budgets),
         "outer_samples": "Every two-patient holdout pair, enumerated once per count.",
         "uncertainty_separation": (
-            "Inner-budget rows repeat fixed outer samples. Leave-one-patient-out rows "
-            "omit a source patient and are a separate sensitivity analysis, not a "
-            "population confidence interval."
+            "Inner-budget rows repeat fixed outer samples. Patient-influence rows "
+            "drop every baseline holdout pair containing that patient without "
+            "regenerating retained pairs. This is not a population confidence interval."
         ),
     }
     suffix = args.suffix or "_b" + "-".join(map(str, args.budgets))

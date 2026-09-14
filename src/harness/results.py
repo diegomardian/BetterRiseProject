@@ -27,6 +27,7 @@ from src.common.io import write_versioned_table
 ATTENUATION_COLUMNS: Final = (
     "grid_id",
     "replicate",
+    "held_out_pair",
     "arm",
     "gene",
     "weighting",

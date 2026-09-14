@@ -67,6 +67,12 @@ dist/
 .mypy_cache/
 .coverage
 htmlcov/
+paper/wmhs/main*.aux
+paper/wmhs/main*.bbl
+paper/wmhs/main*.blg
+paper/wmhs/main*.log
+paper/wmhs/main*.out
+paper/wmhs/main*.pdf
 .ipynb_checkpoints/
 .venv/
 venv/

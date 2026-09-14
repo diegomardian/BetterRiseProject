@@ -12,6 +12,7 @@ dependencies:
   - scipy=1.13.1
   - scikit-learn=1.5.1      # nu-SVR baseline
   - statsmodels=0.14.2
+  - lifelines=0.29.0        # required independent Cox cross-check
   - scanpy=1.10.2
   - anndata=0.10.8
   - matplotlib=3.8.4

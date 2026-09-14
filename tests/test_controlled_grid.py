@@ -52,6 +52,20 @@ def test_crossings_are_brackets_or_explicitly_missing_never_endorsements():
         "bracketed",
         "lower_bound_unobserved",
         "no_crossing",
-        "coincident_cutpoints",
     }
+    assert brackets["criteria_coincident"].dtype == bool
     assert not brackets["status"].str.contains("pass|valid|endors", case=False).any()
+
+
+def test_coincidence_does_not_erase_an_unobserved_lower_bound():
+    rates = pd.DataFrame(
+        {
+            "cohort": ["synthetic"],
+            "n_cells_mature": [20],
+            "coverage": [1.0],
+            "discrimination": [1.0],
+        }
+    )
+    brackets = crossing_brackets(rates)
+    assert brackets["criteria_coincident"].all()
+    assert set(brackets["status"]) == {"lower_bound_unobserved"}

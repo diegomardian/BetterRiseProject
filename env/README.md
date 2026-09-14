@@ -13,7 +13,7 @@ pip install -e ".[dev]"      # from the repo root — installs src/ so imports w
 | File | Env name | Workstream |
 |------|----------|------------|
 | `w1_reference.yml` | `brp-w1` | scanpy, scDblFinder/scrublet, SoupX, CellBender, inferCNV |
-| `w2_harness.yml` | `brp-w2` | scanpy, scikit-learn, the deconvolution bake-off |
+| `w2_harness.yml` | `brp-w2` | simulation, deconvolution, calibration, lifelines cross-check |
 | `w3_bulk.yml` | `brp-w3` | pandas, lifelines, GDC tooling. Laptop-fine. |
 | `w4_estimator.yml` | `brp-w4` | scanpy, statsmodels, bootstrap/hierarchical models |
 

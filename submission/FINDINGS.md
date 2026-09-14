@@ -106,8 +106,8 @@ Per-world refusals, the three gated/ungated variants of identical arithmetic:
 | all four other worlds | 0 | 0 | 0 |
 
 The width criterion **never binds on this benchmark**. In `depleted_wide` the
-widest interval across 200 replicates is 1.081 against a detectable effect of
-3.967 — a factor of 3.7 clear — so the width gate reduces to its *finiteness
+widest interval across 200 replicates is 1.081 against that same replicate's
+detectable effect of 3.914 — a factor of 3.6 clear — so the width gate reduces to its *finiteness
 guard*, and that guard alone is enough to score 0.00 false confidence.
 
 **Read plainly: on this benchmark the only part of any gate that does work is

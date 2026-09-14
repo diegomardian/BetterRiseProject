@@ -11,7 +11,7 @@ residual on every row. At $f_T=0.01$ (about 20
 mature cells), $s=0.5$ and 500 replicates, median recovery across eight seeds
 ranges from $1.331$ to $1.423$ for pooled draws and $1.075$ to $1.108$ for
 reference draws. The IQR width increases from about $0.62$ to $1.17$, while
-the residual remains zero. At the abstention point, the recovery ratio has
+the residual remains zero. At the zero-cell grid point, the recovery ratio has
 closed form $1/(1-s)$, giving $5.000$, $2.000$ and $1.333$ at the three tested
 shifts with zero replicate variance. At $s=1$, the requested intrinsic term is
 zero and recovery ratios are undefined; differences remain available.
@@ -155,8 +155,8 @@ the gate's effect without that estimand mismatch (Table~\ref{tab:bench}).
 
 \paragraph{Finiteness and width play different roles.}
 Under Poisson expression, the width criterion never binds: in
-\texttt{depleted\_wide}, the largest 95\% half-width is 1.081 versus a
-detectable effect of 3.967. Its finiteness check prevents undefined outputs,
+\texttt{depleted\_wide}, the largest 95\% half-width is 1.081 versus that
+same replicate's detectable effect of 3.914. Its finiteness check prevents undefined outputs,
 while the count gate makes 88 additional refusals without improving the
 benchmark's false-confidence rate. The count gate's lower median error is
 conditional on selecting fewer, less noisy cases.

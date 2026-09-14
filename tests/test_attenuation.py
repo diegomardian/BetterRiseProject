@@ -193,6 +193,40 @@ def test_configuration_seed_changes_with_each_key():
     assert len(alternatives) == 5
 
 
+def test_configuration_seed_canonicalises_zero_and_keys_scheduled_pairs():
+    assert _configuration_seed(
+        17, n_cells=400, mature_fraction=-0.0, shift=0.5, replicate=3
+    ) == _configuration_seed(
+        17, n_cells=400, mature_fraction=0.0, shift=0.5, replicate=3
+    )
+    first = _configuration_seed(
+        17,
+        n_cells=400,
+        mature_fraction=0.2,
+        shift=0.5,
+        replicate=3,
+        holdout_ids=("P02", "P01"),
+    )
+    reordered = _configuration_seed(
+        17,
+        n_cells=400,
+        mature_fraction=0.2,
+        shift=0.5,
+        replicate=99,
+        holdout_ids=("P01", "P02"),
+    )
+    different = _configuration_seed(
+        17,
+        n_cells=400,
+        mature_fraction=0.2,
+        shift=0.5,
+        replicate=3,
+        holdout_ids=("P01", "P03"),
+    )
+    assert first == reordered
+    assert first != different
+
+
 def test_explicit_holdout_schedule_is_balanced_and_reproducible(cohort):
     counts, ctypes, patients = cohort
     cfg = SweepConfig(counts, ctypes, patients, GENES, TARGET)
@@ -221,6 +255,21 @@ def test_explicit_holdout_schedule_is_balanced_and_reproducible(cohort):
         holdout_schedule=schedule,
     )
     pd.testing.assert_frame_equal(first, second)
+    assert set(first["held_out_pair"]) == {"P00|P01", "P02|P03"}
+
+    reordered = run_sweep(
+        cfg,
+        grid,
+        seed=21,
+        arms=("oracle",),
+        seed_strategy="configuration",
+        holdout_schedule=tuple(reversed(schedule)),
+    )
+    columns = [column for column in first if column not in {"grid_id", "replicate"}]
+    pd.testing.assert_frame_equal(
+        first.sort_values(["held_out_pair", "shift"])[columns].reset_index(drop=True),
+        reordered.sort_values(["held_out_pair", "shift"])[columns].reset_index(drop=True),
+    )
 
     with pytest.raises(ValueError, match="one entry per replicate"):
         run_sweep(cfg, grid, seed=21, holdout_schedule=schedule[:1])
