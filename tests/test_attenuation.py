@@ -206,6 +206,7 @@ def test_configuration_seed_canonicalises_zero_and_keys_scheduled_pairs():
         shift=0.5,
         replicate=3,
         holdout_ids=("P02", "P01"),
+        patient_universe=("P01", "P02", "P03"),
     )
     reordered = _configuration_seed(
         17,
@@ -214,6 +215,7 @@ def test_configuration_seed_canonicalises_zero_and_keys_scheduled_pairs():
         shift=0.5,
         replicate=99,
         holdout_ids=("P01", "P02"),
+        patient_universe=("P03", "P02", "P01"),
     )
     different = _configuration_seed(
         17,
@@ -222,9 +224,13 @@ def test_configuration_seed_canonicalises_zero_and_keys_scheduled_pairs():
         shift=0.5,
         replicate=3,
         holdout_ids=("P01", "P03"),
+        patient_universe=("P01", "P02", "P03"),
     )
     assert first == reordered
     assert first != different
+    assert different == _configuration_seed(
+        17, n_cells=400, mature_fraction=0.2, shift=0.5, replicate=1
+    )
 
 
 def test_explicit_holdout_schedule_is_balanced_and_reproducible(cohort):

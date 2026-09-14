@@ -33,7 +33,7 @@ it. The dependency is one-way and it is on W4's public API.
 
 from __future__ import annotations
 
-import hashlib
+import itertools
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Final
@@ -124,6 +124,7 @@ def _configuration_seed(
     shift: float,
     replicate: int,
     holdout_ids: Sequence[str] | None = None,
+    patient_universe: Sequence[str] | None = None,
 ) -> int:
     """Seed one draw from its scientific configuration, never grid position.
 
@@ -147,9 +148,21 @@ def _configuration_seed(
     if holdout_ids is None:
         entropy.append(int(replicate))
     else:
-        pair = "\0".join(sorted(map(str, holdout_ids))).encode("utf-8")
-        digest = hashlib.blake2s(pair, digest_size=16).digest()
-        entropy.extend(np.frombuffer(digest, dtype="<u4").astype(int).tolist())
+        if patient_universe is None:
+            raise ValueError("patient_universe is required with holdout_ids")
+        held = tuple(sorted(set(map(str, holdout_ids))))
+        patients = tuple(sorted(set(map(str, patient_universe))))
+        canonical = tuple(itertools.combinations(patients, len(held)))
+        try:
+            # The canonical pair number is an ID-derived key, not the pair's
+            # current position in a possibly filtered or reordered schedule.
+            # For the original complete combinations schedule it also equals
+            # the historical replicate number, preserving the frozen streams.
+            entropy.append(canonical.index(held))
+        except ValueError as error:
+            raise ValueError(
+                f"holdout IDs {held} are not a subset of patient_universe"
+            ) from error
     return int(np.random.SeedSequence(entropy).generate_state(1, dtype=np.uint32)[0])
 
 
@@ -256,6 +269,7 @@ def run_sweep(
     counts = np.asarray(config.counts)
     cell_type = np.asarray(config.cell_type)
     patient_id = np.asarray(config.patient_id)
+    known = set(patient_id.tolist())
     genes = list(config.genes)
     types = sorted(set(cell_type.tolist()))
     target = config.target_gene
@@ -274,7 +288,6 @@ def run_sweep(
             scheduled = None
             if holdout_schedule is not None:
                 scheduled = set(holdout_schedule[rep])
-                known = set(patient_id.tolist())
                 if len(scheduled) != grid.n_held_out or not scheduled <= known:
                     raise ValueError(
                         f"invalid holdout_schedule entry at replicate {rep}: "
@@ -288,6 +301,7 @@ def run_sweep(
                     shift=shift,
                     replicate=rep,
                     holdout_ids=scheduled,
+                    patient_universe=known,
                 )
                 if seed_strategy == "configuration"
                 else seed + grid_id * 10_000 + rep
