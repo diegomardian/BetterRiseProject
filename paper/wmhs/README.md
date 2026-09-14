@@ -23,8 +23,19 @@ repetitive diagnostic history were removed. The completed follow-up plan is in
 Fresh-environment commands for the independent lifelines comparison and the
 residual/performance clean control are in [REPRODUCE.md](REPRODUCE.md).
 
+The final full-paper review promotes the saved clean-control comparison to a
+main-text table, adds controlled-grid and fixed-pair sensitivity tables, and
+reports the independent Cox implementation check. The main text now specifies
+the calibration substrate and interval sampling units, distinguishes low cell
+counts from an absent population, and qualifies the untested learned-generator
+implications. Per-count candidates and unobserved lower crossing boundaries
+make the limits of stable binned cutpoints explicit. No new experiments were
+run for this editorial expansion; the appendix and shorter paper are unchanged.
+
 Both manuscripts are compiled and page-limited in CI. The full build's main
-text is 7 pages (limit 9), and the extended abstract is 4 pages (limit 4), with
+text fills 9 pages (limit 9); references start on page 10 and the condensed
+appendix on page 12, for 15 pages total. The extended abstract is unchanged
+at 4 pages of main text (limit 4). The full build has
 zero LaTeX errors, undefined references/citations, or overfull boxes. The
 anonymity check passes. Paper-number tests now cover claims in both source
 trees, including the newly adopted controlled and sensitivity results.

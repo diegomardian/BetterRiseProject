@@ -12,37 +12,25 @@ These safeguards record the specification; they do not establish its adequacy.
 Appendix~\ref{app:methods} specifies the cohorts and within-arm cell bootstrap,
 which is distinct from patient resampling for population inference.
 
-\paragraph{Terms used in this section.} The calibration is run on a
-single-cell substrate, and five of its terms are load-bearing below. None is
-standard, so we fix them here rather than in the appendix.
+The substrate comprises ten paired patients in GSE132465 (SMC) and six in
+GSE144735 (KUL3). We analyse GUCA2A in the differentiated population under the
+fixed lineage labelling. Each synthetic draw uses a two-patient source pool
+and 2{,}000 cells per arm, with the reference mature fraction fixed at $0.40$.
+The nominal 95\% percentile interval resamples mature cells within each arm
+while holding fractions fixed. Its target is conditional intrinsic uncertainty;
+it does not propagate uncertainty in the fractions or estimate uncertainty
+across a population of patients.
 
-\begin{mdframed}[linewidth=0.5pt,innertopmargin=4pt,innerbottommargin=4pt]
-\begin{description}\itemsep1pt\parskip0pt\topsep2pt
-\item[\emph{Mature cell}, and the count $n$.] The cell type whose per-cell
-  output the estimand is about. $n$ is how many of them the diseased arm
-  retains; below some $n$ the per-cell mean has no referent and the rule
-  abstains.
-\item[\emph{Draw pool}.] The set of real cells a synthetic arm is drawn from.
-  The generator filters eligibility by held-out patient only, so as implemented
-  it pools cells from both tissues (\emph{pooled}); the design document never
-  specified tissue, so we also report drawing from reference tissue alone
-  (\emph{reference-only}). This unstated choice changes the answer.
-\item[\emph{Grid}.] The set of mature-cell counts the sweep can actually
-  evaluate, fixed by which mature-cell fractions it varies at 2{,}000 cells per
-  arm. \emph{Committed} is the pre-registered one, reaching
-  $\{0,20,40,100,200,400,800\}$; \emph{filled} adds nine fractions between 40
-  and 150; \emph{dense} also reaches below 20.
-\item[\emph{Bin}.] Coverage and discrimination are aggregated into twelve
-  log-spaced count bins before any threshold is read. A reported count is the
-  \emph{median of the counts that landed in its bin}, not a directly estimated
-  crossing --- which is why two grids can report different numbers from the
-  same bin.
-\item[$ok$ \textnormal{and} $wide$.] The two cutpoints the procedure returns:
-  $ok$ is the smallest count meeting both the coverage and discrimination
-  targets, $wide$ the smallest meeting coverage alone. The committed rule sets
-  them to 50 and 20. Everything below asks what the procedure returns instead.
-\end{description}
-\end{mdframed}
+\paragraph{Counts and candidate cutpoints.}
+A mature cell belongs to the cell type whose per-cell output defines the
+estimand; $n$ counts these cells in the diseased arm. No observed mature cells
+means an undefined sample mean, whereas positive but small counts raise an
+uncertainty question. An absent underlying population has no conditional-mean
+referent. We denote the joint coverage-and-discrimination candidate by $ok$
+and the coverage-only candidate by $wide$; the committed rule sets them to
+50 and 20. The draw pool specifies eligible source cells, the grid specifies
+tested counts, and bins aggregate interval outcomes across counts. We examine
+each choice below.
 
 \paragraph{The draw pool changes the result.}
 The generator filters eligibility by held-out patient, pooling cells from both
@@ -100,6 +88,7 @@ replicates per grid point & $500$ & $500$ & $200$ \\
 \end{tabular}
 \end{center}
 
+\paragraph{A controlled comparison isolates grid and binning effects.}
 These historical brackets describe adjacent reported count summaries, not
 confidence intervals. Because their budgets, bin boundaries and streams also
 differed, they established configuration sensitivity but did not isolate its
@@ -116,6 +105,44 @@ return 800. Pooled draws still return no qualifying cutpoint in either cohort.
 The largest binomial Monte Carlo standard error is 0.035, conditional on the
 fixed cohorts; it is not patient-sampling uncertainty.
 
+\begin{table}[htbp]
+\centering\small
+\caption{Joint coverage-and-discrimination candidates from the controlled
+union-grid run. Entries give candidates with seed frequencies in parentheses
+where they vary; otherwise all eight seeds agree. Every grid summary reuses the
+same draws at shared counts. ``None'' means no tested count or bin qualifies.}
+\label{tab:controlledgrid}
+\begin{tabular}{@{}llccc@{}}
+\toprule
+cohort / pool & grid & fixed bins & adaptive bins & per count \\
+\midrule
+SMC / reference & committed & $100$ & $100$ & $100$ \\
+ & filled & $70$ & $65\ (7),\ 90\ (1)$ & $50$--$80$ \\
+ & dense & $70$ & $70$ & $45$--$80$ \\
+KUL3 / reference & all three & $400\ (6),\ 800\ (2)$ & same & same \\
+Both / pooled & all three & None & None & None \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The per-count summaries in Table~\ref{tab:controlledgrid} supply a useful
+check on the bin medians. In SMC, the filled grid's first qualifying actual
+count is 50 on two seeds, 60 on five and 80 on one; the dense grid adds a
+candidate of 45 on one seed. Thus a stable binned candidate of 70 is not
+evidence that 70 is a uniquely determined biological threshold. A bin pools
+outcomes over several count settings, whereas a per-count rate addresses only
+that setting. Fixed bins hold the boundaries constant, but adding settings can
+still change both a bin's median count and its aggregate performance.
+
+These candidates select the first qualifying evaluated point, without fitting
+a monotone response or requiring all larger counts to qualify. Their adjacent
+crossing brackets describe grid support, not confidence intervals for a
+threshold. Conditional Monte Carlo errors quantify rate precision; they do not
+account for searching several counts and cannot certify a selected rule's
+out-of-sample coverage. The controlled comparison resolves the historical
+confounding of grid choice with random draws, while leaving the decision rule
+itself unvalidated.
+
 \paragraph{Simulation precision is not patient-level uncertainty.}
 Enumerating all 45 and 15 two-patient holdout pairs separates patient omission
 from repeated simulation. Keying streams to the sorted pair identifiers keeps
@@ -129,6 +156,37 @@ six. These are cohort-conditional influence checks, not intervals for a larger
 patient population. We therefore report candidates, not an endorsed calibrated
 cutpoint. Appendix~\ref{app:gridcaveats} records denominator and coincident-cutpoint
 issues, and Appendix~\ref{app:guards} examines small-sample interval calibration.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Reference-only sensitivity with every two-patient holdout pair
+represented once per count and effect. The three inner budgets reuse identical
+outer samples. Omission counts compare with the baseline at 200 inner draws;
+all pairs involving the omitted patient are removed and retained pairs are
+unchanged. These are sensitivity summaries within the observed cohorts.}
+\label{tab:sensitivity}
+\begin{tabular}{@{}lcrrrcc@{}}
+\toprule
+ & pairs & \multicolumn{3}{c}{joint candidate, inner draws} &
+ \multicolumn{2}{c}{omissions changing candidate} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-7}
+cohort & & $200$ & $1{,}000$ & $5{,}000$ & joint & coverage only \\
+\midrule
+SMC & $45$ & $70$ & $70$ & $70$ & $0/10$ & $5/10$ \\
+KUL3 & $15$ & $400$ & $300$ & $400$ & $3/6$ & $0/6$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The sensitivity windows cover counts $40,50,60,70,80,90,100,110$ in SMC and
+$200,300,400,600,800$ in KUL3. These per-count summaries use a fixed pair
+schedule, so they are a separate experiment from the eight-seed union grid.
+Omitting KUL01 or KUL30 moves the joint candidate from 400 to 300; omitting
+KUL31 moves it to the lowest tested count, 200, with its lower boundary
+unobserved. The coverage-only baselines likewise occur at the lowest tested
+counts, 40 and 200. Their stability cannot locate a lower crossing outside
+those windows. Enumerating pairs improves transparency about source-patient
+influence, but overlapping pairs do not create additional independent patients.
 
 \paragraph{A second cohort gives the same calibration failure.}
 The second Lee cohort contains six patients, compared with ten in the first.

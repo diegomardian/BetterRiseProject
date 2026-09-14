@@ -186,3 +186,69 @@ def test_the_residual_matrix_headline_is_rederived_for_the_submitted_build():
     # the swap, which is the point of the section
     assert cell("gcomp-from-generator", "standardised") == 0.0
     assert round(cell("gcomp-from-generator", "varweighted"), 4) == 0.0663
+
+
+def test_clean_control_table_matches_all_eight_pinned_rows():
+    text = _full_text()
+    frame = pd.read_parquet(_pinned("residual_performance_clean_control"))
+    labels = {
+        "empirical-mean-calibrated": "Full-sample mean",
+        "same-point-narrow-interval": "Same point, narrow interval",
+        "known-bias-plus-0.5": "Mean plus $0.5$",
+        "independent-half-mean": "Half-sample mean",
+    }
+    assert len(frame) == 8
+    assert set(frame["requested_effect"]) == {0.0, 0.5}
+    assert (frame["n_attempted"] == 2000).all()
+    assert (frame["n_valid"] == frame["n_attempted"]).all()
+    for row in frame.itertuples(index=False):
+        residual = (
+            "0" if row.max_residual_vs_reference == 0
+            else f"{row.max_residual_vs_reference:.4f}"
+        )
+        literal = (
+            f"{labels[row.estimator]} & ${residual}$ & ${row.bias:.4f}$ & "
+            f"${row.rmse:.4f}$ & ${100 * row.interval_coverage:.2f}"
+            + r"\%$"
+        )
+        _quotes(text, literal)
+    _quotes(text, "at most 1.08 percentage points")
+    assert round(100 * frame["coverage_mc_se"].max(), 2) == 1.08
+
+
+def test_independent_cox_agreement_claim_uses_the_pinned_check():
+    text = _full_text()
+    frame = pd.read_parquet(_pinned("trial_survival_lifelines_check"))
+    assert len(frame) == 8
+    assert frame["valid_pair"].all()
+    assert frame["within_fixed_tolerance"].all()
+    assert (frame["n_patients"] == 1500).all()
+    assert (frame["fixed_tolerance"] == 1e-5).all()
+    assert f"{frame['absolute_difference'].max():.1e}" == "1.4e-07"
+    _quotes(text, r"largest absolute difference is $1.4\times10^{-7}$")
+
+
+def test_per_count_candidates_and_unobserved_omission_boundary():
+    text = _full_text()
+    frame = pd.read_parquet(_pinned("controlled_grid_crossings_r200_b200"))
+    smc = frame[
+        (frame["cohort"] == "smc")
+        & (frame["pool"] == "reference")
+        & (frame["criterion"] == "coverage_and_discrimination")
+        & (frame["binning"] == "per_count")
+    ]
+    filled = smc[smc["grid"] == "extended"]["candidate"].value_counts().to_dict()
+    dense = smc[smc["grid"] == "dense"]["candidate"].value_counts().to_dict()
+    assert filled == {60.0: 5, 50.0: 2, 80.0: 1}
+    assert dense == {60.0: 4, 50.0: 2, 45.0: 1, 80.0: 1}
+    _quotes(text, "count is 50 on two seeds, 60 on five and 80 on one")
+    influence = pd.read_parquet(_pinned("calibration_lopo_influence_b200-1000-5000"))
+    joint = influence[
+        (influence["cohort"] == "kul3")
+        & (influence["criterion"] == "coverage_and_discrimination")
+    ].set_index("omitted_patient")
+    assert joint.loc["KUL01", "omitted_candidate"] == 300
+    assert joint.loc["KUL30", "omitted_candidate"] == 300
+    assert joint.loc["KUL31", "omitted_candidate"] == 200
+    assert joint.loc["KUL31", "omitted_status"] == "lower_bound_unobserved"
+    _quotes(text, "KUL31 moves it to the lowest tested count, 200, with its lower boundary")

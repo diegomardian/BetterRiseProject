@@ -1,18 +1,16 @@
 \section{What the screen sees depends on the reference and the design}
 \label{sec:matrix}
 
-Whether an estimator reproduces the reference is not a property of the
-estimator. It is a property of the estimator, the reference and the trial
-design together, and changing any one of the three changes the verdict.
-This does not follow from the algebra alone, and it is the part a
-practitioner cannot guess, so we report it in full rather than by example.
+Whether an estimator reproduces the reference depends on the estimator, the
+reference and the trial design together. Changing one can change the verdict.
+The following sweep shows where the algebraic identities hold and how departures
+change when realised balance or estimator fitting changes.
 
 The sweep crosses 14 estimators, three designs, two realised references, six
 cohort sizes and six seeds (settings in Appendix~\ref{app:methods}).
 Table~\ref{tab:matrix} shows nine of those estimators under two of the
-designs; the five logistic-propensity variants appear in the regularisation
-paragraph below and the third design, independent Bernoulli assignment, in the
-paragraph after that. Under confounded
+designs. Independent Bernoulli assignment is discussed below; the five
+logistic-propensity variants are reported in Appendix~\ref{app:matrix}. Under confounded
 assignment, OLS has maximum residual $0.0663$ against the standardised
 reference at $n=5{,}000$, but $3.5\times10^{-14}$ against the
 variance-weighted reference equal to OLS by the Frisch--Waugh identity.
@@ -65,30 +63,20 @@ unadjusted difference             & $4.99$       & $4.99$       & $\mathbf{7\!\t
 \end{tabular}
 \end{table}
 
-\paragraph{Why a learned patient model makes this harder, not easier.}
-Our generators are parametric, and that is the favourable case. When the
-generator is a closed form, the realised reference is too: $T(D)$ can be
-written down, pre-specified, and checked against the estimator by inspection,
-which is how the identities in Table~\ref{tab:matrix} were found. A learned
-generative patient model removes all three affordances at once. There is no
-closed form to inspect; the realised effect in a synthetic cohort is not
-available analytically but must itself be \emph{estimated} from the sampled
-patients; and the natural estimator for it --- compute the effect on the
-cohort you just generated --- is exactly the estimator under test. The
-functional reuse this paper describes is then the default wiring rather than
-an oversight, and it arrives without an algebraic identity anyone could have
-spotted in the code.
+\paragraph{Implications for learned patient generators.}
+The reference must be specified independently of the choice to test an
+estimator, but it need not be statistically independent of the generated
+sample. A learned generator does not by itself remove a closed-form empirical
+reference: standardisation remains the same function of observed strata and
+outcomes regardless of how those records were generated. The identities above
+therefore concern the analysis functional and assignment design, not whether
+the generator was learned or parametric.
 
-Two consequences follow, and we state them as predictions the audit makes
-rather than as results, because we have not run them. First, the equality is
-likely to become \emph{approximate}: a learned generator and a re-fit outcome
-model share most but not all of their inputs, so the residual would sit near
-zero rather than at it --- the regime \S\ref{sec:blind} shows the boolean
-screen cannot see, and the one the residual scale $\rho$ exists for. A
-practitioner who runs only \texttt{allclose} would find nothing. Second, step 1
-of the audit inverts in difficulty: pre-specifying $T(D)$ is trivial for a
-stratified simulator and is the substantive modelling decision for a
-generative one, since it forces an explicit statement of what the synthetic
-cohort's effect \emph{is} before an estimator is allowed to define it. We
-think that is where the audit earns its keep, and it is the experiment we would
-run next.
+If a chosen target instead requires numerical integration or a separately
+fitted outcome model, its approximation introduces another source of error.
+The audit would then need to record that computation and its random streams,
+and distinguish reference-approximation error from the estimator's departure.
+Small nonzero residuals warrant reporting their scale; neither a tolerance
+check nor $\rho$ establishes that two procedures are approximately equivalent
+in untested settings. We have not evaluated a learned patient generator here,
+and do not infer how often functional reuse occurs in deployed pipelines.
