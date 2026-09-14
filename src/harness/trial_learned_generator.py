@@ -597,15 +597,21 @@ def gcomp_gmm_outcome(
     responsibilities sum to one. Convergence is irrelevant, so ``tol`` sets no
     floor and this arm sits at machine precision.
 
-    Returns NaN when a cell holds fewer records than components, which is a
-    fitting impossibility rather than a statistical statement; those draws are
-    counted in ``n_nonfinite_estimate``.
+    Returns NaN when a cell holds fewer records than components, or fewer than
+    the two samples sklearn needs to fit a mixture at all. Both are fitting
+    impossibilities rather than statistical statements; those draws are counted
+    in ``n_nonfinite_estimate``.
     """
     records = trial.records
     mu: dict[tuple[int, int], float] = {}
     for (g, a), group in records.groupby(["stratum", "treated"]):
         y = group["outcome"].to_numpy(dtype=float)
-        if y.size < n_components:
+        if y.size < max(n_components, 2):
+            # sklearn needs at least two samples to fit a mixture at all, and at
+            # least one per component. Both are fitting impossibilities rather
+            # than statistical statements, so this abstains and the draw is
+            # counted in ``n_nonfinite_estimate`` instead of being patched with
+            # a fallback that would quietly make this a different estimator.
             return float("nan")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

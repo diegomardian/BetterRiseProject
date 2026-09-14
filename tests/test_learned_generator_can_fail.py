@@ -5,7 +5,7 @@ worse than no check, because it turns an absence of evidence into a green light.
 So each guard here gets a constructed input it MUST catch, plus a positive
 control showing it still passes clean data.
 
-The experiment these guard is pre-registered in
+The experiment these guards belong to is pre-registered in
 ``docs/prereg_learned_generator.md``. Four of the tests below are that
 document's falsifiers written as code, so that a reader can see F1, F3, F6 and
 F8 are decidable rather than rhetorical.
@@ -494,3 +494,45 @@ def test_adding_an_estimator_cannot_move_another_estimators_number():
     pd.testing.assert_series_equal(
         alone["estimate"].reset_index(drop=True), subset["estimate"]
     )
+
+
+def test_a_single_record_cell_abstains_instead_of_crashing_the_sweep():
+    """THE FORCING INPUT: a stratum-arm cell holding exactly one patient.
+
+    ``GaussianMixture`` refuses fewer than two samples whatever the component
+    count, so a guard written only as ``size < n_components`` passes a
+    one-record cell straight into sklearn and takes the whole sweep down. This
+    really happened on the first full run, at n=100.
+
+    An abstention is the right answer here -- the draw is counted in
+    ``n_nonfinite_estimate`` -- and a crash is not, because a sweep that dies on
+    its smallest cohort silently becomes a sweep about large cohorts.
+    """
+    from src.harness.trial_learned_generator import gcomp_gmm_outcome
+
+    records = pd.DataFrame(
+        {
+            "stratum": [0, 0, 0, 1, 1, 1, 2, 2, 2],
+            "treated": [0, 0, 1, 0, 0, 1, 0, 0, 1],
+            "outcome": [10.0, 11.0, 13.0, 14.0, 15.0, 17.0, 25.0, 26.0, 28.0],
+        }
+    )
+    trial = _as_trial(records, THETA)
+    assert (records.groupby(["stratum", "treated"]).size() == 1).any()
+
+    for k in (1, 4):
+        got = gcomp_gmm_outcome(trial, n_components=k, rng=_rng(3, "estimator", 0))
+        assert not np.isfinite(got), f"K={k} returned {got} on a one-record cell"
+
+
+def test_the_gmm_outcome_model_still_returns_a_number_on_a_healthy_cohort():
+    """Positive control: the abstention above must not be the only thing this
+    estimator ever does."""
+    from src.harness.trial_learned_generator import gcomp_gmm_outcome
+
+    trial = _as_trial(
+        simulate_trial(2000, THETA, rng=_rng(17, "train", 0)).records, THETA
+    )
+    got = gcomp_gmm_outcome(trial, n_components=4, rng=_rng(17, "estimator", 0))
+    assert np.isfinite(got)
+    assert abs(got - trial.theta_realised) < 1e-9
