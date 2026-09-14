@@ -450,4 +450,69 @@ commit that adds them.
 
 ## Amendments
 
-*(none)*
+### Amendment 1 — a positive control for the blind band
+
+**Timestamp:** 2026-09-13T00:00:00Z (UTC) · **Before any result table exists.**
+**Status of the original text: unchanged. No falsifier in §6 is weakened,
+reworded or removed.**
+
+**What prompted it.** A micro-check of one library identity — not the
+experiment — run while building the module:
+
+```
+GaussianMixture(K, tol=1e-3 ).fit(y)  ->  |sum_k pi_k mu_k - ybar| = 3.6e-15
+GaussianMixture(K, tol=1e-10).fit(y)  ->  |sum_k pi_k mu_k - ybar| = 5.3e-15
+```
+
+**§8's stated expectation is wrong and is recorded here as wrong.** §8 predicted
+that `gcomp-gmm-outcome-*` would sit near zero with a floor set by
+`GaussianMixture(tol=...)`. It does not. The identity `sum_k pi_k mu_k = ybar`
+holds exactly after **any M-step**, not merely at convergence: it requires only
+that the responsibilities sum to one, which they do at every iteration. So
+`tol` is not a floor, and the GMM-based outcome model is degenerate to machine
+precision rather than approximately.
+
+**Why that is a problem for the experiment as pre-registered.** With §8's
+mechanism gone, every estimator in §4 is expected to be either exact to machine
+precision (`gcomp-saturated`, `ipw-saturated`, `gcomp-gmm-outcome-*`) or clearly
+non-zero (`gcomp-mlp-outcome`, `ols-stratum-dummies`, `unadjusted`, all `>=1e-2`
+in the published parametric tables). **Nothing in the pre-registered set can
+land between `atol = 1e-8` and `1e-8 + 1e-5*|T| ~ 3e-5`** — the band in which
+`np.allclose(r, 0.0)` is False while `np.allclose(estimate, reference)` is True,
+which is the regime prediction (b) is *about*.
+
+An experiment in which F2 fires **because no arm could have landed in the band**
+is an experiment that cannot come out against us. That is the paper's own
+complaint, pointed at this design, and it has to be fixed before the run rather
+than explained afterwards.
+
+**The addition — three arms, one knob, analytically transparent.**
+
+| name | outcome model | implied cell mean |
+|---|---|---|
+| `gcomp-ridge-outcome-a1e-5` | `Ridge(alpha=1e-5, fit_intercept=False)` on saturated cell indicators | `ybar_gd * n_gd / (n_gd + alpha)` |
+| `gcomp-ridge-outcome-a1e-3` | `alpha = 1e-3` | as above |
+| `gcomp-ridge-outcome-a1e-1` | `alpha = 1e-1` | as above |
+
+The design matrix is one indicator per `(stratum, treated)` cell, so it is
+orthogonal and the penalised solution is the shrunken cell mean in closed form.
+The residual against `T_draw` is therefore a smooth, *chosen* function of
+`alpha`, and `alpha` in `1e-5 .. 1e-1` brackets the blind band at these cohort
+sizes (bias per cell `~ ybar * alpha / n_gd`, and `ybar ~ 25`).
+
+**What these arms are for, stated in advance so they are not over-read.** They
+are a **positive control for the screen's blind band**, exactly as
+`tests/test_checks_can_fail.py` demands a forcing input for every guard. They
+establish that the band is reachable and that the two `allclose` spellings
+genuinely disagree inside it. They are **not** evidence for the paper's
+prediction (a): what puts an estimator in the band is a regularisation constant
+the analyst typed, not the generator being learned. If the only arms landing in
+the blind band are the Ridge ones, that is reported as the finding, and (a)
+remains false as stated.
+
+**Added falsifier F8, for the new arms only.** *If no `gcomp-ridge-outcome-*`
+arm lands strictly inside the blind band (`allclose(r,0.0)` False **and**
+`allclose(estimate, reference)` True) at any cohort size, then this experiment
+has no demonstrated ability to exhibit the regime prediction (b) describes, and
+its verdict on (b) is "not tested" rather than "false".*
+
