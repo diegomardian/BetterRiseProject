@@ -24,33 +24,6 @@ at $n=5{,}000$ with 200 replicates and one seed. The reference is the standardis
 \subsection{Reference and design sensitivity}
 \label{app:matrix}
 
-\begin{table}[htbp]
-\small
-\centering
-\caption{Maximum absolute residual at 5{,}000 patients, with 1{,}200 replicates
-pooled over 6 seeds. Values near $10^{-14}$ reflect numerical equality.
-Changing the reference or using complete 1:1 blocks changes which estimators
-reproduce the reference. These maxima use more replicates than
-Table~\ref{tab:trial}, so their nonzero magnitudes are not directly comparable.}
-\label{tab:matrix}
-\begin{tabular}{@{}lcccc@{}}
-\toprule
-& \multicolumn{2}{c}{\textbf{confounded}} & \multicolumn{2}{c}{\textbf{block-randomised}} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}
-estimator & standardised & var-weighted & standardised & var-weighted \\
-\midrule
-G-computation, generator's strata & $0$          & $0.0663$     & $0$          & $9\!\times\!10^{-16}$ \\
-IPW, saturated propensity         & $1\!\times\!10^{-14}$ & $0.0663$ & $7\!\times\!10^{-15}$ & $7\!\times\!10^{-15}$ \\
-AIPW, saturated, no cross-fitting & $4\!\times\!10^{-15}$ & $0.0663$ & $4\!\times\!10^{-15}$ & $4\!\times\!10^{-15}$ \\
-matching on stratum, all controls & $9\!\times\!10^{-16}$ & $0.0663$ & $9\!\times\!10^{-16}$ & $0$ \\
-matching on stratum, 20 controls  & $0.052$      & $0.067$      & $0.037$      & $0.037$ \\
-matching on stratum, 1 control    & $0.164$      & $0.182$      & $0.170$      & $0.170$ \\
-OLS, stratum dummies              & $0.0663$     & $\mathbf{3.5\!\times\!10^{-14}}$ & $2\!\times\!10^{-14}$ & $2\!\times\!10^{-14}$ \\
-IPW, cross-fitted                 & $0.599$      & $0.618$      & $0.182$      & $0.182$ \\
-unadjusted difference             & $4.99$       & $4.99$       & $\mathbf{7\!\times\!10^{-15}}$ & $7\!\times\!10^{-15}$ \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 Regularisation also changes the residual. For logistic-propensity IPW in the
 confounded design, maximum residuals against the standardised reference are

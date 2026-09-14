@@ -21,10 +21,11 @@ abstention rule.
 \includegraphics[width=\linewidth]{figures/fig3_generator_statistic.pdf}
 \caption{Single-cell recovery ratios at the detectable effect, shown as median
 and IQR over 50 replicates for two draw pools. The oracle estimate reproduces
-the realised intrinsic reference exactly across all 119{,}600 non-null
-replicates in this sweep and 1{,}711{,}200 across four sweeps. The curves therefore
-also describe realised over requested truth. A further 29{,}900 replicates in
-this sweep (427{,}800 across four sweeps) have a zero requested intrinsic term,
+the realised intrinsic reference exactly across all 89{,}700 non-null
+replicates in this sweep and 1{,}283{,}400 across four sweeps. The curves therefore
+also describe realised over requested truth. The remaining 29{,}900 replicates of this
+sweep's 119{,}600 (427{,}800 of 1{,}711{,}200 across four sweeps) have a zero
+requested intrinsic term,
 so their recovery ratio is undefined. Appendix~\ref{app:generator} compares
 the draw pools and explains the constant ratio at the zero-cell grid point.}
 \label{fig:generator}
@@ -107,33 +108,6 @@ recovering the requested effect. The unadjusted contrast is confounded.
 Departure is not a validity criterion.}
 \label{fig:trial}
 \end{figure}
-
-\paragraph{The reference and trial design determine equality.}
-A broader sweep crosses 14 estimators, three designs, two realised references,
-six cohort sizes and six seeds (Table~\ref{tab:matrix}; settings in
-Appendix~\ref{app:methods}). Under confounded
-assignment, OLS has maximum residual $0.0663$ against the standardised
-reference at $n=5{,}000$, but $3.5\times10^{-14}$ against the
-variance-weighted reference equal to OLS by the Frisch--Waugh identity.
-G-computation reverses the comparison: $0$ and $0.0663$, respectively.
-Both consistently estimate the requested homogeneous effect.
-
-With complete, stratified permuted blocks and 1:1 allocation, empirical
-propensities are $0.5$ in every stratum. The two references coincide, and
-OLS and even the unadjusted contrast reproduce them to numerical precision
-($1.6\times10^{-14}$ and $6.7\times10^{-15}$). Independent Bernoulli
-assignment at probability $0.5$ does not enforce this realised balance:
-at $n=5{,}000$, OLS and the unadjusted contrast have maximum residuals
-$9.51\times10^{-4}$ and $0.562$, respectively, against the standardised
-reference. Thus 1:1 randomisation in expectation is insufficient for the
-identity. Non-cross-fitted AIPW with
-saturated nuisances also equals standardisation: its within-stratum
-augmentation sums vanish (residual $4.4\times10^{-15}$ in the confounded
-design). Exact matching using all controls within each stratum agrees to
-$8.9\times10^{-16}$; using 20 or one control gives residuals of $0.052$ and
-$0.164$. These are properties of the implemented estimator, reference and
-design together. Appendix~\ref{app:matrix} also examines regularisation and
-effect heterogeneity.
 
 \paragraph{Residual scale is descriptive, not an error decomposition.}
 Alongside the maximum-residual equality screen, report

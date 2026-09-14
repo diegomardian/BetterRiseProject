@@ -1,0 +1,94 @@
+\section{What the screen sees depends on the reference and the design}
+\label{sec:matrix}
+
+Whether an estimator reproduces the reference is not a property of the
+estimator. It is a property of the estimator, the reference and the trial
+design together, and changing any one of the three changes the verdict.
+This does not follow from the algebra alone, and it is the part a
+practitioner cannot guess, so we report it in full rather than by example.
+
+The sweep crosses 14 estimators, three designs, two realised references, six
+cohort sizes and six seeds (settings in Appendix~\ref{app:methods}).
+Table~\ref{tab:matrix} shows nine of those estimators under two of the
+designs; the five logistic-propensity variants appear in the regularisation
+paragraph below and the third design, independent Bernoulli assignment, in the
+paragraph after that. Under confounded
+assignment, OLS has maximum residual $0.0663$ against the standardised
+reference at $n=5{,}000$, but $3.5\times10^{-14}$ against the
+variance-weighted reference equal to OLS by the Frisch--Waugh identity.
+G-computation reverses the comparison: $0$ and $0.0663$, respectively.
+Both consistently estimate the requested homogeneous effect.
+
+With complete, stratified permuted blocks and 1:1 allocation, empirical
+propensities are $0.5$ in every stratum. The two references coincide, and
+OLS and even the unadjusted contrast reproduce them to numerical precision
+($1.6\times10^{-14}$ and $6.7\times10^{-15}$). Independent Bernoulli
+assignment at probability $0.5$ does not enforce this realised balance:
+at $n=5{,}000$, OLS and the unadjusted contrast have maximum residuals
+$9.51\times10^{-4}$ and $0.562$, respectively, against the standardised
+reference. Thus 1:1 randomisation in expectation is insufficient for the
+identity. Non-cross-fitted AIPW with
+saturated nuisances also equals standardisation: its within-stratum
+augmentation sums vanish (residual $4.4\times10^{-15}$ in the confounded
+design). Exact matching using all controls within each stratum agrees to
+$8.9\times10^{-16}$; using 20 or one control gives residuals of $0.052$ and
+$0.164$. These are properties of the implemented estimator, reference and
+design together. Appendix~\ref{app:matrix} also examines regularisation and
+effect heterogeneity.
+
+
+\begin{table}[htbp]
+\small
+\centering
+\caption{Maximum absolute residual at 5{,}000 patients, with 1{,}200 replicates
+pooled over 6 seeds. Values near $10^{-14}$ reflect numerical equality.
+Changing the reference or using complete 1:1 blocks changes which estimators
+reproduce the reference. These maxima use more replicates than
+Table~\ref{tab:trial}, so their nonzero magnitudes are not directly comparable.}
+\label{tab:matrix}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{confounded}} & \multicolumn{2}{c}{\textbf{block-randomised}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+estimator & standardised & var-weighted & standardised & var-weighted \\
+\midrule
+G-computation, generator's strata & $0$          & $0.0663$     & $0$          & $9\!\times\!10^{-16}$ \\
+IPW, saturated propensity         & $1\!\times\!10^{-14}$ & $0.0663$ & $7\!\times\!10^{-15}$ & $7\!\times\!10^{-15}$ \\
+AIPW, saturated, no cross-fitting & $4\!\times\!10^{-15}$ & $0.0663$ & $4\!\times\!10^{-15}$ & $4\!\times\!10^{-15}$ \\
+matching on stratum, all controls & $9\!\times\!10^{-16}$ & $0.0663$ & $9\!\times\!10^{-16}$ & $0$ \\
+matching on stratum, 20 controls  & $0.052$      & $0.067$      & $0.037$      & $0.037$ \\
+matching on stratum, 1 control    & $0.164$      & $0.182$      & $0.170$      & $0.170$ \\
+OLS, stratum dummies              & $0.0663$     & $\mathbf{3.5\!\times\!10^{-14}}$ & $2\!\times\!10^{-14}$ & $2\!\times\!10^{-14}$ \\
+IPW, cross-fitted                 & $0.599$      & $0.618$      & $0.182$      & $0.182$ \\
+unadjusted difference             & $4.99$       & $4.99$       & $\mathbf{7\!\times\!10^{-15}}$ & $7\!\times\!10^{-15}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Why a learned patient model makes this harder, not easier.}
+Our generators are parametric, and that is the favourable case. When the
+generator is a closed form, the realised reference is too: $T(D)$ can be
+written down, pre-specified, and checked against the estimator by inspection,
+which is how the identities in Table~\ref{tab:matrix} were found. A learned
+generative patient model removes all three affordances at once. There is no
+closed form to inspect; the realised effect in a synthetic cohort is not
+available analytically but must itself be \emph{estimated} from the sampled
+patients; and the natural estimator for it --- compute the effect on the
+cohort you just generated --- is exactly the estimator under test. The
+functional reuse this paper describes is then the default wiring rather than
+an oversight, and it arrives without an algebraic identity anyone could have
+spotted in the code.
+
+Two consequences follow, and we state them as predictions the audit makes
+rather than as results, because we have not run them. First, the equality is
+likely to become \emph{approximate}: a learned generator and a re-fit outcome
+model share most but not all of their inputs, so the residual would sit near
+zero rather than at it --- the regime \S\ref{sec:blind} shows the boolean
+screen cannot see, and the one the residual scale $\rho$ exists for. A
+practitioner who runs only \texttt{allclose} would find nothing. Second, step 1
+of the audit inverts in difficulty: pre-specifying $T(D)$ is trivial for a
+stratified simulator and is the substantive modelling decision for a
+generative one, since it forces an explicit statement of what the synthetic
+cohort's effect \emph{is} before an estimator is allowed to define it. We
+think that is where the audit earns its keep, and it is the experiment we would
+run next.

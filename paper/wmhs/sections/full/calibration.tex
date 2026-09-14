@@ -12,6 +12,38 @@ These safeguards record the specification; they do not establish its adequacy.
 Appendix~\ref{app:methods} specifies the cohorts and within-arm cell bootstrap,
 which is distinct from patient resampling for population inference.
 
+\paragraph{Terms used in this section.} The calibration is run on a
+single-cell substrate, and five of its terms are load-bearing below. None is
+standard, so we fix them here rather than in the appendix.
+
+\begin{mdframed}[linewidth=0.5pt,innertopmargin=4pt,innerbottommargin=4pt]
+\begin{description}\itemsep1pt\parskip0pt\topsep2pt
+\item[\emph{Mature cell}, and the count $n$.] The cell type whose per-cell
+  output the estimand is about. $n$ is how many of them the diseased arm
+  retains; below some $n$ the per-cell mean has no referent and the rule
+  abstains.
+\item[\emph{Draw pool}.] The set of real cells a synthetic arm is drawn from.
+  The generator filters eligibility by held-out patient only, so as implemented
+  it pools cells from both tissues (\emph{pooled}); the design document never
+  specified tissue, so we also report drawing from reference tissue alone
+  (\emph{reference-only}). This unstated choice changes the answer.
+\item[\emph{Grid}.] The set of mature-cell counts the sweep can actually
+  evaluate, fixed by which mature-cell fractions it varies at 2{,}000 cells per
+  arm. \emph{Committed} is the pre-registered one, reaching
+  $\{0,20,40,100,200,400,800\}$; \emph{filled} adds nine fractions between 40
+  and 150; \emph{dense} also reaches below 20.
+\item[\emph{Bin}.] Coverage and discrimination are aggregated into twelve
+  log-spaced count bins before any threshold is read. A reported count is the
+  \emph{median of the counts that landed in its bin}, not a directly estimated
+  crossing --- which is why two grids can report different numbers from the
+  same bin.
+\item[$ok$ \textnormal{and} $wide$.] The two cutpoints the procedure returns:
+  $ok$ is the smallest count meeting both the coverage and discrimination
+  targets, $wide$ the smallest meeting coverage alone. The committed rule sets
+  them to 50 and 20. Everything below asks what the procedure returns instead.
+\end{description}
+\end{mdframed}
+
 \paragraph{The draw pool changes the result.}
 The generator filters eligibility by held-out patient, pooling cells from both
 tissues before drawing either synthetic arm. The design document did not
