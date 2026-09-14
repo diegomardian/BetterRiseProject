@@ -898,7 +898,7 @@ def test_the_closed_form_at_the_zero_cell_point(blind_tex):
     half of the coverage boundary the paper itself states. It is covered now,
     and the prose names the point rather than the rule.
     """
-    _quotes(blind_tex, "exactly at the \emph{zero-cell} grid")
+    _quotes(blind_tex, r"exactly at the \emph{zero-cell} grid")
     _quotes(blind_tex, "$5.000$, $2.000$ and")
     _quotes(blind_tex, "$1.333$ at the three tested shifts")
 
