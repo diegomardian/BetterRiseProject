@@ -1,0 +1,114 @@
+{
+  "date": "2026-09-15",
+  "utc_timestamp": "2026-09-16T04:51:22+00:00",
+  "git_sha": "effd3b2d3ef201d1180e185f9431fe6d06647fd4",
+  "git_sha_short": "effd3b2",
+  "git_branch": "wmhs/repaired-interval",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260831,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "name": "interval_repair_by_seed",
+  "n_rows": 1440,
+  "columns": [
+    "cohort",
+    "pool",
+    "n_held_out",
+    "n_cells_mature",
+    "shift",
+    "candidate",
+    "seed_stream",
+    "n_attempted",
+    "n_scored",
+    "n_abstained",
+    "n_excludes_zero",
+    "n_covered",
+    "excludes_zero_rate",
+    "coverage",
+    "median_ci_width",
+    "n_normal",
+    "n_tumour",
+    "n_replicates",
+    "n_pool_undefined",
+    "null_rejection",
+    "null_rejection_mcse",
+    "pool_mean",
+    "pool_var",
+    "pool_skew",
+    "pool_form",
+    "skew_matched",
+    "closed_form_floor"
+  ],
+  "table_kind": "harness",
+  "prereg": "docs/prereg_repaired_interval.md",
+  "interval_object": "within_patient_over_cells (src/harness/interval.py)",
+  "not_this_object": "the over-patients percentile bootstrap analysed in src/reference/interval_calibration.py -- a different estimand",
+  "pool_source": "lee_raw",
+  "cohorts": {
+    "smc": "GSE132465, 10 matched patients",
+    "kul3": "GSE144735, 6 matched patients"
+  },
+  "target_gene": "GUCA2A",
+  "labelling": "label_stem_pole_lineage, mature = 'differentiated'",
+  "candidates": [
+    "percentile",
+    "studentised",
+    "bca",
+    "welch_t",
+    "patient_cluster",
+    "pseudobulk_patient_t"
+  ],
+  "candidates_at_holdout": {
+    "2": [
+      "percentile",
+      "studentised",
+      "bca",
+      "welch_t",
+      "patient_cluster",
+      "pseudobulk_patient_t"
+    ],
+    "5": [
+      "percentile",
+      "patient_cluster",
+      "pseudobulk_patient_t"
+    ]
+  },
+  "counts": [
+    5,
+    50,
+    100,
+    800
+  ],
+  "shifts": [
+    1.0,
+    0.5
+  ],
+  "holdouts": [
+    2,
+    5
+  ],
+  "seed_streams": [
+    20260831,
+    1,
+    2,
+    3,
+    4
+  ],
+  "replicates_per_stream": 400,
+  "replicates_total": 2000,
+  "n_boot": 2000,
+  "n_cells_per_arm": 2000,
+  "frac_mature_normal": 0.4,
+  "targets": {
+    "null_rejection": 0.05,
+    "coverage": 0.9,
+    "discrimination": 0.8,
+    "max_abstention": 0.1,
+    "max_width_ratio_vs_baseline": 3.0
+  },
+  "post_hoc": false
+}
