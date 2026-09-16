@@ -1,0 +1,29 @@
+\section{Simulation settings}
+\label{app:methods}
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.19\linewidth}p{0.76\linewidth}@{}}
+\toprule
+\textbf{Experiment} & \textbf{Fixed settings and sampling units} \\
+\midrule
+Single-cell calibration &
+GSE132465 (SMC): 10 paired patients; GSE144735 (KUL3): 6.
+Target: GUCA2A; \texttt{stem\_pole} axis, \texttt{lineage} resolution,
+\texttt{differentiated} mature label; reference (\texttt{normal}) weighting.
+Each replicate holds out two patients and draws 2{,}000 cells per synthetic
+arm from their eligible pool; reference mature fraction $0.40$.
+Expression shifts are $1.0,0.8,0.5,0.25$; calibration uses $0.5$. \\
+Interval construction &
+A nominal 95\% percentile interval from 200 resamples of mature cells
+within each synthetic arm, holding cell fractions fixed. This assesses the
+conditional intrinsic contrast; it does not estimate population uncertainty
+across patients. Coverage and discrimination condition on defined intervals. The historical inclusion score uses the drawn reference in
+Equation~\ref{eq:requested}; the paired follow-up also evaluates fixed-pool
+coverage using Equation~\ref{eq:fixedpool}. \\
+\bottomrule
+\end{tabular}
+\end{center}
+Historical grid budgets are reported in Appendix~\ref{app:historical};
+Section~\ref{sec:calibration} specifies the controlled grid; the larger
+interval comparison is detailed next. The source cells are observed data; the external-control outcomes are
+simulated.

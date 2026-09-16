@@ -1,0 +1,4 @@
+gene,tumour_median_log2,normal_median_log2,log2_fold_change,fold_change
+GUCA2A,6.389,12.247,-5.858,0.0172
+CDX2,7.412,7.65,-0.237,0.8483
+MS4A12,4.473,12.649,-8.176,0.0035

@@ -1,0 +1,65 @@
+{
+  "main_text_pages": 8,
+  "reference_start_page": 9,
+  "reference_pages": 2,
+  "appendix_start_page": 11,
+  "appendix_pages": 3,
+  "total_pages": 13,
+  "latex_errors": 0,
+  "undefined_references": 0,
+  "overfull_boxes": 0,
+  "anonymity": "passed",
+  "official_style_sha256": "c3fc2894e83d2517ca18b66741d6c595986d97957dc08ec08bb2125a7ec4555a",
+  "pdf_sha256": "0d9592f6525f8a8b0b05c0698b8ee98e160ce70519d15afcc2faf737adfa3490",
+  "source_files": [
+    "main.tex",
+    "sections/abstract.tex",
+    "sections/setup.tex",
+    "sections/calibration.tex",
+    "sections/fixed_pool_results.tex",
+    "sections/precision_table.tex",
+    "sections/interval_comparison.tex",
+    "sections/cohort_gap.tex",
+    "sections/validation.tex",
+    "sections/external_control_table.tex",
+    "sections/conclusion.tex",
+    "sections/responsible.tex",
+    "sections/appendix.tex",
+    "sections/methods.tex",
+    "sections/supporting_check.tex",
+    "sections/llm.tex"
+  ],
+  "merged_remote_revision": "95e6dfb",
+  "visual_review": {
+    "pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "render_dpi": 100,
+    "result": "passed; merged layout inspected and final affected pages reinspected"
+  },
+  "portable_source_compile": {
+    "pages": 13,
+    "page_text_identical": true,
+    "latex_errors": 0,
+    "undefined_references": 0,
+    "overfull_boxes": 0
+  },
+  "tests": {
+    "paper_claims": 25,
+    "precision_followup": 5,
+    "external_control_harness": 35,
+    "retained_control_harness": 21
+  }
+}

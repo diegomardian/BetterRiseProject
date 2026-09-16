@@ -1,0 +1,264 @@
+[
+  {
+    "cohort": "kul3",
+    "pool": "pooled",
+    "seed": 1,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "kul3",
+    "pool": "pooled",
+    "seed": 2,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "kul3",
+    "pool": "pooled",
+    "seed": 3,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "kul3",
+    "pool": "pooled",
+    "seed": 4,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "kul3",
+    "pool": "pooled",
+    "seed": 5,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "kul3",
+    "pool": "pooled",
+    "seed": 6,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "kul3",
+    "pool": "pooled",
+    "seed": 7,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "kul3",
+    "pool": "pooled",
+    "seed": 20260831,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "kul3",
+    "pool": "reference",
+    "seed": 1,
+    "first_candidate": 400.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 400.0
+  },
+  {
+    "cohort": "kul3",
+    "pool": "reference",
+    "seed": 2,
+    "first_candidate": 400.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 400.0
+  },
+  {
+    "cohort": "kul3",
+    "pool": "reference",
+    "seed": 3,
+    "first_candidate": 400.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 400.0
+  },
+  {
+    "cohort": "kul3",
+    "pool": "reference",
+    "seed": 4,
+    "first_candidate": 400.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 400.0
+  },
+  {
+    "cohort": "kul3",
+    "pool": "reference",
+    "seed": 5,
+    "first_candidate": 400.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 400.0
+  },
+  {
+    "cohort": "kul3",
+    "pool": "reference",
+    "seed": 6,
+    "first_candidate": 800.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 800.0
+  },
+  {
+    "cohort": "kul3",
+    "pool": "reference",
+    "seed": 7,
+    "first_candidate": 400.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 400.0
+  },
+  {
+    "cohort": "kul3",
+    "pool": "reference",
+    "seed": 20260831,
+    "first_candidate": 800.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 800.0
+  },
+  {
+    "cohort": "smc",
+    "pool": "pooled",
+    "seed": 1,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "smc",
+    "pool": "pooled",
+    "seed": 2,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "smc",
+    "pool": "pooled",
+    "seed": 3,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "smc",
+    "pool": "pooled",
+    "seed": 4,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "smc",
+    "pool": "pooled",
+    "seed": 5,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "smc",
+    "pool": "pooled",
+    "seed": 6,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "smc",
+    "pool": "pooled",
+    "seed": 7,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "smc",
+    "pool": "pooled",
+    "seed": 20260831,
+    "first_candidate": null,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": null
+  },
+  {
+    "cohort": "smc",
+    "pool": "reference",
+    "seed": 1,
+    "first_candidate": 60.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 60.0
+  },
+  {
+    "cohort": "smc",
+    "pool": "reference",
+    "seed": 2,
+    "first_candidate": 60.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 60.0
+  },
+  {
+    "cohort": "smc",
+    "pool": "reference",
+    "seed": 3,
+    "first_candidate": 45.0,
+    "later_failures": [
+      50.0
+    ],
+    "all_subsequent_evaluated_candidate": 60.0
+  },
+  {
+    "cohort": "smc",
+    "pool": "reference",
+    "seed": 4,
+    "first_candidate": 60.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 60.0
+  },
+  {
+    "cohort": "smc",
+    "pool": "reference",
+    "seed": 5,
+    "first_candidate": 60.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 60.0
+  },
+  {
+    "cohort": "smc",
+    "pool": "reference",
+    "seed": 6,
+    "first_candidate": 50.0,
+    "later_failures": [
+      60.0
+    ],
+    "all_subsequent_evaluated_candidate": 70.0
+  },
+  {
+    "cohort": "smc",
+    "pool": "reference",
+    "seed": 7,
+    "first_candidate": 50.0,
+    "later_failures": [
+      60.0
+    ],
+    "all_subsequent_evaluated_candidate": 70.0
+  },
+  {
+    "cohort": "smc",
+    "pool": "reference",
+    "seed": 20260831,
+    "first_candidate": 80.0,
+    "later_failures": [],
+    "all_subsequent_evaluated_candidate": 80.0
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "checked": "2026-09-15",
+  "sources": {
+    "angrist1998": "https://economics.mit.edu/research/publications/estimating-labor-market-impact-voluntary-military-service-using-social",
+    "frisch1933": "https://www.jstor.org/stable/1907330",
+    "ventz2019": "https://pubmed.ncbi.nlm.nih.gov/31175098/",
+    "schuler2022": "https://adni.loni.usc.edu/adni-publications/Schuler-Increasing%20the%20efficiency%20of%20randomize.pdf",
+    "shaw2026": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13392349/",
+    "shaw_author_correction": "https://arxiv.org/abs/2504.11740",
+    "nistwelch": "https://www.itl.nist.gov/div898/handbook/prc/section3/prc31.htm"
+  },
+  "corrections": [
+    "Shaw journal metadata: 45(18-19), e70676, DOI 10.1002/sim.70676; author Chloe Krakauer, not Chelsea.",
+    "Added direct external-control and prognostic-adjustment sources, Angrist weighting and Frisch-Waugh.",
+    "Removed unused bibliography entries.",
+    "Added primary NIST/SEMATECH reference for the Welch-Satterthwaite comparator; checked its standard error and degrees of freedom."
+  ]
+}

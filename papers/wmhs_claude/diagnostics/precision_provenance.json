@@ -1,0 +1,47 @@
+{
+  "design_revision": "after ccb6264",
+  "purpose": "Exploratory precision and paired interval comparison on existing empirical pools",
+  "seed_streams": [
+    202609160,
+    202609161,
+    202609162,
+    202609163,
+    202609164
+  ],
+  "replicates_per_seed": 1000,
+  "outer_per_setting": 5000,
+  "counts": [
+    5,
+    50,
+    100,
+    800
+  ],
+  "shifts": [
+    0.5,
+    1.0
+  ],
+  "settings": 32,
+  "study_draws": 160000,
+  "interval_evaluations": 320000,
+  "inner_bootstrap": 200,
+  "original_interval_checks": 32,
+  "source_pair_checks": 120,
+  "sampling": "Exact marginal mature-count law; fresh draws, not bitwise replay",
+  "python": "3.13.7",
+  "numpy": "2.5.3",
+  "elapsed_seconds": 59.37840049999795,
+  "input_sha256": {
+    "papers/whms_bode/precision_followup.py": "194565423f5d613ea4716fc2b03c9d0fad1708b1ff7fe97910488b4c869a37bd",
+    "papers/whms_bode/FOLLOWUP_DESIGN.md": "6cad103e8c455915cc36774a3e9f33eb454bc5d5df85fe0e44045a2ea1cf4231",
+    "src/harness/pseudobulk.py": "a1ac96538477ae2c3d3319c2646a88053172973f5a8ca5c9df02c5ad7d00166b",
+    "src/harness/interval.py": "4c976b93a8a8bc08265c19de97138e55032cbbc6c7a37391eae0589a38822a62",
+    "src/harness/calibration_gap.py": "60ad80a3d82f62a1be48da08c0c89c96c45d16edf584a6476cb9cc6ede6f4746",
+    "src/reference/labels.py": "ccade4117346de47f9133ef2b105f95647d1205b3ef071ad8d8e4824aeea0831",
+    "papers/whms_bode/diagnostics/source_pool_properties.csv": "25c170f96a124aef0ca3f5996c91d5827454f07d116332e4584f83011fba66dc"
+  },
+  "output_sha256": {
+    "precision_followup.csv": "e7f881931021fdb59677fdf487d719d9a158b2dfa7b1faf3bba9abc68507549f",
+    "precision_paired.csv": "67a5bbaecb967a0d454b5f0caaf2783f8e582ef8e3d5b94ba1501fa58d9a4db2",
+    "precision_seed_rates.csv": "a785d308c7550b6d95eb5a5241b3731ef4f07bffd04f102da432dcf49b2af099"
+  }
+}

@@ -1,0 +1,369 @@
+\appendix
+\input{sections/methods.tex}
+
+\paragraph{Precision follow-up and comparator.}\label{app:precision}
+Five fresh seed streams (202609160--202609164), each with 1{,}000 studies
+per setting, provide 5{,}000 draws at each of four counts and two shifts in
+four cohort/pool combinations. Every draw uniformly chooses a two-patient
+pair, samples 800 reference and $n_T$ tumour mature-cell counts independently
+with replacement, and thins tumour counts binomially. This is the original
+generator's marginal law for this contrast, not a replay of its random stream.
+All 120 source-pair summaries match the earlier analysis. The vectorized
+percentile routine agrees with the original implementation on 32 actual-pool
+checks; the Welch implementation agrees with an independent library routine.
+
+Writing $v_a=S_a^2/n_a$ for arm $a$, the Welch interval is
+$\hat\theta\pm t_{0.975,\nu} f_N\sqrt{v_N+v_T}$, where
+$\nu=(v_N+v_T)^2/[v_N^2/(n_N-1)+v_T^2/(n_T-1)]$.
+Zero estimated total variance would give an unavailable comparator interval;
+none occurred. For the sparsity diagnostic, sample-based standard error is
+compared with $f_N\sqrt{\sigma_P^2/n_N+
+(s^2\sigma_P^2+s(1-s)\mu_P)/n_T}$. Aggregate outputs retain signed
+rejections, widths, seed-specific rates and paired differences. The settings
+and single comparator were fixed before this follow-up was run; it remains an
+exploratory study on previously examined source data. The earlier 200-draw
+target diagnostic is retained in the supporting summaries.
+
+
+\section{Calibration details and limits}
+\label{app:gridcaveats}
+
+\paragraph{Historical grids.}\label{app:historical}
+Before the controlled run, the SMC reference-only sweeps returned binned joint
+candidates of 100, 90 and 70 on the committed, filled and dense grids, with
+500, 500 and 200 replicates per setting, respectively. Their adjacent crossing
+brackets were $(40,100]$, $(65,90]$ and $(42.5,70]$, describing evaluated bin
+summaries rather than confidence intervals. The 100-to-90 change occurred
+within the same bin, $(76,107]$: adding counts 80 and 90 to 100 changed both
+its median count and its aggregated outcomes. Random streams and bin boundaries
+also differed, so this comparison alone did not isolate a resolution effect.
+The controlled analysis in Section~\ref{sec:calibration} supersedes it for that
+question. Under pooled draws no joint cutpoint qualified in either cohort's
+historical grids. KUL3 reference-only candidates were 400 or 800; its largest
+setting sampled 800 mature cells per arm with replacement from 844 distinct
+mature source cells. Sampling with replacement is a valid empirical-pool
+simulation, but an 800-draw arm is not 800 distinct cells or additional
+independent patients.
+
+\paragraph{Recovery accounting and unavailable contrasts.}\label{app:generator}
+The four diagnostic sweeps comprise 1{,}711{,}200 replicates: 1{,}283{,}400 with
+nonzero requested intrinsic reference and 427{,}800 with zero requested
+reference, for which ratios are undefined. The first 50-replicate sweep has
+119{,}600 draws, partitioned into 89{,}700 and 29{,}900, respectively. The
+maximum estimate--realised-reference residual is zero throughout. At a
+zero-cell setting the raw ratio is $1/(1-s)$ when the denominator is nonzero.
+These raw diagnostic values arise from the harness setting an empty-arm mean
+to zero; they do not define an effect in absent cells. The reporting gate
+abstains and the interval is undefined. Separately, undefined intervals were
+previously counted as failures through comparisons with \texttt{NaN}; corrected
+rates exclude them and report abstentions. An all-abstaining bin has no
+coverage estimate. One historical seed gives $ok=wide=45$, showing that a
+three-state specification need not yield three distinct fitted regions.
+
+\paragraph{Biological scope and patient uncertainty.}\label{app:guards}
+\label{app:modal}\label{app:limitations}
+The finest annotation resolution yields abstention in 28/28 patients under one
+population definition and 24/28 under the other; coarser definitions do not
+resolve identifiability. The coarsest definition labels every epithelial cell
+mature and forces the compositional term to zero. In a separate comparability
+analysis over three cohorts and 42 patients, 83 of 84 housekeeping-detection
+control rows pass a 0.10 tolerance despite expression changes of 1.19--1.64
+fold. Patient-bootstrap log$_2$ expression intervals cross the accepted
+$[-0.5,0.5]$ boundaries in every cohort, leaving the comparisons undecided.
+Depth matching discards roughly three quarters of the cells and pushes about
+half the remaining estimable rows below the count threshold. Within SMC, changing tissue eligibility changes the mature-cell pool from
+662 to 3{,}824 cells. The across-cohort comparison in
+Section~\ref{sec:cohortgap} instead holds tissue eligibility fixed.
+These observations restrict biological interpretation. Repeated cell draws and
+overlapping patient pairs do not supply independent patient replication.
+
+\input{sections/supporting_check.tex}
+
+\section{Synthetic external-control design}
+\input{sections/external_control_table.tex}
+
+\label{app:eca}
+
+The fixed registry contains 50{,}000 simulated records with stratum shares
+$(0.55,0.30,0.15)$, baseline outcomes $Y_0\mid g\sim
+\mathcal N(\mu_g,3^2)$, $\mu=(12,8,4)$, and effects
+$Y_1-Y_0=\delta_g r$, $\delta=(3,1.5,0.25)$,
+$r\sim\mathrm{Gamma}(4,0.25)$ (shape, scale). Responsiveness is fixed per record
+and hidden from estimators. Enrolment weights favor shares $(0.15,0.25,0.60)$;
+both arms sample without replacement and are disjoint. The pooled target is a
+mixture of enrolled and control records, not the registry population itself.
+Normal outcomes can be negative: this is an abstract continuous-outcome
+experiment, not a fitted progression-free-survival model.
+
+There are 200 study draws at each of $n=50,100,200,400,800,1600$,
+using one seed (20260915) and one fixed registry: 1{,}200 studies, eight
+estimators and five references yield 48{,}000 comparisons: 47{,}969 finite
+values and 31 exclusions from one study with an empty stratum arm at $n=50$.
+The registry uses the same seed. The intended finite-cohort truth averages
+both potential outcomes over enrolled records; it is available to the
+simulator, not to estimators observing one outcome per record. Five case-mix
+shifts and 50 balance draws at $n=1600$ provide controls. Threshold crossings
+in the saved shift table compare medians, not replicate-level decisions.
+
+For enrolled standardization, RMSE against enrolled truth falls from 0.608
+at $n=50$ to 0.105 at $n=1600$; pooled standardization falls from 1.082 to
+0.892. The nine prespecified falsification checks did not fire, but this
+shows consistency with those checks, not clinical realism. The example
+assumes the same target-population mistake in estimator and reference;
+its identical recovery curve may itself alert a careful analyst. It neither
+estimates a failure frequency nor requires a reference to disagree numerically
+with a correct estimator on every dataset.
+
+\section{The retained-gene control}
+\label{app:controls}
+The control-panel audit compares saved unmatched and depth-matched single-cell
+summaries with a separate bulk dataset. Where both mature fractions equal
+one (all epithelium, without marker-based subdivision), MS4A12 still changes
+by $-0.967$ to $-1.000$ across the tested cohort/matching strata; CDX2 on the
+same cells changes by $-0.396$ to $-0.293$. Depth-matched MS4A12 changes are
+$-0.971$ to $-0.960$. These observations weaken a uniform labelling or depth
+artifact explanation; they do not eliminate every measurement artifact.
+Across nondegenerate strata, the median baseline is 2.56 CP10K and tumour
+expression 0.104 CP10K. Strata classified as degenerate have a median of one
+relevant tumour cell and cannot establish a precise complete loss.
+
+Four competing explanations for the retained-gene control's fall were
+adjudicated against the committed tables; three are refuted.
+
+\emph{The axis selects by marker absence.} Refuted: at strata where the axis
+selects nothing --- both mature fractions $1.0$ --- the control still falls
+$-0.967$ to $-0.996$, while an identity marker on the same cells falls
+$-0.293$ to $-0.396$.
+
+\emph{The axis tracks sequencing depth.} Refuted: matching the arms to a
+shared depth distribution discards $45.4\%$ of cells and leaves the drop
+unchanged, $-0.960$ to $-0.971$.
+
+\emph{A collapsing denominator.} Refuted: the baseline is $2.56$ counts per 10{,}000 (CP10K) and
+healthy; the numerator collapses, to $0.104$. Only the $-1.000$ endpoint is a
+floor, at strata carrying a median of one relevant tumour cell.
+
+\emph{A detection floor.} Refuted: two panel genes sit below this one's
+baseline and retain more signal, one of them moving $+0.02$ at $0.040$ CP10K.
+
+\emph{The gene is not retained.} Supported: 585 bulk samples
+on a different platform, with no single-cell labelling anywhere in the
+pipeline, give log$_2$ fold change $-8.18$.
+
+The panel was frozen eight hours before any dataset was registered, so the
+pre-commitment is genuine. But abundance reasoning appears in the
+configuration's role fields for the compositional tier and not for the
+intrinsic one, which is where the 0.04 CP10K control came from.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Reference-only sensitivity with every two-patient holdout pair
+represented once per count and effect. The three inner budgets reuse identical
+outer samples. Omission counts compare with the baseline at 200 inner draws;
+all pairs involving the omitted patient are removed and retained pairs are
+unchanged. These are sensitivity summaries within the observed cohorts.}
+\label{tab:sensitivity}
+\begin{tabular}{@{}lcrrrcc@{}}
+\toprule
+ & pairs & \multicolumn{3}{c}{joint candidate, inner draws} &
+ \multicolumn{2}{c}{omissions changing candidate} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-7}
+cohort & & $200$ & $1{,}000$ & $5{,}000$ & joint & coverage only \\
+\midrule
+SMC & $45$ & $70$ & $70$ & $70$ & $0/10$ & $5/10$ \\
+KUL3 & $15$ & $400$ & $300$ & $400$ & $3/6$ & $0/6$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In GSE39582 (585 bulk samples), the saved MS4A12 log$_2$ fold change is
+$-8.18$. This corroborates tissue-level depletion on a separate platform;
+it does not identify a within-cell mechanism. Lower-abundance genes retain
+more signal in the single-cell summaries, arguing against a simple universal
+abundance-floor explanation, not proving absence of gene-specific dropout.
+Repository chronology places panel freezing before dataset registration;
+it cannot establish what evidence was known outside the repository. The
+panel's prior expectation of retention therefore needs reassessment.
+
+\section{Assignment design and the equality}
+\label{app:design}
+
+Whether an estimator reproduces the reference is a property of the estimator,
+the reference and the assignment design together. Under confounded Bernoulli
+assignment, OLS on stratum dummies departs from the standardised reference
+($0.0663$ at $5{,}000$ patients) and reproduces the variance-weighted one it
+targets by the Frisch--Waugh identity ($3.5\times10^{-14}$); G-computation
+reverses the pair exactly.
+
+Under complete stratified permuted blocks with 1:1 allocation, empirical
+propensities are $0.5$ in every stratum, the two references coincide, and the
+distinction collapses: OLS reaches $1.6\times10^{-14}$ and \emph{even the
+unadjusted contrast} reaches $6.7\times10^{-15}$, against $4.99$ under
+confounding. Only cross-fitted weighting ($0.182$) and finite-ratio matching
+($0.170$ at one control, $0.037$ at twenty) still depart. Independent Bernoulli
+assignment at probability $0.5$ does not produce this: 1:1 randomisation in
+expectation is insufficient, and the realised balance is what matters.
+
+A practitioner who moves a validation harness from an observational design to
+a randomised one has therefore changed which of their estimators the screen can
+see, without changing any estimator.
+
+\section{The fixed-reference control}
+\label{app:cleancontrol}
+
+\paragraph{A control separating equality from performance.}
+A separate simulation fixes the reference before evaluating any estimator: for
+200 observations $Y_i\sim\mathcal N(\theta,1)$, set $T(D)=\bar Y$, and
+compare four procedures at $\theta=0$ and $0.5$ over 2{,}000 replicates --- the
+full-sample mean with a normal 95\% interval, the same estimate with the
+half-width quartered, the same estimate biased by $0.5$, and a half-sample
+mean chosen before outcomes are seen.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Equality and statistical performance in the clean control. All
+2{,}000 outputs per row are finite. Residuals compare points with the
+pre-specified full-sample mean; bias, RMSE and coverage compare with the
+requested $\theta$. The nominal coverage is 95\%.}
+\label{tab:cleancontrol}
+\begin{tabular}{@{}clrrrr@{}}
+\toprule
+$\theta$ & procedure & $\max|r|$ & bias & RMSE & coverage \\
+\midrule
+$0$ & Full-sample mean & $0$ & $-0.0008$ & $0.0710$ & $94.60\%$ \\
+ & Same point, narrow interval & $0$ & $-0.0008$ & $0.0710$ & $35.95\%$ \\
+ & Mean plus $0.5$ & $0.5000$ & $0.4992$ & $0.5042$ & $0.00\%$ \\
+ & Half-sample mean & $0.2883$ & $0.0004$ & $0.0994$ & $95.00\%$ \\
+\midrule
+$0.5$ & Full-sample mean & $0$ & $0.0001$ & $0.0710$ & $95.40\%$ \\
+ & Same point, narrow interval & $0$ & $0.0001$ & $0.0710$ & $36.30\%$ \\
+ & Mean plus $0.5$ & $0.5000$ & $0.5001$ & $0.5052$ & $0.00\%$ \\
+ & Half-sample mean & $0.2686$ & $-0.0017$ & $0.1015$ & $94.20\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:cleancontrol} puts adequate and inadequate intervals in the same
+zero-residual class. Conversely, departure contains both the unbiased
+half-sample mean and the deliberately biased estimate. Coverage Monte Carlo
+standard errors are at most 1.08 percentage points. Neither residual class
+certifies performance, even with a reference declared in advance. At the
+null, differences remain well-defined although recovery ratios do not.
+
+
+
+\section{The interval repair study}
+\label{app:repair}
+
+Pre-registered in \texttt{docs/prereg\_repaired\_interval.md} before any result,
+with five falsifiers and a three-part pass criterion: null rejection within
+Monte Carlo error of $5\%$, detection not destroyed, and width not inflated to
+buy either. Two corrections were committed against that pre-registration before
+the run, both against our own argument --- an arithmetic slip in the closed-form
+floor, and a discarded first run whose skew-matched pool family had silently
+degraded to matching variance instead.
+
+Six interval constructions $\times$ two cohorts $\times$ two draw pools $\times$
+four counts $\times$ two holdout sizes, $2{,}000$ replicates per cell.
+Monte Carlo standard errors are reported beside every rate; at $2{,}000$
+replicates a $5\%$ rate carries $\pm 0.49$ points.
+
+\paragraph{Why the excess is there.} Telescoping over matched synthetic pools
+attributes $58$--$73\%$ of the 50-cell excess to the source pool's skew, with
+zero inflation \emph{not} separable from it: removing the zeros at fixed mean
+also removes about two-thirds of the skew. The fixed-fraction design supplies a
+further $2.3$--$20.4$ points by a mechanism that is exact rather than
+empirical. For two independent arms of equal size,
+$\mathbb{E}[(\bar A-\bar B)^3]=0$, so the difference of means is symmetric and
+the pool's skew cancels; at 800 against 50 it does not. The contribution is
+exactly $0.00$ points at 800 cells, where the two designs coincide. The design
+and the skew are one cause seen twice, which is why the attribution buckets
+overlap rather than partition.
+
+\begin{table}[htbp]
+\small
+\centering
+\caption{Null rejection at 50 cells, where the rule reports, against a nominal
+$5\%$. Every construction fails in every cell. Bootstrap-$t$, BCa and Welch-$t$
+correct the $z$-versus-$t$ term and little else; the patient-level candidates
+abstain instead of answering.}
+\label{tab:repair}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{SMC}} & \multicolumn{2}{c}{\textbf{KUL3}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+interval & pooled & reference & pooled & reference \\
+\midrule
+percentile (baseline) & $22.8\%$ & $9.7\%$ & $31.8\%$ & $17.0\%$ \\
+bootstrap-$t$         & fails    & fails    & fails    & fails \\
+BCa                   & fails    & fails    & fails    & fails \\
+Welch-$t$             & fails    & fails    & fails    & fails \\
+patient cluster       & abstains & abstains & abstains & abstains \\
+pseudobulk patient-$t$& abstains & abstains & abstains & abstains \\
+\midrule
+balanced-arm design   & \multicolumn{4}{c}{$7.45$--$11.45\%$ --- the largest improvement, still not nominal} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two limits we state rather than bury. The telescoping attribution closes with
+residual exactly zero, which is a property of a telescoping sum and not
+evidence; the evidence is in the component sizes. And the skew-matched pool
+family could not match both mean and skew for the two pooled arms, so the skew
+shares quoted for those are lower bounds.
+
+\paragraph{A correction to our own earlier figure.} An earlier draft reported
+$9.5\%$ null rejection at 800 cells for the SMC pooled draw. At $2{,}000$
+replicates rather than $200$ that cell measures $6.85\% \pm 0.56$, and the four
+800-cell cells run $5.05$--$6.85\%$. The original figure was Monte Carlo noise
+at the replicate count that produced it. The 50-cell rates, which are the ones
+the argument rests on, reproduce.
+
+\section{Fixed-pool evaluation and the cohort gap}
+\label{app:fixedpool}
+\input{sections/fixed_pool_results.tex}
+\input{sections/cohort_gap.tex}
+
+\section{External audit and research context}
+\label{app:prevalence}
+
+\paragraph{Search and classification.}
+A pre-registered queue contained 41 entries; 19 were screened out and seven
+classified within the 26 entries examined in order. An amendment before code
+inspection relaxed unsuccessful queries; the classification rule was unchanged.
+Generating-parameter references or quantities computed outside the estimator's
+observed records give \textsc{no}. Same-record references require examination
+of inputs, weights, conditioning, nuisance fitting and observation process;
+\textsc{yes} requires affirmative evidence of functional identity. All seven
+recorded verdicts are \textsc{no}: \texttt{causl}, target-trial-emulation,
+\texttt{ecasim}, PlasmodeSimulation, StatsPAI, \texttt{diff-diff}, and
+Auto-Empirical-Research-Skills. The first six use generating parameters or
+outside-sample quantities; the last compares cross-fitted partialling-out with
+full-sample OLS. Its $4.0\times10^{-14}$ residual on noiseless linear data
+becomes 0.125 after adding outcome noise. The functions agree on the restricted
+noiseless support but not on general noisy datasets; the \textsc{no} verdict
+concerns shared functional form. Classification used one reader, only this last
+repository was executed, and the sample is nonrandom. The virtual-control-arm
+query located no examinable code. These limits preclude a prevalence estimate.
+
+\paragraph{Related scope.}\label{app:relatedwork}
+Cell-count filters are established in pseudobulk analysis \citep{crowell2020};
+scCODA, Milo, propeller and DA-seq address composition
+\citep{buettner2021,dann2022,phipson2022,zhao2021}, while cacoa separates
+composition and expression changes \citep{petukhov2022}. Selective prediction
+motivates evaluating both answers and abstentions
+\citep{chow1970,elyaniv2010,geifman2017}. Conformal prediction coverage
+\citep{vovk2005,angelopoulos2023} does not define a missing conditional
+population or automatically provide intervals for this intrinsic parameter.
+
+\paragraph{Documentary source of the case.}\label{app:provenance}
+The anonymous review record includes the original validation statement
+(Artifact A), interval criteria (Artifact B), and numerical context. Exact
+source mapping and checksums remain outside the review bundle. This records
+one internal validation error; the external search found no positive case.
+
+\paragraph{Implementation and provenance.}\label{app:withdrawn}
+Corrections separated collapsed population definitions, aligned labelling,
+tracked producing scripts, and repaired undefined-interval denominators.
+Saved tables retain commit hashes and seeds; these establish traceability,
+not statistical validity.

@@ -1,0 +1,43 @@
+\subsection{Fixed-pool coverage and false positives}
+\label{sec:fixedpool}\label{sec:lowcounts}
+The larger run resolves the 50-cell coverage comparison
+(Table~\ref{tab:precision}). Percentile coverage is below the recorded 90\%
+criterion in three conditions, whose Wilson upper endpoints are below 90\%.
+SMC/reference has 91.0\% coverage, with its lower endpoint above 90\%.
+Thus the rule does not fail coverage uniformly. It does fail the combined
+assessment: null rejection is 9.8--32.2\%, above the nominal 5\% in every
+condition, and detection is 47.5--76.2\%, below the required 80\%.
+All four detection upper endpoints are below 80\%; all four null-rejection
+lower endpoints exceed 5\%. These intervals measure simulation precision,
+not uncertainty over additional patients.
+
+\input{sections/precision_table.tex}
+
+At 800 cells, evaluating the percentile intervals against the sampled
+reference gives 98.9--99.6\% inclusion, compared with 92.3--93.6\%
+coverage of the fixed-pool effect. The paired differences are 5.8--6.8
+percentage points with Monte Carlo standard errors of 0.33--0.36 points.
+Only the scoring target changes. At five cells the direction reverses;
+shared randomness need not inflate inclusion at every sample size.
+
+The increasing discrepancy at large tumour-arm counts has an analytic
+explanation. The estimate is $\hat\theta=f_N(\bar Y_T-\bar Y_N)$, whereas
+its error against the drawn benchmark is
+$\hat\theta-i_{\mathrm{req}}=f_N(\bar Y_T-s\bar Y_N)$.
+For independent arm draws conditional on $P$, their error variances differ by
+\begin{equation}
+\operatorname{Var}(\hat\theta-\theta_P\mid P)
+-\operatorname{Var}(\hat\theta-i_{\mathrm{req}}\mid P)
+=f_N^2(1-s^2)\frac{\sigma_P^2}{n_N},
+\label{eq:variancegap}
+\end{equation}
+where $\sigma_P^2$ is the source-pool expression variance and $n_N=800$.
+At $s=0.5$, the drawn benchmark removes three quarters of the reference-arm
+variance contribution from the error being assessed, while the bootstrap
+continues resampling both arms. This explains why near-perfect benchmark
+inclusion can accompany lower coverage of the generating parameter. Skewed
+finite-sample errors still determine the actual percentile-interval rates.
+
+The new runs assess four specified counts, rather than selecting a
+replacement threshold. The eight-seed grid below remains scored against
+its original benchmark and cannot be reinterpreted as fixed-pool calibration.

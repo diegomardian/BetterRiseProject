@@ -1,0 +1,20 @@
+\begin{table}[htbp]
+\centering\small
+\caption{Exclusion of zero (\%) with the same percentile interval under a halving
+(effect, $s=0.5$) and the null ($s=1$). Each entry uses 200 finite draws from
+one seed stream; nominal null rejection is 5\%. Diagnostic runs are exploratory.
+Five-cell intervals are evaluated before the reporting gate, which abstains
+below 20 cells.}
+\label{tab:lowcounts}
+\begin{tabular}{@{}lrrrrrrrr@{}}
+\toprule
+& \multicolumn{2}{c}{5 cells} & \multicolumn{2}{c}{50 cells} & \multicolumn{2}{c}{100 cells} & \multicolumn{2}{c}{800 cells} \\
+cohort / pool & effect & null & effect & null & effect & null & effect & null \\
+\midrule
+SMC / pooled & 70.5 & 63.0 & 52.5 & 28.5 & 56.0 & 18.0 & 69.5 & 9.5 \\
+SMC / reference & 58.0 & 37.5 & 78.0 & 12.0 & 88.5 & 7.0 & 98.5 & 7.0 \\
+KUL3 / pooled & 75.5 & 67.0 & 54.0 & 30.0 & 33.5 & 19.0 & 53.5 & 4.5 \\
+KUL3 / reference & 70.0 & 61.5 & 55.0 & 15.5 & 56.0 & 16.0 & 87.0 & 6.5 \\
+\bottomrule
+\end{tabular}
+\end{table}

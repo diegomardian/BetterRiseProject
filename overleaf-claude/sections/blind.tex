@@ -1,0 +1,65 @@
+\section{Explaining the recovery curve and specifying its scope}
+\label{sec:blind}
+
+The earlier internal analysis compared estimated intrinsic effects with the
+requested reference in Equation~\ref{eq:requested}. Ratios were 1.00--1.07
+where the rule returned an estimate on reference-only draws and 0.86--1.18 on
+pooled draws, with shrinking dispersion at larger counts
+(Appendix~\ref{app:generator}). The oracle estimator applies
+Equation~\ref{eq:kitagawa} to the draw's own realised summaries. Its residual
+against that empirical decomposition is zero across 1{,}711{,}200 diagnostic
+replicates on two cohorts. The raw calculation also includes zero-cell cases;
+those arithmetic outputs do not define an intrinsic effect in an absent
+population (Appendix~\ref{app:generator}). On defined contrasts, the recovery
+ratio therefore describes realised over requested reference. It does not
+measure whether the reporting gate meets its interval requirements.
+
+\paragraph{The general form.}
+Let $D$ be a simulated draw requested at parameter $\theta$. Pre-specify an
+observed-data reference $T(D)=h(S(D))$, where $S$ denotes summaries of the draw.
+We call $T(D)$ the \emph{realised reference}; it need not be a realised causal
+effect. If the estimate uses the same functional,
+$\hat\theta(D)=h(S(D))$, then, for $\theta\ne0$,
+\[
+\frac{\hat\theta(D)}{\theta}=\frac{T(D)}{\theta},
+\qquad r(D)=\hat\theta(D)-T(D)\equiv0.
+\]
+\begin{center}
+\texttt{r = estimate[valid] - reference[valid]}\\
+\texttt{max\_residual = np.max(np.abs(r))}
+\end{center}
+Here \texttt{valid} marks paired finite outputs; report excluded draws and do
+not compute the maximum if none remain. This is a numerical discrepancy check, not a validity screen. Report the
+raw maximum and outcome units; if using a closeness label, state both absolute
+and relative tolerances and any sensitivity to that choice. No universal
+tolerance separates correct from incorrect estimators. Only an algebraic
+argument establishes an identity. Sharing summaries alone
+is insufficient: different functions of the same summaries need not agree.
+
+\paragraph{What the audit can establish.}
+The recovery curve still measures sampling performance against $\theta$.
+If estimate and reference are equivalent, their curves are redundant for
+comparing those implementations. That is compatible with an accurate estimator
+and a useful recovery experiment. The unsupported inference is from this
+point-estimate comparison to interval coverage or an abstention rule, neither
+of which the comparison evaluates. A zero residual therefore prompts inspection
+of the claimed evidence; it is not a rejection criterion for an estimator.
+
+\paragraph{A control separating equality from performance.} A fixed-reference
+Gaussian simulation separates the two readings cleanly: the same point
+estimate can pass or fail the equality screen while its coverage is
+unchanged, and an unbiased half-sample estimator fails the screen without
+being wrong (Appendix~\ref{app:cleancontrol}).
+
+\paragraph{Report performance and equivalence separately.}
+State the scientific target and whether it is fixed or draw-dependent, then
+report target error and interval performance. If a realised reference is also
+used, declare its functional and observation process before inspecting
+residuals. Report attempted and valid pairs, maximum absolute residual in outcome units,
+and both tolerances used for a numerical classification. Classify the result
+as a proved identity on a stated domain, numerical agreement on the tested
+draws, or an observed departure; only the first supports an identity claim. Establish identities algebraically
+on a stated class of datasets; agreement on a restricted, noiseless design need
+not extend beyond it. Evaluate abstention frequency and conditional interval
+performance separately, using independent evaluation draws for any selected
+rule. At null effects, report differences instead of undefined recovery ratios.

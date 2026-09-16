@@ -1,0 +1,72 @@
+\documentclass{article}
+
+% Official NeurIPS 2026 style downloaded from the conference author kit.
+% No geometry or spacing overrides live in this file.
+\usepackage[dblblindworkshop]{neurips_2026}
+
+\workshoptitle{World Models for High-Stakes Health: Reliable Clinical Trial
+Simulation and Intervention-Aware Reasoning}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath,amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{caption}
+
+\captionsetup{font=small,labelfont=bf}
+
+% Standalone full-paper revision.
+\newif\iffull
+\fulltrue
+
+\newcommand{\notest}{\textsc{not estimable}}
+
+
+\title{Auditing a single-cell reporting rule:\\
+coverage, false positives and target choice}
+
+\author{%
+  Anonymous Author(s) \\
+  Affiliation \\
+  Address \\
+  \texttt{email} \\
+}
+
+\begin{document}
+\maketitle
+
+\input{sections/abstract.tex}
+
+
+\input{sections/setup.tex}
+\input{sections/calibration.tex}
+
+\input{sections/blind.tex}
+\input{sections/refdesign.tex}
+\input{sections/validation.tex}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+\input{sections/conclusion.tex}
+
+\section{Responsible use, limitations and impact}
+\label{sec:responsible}
+
+\input{sections/responsible.tex}
+
+\clearpage
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\clearpage
+\input{sections/appendix.tex}
+\input{sections/llm.tex}
+
+\end{document}

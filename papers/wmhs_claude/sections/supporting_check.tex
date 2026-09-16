@@ -1,0 +1,25 @@
+\section{Supporting estimator and trial checks}
+\label{app:matrix}\label{sec:matrix}
+
+\paragraph{Reference dependence.}
+With nonempty stratum arms, saturated G-computation \citep{robins1986}, IPW
+using empirical stratum propensities, non-cross-fitted saturated AIPW and
+matching using every control all reproduce
+$T(D)=\sum_g(n_g/n)(\bar Y_{1g}-\bar Y_{0g})$. The IPW weights recover each
+stratum mean; the AIPW augmentation sums to zero within stratum. OLS with
+additive stratum indicators instead weights contrasts by normalized
+$n_g\hat p_g(1-\hat p_g)$ \citep{angrist1998,frisch1933}. Under confounded
+assignment at 5{,}000 patients, switching between these two references changes
+the G-computation/OLS residuals from $0/0.0663$ to $0.0663/3.5\times10^{-14}$.
+Complete 1:1 blocks make the weights coincide. These are implementation checks
+of established identities. Under effect heterogeneity, OLS recovery rises
+from 1.003 to 1.132 while its own-reference residual stays at numerical precision.
+
+\paragraph{Interval control.}
+For 200 independent $\mathcal N(\theta,1)$ observations and 2{,}000 draws per
+effect, the full-sample mean has 94.60\% and 95.40\% coverage at
+$\theta=0,0.5$. Quartering the interval half-width leaves the estimate and its
+zero residual against the empirical mean unchanged, but reduces coverage to
+35.95\% and 36.30\%. The control illustrates why residuals cannot certify
+intervals.\label{tab:cleancontrol}
+

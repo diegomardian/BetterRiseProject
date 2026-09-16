@@ -1,0 +1,22 @@
+{
+  "purpose": "Exploratory paired evaluation of drawn-reference inclusion and fixed eligible-pool coverage; not independent threshold validation",
+  "fixed_target": ".4 * (shift - 1) * arithmetic mean of GUCA2A raw counts in all mature cells of the eligible two-patient source pool; fixed conditional on the pair before cell draws",
+  "previous_diagnostic_columns_reproduced": true,
+  "seed": 20260831,
+  "counts": [
+    5,
+    50,
+    100,
+    800
+  ],
+  "replicates": 200,
+  "inner_bootstrap": 200,
+  "original_alternative_settings_reproduced": 16,
+  "input_source_files": {
+    "src/harness/pseudobulk.py": "a1ac96538477ae2c3d3319c2646a88053172973f5a8ca5c9df02c5ad7d00166b",
+    "src/harness/interval.py": "4c976b93a8a8bc08265c19de97138e55032cbbc6c7a37391eae0589a38822a62",
+    "src/harness/attenuation.py": "86c340348d135a834522af08130cb6e1252c71087c40997932f5ecde98d841d8",
+    "papers/whms_bode/diagnose_low_counts.py": "9094b30c5ad44e71f30c2f4752179ff15489ccede1ebccb33b090bb98dfec4f4"
+  },
+  "output_sha256": "a7caafb0026799f9675c791488795c1d83c92e3a2c68e4e1b15f5bf6953d401f"
+}
