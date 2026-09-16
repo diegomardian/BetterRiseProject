@@ -1,0 +1,20 @@
+\begin{table}[htbp]
+\centering\small
+\caption{Reference choice reverses the estimator ranking in the synthetic
+external-control example. Bias and RMSE use 200 studies with 1{,}600 enrolled
+records and 4{,}800 controls. Columns identify the population used to average
+observed stratum contrasts; only enrolled standardization matches the intended
+target. All entries are in abstract outcome units.}
+\label{tab:eca}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+& \multicolumn{2}{c}{Pooled standardization} & \multicolumn{2}{c}{Enrolled standardization} \\
+\cmidrule(lr){2-3}\cmidrule(l){4-5}
+Validation reference & Bias & RMSE & Bias & RMSE \\
+\midrule
+Observed contrast, pooled & 0.000 & 0.000 & -0.872 & 0.876 \\
+Potential outcomes, pooled & +0.003 & 0.115 & -0.869 & 0.875 \\
+Potential outcomes, enrolled & +0.885 & 0.892 & +0.013 & 0.105 \\
+\bottomrule
+\end{tabular}
+\end{table}

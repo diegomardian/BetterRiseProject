@@ -1,0 +1,25 @@
+\paragraph{Expression dispersion partly explains the cohort gap.}
+\label{sec:cohortgap}
+Holding tissue eligibility fixed at reference-only, the complete SMC and KUL3
+mature-cell pools contain 662 and 844 cells. Across their 45 and 15 eligible
+patient pairs, median source-pool squared coefficients of variation
+($c_P^2=\sigma_P^2/\mu_P^2$) are 4.35 and 16.99; median zero-expression
+fractions are 39.3\% and 62.1\%. The source means are 19.5 and 11.9 raw
+counts, respectively (medians over pools). The KUL3 contrast therefore has
+substantially more relative sampling noise despite its larger source-cell
+pool.
+
+For the implemented binomial thinning, the tumour-cell variance is
+$s^2\sigma_P^2+s(1-s)\mu_P$. At $s=0.5$, the exact conditional variance of
+the contrast relative to its squared signal is
+\begin{equation}
+\frac{\operatorname{Var}(\hat\theta\mid P)}{\theta_P(0.5)^2}
+=\frac{c_P^2+1/\mu_P}{n_T}+\frac{4c_P^2}{n_N}.
+\label{eq:relativevariance}
+\end{equation}
+With $n_T=50$ and $n_N=800$, the median signal-to-standard-deviation ratios
+are 3.02 in SMC and 1.53 in KUL3. This provides a distributional explanation
+for weaker KUL3 discrimination. It does not reproduce the exact 70-versus-400
+candidate ratio: percentile-bootstrap behavior, pair heterogeneity and binning
+also affect that selection. The biological causes of the source-distribution
+difference remain unexplained.

@@ -1,0 +1,22 @@
+{
+  "source_revision": "a336594",
+  "experiment_revision": "6b4a31a",
+  "synthetic": true,
+  "seed": 20260915,
+  "seed_streams": 1,
+  "primary_study_draws": 1200,
+  "comparisons_per_study": 40,
+  "target": "Mean individual treatment effect over the enrolled records in each draw",
+  "input_sha256": {
+    "results/2026-09-15_6b4a31a/external_control_primary.parquet": "0c3078a4f4da9be1b4a3093a9d8b500a695c11768ebc89c787d46c2ecb35441c",
+    "results/2026-09-15_6b4a31a/external_control_primary.meta.json": "25597be05743b980bf141c3dd52e91272b5ab44f06c08df7a150ab9fe44e1748",
+    "results/2026-09-15_6b4a31a/external_control_shift.parquet": "4b6339cc7d84cdfbfcd8f6f8d791a6fb53547ce9a544850015710e4674637843",
+    "results/2026-09-15_6b4a31a/external_control_shift.meta.json": "13cd8c253e2ffe69d490ef5114d0627173284fe85fc6a3d741007544e40a7028",
+    "results/2026-09-15_6b4a31a/external_control_balance.parquet": "1e49c3f3a6e9483e7cad756c930c0b710197e46feacaad0a8454bedc32bc0ede",
+    "results/2026-09-15_6b4a31a/external_control_balance.meta.json": "e13ff5481883e4b19829faed1b0f9d0f307436c43bb10821fc07b4ddc15a4ec2",
+    "results/2026-09-15_6b4a31a/external_control_falsifiers.parquet": "fea9900c3b959dfbd0b165d799ed6c3ffe67fbeb6c521e609d61b3911d1a6df7",
+    "results/2026-09-15_6b4a31a/external_control_falsifiers.meta.json": "4cff0d3d75216a4b7e3e27cf7aa267d6a43cd6d3d23e10ffd656c564c23ff7f9",
+    "src/harness/external_control_demo.py": "808d52a7a208258e522a6a335087ea1a653082c5152417a31e03cdadecd98bd4",
+    "docs/prereg_external_control_demo.md": "0b1aa49d39cb4219bc22b63fb36d0dfe6efd9cf33dd96695317bc568320ad637"
+  }
+}

@@ -13,7 +13,9 @@ from make_tables import render
 PAPER=Path(__file__).resolve().parent
 
 def table(name):return pd.read_parquet(pinned(name))
-def prose(name):return (PAPER/'sections'/name).read_text()
+def prose(name):
+    from check_submission import source_graph
+    return '\n'.join(p.read_text() for p in source_graph(PAPER/'sections'/name))
 
 def test_expanded_learned_design_denominators():
     d=table('trial_learned_generator_primary')
@@ -132,15 +134,13 @@ def test_patient_influence_and_inner_budget():
     assert r.omitted_candidate==200 and r.omitted_status=='lower_bound_unobserved'
 
 
-def test_clean_control_table_matches_every_saved_entry():
+def test_clean_control_coverage_examples_match_saved_results():
     d=table('residual_performance_clean_control')
-    labels={'empirical-mean-calibrated':'Full-sample mean','same-point-narrow-interval':'Same point, narrow interval','known-bias-plus-0.5':'Mean plus $0.5$','independent-half-mean':'Half-sample mean'}
-    text=prose('blind.tex')
     assert len(d)==8 and (d.n_valid==2000).all()
-    for r in d.itertuples():
-        residual='0' if r.max_residual_vs_reference==0 else f'{r.max_residual_vs_reference:.4f}'
-        row=f'{labels[r.estimator]} & ${residual}$ & ${r.bias:.4f}$ & ${r.rmse:.4f}$ & ${100*r.interval_coverage:.2f}\\%$'
-        assert row in text
+    text=prose('refdesign.tex')
+    for r in d[d.estimator.isin(['empirical-mean-calibrated','same-point-narrow-interval'])].itertuples():
+        assert r.max_residual_vs_reference==0
+        assert f'{100*r.interval_coverage:.2f}\\%' in text
     assert d.coverage_mc_se.max()*100<=1.08
 
 
@@ -176,7 +176,7 @@ def test_external_audit_scope_and_count():
     assert d.max_residual.notna().sum()==1
     assert round(d.max_residual.max()*1e14,1)==4.0
     assert len(table('prevalence_audit_screening'))==19
-    assert 'neither a representative prevalence estimate' in prose('refdesign.tex')
+    assert 'These limits preclude a prevalence estimate.' in prose('appendix.tex')
     assert 'already the norm' not in '\n'.join(x.read_text() for x in (PAPER/'sections').glob('*.tex'))
 
 
@@ -221,4 +221,109 @@ def test_documentary_claim_is_inspectable_and_matches_source():
         source=PAPER.parents[1]/record['source']
         assert hashlib.sha256(source.read_bytes()).hexdigest()==record['sha256']
         assert record['excerpt'] in source.read_text()
-    assert 'The pre-committed cutpoint is\nvalidated on real cells.' in prose('calibration.tex')
+    review=json.loads((PAPER/'evidence/review_record.json').read_text())
+    assert review['artifact_A']['replicates_per_setting']==6
+    original=json.loads((PAPER/'evidence/case_provenance.json').read_text())[0]['excerpt']
+    assert review['artifact_A']['original_statement'] in ' '.join(original.replace('**','').split())
+    assert review['artifact_B']['minimum_target_coverage']==.9
+    assert 'Artifact A' in prose('calibration.tex')
+
+
+def test_fixed_pool_coverage_and_paired_accounting():
+    from make_fixed_pool_tables import fixed_table
+    d=pd.read_csv(PAPER/'diagnostics/low_count_diagnostic.csv')
+    assert prose('fixed_pool_table.tex')==fixed_table(d)
+    assert (d.n_fixed_pool_covered-d.n_draw_benchmark_covered==d.n_fixed_only-d.n_draw_only).all()
+    np.testing.assert_allclose(d.fixed_pool_coverage-d.coverage,d.paired_coverage_difference,atol=1e-15)
+    n=d[d['shift']==1]
+    assert (n.n_fixed_pool_covered==n.n_draw_benchmark_covered).all()
+    assert (n.n_fixed_pool_covered+n.n_excludes_zero==n.n_valid).all()
+    a=d[(d['shift']==.5)&(d.n_cells_mature==50)].set_index(['cohort','pool'])
+    for key,count in [(('smc','pooled'),173),(('smc','reference'),182),(('kul3','pooled'),174),(('kul3','reference'),169)]:
+        assert a.loc[key,'n_fixed_pool_covered']==count
+    assert not ((a.fixed_pool_coverage>=.9)&(a.exclusion_rate>=.8)).any()
+
+
+def test_variance_formula_against_an_exact_discrete_distribution():
+    from make_fixed_pool_tables import signal_to_noise
+    # Source: P(X=0)=P(X=2)=1/2. Half thinning gives P(T=0,1,2)=(5/8,1/4,1/8).
+    # Enumerate the independent arm distribution instead of duplicating the formula.
+    terms=[(n,t,.5*p) for n in [0.,2.] for t,p in [(0.,.625),(1.,.25),(2.,.125)]]
+    fixed_errors=np.array([.4*(t-n)+.2 for n,t,p in terms])
+    draw_errors=np.array([.4*(t-.5*n) for n,t,p in terms])
+    probabilities=np.array([p for n,t,p in terms])
+    v_fixed=np.dot(probabilities,fixed_errors**2)-np.dot(probabilities,fixed_errors)**2
+    v_draw=np.dot(probabilities,draw_errors**2)-np.dot(probabilities,draw_errors)**2
+    assert np.isclose(v_fixed-v_draw,.4**2*(1-.5**2))
+    assert np.isclose(v_fixed/.2**2,6.)
+    assert np.isclose(signal_to_noise(1.,1.,1,n_n=1),.2/np.sqrt(v_fixed))
+
+
+def test_source_pool_comparison_uses_matching_tissue_eligibility():
+    from make_fixed_pool_tables import signal_to_noise
+    p=pd.read_csv(PAPER/'diagnostics/source_pool_properties.csv')
+    for c,n_pairs,total,cv,snr in [('smc',45,662,4.35,3.02),('kul3',15,844,16.99,1.53)]:
+        q=p[(p.cohort==c)&(p.pool=='reference')]
+        patients=10 if c=='smc' else 6
+        assert len(q)==n_pairs and q.n_source_cells.sum()/(patients-1)==total
+        assert round(q.squared_cv.median(),2)==cv
+        values=[signal_to_noise(r.mean_expression,r.variance_expression,50) for r in q.itertuples()]
+        assert round(float(np.median(values)),2)==snr
+
+
+def test_anonymous_review_record_excludes_local_provenance():
+    review=(PAPER/'evidence/review_record.json').read_text()
+    from check_submission import source_graph
+    text=review+'\n'+'\n'.join(p.read_text() for p in source_graph(PAPER/'main.tex'))
+    for token in ['gate_memo_w2','harness_design_spec','BetterRiseProject','bodebosell','/Users/']:
+        assert token.lower() not in text.replace(r'\_','_').lower()
+
+
+def test_external_control_design_denominators_and_target_ranking():
+    from make_external_control_table import render as render_external
+    d=table('external_control_primary')
+    assert len(d)==8*5*6
+    assert (d.n_valid+d.n_excluded).eq(200).all()
+    assert d.n_valid.sum()==47969 and d.n_excluded.sum()==31
+    assert d.loc[d.n_excluded>0,'n_trial'].eq(50).all()
+    assert d.loc[d.n_trial==1600,'n_valid'].eq(200).all()
+    assert prose('external_control_table.tex')==render_external(d)
+    selected=d[d.n_trial==1600].set_index(['reference','estimator'])
+    for ref,winner in [('obs-pooled','ate-standardisation'),('po-pooled','ate-standardisation'),('po-trial','att-standardisation')]:
+        pair=selected.loc[ref].loc[['ate-standardisation','att-standardisation']]
+        assert pair.rmse.idxmin()==winner
+    pooled=selected.loc[('po-trial','ate-standardisation')]
+    assert round(pooled.bias,3)==.885
+    assert round(pooled.estimate_median,3)==1.890
+    assert round(pooled.reference_median,3)==1.003
+    assert pooled.estimate_median>1.5>pooled.reference_median
+    own=d[(d.estimator=='ate-standardisation')&(d.reference=='obs-pooled')]
+    assert own.max_residual.eq(0).all()
+
+
+def test_external_control_null_and_balance_qualify_claim():
+    shifts=table('external_control_shift')
+    null=shifts[(shifts.estimator=='ate-standardisation')&(shifts['shift']==0)].iloc[0]
+    assert null.max_residual_vs_obs_pooled==0
+    assert round(null.bias_vs_po_trial,3)==-.002
+    assert not null.decision_flips
+    b=table('external_control_balance')
+    pooled=b[b.weighting=='ate']
+    assert pooled.n_replicates.eq(50).all()
+    assert pooled.max_abs_smd_between_arms.max()<1e-14
+    assert round(pooled.max_abs_smd_vs_enrolled.max(),3)==.964
+    assert not table('external_control_falsifiers').fired.any()
+
+
+def test_external_control_provenance_is_pinned_and_does_not_inflate_replication():
+    import hashlib
+    from _tables import REPO_ROOT
+    provenance=json.loads((PAPER/'diagnostics/external_control_provenance.json').read_text())
+    assert provenance['seed_streams']==1 and provenance['primary_study_draws']==1200
+    for name,digest in provenance['input_sha256'].items():
+        assert hashlib.sha256((REPO_ROOT/name).read_bytes()).hexdigest()==digest
+    assert 'using one seed (20260915)' in prose('appendix.tex')
+    assert '48{,}000 comparisons' in prose('appendix.tex')
+    for name in ['primary','shift','balance','falsifiers']:
+        exported=pd.read_csv(PAPER/f'diagnostics/external_control_{name}.csv')
+        pd.testing.assert_frame_equal(exported,table(f'external_control_{name}'),check_exact=False,rtol=1e-12,atol=1e-15)

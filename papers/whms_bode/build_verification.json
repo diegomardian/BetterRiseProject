@@ -1,35 +1,37 @@
 {
-  "main_text_pages": 9,
-  "reference_start_page": 10,
+  "main_text_pages": 8,
+  "reference_start_page": 9,
   "reference_pages": 2,
-  "appendix_start_page": 12,
+  "appendix_start_page": 11,
   "appendix_pages": 3,
-  "total_pages": 14,
+  "total_pages": 13,
   "latex_errors": 0,
   "undefined_references": 0,
   "overfull_boxes": 0,
   "anonymity": "passed",
   "official_style_sha256": "c3fc2894e83d2517ca18b66741d6c595986d97957dc08ec08bb2125a7ec4555a",
-  "pdf_sha256": "e89da520a7d1f2bbd340f775454a3242c6bb3ab3badfb707fbab1861f79589e4",
+  "pdf_sha256": "b39abbdd0abea9bf2c7fed5359b466c5faf663207370a2c4aa60bb84c58a14ae",
   "source_files": [
     "main.tex",
     "sections/abstract.tex",
     "sections/setup.tex",
     "sections/calibration.tex",
+    "sections/fixed_pool_results.tex",
+    "sections/fixed_pool_table.tex",
     "sections/low_count_table.tex",
-    "sections/blind.tex",
-    "sections/refdesign.tex",
-    "sections/matrix_table.tex",
-    "sections/learned_table.tex",
+    "sections/reversal_table.tex",
+    "sections/cohort_gap.tex",
     "sections/validation.tex",
+    "sections/external_control_table.tex",
     "sections/conclusion.tex",
     "sections/responsible.tex",
     "sections/appendix.tex",
     "sections/methods.tex",
+    "sections/refdesign.tex",
     "sections/llm.tex"
   ],
   "visual_review": {
-    "pages_inspected": [
+    "pages": [
       1,
       2,
       3,
@@ -42,16 +44,28 @@
       10,
       11,
       12,
-      13,
-      14
+      13
     ],
     "render_dpi": 120,
-    "result": "passed; no clipping, overlap or unreadable tables"
+    "result": "passed; full-document contact sheets and full-size inspection of the new table and final appendix page"
   },
-  "portable_source_build": {
-    "result": "passed",
-    "pages": 14,
-    "page_text_identical": true
+  "portable_source_compile": {
+    "pages": 13,
+    "page_text_identical": true,
+    "latex_errors": 0,
+    "undefined_references": 0,
+    "overfull_boxes": 0
   },
-  "dedicated_claim_tests_passed": 17
+  "tests": {
+    "paper_claims": 24,
+    "external_control_harness": 35
+  },
+  "external_control_reproduction": {
+    "primary_study_draws": 1200,
+    "primary_summary_rows": 240,
+    "balance_study_draws": 50,
+    "balance_summary_rows": 9,
+    "relative_tolerance": 1e-09,
+    "absolute_tolerance": 1e-11
+  }
 }

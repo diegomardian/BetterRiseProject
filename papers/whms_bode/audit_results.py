@@ -29,7 +29,8 @@ def main():
     nr=int(draw.n_nonfinite_reference.sum());ne=int(draw.n_nonfinite_estimate.sum())
     out={
       'source_revision':'b503971',
-      'scope':'Saved-table verification plus a separately stored exploratory 6,400-draw low-count diagnostic.',
+      'external_control_source_revision':'a336594',
+      'scope':'Saved-table verification plus paired fixed-pool coverage and null evaluation on the same 6,400 exploratory draws; source-pool variance summaries; adopted synthetic external-control study and independently reproduced primary and balance summaries.',
       'single_cell_target':'f_N * (s - 1) * drawn_normal_mature_mean; draw-dependent reference, not fixed pool mean',
       'learned_generator':{
         'scheduled_estimator_evaluations':7*10*6*6*30,
@@ -45,10 +46,11 @@ def main():
       },
       'direct_reference_pool_performance_at_50':notes,
       'external_audit':{'repositories':len(read('prevalence_audit_verdicts')),'verdicts':read('prevalence_audit_verdicts').verdict.value_counts().to_dict()},
+      'diagnostic_artifact_sha256':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((PAPER/'diagnostics').glob('*')) if p.is_file()},
       'additional_diagnostic':json.loads((PAPER/'diagnostics/low_count_provenance.json').read_text()),
       'input_sha256':{name:hashlib.sha256((REPO_ROOT/path).read_bytes()).hexdigest() for name,path in manifest.items()},
       'review_environment':{'python':platform.python_version(),**{name:importlib.metadata.version(name) for name in ['numpy','pandas','pyarrow','matplotlib','pypdf','pytest']}},
-      'verification':{'dedicated_result_tests':17,'original_manuscript_result_tests':55,'learned_table_numeric_entries':30},
+      'verification':{'dedicated_result_tests':24,'external_control_harness_tests':35,'original_manuscript_result_tests':55,'learned_table_numeric_entries':30},
     }
     (PAPER/'results_audit.json').write_text(json.dumps(out,indent=2)+'\n')
     print('Wrote results_audit.json; hashed',len(manifest),'pinned input tables')

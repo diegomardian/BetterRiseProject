@@ -36,5 +36,9 @@
   "trial_survival": "results/2026-09-13_cc02592/trial_survival.parquet",
   "trial_survival_headline": "results/2026-09-13_cc02592/trial_survival_headline.parquet",
   "trial_survival_lifelines_check": "results/2026-09-13_cc02592/trial_survival_lifelines_check.parquet",
-  "width_gate_step_location": "results/2026-09-09_01074fc/width_gate_step_location.parquet"
+  "width_gate_step_location": "results/2026-09-09_01074fc/width_gate_step_location.parquet",
+  "external_control_primary": "results/2026-09-15_6b4a31a/external_control_primary.parquet",
+  "external_control_shift": "results/2026-09-15_6b4a31a/external_control_shift.parquet",
+  "external_control_balance": "results/2026-09-15_6b4a31a/external_control_balance.parquet",
+  "external_control_falsifiers": "results/2026-09-15_6b4a31a/external_control_falsifiers.parquet"
 }
