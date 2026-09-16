@@ -176,26 +176,6 @@ coverage-only candidate, the corresponding counts are five of ten and zero of
 six. These checks quantify influence within each observed cohort.
 Appendix~\ref{app:guards} gives the biological comparability limits.
 
-\begin{table}[htbp]
-\centering\small
-\caption{Reference-only sensitivity with every two-patient holdout pair
-represented once per count and effect. The three inner budgets reuse identical
-outer samples. Omission counts compare with the baseline at 200 inner draws;
-all pairs involving the omitted patient are removed and retained pairs are
-unchanged. These are sensitivity summaries within the observed cohorts.}
-\label{tab:sensitivity}
-\begin{tabular}{@{}lcrrrcc@{}}
-\toprule
- & pairs & \multicolumn{3}{c}{joint candidate, inner draws} &
- \multicolumn{2}{c}{omissions changing candidate} \\
-\cmidrule(lr){3-5}\cmidrule(lr){6-7}
-cohort & & $200$ & $1{,}000$ & $5{,}000$ & joint & coverage only \\
-\midrule
-SMC & $45$ & $70$ & $70$ & $70$ & $0/10$ & $5/10$ \\
-KUL3 & $15$ & $400$ & $300$ & $400$ & $3/6$ & $0/6$ \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 The sensitivity windows cover counts $40,50,60,70,80,90,100,110$ in SMC and
 $200,300,400,600,800$ in KUL3. These per-count summaries use a fixed pair
@@ -212,11 +192,27 @@ those windows. Overlapping pairs do not add independent patients.
 \subsection{Biological controls fail to establish mechanism}\label{sec:biocontrols}
 The pre-committed panel included compositional, intrinsic and retained-gene
 controls. In the primary cohort the retained-gene control changed by
-$-1.000$ to $-0.951$ relative to baseline, almost matching the compositional
-controls' $-1.000$ to $-0.952$. The intrinsic control had only 0.04 CP10K,
-compared with 19.4 and 24.9 for the abundant compositional controls (counts per
-10{,}000), making it uninformative for the intended test. A second cohort
-reproduced the pattern. Thus the application has two distinct unresolved
-problems: its interval rule lacks the recorded calibration support, and its
-control panel does not distinguish the proposed biological mechanisms.
-Improving one would not establish the other.
+$-0.951$ to $-0.970$ relative to baseline, almost matching the compositional
+controls' $-1.000$ to $-0.952$. (Strata reading exactly $-1.000$ carry a median
+of one relevant tumour cell and are a floor, not a measurement; we quote the
+range without them.) The intrinsic control had only 0.04 CP10K, compared with
+19.4 and 24.9 for the abundant compositional controls (counts per 10{,}000),
+making it uninformative for the intended test. A second cohort reproduced the
+pattern.
+
+\textbf{The retained-gene control was mis-specified, and the labelling axis is
+not the cause.} An axis defined by marker \emph{absence} might produce the drop
+for every gene; it does not, and neither does sequencing depth
+(Appendix~\ref{app:controls}). The gene is simply not retained here --- it keeps
+a median $4.1\%$ of its normal per-cell level, reproduced in 585 bulk samples
+with no single-cell labelling in the pipeline. We chose it from prior
+expectation and did not check its depletion before freezing the panel. The
+panel's job was to catch exactly that, and it could not: once every tier is
+depleted, a tier chosen wrongly and a tier chosen rightly produce the same
+output.
+
+Thus the application has two distinct unresolved problems: its interval rule
+lacks the recorded calibration support, and its control panel does not
+distinguish the proposed biological mechanisms. Improving one would not
+establish the other, and neither bears on the equality result, which is
+arithmetic.

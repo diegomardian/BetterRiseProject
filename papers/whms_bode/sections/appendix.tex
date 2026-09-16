@@ -88,6 +88,58 @@ its identical recovery curve may itself alert a careful analyst. It neither
 estimates a failure frequency nor requires a reference to disagree numerically
 with a correct estimator on every dataset.
 
+\section{The retained-gene control}
+\label{app:controls}
+
+Four competing explanations for the retained-gene control's fall were
+adjudicated against the committed tables; three are refuted.
+
+\emph{The axis selects by marker absence.} Refuted: at strata where the axis
+selects nothing --- both mature fractions $1.0$ --- the control still falls
+$-0.967$ to $-0.996$, while an identity marker on the same cells falls
+$-0.293$ to $-0.396$.
+
+\emph{The axis tracks sequencing depth.} Refuted: matching the arms to a
+shared depth distribution discards $45.4\%$ of cells and leaves the drop
+unchanged, $-0.960$ to $-0.971$.
+
+\emph{A collapsing denominator.} Refuted: the baseline is $2.56$ CP10K and
+healthy; the numerator collapses, to $0.104$. Only the $-1.000$ endpoint is a
+floor, at strata carrying a median of one relevant tumour cell.
+
+\emph{A detection floor.} Refuted: two panel genes sit below this one's
+baseline and retain more signal, one of them moving $+0.02$ at $0.040$ CP10K.
+
+\emph{The gene is not retained.} Supported, and decisively: 585 bulk samples
+on a different platform, with no single-cell labelling anywhere in the
+pipeline, give log$_2$ fold change $-8.18$.
+
+The panel was frozen eight hours before any dataset was registered, so the
+pre-commitment is genuine. But abundance reasoning appears in the
+configuration's role fields for the compositional tier and not for the
+intrinsic one, which is where the 0.04 CP10K control came from.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Reference-only sensitivity with every two-patient holdout pair
+represented once per count and effect. The three inner budgets reuse identical
+outer samples. Omission counts compare with the baseline at 200 inner draws;
+all pairs involving the omitted patient are removed and retained pairs are
+unchanged. These are sensitivity summaries within the observed cohorts.}
+\label{tab:sensitivity}
+\begin{tabular}{@{}lcrrrcc@{}}
+\toprule
+ & pairs & \multicolumn{3}{c}{joint candidate, inner draws} &
+ \multicolumn{2}{c}{omissions changing candidate} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-7}
+cohort & & $200$ & $1{,}000$ & $5{,}000$ & joint & coverage only \\
+\midrule
+SMC & $45$ & $70$ & $70$ & $70$ & $0/10$ & $5/10$ \\
+KUL3 & $15$ & $400$ & $300$ & $400$ & $3/6$ & $0/6$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \section{External audit and research context}
 \label{app:prevalence}
 
