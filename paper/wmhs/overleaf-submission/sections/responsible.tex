@@ -1,22 +1,23 @@
-% §5 body for the four-page extended abstract. The full paper uses
-% sections/full/responsible.tex. The workshop requires limitations and impact.
+\paragraph{Misuse and limitations.}
+\notest{} must not be read as ``no effect'' or as evidence that surviving cells
+are behaving normally. A separate within-cell analysis over three cohorts and
+42 patients also remained unresolved because its comparability checks returned
+\emph{undecided} (Appendix~\ref{app:guards}). Calibration here covers one gene,
+one labelling axis and one weighting on two small cohorts. It challenges this
+rule's justification, not cell-count rules in general. Its stored coverage
+reference depends on the sampled baseline, as specified in
+Equation~\ref{eq:requested}. The draw-pool choice was
+underspecified, repeated simulations do not add independent patients, and
+the leave-one-patient-out sensitivity remains conditional on these cohorts;
+patient-level population uncertainty in the candidate cutpoints is unquantified.
+The absence-defined labelling axis remains sensitive to sequencing depth
+(Appendix~\ref{app:limitations}). The worked patient simulations are implementation checks. The external
+search found no affirmative case and supplies no estimate of prevalence.
 
-\paragraph{Scope and falsification.} Our colorectal-cancer instance supports
-\emph{no biological or clinical claim}. Its pre-registered control panel failed
-its own falsification rule: the retained-gene control fell inside the
-compositional controls' range, while the intrinsic control was too sparse to
-test the estimator. We therefore report methods and validation only. A second
-cohort confirms the artefact, not the biology. A second route, evaluated
-over three cohorts and 42 patients, returns \emph{undecided} on all three.
-
-\paragraph{Misuse and limitations.} Reading \notest{} as ``no effect'' can turn
-an undefined group-resolved estimand into a treatment-relevant mechanism claim.
-Our calibration covers one gene, axis and weighting; its two cohorts disagree,
-the draw pool was unspecified, and repeated holdouts are not independent. This
-shows this rule failing its own criteria, not cell-count rules failing generally.
-
-\paragraph{Impact and release.} Systems reporting cell-type-resolved quantities
-need an abstention state, but calibrating that state is essential. The cohorts
-are public, de-identified and previously published; because single-cell
-genotypes can remain re-identifiable, we release code and derived summaries,
-not cell-level matrices.
+\paragraph{Data and impact.}
+The single-cell cohorts are public, de-identified and previously published.
+The release policy covers derived summaries and code, rather than cell-level
+matrices. A system reporting group-specific quantities should distinguish an
+unavailable comparison from an estimated null and should evaluate the coverage
+and discrimination of any abstention rule. Publishing failed calibration
+attempts helps prevent unsupported thresholds from being treated as validated.

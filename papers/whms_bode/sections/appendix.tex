@@ -112,6 +112,59 @@ estimator departure and generator target discrepancy can covary. The finite
 Monte Carlo budget limits numerical resolution, not the target's intrinsic
 precision; neither reference validates a model for real patients.
 
+\section{The external-control demonstration}
+\label{app:eca}
+
+Pre-registered in \texttt{docs/prereg\_external\_control\_demo.md} with nine
+falsifiers, committed before the module. None fired. Registry pool of fixed
+size; enrolment without replacement under eligibility weights enriching for
+refractory patients; an effect-modified benefit induced on each record's own
+outcome; external control arm three times the trial; six cohort sizes, six
+seeds, seed 20260915.
+
+\begin{table}[htbp]
+\small
+\centering
+\caption{Maximum residual and median recovery ratio at the largest cohort, by
+which reference the analyst validates against. The defective estimator targets
+the pooled analysis file; the correct one targets the enrolled patients. The
+observed-data reference ranks them in the wrong order, and a
+potential-outcome reference computed on the wrong population does too.}
+\label{tab:eca}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{defective (pooled target)}}
+& \multicolumn{2}{c}{\textbf{correct (enrolled target)}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+reference & residual & ratio & residual & ratio \\
+\midrule
+observed-data, pooled        & $0$ (bitwise) & $1.000000$ & $1.111$ & $0.538$ \\
+potential outcomes, pooled   & $0.357$       & $1.004$    & $1.181$ & $0.544$ \\
+potential outcomes, enrolled & $1.157$       & $1.879$    & $0.297$ & $1.017$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The middle row is the one that corrected our own prescription. Its residual is
+not zero, so a rule of ``choose a reference the estimator does not reproduce''
+is satisfied --- and it still ranks the defective estimator first, because it
+names the wrong population. Breaking the equality is necessary and not
+sufficient.
+
+Balance diagnostics do not catch it either. Under the defective weighting the
+worst between-arm standardised mean difference is $5.6\times10^{-16}$, while
+the same weighted pseudo-population differs from the enrolled patients by
+$0.964$. Under the correct weighting both are at machine zero. Protocols
+tabulate the first column.
+
+Three honest limits. The workflow is constructed rather than observed, so it
+bounds harm and not prevalence. The defective estimator's recovery ratio is
+exactly $1$ with zero interquartile range rather than tightening with $n$,
+which is itself a signal a careful reader might notice. And the scenario rests
+on the analyst misidentifying the target population in both the estimator and
+the reference; we argue that is one belief expressed twice rather than two
+independent errors, but a reader who rejects that rejects the demonstration.
+
 \section{External audit and research context}
 \label{app:prevalence}
 

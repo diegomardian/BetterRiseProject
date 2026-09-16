@@ -1,23 +1,4 @@
-% Bibliography for the WMHS submission.
-%
-% The eight entries below the rule were added for the related-work and conformal
-% paragraphs, which compiled as [?] without them. Every one was checked against
-% the publisher's own record on 2026-08-31 — author list in order, title, venue,
-% volume, issue and page range:
-%
-%   crowell2020     Nature Communications 11:6077          nature.com/articles/s41467-020-19894-4
-%   buettner2021    Nature Communications 12:6876          nature.com/articles/s41467-021-27150-6
-%   dann2022        Nature Biotechnology 40(2):245-253     nature.com/articles/s41587-021-01033-z
-%   phipson2022     Bioinformatics 38(20):4720-4726        doi 10.1093/bioinformatics/btac582
-%   zhao2021        PNAS 118(22):e2100293118               doi 10.1073/pnas.2100293118
-%   petukhov2022    bioRxiv, still a preprint              doi 10.1101/2022.03.15.484475
-%   angelopoulos2023 FnT in ML 16(4):494-591               emerald.com/ftmal/article/16/4/494
-%   burton2006      Stat in Medicine 25(24):4279-4292      doi 10.1002/sim.2673
-%   morris2019      Stat in Medicine 38(11):2074-2102      doi 10.1002/sim.8086
-%   vovk2005        Springer monograph
-%
-% cacoa was the one flagged as uncertain. It is still a preprint — no journal
-% version exists — so the bioRxiv entry is correct rather than stale.
+% Bibliography for the revised case study. See citation_verification.json.
 
 @article{kitagawa1955,
   author  = {Kitagawa, Evelyn M.},
@@ -47,26 +28,6 @@
   number  = {4},
   pages   = {436--455},
   year    = {1973}
-}
-
-@article{kline2011,
-  author  = {Kline, Patrick},
-  title   = {Oaxaca-Blinder as a Reweighting Estimator},
-  journal = {American Economic Review: Papers \& Proceedings},
-  volume  = {101},
-  number  = {3},
-  pages   = {532--537},
-  year    = {2011}
-}
-
-@article{abadie2010,
-  author  = {Abadie, Alberto and Diamond, Alexis and Hainmueller, Jens},
-  title   = {Synthetic Control Methods for Comparative Case Studies},
-  journal = {Journal of the American Statistical Association},
-  volume  = {105},
-  number  = {490},
-  pages   = {493--505},
-  year    = {2010}
 }
 
 @article{hernan2016,
@@ -105,10 +66,6 @@
   booktitle = {Advances in Neural Information Processing Systems},
   year      = {2017}
 }
-
-% ---------------------------------------------------------------------------
-% Added for §1's related work and §2's conformal paragraph.
-% ---------------------------------------------------------------------------
 
 @article{crowell2020,
   author  = {Crowell, Helena L. and Soneson, Charlotte and Germain, Pierre-Luc
@@ -223,15 +180,6 @@
   year    = {2023}
 }
 
-% ---------------------------------------------------------------------------
-% Added 2026-09-09 for the "relation to known circularity" paragraph. Two
-% reviewers, working independently, both said the same thing: the qualitative
-% version of this paper's claim exists in several literatures and not citing it
-% makes the contribution look larger than it is and the authors look unread.
-% These are the entries that concede it. Venue and year checked against the
-% publishers' own records; where a preprint has no journal version, the preprint
-% is the correct entry rather than a stale one.
-
 @article{wirgin2004,
   title   = {The inverse crime},
   author  = {Wirgin, Armand},
@@ -291,19 +239,6 @@
   year      = {2019}
 }
 
-@article{chernozhukov2018,
-  title   = {Double/debiased machine learning for treatment and structural
-             parameters},
-  author  = {Chernozhukov, Victor and Chetverikov, Denis and Demirer, Mert and
-             Duflo, Esther and Hansen, Christian and Newey, Whitney and
-             Robins, James},
-  journal = {The Econometrics Journal},
-  volume  = {21},
-  number  = {1},
-  pages   = {C1--C68},
-  year    = {2018}
-}
-
 @article{robins1986,
   title   = {A new approach to causal inference in mortality studies with a
              sustained exposure period---application to control of the healthy
@@ -342,8 +277,50 @@
              causal inference},
   author  = {Shaw, Pamela A. and Gruber, Susan and Williamson, Brian D. and
              Desai, Rishi J. and Shortreed, Susan M. and
-             Krakauer, Chelsea and Nelson, Jennifer C. and
+             Krakauer, Chloe and Nelson, Jennifer C. and
              van der Laan, Mark J.},
   journal = {Statistics in Medicine},
+  volume  = {45},
+  number  = {18-19},
+  pages   = {e70676},
+  doi     = {10.1002/sim.70676},
   year    = {2026}
+}
+
+@article{lee2020,
+  author = {Lee, Hae-Ock and Hong, Yourae and Etlioglu, Hakki Emre and Cho, Yong Beom and others},
+  title = {Lineage-dependent gene expression programs influence the immune landscape of colorectal cancer},
+  journal = {Nature Genetics},
+  volume = {52},
+  pages = {594--603},
+  year = {2020},
+  doi = {10.1038/s41588-020-0636-z}
+}
+
+@article{angrist1998,
+ author = {Angrist, Joshua D.},
+ title = {Estimating the Labor Market Impact of Voluntary Military Service Using Social Security Data on Military Applicants},
+ journal = {Econometrica}, volume = {66}, number = {2},
+ pages = {249--288}, year = {1998}, doi = {10.2307/2998558}
+}
+
+@article{frisch1933,
+ author = {Frisch, Ragnar and Waugh, Frederick V.},
+ title = {Partial Time Regressions as Compared with Individual Trends},
+ journal = {Econometrica}, volume = {1}, number = {4},
+ pages = {387--401}, year = {1933}, doi = {10.2307/1907330}
+}
+
+@article{ventz2019,
+ author = {Ventz, Steffen and Lai, Albert and Cloughesy, Timothy F. and Wen, Patrick Y. and Trippa, Lorenzo and Alexander, Brian M.},
+ title = {Design and Evaluation of an External Control Arm Using Prior Clinical Trials and Real-World Data},
+ journal = {Clinical Cancer Research}, volume = {25}, number = {16},
+ pages = {4993--5001}, year = {2019}, doi = {10.1158/1078-0432.CCR-19-0820}
+}
+
+@article{schuler2022,
+ author = {Schuler, Alejandro and Walsh, David and Hall, Diana and Walsh, Jon and Fisher, Charles},
+ title = {Increasing the Efficiency of Randomized Trial Estimates via Linear Adjustment for a Prognostic Score},
+ journal = {The International Journal of Biostatistics}, volume = {18}, number = {2},
+ pages = {329--356}, year = {2022}, doi = {10.1515/ijb-2021-0072}
 }

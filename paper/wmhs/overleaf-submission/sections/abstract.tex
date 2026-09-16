@@ -1,24 +1,20 @@
 \begin{abstract}
-Recovery curves compare estimated effects with a simulator's requested truth.
-They can conceal that an estimator reproduces a reference statistic of the draw.
-If both compute the same functional of the realised summaries, their difference
-is identically zero and recovery reduces to realised over requested truth.
-This equality does not invalidate sampling-performance evaluation; it prevents
-that curve alone from establishing additional calibration claims.
-We propose an audit column: compare the estimate with a specified realised
-reference and investigate a uniformly zero residual. Our single-cell oracle
-arm reproduced its reference across 1.7M runs, yet the abstention rule its curve
-had certified did not survive recalibration. A patient simulator demonstrates
-the same equality for saturated G-computation, IPW and non-cross-fitted AIPW.
-Cross-fitted IPW breaks it in the tested design; exact balance within strata
-makes even the unadjusted difference reproduce the reference.
-\iffull
-A residual-to-generator-error ratio quantifies departures from equality without
-attributing fractions of total error. Under censoring, the exponential MLE
-reproduces the observed-data reference but differs from the latent-time
-reference. These comparisons diagnose functional reuse, not estimator quality.
-\else
-The audit complements interval coverage and decision-rule calibration; it does
-not certify either.
-\fi
+We re-evaluate a single-cell reporting rule whose 50-cell cutpoint was declared
+validated from point-estimate recovery. The original memo and calibration
+criteria are reproduced in the paper. Direct evaluation on two colorectal
+single-cell cohorts yields no qualifying cutpoint under pooled-tissue draws;
+reference-only candidates change with cohort, count grid and aggregation.
+At 50 cells, discrimination is 75.5--81.0\% in one cohort and 45.0--55.0\% in
+the other, against an 80\% requirement. Controlled reuse of the same simulation
+draws separates grid effects from random-stream changes. The interval target
+is a draw-dependent benchmark, so these results test the recorded calibration
+specification rather than population coverage. A targeted diagnostic finds 37.5--67.0\% null rejection at five cells,
+explaining why high low-count exclusion rates cannot be read as reliable power.
+Biological controls also fail
+to establish the intended mechanistic separation. We explain the recovery
+curve using an elementary estimator identity and use established trial-estimator
+relationships as implementation checks. The contribution is a reproducible
+failed-calibration case study: threshold validation requires direct evaluation
+of intervals, null rejection and abstention, with the target and sampling
+unit declared in advance.
 \end{abstract}

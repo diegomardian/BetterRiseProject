@@ -1,169 +1,212 @@
-\section{What the blind curve hid}
+\section{Direct evaluation does not justify the abstention rule}
 \label{sec:calibration}
 
-Three acceptance criteria were fixed in a design document before any sweep ran:
-a detectable halving of per-cell output, $s = 0.5$; interval coverage of 90\%;
-and discrimination of 80\%, the probability the interval excludes zero at that
-effect.\iffull{} The cutpoints follow mechanically --- the smallest $n$ meeting
-both criteria, and the smallest meeting coverage alone.\fi The pre-registration is
-mechanical rather than documentary: the panel, the labelling axes and the
-falsification rule are frozen in a configuration file
-\iffull
-with a \texttt{frozen\_on} stamp and mirrored by an exact-value assertion in the
-test suite, so continuous integration fails if anyone edits one without the
-other.
-\else
-and asserted in the test suite, so continuous integration fails if anyone edits
-one without the other.
-\fi
+\paragraph{The claim being re-evaluated.}
+The project gate memo, Section 15, states: ``The pre-committed cutpoint is
+validated on real cells.'' Its evidence is recovery between 0.85 and 1.08
+above the 50-cell reporting boundary and 1.18 in the 20--49-cell band, based
+on six draws per setting at 1{,}200 cells per arm. That comparison is an
+observed/target point-estimate ratio. In contrast, the design specification,
+Section 4, requires at least 90\% interval inclusion and 80\% exclusion of zero
+at a halving of expression. These passages document the mismatch within this
+project; they do not establish a general practice. Appendix~\ref{app:provenance}
+provides the source locations and preserves their status as an internal claim.
 
-Run properly on real held-out cells, the committed cutpoint of 50 does not come
-back\iffull{} (Figure~\ref{fig:calibration})\fi. The generator filters eligibility on
-patient alone, so both synthetic arms draw from the held-out patients' cells of
-\emph{both} tissues pooled.
-\iffull
-The design document lists what stays fixed and never
-mentions tissue. Nobody made that choice; an implementation detail made it, and
-it changes the answer.
-\else
-The design document never mentions tissue: nobody made
-that choice, an implementation detail made it, and it changes the answer.
-\fi
-So we report both readings rather than the one that
-yields a cutpoint. Pooled, the routine returns no cutpoint at all: discrimination
-never reaches the 0.80 target in any count bin, topping out at 0.78 across 13
-seeds at 50 replicates and at 0.75 across 8 seeds at 500.\iffull{} Restricted to
-the reference tissue it does return one, and that is where the second lesson of
-this paper repeats itself.\else{} Restricted to the reference tissue it does
-return one, and that is where this paper's second lesson repeats itself.\fi
+\paragraph{Target, interval and operating requirements.}
+The design document fixed a detectable halving of per-cell output ($s=0.5$),
+interval inclusion of the stored reference in at least $90\%$ of defined
+outputs, and discrimination of at least $80\%$, defined as the probability
+that the interval excludes zero at that effect. We call the first rate benchmark inclusion (``coverage'' in the saved tables).
+The candidate $ok$ is the first evaluated count or bin meeting both criteria;
+$wide$ is the first meeting coverage alone. The committed values are 50 and 20.
+Candidates do not require every larger count to qualify and are not certified
+thresholds.
 
-\iffull
-\begin{figure}[t]
+The calibration uses paired subsets of the published colorectal atlas
+\citep{lee2020}: ten patients from GSE132465 (SMC) and six from
+GSE144735 (KUL3). We analyse GUCA2A in the differentiated population under fixed
+lineage labelling. Each draw samples, with replacement, 2{,}000 cells per arm
+from an eligible two-patient pool; the reference mature fraction is $f_N=0.40$.
+The implemented pool combines cells from both tissues before drawing either
+synthetic arm. Because the design document did not specify tissue eligibility,
+we also evaluate a reference-tissue-only pool. Neither reconstructs the real
+tissue contrast. A nominal 95\% percentile interval resamples mature cells in
+both arms, with fractions held fixed and 200 inner draws unless stated otherwise.
+Undefined intervals are excluded from rate denominators and reported as
+abstentions (Appendix~\ref{app:gridcaveats}).
+
+The stored ``parametric'' intrinsic reference is
+\begin{equation}
+i_{\mathrm{req}}(D_N;s)=f_N(s-1)\bar Y_N,
+\label{eq:requested}
+\end{equation}
+where $\bar Y_N$ is the mature-cell mean of the \emph{drawn} reference arm.
+Thus the shift is fixed but this benchmark varies across draws; it is not the
+fixed source-pool parameter $f_N(s-1)\mu_{\mathrm{pool}}$.
+Benchmark inclusion below uses Equation~\ref{eq:requested}. This is a legitimate
+draw-specific performance question, but it differs from fixed-population
+coverage. We preserve that specification to test the original claim; a
+population-coverage study requires a separately fixed target and sampling law.
+
+\paragraph{Controlled comparison of counts, bins and source pools.}
+Historical grids returned reference-only binned candidates of 100, 90 and 70,
+but changed random streams, bin boundaries and replicate budgets together
+(Appendix~\ref{app:historical}). To isolate these choices, we simulated the
+union of counts once per cohort, pool and each of eight seeds, with 200 outer
+replicates and 200 inner bootstrap draws. Every grid summary reuses the same
+outputs at shared counts. The committed grid reaches
+$\{0,20,40,100,200,400,800\}$; filled and dense grids add count support.
+Fixed bins share boundaries across grids; adaptive bins recalculate them.
+Binned candidates are median counts within the selected bin, not estimated
+crossing locations.
+
+\begin{figure}[htbp]
 \centering
-\iffull
-\includegraphics[width=\linewidth]{figures/fig1_calibration.pdf}
-\else
-\includegraphics[width=0.88\linewidth]{figures/fig1_calibration.pdf}
-\fi
-\iffull
-\caption{\textbf{The committed cutpoint is not what the pre-registered procedure
-returns, under either reading of an unspecified design choice.} Dashed lines mark
-the targets fixed before the sweep. Shading marks the committed rule's three
-states. \emph{Left:} with the draw pool our sweep code implements, the routine
-returns no cutpoint at any tested count. \emph{Right:} under a second reading of
-the same unspecified choice it does return one --- but the value is the grid's,
-not the cohort's: $100$, $90$ and $70$ on three grids of increasing resolution,
-against a committed 50 that none of them returns.}
-\else
-\caption{\textbf{The committed cutpoint is not what the pre-registered procedure
-returns, under either reading of an unspecified design choice.} Dashed lines are
-the targets fixed before the sweep; shading marks the committed rule's three
-states; the committed value is 50 in both panels.}
-\fi
+\includegraphics[width=\linewidth]{figures/controlled_calibration.pdf}
+\caption{Direct evaluation on the controlled union of counts, without binning.
+Rows show cohorts; columns show draw pools. Curves are median rates over eight
+seeds and bands span their minima and maxima, conditional on the observed
+cohorts. Dashed lines mark the 90\% benchmark-inclusion and 80\% discrimination targets;
+the vertical line marks the committed count of 50. Rates condition on defined
+intervals and coverage uses the draw-dependent reference in
+Equation~\ref{eq:requested}. Zero-cell settings have no defined interval and
+are omitted. No pooled-cell candidate qualifies. Per-count reference-only
+candidates vary by seed and cohort (Table~\ref{tab:controlledgrid}).}
 \label{fig:calibration}
 \end{figure}
-\fi
 
+With common fixed bins, SMC returns 100 on the committed grid and 70 on both
+expanded grids in all eight seeds. Adaptive bins return 65 on seven filled-grid
+seeds and 90 on one, while the dense grid returns 70 throughout. KUL3 instead
+returns 400 on six seeds and 800 on two, with all grid and binning schemes
+agreeing within each seed. Pooled draws yield no joint candidate in either
+cohort. The largest binomial Monte Carlo standard error is 0.035, conditional
+on the fixed cohorts; it does not measure patient-sampling uncertainty.
 
-\iffull\else
-\paragraph{The grid was reporting its own resolution.} The committed grid varies
-a mature \emph{fraction} against a fixed 2{,}000 cells, so it can reach no count
-between 40 and 100, and returns $ok = 100$ on every seed. Adding nine fractions
-inside that gap and changing nothing else moves the answer to 90, against a
-committed 50: the crossing it was hiding runs $0.728$ at 45 mature cells,
-$0.789$ at 65 and $0.858$ at 90. A grid that cannot resolve a crossing still
-returns a stable number, which is \S\ref{sec:blind}'s failure in a second
-statistic.
-\fi
-\iffull
-\paragraph{The grid was reporting its own resolution.} Our committed grid varies
-a mature \emph{fraction} against a fixed 2{,}000 cells, so the counts it can
-reach are $\{0, 20, 40, 100, 200, 400, 800\}$ --- nothing between 40 and 100. On
-the reference pool it returns $ok = 100$ on every one of the eight seeds at 500
-replicates\iffull{}, and on twelve of thirteen at 50,\fi{} and that stability is
-what made the number look like a measurement.
-
-\iffull
-The superseded internal report gave 120, and we cannot reproduce it: 120 is not
-a count the committed grid can reach. Whatever produced it was not the committed
-configuration, and the run is the uncommitted one of
-the artifact's defect log item~3, so there is nothing left to re-derive it
-from. We report that rather than reconcile it.
-\fi
-
-\textbf{And the reported cutpoint is not a count. It is a bin label.} Counts are
-binned into twelve log-spaced intervals before coverage and discrimination are
-computed, and the value reported for a bin is the \emph{median of the counts
-that landed in it}. Over $20$--$800$ the edges are $\{0, 20, 28, 39, 55, 76,
-107, 150, 209, 293, 409, 572, 800\}$, and they are identical for every grid
-because they are derived from the same span. Nothing in the output says so, and
-we did not know it while writing the paragraph above.
-
-We added nine fractions inside the gap, reaching 50, 60, 70, 80, 90, 110, 120,
-130 and 150, and changed nothing else. The answer moves to 90 --- and it moves
-\emph{within one bin}. Both grids return the interval $(76, 107]$; the committed
-grid held only $\{100\}$ there and the filled grid holds $\{80, 90, 100\}$, so
-the median fell from 100 to 90 while the bin boundaries stayed put; the added counts change the evidence
-aggregated within that bin. \textbf{At the resolution of the statistic that produced it, the answer did
-not move at all.} What the filled grid did buy is a genuinely new bin at
-$(55, 76]$, where discrimination reads $0.789$ --- under target, so the crossing
-lies above it.
-
-\textbf{A third grid, and the number keeps falling.} A denser grid reaching
-below 20 --- attainable counts $\{2.5, 10, 17.5, 27.5, 42.5, 70, 105, 150, 400,
-800\}$ --- returns $ok = 70$ on eight of eight seeds. Discrimination against
-count is smooth, and the three grids agree on it wherever they overlap
-(medians over eight seeds of $0.712$, $0.728$ and $0.726$ near 40, and $0.880$,
-$0.858$ and $0.878$ near 100). What
-differs is only which point each grid happens to carry first above the $0.80$
-line:
-
-\begin{center}\small
-\begin{tabular}{@{}lccc@{}}
+\begin{table}[htbp]
+\centering\small
+\caption{Joint coverage-and-discrimination candidates from the controlled
+union-grid run. Entries give candidates with seed frequencies in parentheses
+where they vary; otherwise all eight seeds agree. Every grid summary reuses the
+same draws at shared counts. ``None'' means no tested count or bin qualifies.}
+\label{tab:controlledgrid}
+\begin{tabular}{@{}llccc@{}}
 \toprule
- & \textbf{committed} & \textbf{filled} & \textbf{dense} \\
+cohort / pool & grid & fixed bins & adaptive bins & per count \\
 \midrule
-crossing bracketed to & $(40, 100]$ & $(65, 90]$ & $(42.5, 70]$ \\
-reported $ok$ & $100$ & $90$ & $\mathbf{70}$ \\
-reported $wide$ & $40$ & $45$ & $42$ \\
+SMC / reference & committed & $100$ & $100$ & $100$ \\
+ & filled & $70$ & $65\ (7),\ 90\ (1)$ & $50$--$80$ \\
+ & dense & $70$ & $70$ & $45$--$80$ \\
+KUL3 / reference & all three & $400\ (6),\ 800\ (2)$ & same & same \\
+Both / pooled & all three & None & None & None \\
 \bottomrule
 \end{tabular}
-\end{center}
+\end{table}
 
-\textbf{The reported cutpoint decreases across these independently run grids;
-this does not establish monotonicity or non-convergence under further
-refinement. None of these historical runs returned the committed 50.} Each value is the first point above a crossing, reported as
-though it were the crossing. Within any one grid $wide$ has \emph{exactly zero}
-seed-to-seed variance --- one value on all eight seeds, in all six
-cohort-by-grid cells we ran ($40$, $45$, $42$ here; $100$, $65$, $70$ on the
-second cohort) --- so the quantity that looks most like a measurement is the one
-whose stability comes entirely from having nowhere else to land. The pooled draw
-returns no cutpoint under any of the three grids, on any seed of either cohort,
-discrimination topping out at $0.750$ and $0.795$ against the $0.80$ target, so
-the non-identifiability there is not a resolution artefact.
+At the committed count of 50, SMC reference-only discrimination ranges
+from 75.5\% to 81.0\% across seeds, with both criteria met on two of eight
+seeds. KUL3 reference-only discrimination is only 45.0--55.0\% at that count.
+These direct observations make the lack of support for a cohort-independent
+50-cell rule more concrete than the selected binned candidates alone.
 
-\textbf{We do not endorse a calibrated cutpoint: the procedure returns
-grid-dependent candidates without patient-level uncertainty.} It returns its own grid, and it did so with a stability that
-survived three grids, thirteen seeds and two cohorts without once warning us.
-On the real cohort, rather than on the sweep, abstention is the modal outcome
-under both population definitions at the resolution the compositional question
-is defined on, and the coarse resolutions return \emph{not identifiable}
-rather than a number.
-\fi
+The per-count summaries in Table~\ref{tab:controlledgrid} supply a useful
+check on the bin medians. In SMC, the filled grid's first qualifying actual
+count is 50 on two seeds, 60 on five and 80 on one; the dense grid adds a
+candidate of 45 on one seed. Thus a stable binned candidate of 70 is not
+evidence that 70 is a uniquely determined biological threshold. A bin pools
+outcomes over several count settings, whereas a per-count rate addresses only
+that setting. Fixed bins hold the boundaries constant, but adding settings can
+still change both a bin's median count and its aggregate performance.
 
-\iffull
-A second cohort agrees on the verdict and not the number: its pooled draw
-returns no cutpoint on any seed, and its reference draw returns $400$ or
-$800$, the top two counts its grid can express. Eight to sixteen times the
-committed 50, by the same mechanism.
+\paragraph{Low-count rejection and nonmonotone qualification.}\label{sec:lowcounts}
+The high exclusion rate at very small counts in Figure~\ref{fig:calibration}
+is not evidence of reliable low-count power. We performed an exploratory
+diagnostic at counts 5, 50, 100 and 800: 200 replicates per cohort, pool and
+shift ($s=0.5$ and $1$), using the first controlled-run seed and the same
+200-resample interval. All 16 alternative-setting summaries reproduce their
+saved counterparts. Under the null ($s=1$), exclusion of zero is a false
+positive, and the target is exactly zero under both the draw-dependent and
+fixed-pool definitions. Table~\ref{tab:lowcounts} reports both shifts with the
+same method and valid-pair denominator; all 6{,}400 diagnostic outputs are finite.
 
-\paragraph{Three further statistics, and where they are.} The same failure
-recurs three more times in this pipeline --- a confound diagnostic whose
-tolerance sat above its own attainable bound, a pre-registered criterion that
-could not pass when the hypothesis held, and a premise check whose sensitivity
-was a property of the gene it controlled. Each survives correct code and each
-is recorded in Appendix~\ref{app:guards} rather than argued here; none of this
-paper's claims rests on them. The fourth is not a guard at all.
+\input{sections/low_count_table.tex}
 
-\input{sections/interval.tex}
-\fi
+At five cells, null rejection is 37.5--67.0\%, far above the nominal 5\%.
+For the pooled SMC and KUL3 alternatives, respectively 96 and 85 of 200 tumour
+samples have all-zero target expression; all of these exclude zero. Resampling
+such a tumour sample cannot recover its unobserved positive tail. The reference
+arm still varies, so none of the 6{,}400 full intervals has exactly zero width.
+The pooled five-cell median widths are 1.45 and 1.72, compared with 2.35 and
+2.01 at 50 cells. These checks support sparse-sample undercoverage, rather
+than a claim that the whole interval collapses to a point. Even at 50 cells,
+null rejection is 12.0--30.0\%. The original 90\% benchmark-inclusion criterion
+at $s=0.5$ therefore cannot substitute for checking the null.
+
+Nonmonotonicity also changes candidate interpretation. In the full saved
+union grid, three of eight SMC/reference seeds fail a criterion at a larger
+count after first qualifying. Requiring every subsequently evaluated count
+to qualify changes first candidates 45, 50 and 50 to 60, 70 and 70. No such
+reversal occurs in the eight KUL3/reference seeds; neither pooled condition
+has a qualifying candidate. This is a descriptive re-reading of the same
+simulations, not an independently validated replacement selection rule.
+Together, the null diagnostic and reversals make the candidates useful as
+sensitivity summaries, not operational cutpoints. The diagnostic uses one
+seed stream and fixed observed cohorts; its binomial Monte Carlo standard
+errors are at most 3.54 percentage points, excluding patient uncertainty.
+
+\paragraph{Simulation precision is not patient-level uncertainty.}
+Enumerating all 45 and 15 two-patient holdout pairs separates patient omission
+from repeated simulation. Keying streams to the sorted pair identifiers keeps
+every retained pair fixed. Raising the inner bootstrap budget from 200 to 1{,}000
+and 5{,}000 leaves the first cohort's candidate at 70, but moves the second's
+400 to 300 and back to 400. Omitting one source patient changes the joint
+coverage-and-discrimination candidate for none of ten patients in the first
+cohort and three of six in the second (KUL01, KUL30 and KUL31). For the
+coverage-only candidate, the corresponding counts are five of ten and zero of
+six. These are cohort-conditional influence checks, not intervals for a larger
+patient population. We therefore report candidates, not an endorsed calibrated
+cutpoint. Appendix~\ref{app:guards} records further biological comparability limits.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Reference-only sensitivity with every two-patient holdout pair
+represented once per count and effect. The three inner budgets reuse identical
+outer samples. Omission counts compare with the baseline at 200 inner draws;
+all pairs involving the omitted patient are removed and retained pairs are
+unchanged. These are sensitivity summaries within the observed cohorts.}
+\label{tab:sensitivity}
+\begin{tabular}{@{}lcrrrcc@{}}
+\toprule
+ & pairs & \multicolumn{3}{c}{joint candidate, inner draws} &
+ \multicolumn{2}{c}{omissions changing candidate} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-7}
+cohort & & $200$ & $1{,}000$ & $5{,}000$ & joint & coverage only \\
+\midrule
+SMC & $45$ & $70$ & $70$ & $70$ & $0/10$ & $5/10$ \\
+KUL3 & $15$ & $400$ & $300$ & $400$ & $3/6$ & $0/6$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The sensitivity windows cover counts $40,50,60,70,80,90,100,110$ in SMC and
+$200,300,400,600,800$ in KUL3. These per-count summaries use a fixed pair
+schedule, so they are a separate experiment from the eight-seed union grid.
+Omitting KUL01 or KUL30 moves the joint candidate from 400 to 300; omitting
+KUL31 moves it to the lowest tested count, 200, with its lower boundary
+unobserved. The coverage-only baselines likewise occur at the lowest tested
+counts, 40 and 200. Their stability cannot locate a lower crossing outside
+those windows. Enumerating pairs improves transparency about source-patient
+influence, but overlapping pairs do not create additional independent patients.
+
+
+\paragraph{Biological controls fail to establish mechanism.}\label{sec:biocontrols}
+The pre-committed panel included compositional, intrinsic and retained-gene
+controls. In the primary cohort the retained-gene control changed by
+$-1.000$ to $-0.951$ relative to baseline, almost matching the compositional
+controls' $-1.000$ to $-0.952$. The intrinsic control had only 0.04 CP10K,
+compared with 19.4 and 24.9 for the abundant compositional controls (counts per
+10{,}000), making it uninformative for the intended test. A second cohort
+reproduced the pattern. Thus the application has two distinct unresolved
+problems: its interval rule lacks the recorded calibration support, and its
+control panel does not distinguish the proposed biological mechanisms.
+Improving one would not establish the other.

@@ -1,0 +1,25 @@
+\begin{table}[htbp]
+\small\centering
+\caption{Maximum absolute residual against the drawn reference, over cohort
+sizes and generators within each family, conditional on finite pairs. All ten
+estimators in the expanded run are shown. The saturated zero row is exact;
+other entries are rounded from the pinned primary table. Changing generator
+capacity preserves the saturated identities but can change other residuals.}
+\label{tab:learned}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Estimator & Mixtures & MLP generator & Parametric controls \\
+\midrule
+G-computation, saturated & $0$ & $0$ & $0$ \\
+IPW, saturated & $1.6\!\times\!10^{-14}$ & $1.2\!\times\!10^{-14}$ & $1.1\!\times\!10^{-14}$ \\
+G-comp., mixture outcome $K=1$ & $9.3\!\times\!10^{-15}$ & $8.0\!\times\!10^{-15}$ & $8.0\!\times\!10^{-15}$ \\
+G-comp., mixture outcome $K=4$ & $2.2\!\times\!10^{-14}$ & $1.6\!\times\!10^{-14}$ & $1.8\!\times\!10^{-14}$ \\
+G-comp., ridge $\alpha=10^{-5}$ & $7.9\!\times\!10^{-5}$ & $6.3\!\times\!10^{-5}$ & $8.6\!\times\!10^{-5}$ \\
+G-comp., ridge $\alpha=10^{-3}$ & $0.0079$ & $0.00627$ & $0.00864$ \\
+G-comp., ridge $\alpha=10^{-1}$ & $0.713$ & $0.568$ & $0.78$ \\
+G-comp., MLP outcome & $3.3$ & $0.00908$ & $0.0125$ \\
+OLS, stratum dummies & $1.51$ & $1.42$ & $1.71$ \\
+Unadjusted difference & $10.2$ & $9.69$ & $11.3$ \\
+\bottomrule
+\end{tabular}
+\end{table}

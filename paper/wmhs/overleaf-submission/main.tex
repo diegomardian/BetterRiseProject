@@ -1,7 +1,6 @@
 \documentclass{article}
 
-% The tracked neurips_2026 compatibility shim uses NeurIPS 2024 geometry.
-% Supply the official workshop style and recheck pagination before submission.
+% Official NeurIPS 2026 style downloaded from the conference author kit.
 % No geometry or spacing overrides live in this file.
 \usepackage[dblblindworkshop]{neurips_2026}
 
@@ -18,21 +17,19 @@ Simulation and Intervention-Aware Reasoning}
 \usepackage{nicefrac}
 \usepackage{microtype}
 \usepackage{graphicx}
-\usepackage{mdframed}
 \usepackage{caption}
 
 \captionsetup{font=small,labelfont=bf}
 
-% Full-paper revisions live in sections/full/; the extended abstract keeps
-% its original sections/ sources. Table values and figure assets are unchanged.
+% Standalone full-paper revision.
 \newif\iffull
 \fulltrue
 
 \newcommand{\notest}{\textsc{not estimable}}
 
 
-\title{When the recovery curve reproduces the simulator:\\
-an equality audit for virtual control arms}
+\title{When a recovery curve fails to validate a decision rule:\\
+a single-cell calibration case study}
 
 \author{%
   Anonymous Author(s) \\
@@ -44,31 +41,32 @@ an equality audit for virtual control arms}
 \begin{document}
 \maketitle
 
-\input{sections/full/abstract.tex}
+\input{sections/abstract.tex}
 
 
-% Full-paper revisions, including the condensed appendix.
-% The extended abstract retains its original sections/ sources.
-\input{sections/full/setup.tex}
-\input{sections/full/blind.tex}
-\input{sections/full/refdesign.tex}
-\input{sections/full/calibration.tex}
+\input{sections/setup.tex}
+\input{sections/calibration.tex}
+\input{sections/blind.tex}
+\input{sections/refdesign.tex}
+
+\input{sections/validation.tex}
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-\input{sections/full/conclusion.tex}
+\input{sections/conclusion.tex}
 
 \section{Responsible use, limitations and impact}
 \label{sec:responsible}
 
-\input{sections/full/responsible.tex}
+\input{sections/responsible.tex}
 
+\clearpage
 \bibliographystyle{plainnat}
 \bibliography{refs}
 
 \clearpage
-\input{sections/full/appendix.tex}
-\input{sections/full/llm.tex}
+\input{sections/appendix.tex}
+\input{sections/llm.tex}
 
 \end{document}

@@ -1,46 +1,6 @@
-\section{Use of large language models}
-\label{app:llm}
-
-
-A language-model coding assistant working under author direction wrote code
-throughout this project --- the estimator jobs, the calibration sweep, the
-benchmark and the figure code --- and assisted in drafting this manuscript.
-Every claim, every number and every design decision is the authors', derived
-from the committed tables and verified against them before reaching the text.
-We also operate a standing audit rule: result tables and gate verdicts go to an
-independently prompted agent instructed to refute rather than confirm them.
-
-The arrangement cuts both ways. Two of the defects reported here surfaced through
-that audit. The two in \S\ref{sec:calibration} surfaced from re-deriving an
-internal report's numbers against the underlying tables instead of quoting them.
-The grid artifact in \S\ref{sec:calibration} surfaced the same way, from asking
-what the sweep's reported cutpoint was a function of. Assistant-written code also
-\emph{introduced} errors. The join in the artifact's defect log came from it,
-as did a mispairing of a statistic with the wrong arm's bound, and the second of
-those got reproduced once more inside the analysis of its own fix before plotting
-the result caught it.
-
-We draw no conclusion beyond the one the paper already argues. The defects
-surviving are the ones no check was capable of catching, and the remedy is to
-test each check against an input forcing it to fail. 
-Numbers reaching the text come from result tables carrying a commit hash and a
-fixed seed, and \texttt{tests/test\_paper\_numbers.py} re-derives a subset of
-them from those tables and asserts them against the literal strings in the
-sources, so editing prose or table alone fails continuous integration. \textbf{That
-subset is not yet the whole paper.} It covers the third withdrawn guard, the
-premise check and its intervals, the cutpoint grids, the recovery ranges and
-ratio collapse, and the trial simulator --- the blind pair, the design flip, the
-information ratio, censoring and the heterogeneity sweep. What it does not cover
-is the synthetic competitor benchmark: its numbers are checked against its own
-tables by that module's tests, but nothing fails if the appendix quotes them
-wrongly. We state the boundary
-rather than imply it does not exist --- an earlier draft of this sentence
-claimed every number was covered, which was the same overclaim this paper
-documents elsewhere, made about this paper's own provenance. Two figures are
-exceptions we name rather than smooth over: those reproduced
-from the superseded internal report are labelled as such in their captions, and
-the paired rates dropped from this revision were quoted from that
-report because the run that produced them was never committed --- which is
-the artifact's defect log item 3, and the reason the calibration was re-derived
-for this paper rather than cited from it. Every number was independently
-re-derived before reaching the text.
+\paragraph{Use of large language models.}\label{app:llm}
+Language-model assistants supported coding, figures, drafting and model audits
+under author direction. They helped identify defects and introduced some of
+those above. Authors remain responsible for all claims. Automated checks
+re-derive selected results and complement review; they do not verify every
+manuscript statement.

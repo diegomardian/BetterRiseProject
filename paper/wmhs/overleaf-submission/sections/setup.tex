@@ -1,83 +1,61 @@
-\section{Setup: a decomposition that answers when it should not}
+\section{Motivation: recovery and decision-rule validation}
 \label{sec:intro}
 
-A virtual-control-arm validation must distinguish recovery of a requested effect
-from reproduction of a statistic computed on the simulated patients. We audit
-that distinction in a stratified patient simulator, including randomisation and
-censoring, then examine the failed calibration that motivated the audit.
+This paper revisits a specific validation claim: a single-cell analysis
+reported that an estimator recovered an imposed effect and treated this as
+validation of a 50-cell reporting cutpoint. The original design required
+interval inclusion and discrimination, which the recovery ratio did not
+measure. Section~\ref{sec:calibration} reproduces the claim and criteria,
+then tests them directly. The empirical contribution is the failed calibration
+and its sensitivity to sampling and aggregation. The algebra used to explain
+the original comparison is elementary; the trial examples are worked checks
+of established estimator relationships.
 
-A tissue model reports a differentiation marker down 90\% between a patient's
-healthy and diseased sample. Two mechanisms produce that observation and they
-imply different interventions. Either the cells making the marker have left, a
-\emph{compositional} change, or those cells remain and produce less, an
-\emph{intrinsic} change.
-\iffull
-Bulk measurement cannot separate them. Single-cell
-measurement can, but only where enough of the relevant cells survive in both
-arms.
-\else
-Separating them needs single-cell measurement, and only works where enough of
-the relevant cells survive in both arms.
-\fi
-The separating estimator is Kitagawa's demographic standardisation
-\citep{kitagawa1955}. Write $f$ for the fraction of cells of the type in
-question and $m$ for their mean per-cell output:
+Our motivating application separates two explanations for differentiation-marker
+loss in colorectal cancer: fewer marker-producing cells (a \emph{compositional}
+change), or lower output from the cells that remain (an \emph{intrinsic}
+change). These explanations suggest different biological interpretations.
+An empirical comparison of per-cell means requires the relevant population
+to be observed in both tissues. Let $f_N,f_T$ denote the relevant cell fractions
+in reference and diseased tissue, and $m_N,m_T$ their mean per-cell output.
+A reference-based decomposition, related to demographic standardisation and
+Oaxaca--Blinder decompositions \citep{kitagawa1955,oaxaca1973,blinder1973}, is
 \begin{equation}
-\underbrace{(f_T - f_N)\, m_N}_{\text{compositional}} \;+\;
-\underbrace{f_N\, (m_T - m_N)}_{\text{intrinsic}} \;+\;
-\underbrace{(f_T - f_N)(m_T - m_N)}_{\text{interaction}}
-\;=\; f_T m_T - f_N m_N .
+\underbrace{(f_T-f_N)m_N}_{\text{compositional}} +
+\underbrace{f_N(m_T-m_N)}_{\text{intrinsic}} +
+\underbrace{(f_T-f_N)(m_T-m_N)}_{\text{interaction}}
+= f_Tm_T-f_Nm_N.
 \label{eq:kitagawa}
 \end{equation}
-Economists know this as Oaxaca--Blinder \citep{oaxaca1973,blinder1973},
-epidemiologists as standardisation \citep{kline2011}. Related weighting ideas appear in synthetic controls \citep{abadie2010} and
-target trial emulation \citep{hernan2016}; neither method is generally identical
-to this decomposition. Group-resolved contrasts require a defined group mean.
+The interaction is reported separately. If no relevant cells are observed in
+an arm, its sample mean is undefined; the identity cannot supply the missing
+mean. In a synthetic population with no such cells, the corresponding
+conditional mean itself has no referent. Substituting zero in either case
+turns an unavailable contrast into an apparent effect.
 
-The problem is that Equation~\ref{eq:kitagawa} returns a number for any input.
-The intrinsic term is a difference of two means over cells of one type. When the
-diseased arm holds none of those cells, ``mean output per surviving cell of this
-type'' has no referent, and the estimator still returns a number. So our
-estimator returns one of three verdicts: an estimate, a wide-interval estimate,
-or \notest{}, where the term is \texttt{None} and never $0.0$. Zero and ``we did
-not ask'' are values a downstream average cannot tell apart. The rule gating
-those verdicts is a cutpoint on $n$, the count of relevant cells in the diseased
-arm: answer at $n \geq 50$, flag a wide interval from 20 to 49, abstain below 20.
+The implemented reporting rule returns an estimate at $n\geq50$, flags a wide
+interval at $20\leq n<50$, and returns \notest{} below 20, where $n$ is the
+relevant-cell count in diseased tissue. Unavailable reported contrasts are
+stored as \texttt{None}, not zero. The diagnostic oracle calculations examined
+below also retain raw arithmetic before this reporting gate. The question is
+whether the earlier recovery evidence established the interval-performance
+requirements used to justify the cutpoints.
 
-\iffull
-\paragraph{Related work.} Simulation-study methodology (ADEMP and its
-forerunners), the differential-abundance methods that never face this
-estimand, and the selective-prediction literature the abstention rule belongs
-to are surveyed in Appendix~\ref{app:relatedwork}.
-
-\paragraph{Relation to known circularity.} Generator--analysis alignment is
-well known: Meng's congeniality concerns compatibility of imputation and
-analysis models \citep{meng1994}; plasmode and semi-synthetic benchmarks can
-favour methods sharing modelling choices \citep{franklin2014,curth2021};
-interventional evaluation offers another comparison \citep{gentzel2019}; and
-generators can also disadvantage good estimators \citep{shaw2026}. The inverse
-crime explicitly includes identical forward and inverse ingredients
-\citep{wirgin2004,kaipio2007}. Exact reuse is therefore not a new phenomenon.
-Our contribution is an operational audit of a chosen recovery statistic,
-examples showing its dependence on reference functional and trial design, and
-a calibration conclusion that fails when tested directly.
-
-Simulation-based calibration (SBC) \citep{talts2018} checks posterior ranks under
-prior-predictive simulation. These point-estimator arms supply no posterior
-samples, so SBC is not directly applicable. A correct posterior can pass SBC
-while its point estimate reproduces our reference; that is not a computational
-error. Conversely, SBC can expose posterior errors that our residual cannot.
-Modr\'ak et al.~\citep{modrak2025} already show structural blind spots from the
-choice of test quantity and develop more sensitive quantities. We complement
-that work rather than claim that existing diagnostics detect only approximate
-bias. Exact functional equality permits an algebraic audit; a good-looking
-curve alone establishes neither that equality nor its absence.
-
-\else
-\paragraph{Related work.} Exact reuse is related to the inverse crime
-\citep{wirgin2004}; diagnostic sensitivity also depends on test quantities in
-SBC \citep{modrak2025}. Our contribution is the reference-reuse audit and failed
-calibration, not a new circularity phenomenon or cell-count filter
-(Appendix~\ref{app:relatedwork}).
-\fi
-
+\paragraph{Relation to existing validation methods.}
+Simulation-study methodology already separates estimands, methods and
+performance measures \citep{burton2006,morris2019}. Generator--analysis alignment
+is discussed in congeniality \citep{meng1994}, plasmode and semi-synthetic
+benchmarks \citep{franklin2014,curth2021}, interventional evaluation
+\citep{gentzel2019} and the inverse crime \citep{wirgin2004,kaipio2007}; generators
+can also disadvantage good estimators \citep{shaw2026}. Our analysis applies these established distinctions to a documented
+reporting-rule decision. For clinical trials, external-control validation
+already examines bias and type-I error using held-out studies
+\citep{ventz2019}. Prognostic adjustment with historical data retains trial
+randomisation and evaluates precision gains \citep{schuler2022}; target-trial
+emulation states the causal question and design explicitly \citep{hernan2016}.
+These are different uses of a patient model and need different validation
+experiments. Our case contributes an inspectable failure analysis relevant to
+that design problem, not evidence of failure in those methods. Simulation-based
+calibration evaluates posterior ranks \citep{talts2018,modrak2025}.
+Appendix~\ref{app:relatedwork}
+provides further context.
