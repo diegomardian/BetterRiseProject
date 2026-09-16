@@ -1,15 +1,21 @@
 \subsection{Fixed-pool coverage and false positives}
 \label{sec:fixedpool}\label{sec:lowcounts}
-The larger run resolves the 50-cell coverage comparison
-(Table~\ref{tab:precision}). Percentile coverage is below the recorded 90\%
-criterion in three conditions, whose Wilson upper endpoints are below 90\%.
-SMC/reference has 91.0\% coverage, with its lower endpoint above 90\%.
-Thus the rule does not fail coverage uniformly. It does fail the combined
-assessment: null rejection is 9.8--32.2\%, above the nominal 5\% in every
-condition, and detection is 47.5--76.2\%, below the required 80\%.
-All four detection upper endpoints are below 80\%; all four null-rejection
-lower endpoints exceed 5\%. These intervals measure simulation precision,
-not uncertainty over additional patients.
+Two standards answer different questions (Table~\ref{tab:precision}). At
+$s=0.5$, percentile coverage is below the historical minimum of 90\% in
+three conditions; SMC/reference reaches 91.0\% [90.2, 91.8]. All four,
+including SMC/reference, remain below the intervals' nominal 95\% level,
+with every Wilson upper endpoint below 95\%. The historical tolerance
+does not establish nominal calibration.
+
+At $s=1$, the fixed-pool target is zero, so null rejection is exactly
+one minus coverage among defined intervals. The reported 9.8--32.2\%
+null rejection is therefore 67.8--90.2\% null coverage, rather than an
+independent calibration criterion. Coverage is lower at the null than
+at the halving in all four conditions. Detection at $s=0.5$ is a distinct
+quantity: exclusion of zero under a nonzero effect, here 47.5--76.2\%.
+All detection upper endpoints are below the historical 80\% requirement;
+all null-rejection lower endpoints exceed nominal 5\%. Wilson intervals
+quantify Monte Carlo precision conditional on the source pools.
 
 \input{sections/precision_table.tex}
 
@@ -40,6 +46,6 @@ continues resampling both arms. This explains why near-perfect benchmark
 inclusion can accompany lower coverage of the generating parameter. Skewed
 finite-sample errors still determine the actual percentile-interval rates.
 
-The new runs assess four specified counts, rather than selecting a
+These precision runs assess four specified counts, without selecting a
 replacement threshold. The eight-seed grid below remains scored against
 its original benchmark and cannot be reinterpreted as fixed-pool calibration.

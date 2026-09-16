@@ -1,22 +1,22 @@
 # Revised WMHS paper
 
-**When recovery does not validate a reporting rule: a synthetic trial example and an empirical audit**
+**When the reference hides uncertainty: a data-based simulation audit**
 
-This independent revision starts from repository commit `b503971` and addresses
-the review of `WHMS_BIO_PAPER.pdf`. After pulling through `a336594`, it adopts
-the verified synthetic external-control example from the incoming paper while
-preserving the later fixed-pool and false-positive analyses. This integration
-does not modify the other manuscript, experiment implementations or saved results.
-The latest structural revision pulls through `7c3c818`, leads with the clinical
-simulation example, narrows the interval-comparator conclusion, and consolidates
-the general limitations. The empirical evidence and numerical results are unchanged. The subsequent
-precision critique revision demotes unresolved local crossings, adds bootstrap
-and SBC context, and restores a compact learned-generator check.
+This independent revision audits the recorded justification for a 50-cell
+reporting rule. The latest revision starts from `bf6b825`, independently
+assesses the new critique, and adds a fixed-design comparison of five intervals
+at 30 and 50 cells: 32,000 simulated studies and 160,000 interval evaluations.
+It leads with the measured reference-versus-parameter coverage discrepancy,
+compresses the synthetic external-control illustration, and distinguishes
+nominal calibration from the weaker historical acceptance criterion.
+The original experiment implementations and saved precision results are unchanged.
 
 - `main.pdf`: revised anonymous manuscript.
 - `main.tex`, `sections/`, `refs.bib`, `figures/`: editable LaTeX sources and figures.
 - `source.zip`: portable LaTeX/Overleaf source bundle, with `main.tex` at its root.
-- `PRECISION_CRITIQUE_REVIEW.md`: current assessment of Monte Carlo reversals, interval scope and supporting evidence.
+- `REPAIR_CRITIQUE_REVIEW.md`: current independent assessment, experimental findings and remaining limitations.
+- `REPAIR_FOLLOWUP_DESIGN.md`, `repair_followup.py`: fixed design and implementation of the new interval comparison.
+- `PRECISION_CRITIQUE_REVIEW.md`: preceding assessment of Monte Carlo reversals, interval scope and supporting evidence.
 - `ANALYTICAL_ARTIFACTS.md`: inventory of local diagnostic sources excluded from the submission.
 - `STRUCTURE_REVIEW.md`: preceding assessment of venue fit, structure, novelty and bootstrap claims.
 - `THIRD_CRITIQUE_RESPONSE.md`: preceding independent assessment and experimental follow-up.
@@ -84,7 +84,7 @@ comparison: all 240 primary and nine balance summary rows were independently
 reproduced. Original experiment code and saved tables remain unchanged.
 
 ```sh
-PYTHONPATH=. python -m pytest papers/whms_bode/test_results.py papers/whms_bode/test_precision_followup.py tests/test_external_control_demo.py tests/test_retained_control_audit.py -q
+PYTHONPATH=. python -m pytest papers/whms_bode/test_results.py papers/whms_bode/test_precision_followup.py papers/whms_bode/test_repair_followup.py tests/test_external_control_demo.py tests/test_retained_control_audit.py -q
 python papers/whms_bode/make_tables.py --check
 python papers/whms_bode/audit_results.py
 python papers/whms_bode/make_tables.py
@@ -93,11 +93,12 @@ python papers/whms_bode/make_fixed_pool_tables.py
 python papers/whms_bode/make_external_control_table.py
 python papers/whms_bode/make_figures.py
 python papers/whms_bode/make_precision_results.py
+python papers/whms_bode/make_repair_results.py
 papers/whms_bode/build.sh
 python papers/whms_bode/package_source.py
 ```
 
-`make_figures.py` reads version-pinned tables and reproduces the retained controlled-calibration figure.
+`make_figures.py` reads version-pinned tables and reproduces the historical controlled-calibration figure, now retained only as a local analytical artifact.
 The controlled calibration figure deduplicates grid views only after asserting
 that rates at shared counts are identical. The learned-estimator table and extended estimator checks remain local
 analytical artifacts, excluded from the submission bundle; their purposes are
@@ -107,7 +108,7 @@ The redundant normal-mean interval-width demonstration is no longer compiled.
 
 Verification completed for this revision:
 
-- 30 paper/precision tests, 35 external-control harness tests and 21
+- 40 paper/precision/repair tests, 35 external-control harness tests and 21
   retained-control audit tests passed,
   including target-dependent rankings and the corrected comparison denominators.
 - All 30 numerical cells in the retained learned-estimator analysis table match
@@ -168,5 +169,41 @@ coverage, null/effect rejection, seed rates and paired differences only.
 The maximum binomial Monte Carlo SE is 0.71 percentage points. The
 `precision_provenance.json` sidecar hashes the fixed design, implementation,
 source-pool summaries and result files. The three precision CSVs ship in the
-anonymous ZIP, alongside a second scientific figure showing null and effect
-curves together. The main text now contains three tables and two figures.
+anonymous ZIP, alongside the scientific figure showing null and effect
+curves together. The main text now contains four tables and one figure.
+
+## Reporting-band and interval-repair follow-up
+
+With the same local source data available:
+
+```sh
+PYTHONPATH=. python papers/whms_bode/repair_followup.py
+python papers/whms_bode/make_repair_results.py
+```
+
+The design compares percentile B=200, percentile B=2,000, BCa B=2,000,
+bootstrap-t B=2,000 and Welch on identical study samples. The bootstrap methods
+share resamples. Coverage is scored against the fixed eligible-pool effect;
+no drawn-reference benchmark is substituted for this target. Five fresh seed
+streams produce 2,000 studies per cohort/pool/count/shift setting. All 160,000
+interval evaluations return finite intervals. The maximum binomial Monte Carlo
+SE is 1.12 percentage points. Four aggregate CSVs include Wilson intervals,
+paired differences, per-seed rates and numerical diagnostics. Their provenance
+sidecar hashes the design, implementation and results. No cell-level data are
+exported.
+
+At 30 cells, the original interval has 78.10–89.05% alternative coverage and
+14.20–40.45% null rejection. Increasing the bootstrap budget at 50 cells reduces
+null rejection by only 0.5–1.0 percentage points. Bootstrap-t improves the
+SMC/reference null rejection from 8.45% to 6.05% [5.09, 7.18], but alternative
+detection decreases from 76.3% to 65.9%. No method meets the joint criteria
+at either tested count; this study does not select a replacement interval or
+validate the entire reporting range. BCa adjusted endpoints also reach poorly
+resolved bootstrap tails in a substantial fraction of studies; these finite-budget
+results are not a general impossibility claim about skew-aware methods.
+
+BCa endpoints are checked against SciPy's independent multisample jackknife
+implementation on continuous, discrete, skewed and sparse samples. Further
+checks cover the original percentile/Welch routines, studentized endpoint
+construction, affine transformations, arm exchange, degeneracy, exact null
+coverage/rejection accounting, numerical exports and provenance hashes.

@@ -22,8 +22,9 @@ def render_table(d):
 but does not restore the required performance. Rates (\%) and 95\% Wilson
 Monte Carlo intervals use 5{,}000 studies per cohort, pool and effect. Methods
 share the same samples. Coverage targets the fixed-pool effect at $s=0.5$;
-null rejection uses $s=1$; detection uses $s=0.5$. Targets are at least 90\%
-coverage, nominal 5\% null rejection and at least 80\% detection.}
+null rejection uses $s=1$; detection uses $s=0.5$. Historical requirements are at least 90\%
+alternative coverage and 80\% detection. Nominal coverage is 95\%; null
+rejection is one minus null coverage and should be 5\%.}
 \label{tab:precision}
 \begin{tabular}{@{}llrrr@{}}
 \toprule

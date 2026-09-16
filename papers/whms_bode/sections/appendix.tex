@@ -25,6 +25,26 @@ exploratory study on previously examined source data. The earlier 200-draw
 target diagnostic is retained in the supporting summaries.
 
 
+\paragraph{Reporting-band and repair follow-up.}\label{app:repair}
+Five fresh streams (202609170--202609174), 400 studies each, use the same
+pool-conditional sampling law at 30 and 50 cells. All 120 source-pool summaries
+match the preceding study. For BCa, bias correction uses midpoint ties;
+acceleration uses signed two-sample influence contributions
+$-(Y_{Ni}-\bar Y_N)/n_N$ and $(Y_{Ti}-\bar Y_T)/n_T$.
+Endpoints agree with SciPy's independent two-sample jackknife implementation
+on continuous, discrete, sparse and zero-tumor samples. Bootstrap-$t$ uses
+$t^*=(\hat\theta^*-\hat\theta)/\widehat{\mathrm{SE}}^*$ and reversed pivot
+quantiles, with Welch standard errors recomputed in each resample. Invalid
+BCa transforms or any undefined studentized pivot return an unavailable
+interval; none occurred. All 160{,}000 intervals are finite. The study settings
+were fixed before the run; this remains exploratory analysis on existing pools.
+
+At least one adjusted BCa endpoint lies within the outermost ten bootstrap
+order positions in 5.2--56.3\% of studies across settings. These finite-budget
+results therefore do not characterize BCa with arbitrarily precise tail
+quantiles. Seed rates, paired differences and numerical diagnostics accompany
+the aggregate summaries.
+
 \section{Calibration details and limits}
 \label{app:gridcaveats}
 
@@ -54,20 +74,14 @@ three-state specification need not yield three distinct fitted regions.
 
 \paragraph{Biological scope and patient uncertainty.}\label{app:guards}
 \label{app:modal}\label{app:limitations}
-The finest annotation resolution yields abstention in 28/28 patients under one
-population definition and 24/28 under the other; coarser definitions do not
-resolve identifiability. The coarsest definition labels every epithelial cell
-mature and forces the compositional term to zero. In a separate comparability
-analysis over three cohorts and 42 patients, 83 of 84 housekeeping-detection
-control rows pass a 0.10 tolerance despite expression changes of 1.19--1.64
-fold. Patient-bootstrap log$_2$ expression intervals cross the accepted
-$[-0.5,0.5]$ boundaries in every cohort, leaving the comparisons undecided.
-Depth matching discards roughly three quarters of the cells and pushes about
-half the remaining estimable rows below the count threshold. Within SMC, changing tissue eligibility changes the mature-cell pool from
-662 to 3{,}824 cells. The across-cohort comparison in
-Section~\ref{sec:cohortgap} instead holds tissue eligibility fixed.
-These observations restrict biological interpretation. Repeated cell draws and
-overlapping patient pairs do not supply independent patient replication.
+A separate comparability analysis over three cohorts and 42 patients remains
+undecided: patient-bootstrap log$_2$ expression intervals cross the accepted
+$[-0.5,0.5]$ boundaries in every cohort. Depth matching discards roughly three
+quarters of cells and pushes about half the remaining estimable rows below
+the count threshold. Within SMC, changing tissue eligibility changes the
+mature-cell pool from 662 to 3{,}824 cells; Section~\ref{sec:cohortgap} holds
+tissue eligibility fixed. These checks restrict biological interpretation;
+overlapping pairs do not supply independent patient replication.
 
 \input{sections/supporting_check.tex}
 
@@ -126,28 +140,19 @@ panel's prior expectation of retention therefore needs reassessment.
 
 \paragraph{Search and classification.}
 A pre-registered queue contained 41 entries; 19 were screened out and seven
-classified within the 26 entries examined in order. An amendment before code
-inspection relaxed unsuccessful queries; the classification rule was unchanged.
-Generating-parameter references or quantities computed outside the estimator's
-observed records give \textsc{no}. Same-record references require examination
-of inputs, weights, conditioning, nuisance fitting and observation process;
-\textsc{yes} requires affirmative evidence of functional identity. All seven
-recorded verdicts are \textsc{no}: \texttt{causl}, target-trial-emulation,
-\texttt{ecasim}, PlasmodeSimulation, StatsPAI, \texttt{diff-diff}, and
-Auto-Empirical-Research-Skills. The first six use generating parameters or
-outside-sample quantities; the last compares cross-fitted partialling-out with
-full-sample OLS. Its $4.0\times10^{-14}$ residual on noiseless linear data
-becomes 0.125 after adding outcome noise. The functions agree on the restricted
-noiseless support but not on general noisy datasets; the \textsc{no} verdict
-concerns shared functional form. Classification used one reader, only this last
-repository was executed, and the sample is nonrandom. The virtual-control-arm
-query located no examinable code. These limits preclude a prevalence estimate.
+classified within 26 entries examined in order. A pre-inspection amendment
+relaxed unsuccessful queries without changing classification. All seven
+verdicts were \textsc{no}: six repositories use generating-parameter or
+outside-sample references. The seventh compares cross-fitted partialling-out
+with full-sample OLS; their residual changes from $4.0\times10^{-14}$ on
+noiseless linear data to 0.125 with noise, so agreement is restricted to the
+noiseless support. Classification had one reader, only that last repository
+was executed, and the sample is nonrandom. The virtual-control-arm query
+located no examinable code. These limits preclude a prevalence estimate.
 
 \paragraph{Related scope.}\label{app:relatedwork}
 Cell-count filters are established in pseudobulk analysis \citep{crowell2020};
-scCODA, Milo, propeller and DA-seq address composition
-\citep{buettner2021,dann2022,phipson2022,zhao2021}, while cacoa separates
-composition and expression changes \citep{petukhov2022}. Selective prediction
+cacoa separates composition and expression changes \citep{petukhov2022}. Selective prediction
 motivates evaluating both answers and abstentions
 \citep{chow1970,elyaniv2010,geifman2017}. Conformal prediction coverage
 \citep{vovk2005,angelopoulos2023} does not define a missing conditional

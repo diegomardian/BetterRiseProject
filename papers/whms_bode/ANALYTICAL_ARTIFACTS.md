@@ -18,3 +18,10 @@ presence does not mean they are compiled into the paper.
 `supporting_check.tex` is compiled. It contains the concise reference-dependence
 and learned-generator checks. The full interval-width example is only in the
 local extended analysis; the unreferenced paragraph label was removed there.
+
+`figures/controlled_calibration.pdf` is also local only. It shows the historical
+200-replicate grid; the unsupported “Nonmonotone exclusion” annotation has been
+removed from its generator. The submission uses the larger precision-study
+figure and the new interval-comparison table instead. Historical local crossings
+remain unresolved; the separately supported pooled detection trough is assessed
+using the larger run, not inferred from this old figure.

@@ -1,0 +1,30 @@
+\subsection{Testing the flag-wide band and skew-aware intervals}
+\label{sec:repair}
+A separate fixed-design follow-up evaluates 30 and 50 cells, using 2{,}000
+fresh studies per cohort/pool/shift: 32{,}000 studies and 160{,}000 interval
+evaluations. It compares percentile intervals with 200 and 2{,}000 resamples,
+bias-corrected and accelerated (BCa) and bootstrap-$t$ intervals with 2{,}000
+resamples, and Welch. These skew-aware methods follow established bootstrap
+accuracy work \citep{diciccio1996}. All methods use the same study samples;
+bootstrap methods share resamples. Coverage uses the fixed-pool target.
+Appendix~\ref{app:repair} specifies implementation and numerical checks.
+
+\input{sections/repair_table.tex}
+
+At 30 cells, the original interval has 78.1--89.1\% alternative coverage,
+14.2--40.5\% null rejection and 48.5--67.9\% detection. Flagging its width
+does not establish calibration. This evaluates one interior point, not the
+whole 20--49-cell band. At 50 cells, increasing the percentile budget reduces
+null rejection by 0.5--1.0 percentage points (paired Monte Carlo SEs
+0.28--0.34 points), much less than its excess over nominal.
+
+The strongest null improvement occurs for bootstrap-$t$ in SMC/reference:
+rejection falls from 8.45\% for percentile with 2{,}000 resamples to
+6.05\% [5.09, 7.18], a paired reduction of 2.40 points (SE 0.40).
+Alternative coverage is 92.6\%, but detection falls from 76.3\% to 65.9\%.
+The improvement does not transfer uniformly: in KUL3/pooled, BCa and
+bootstrap-$t$ have 32.2\% and 31.8\% null rejection, against 30.9\% for
+the equal-budget percentile interval. All methods return intervals, so these
+comparisons are not driven by abstention. No tested method meets the historical
+coverage/detection requirements together with nominal null calibration at
+either count. This bounds the tested repair attempt without selecting a new rule.

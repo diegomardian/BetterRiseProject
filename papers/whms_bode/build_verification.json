@@ -10,18 +10,20 @@
   "overfull_boxes": 0,
   "anonymity": "passed",
   "official_style_sha256": "c3fc2894e83d2517ca18b66741d6c595986d97957dc08ec08bb2125a7ec4555a",
-  "pdf_sha256": "c23412a3f9551f6fad876ceb946b7dd9caa6fd56917c06e6c07c2ed09083ac1f",
+  "pdf_sha256": "c39d8836de072f4efc6f35fb3f57a5ca7503ee46ba4231e6bcbf3332d6ecd542",
   "source_files": [
     "main.tex",
     "sections/abstract.tex",
     "sections/setup.tex",
-    "sections/external_control.tex",
-    "sections/external_control_table.tex",
     "sections/calibration.tex",
     "sections/fixed_pool_results.tex",
     "sections/precision_table.tex",
     "sections/interval_comparison.tex",
+    "sections/repair_results.tex",
+    "sections/repair_table.tex",
     "sections/cohort_gap.tex",
+    "sections/external_control.tex",
+    "sections/external_control_table.tex",
     "sections/validation.tex",
     "sections/conclusion.tex",
     "sections/responsible.tex",
@@ -30,8 +32,9 @@
     "sections/supporting_check.tex",
     "sections/llm.tex"
   ],
-  "merged_remote_revision": "02c7405",
-  "visual_review": {
+  "parent_revision": "bf6b825",
+  "portable_source_build": "passed: 41 files, all 14 page texts match",
+  "visual_inspection": {
     "pages": [
       1,
       2,
@@ -48,20 +51,20 @@
       13,
       14
     ],
-    "render_dpi": 120,
-    "result": "passed; all final pages inspected"
-  },
-  "portable_source_compile": {
-    "pages": 14,
-    "page_text_identical": true,
-    "latex_errors": 0,
-    "undefined_references": 0,
-    "overfull_boxes": 0
+    "dpi": 120,
+    "method": "rendered page review; final repair-table rounding rechecked"
   },
   "tests": {
-    "paper_claims": 25,
-    "precision_followup": 5,
-    "external_control_harness": 35,
-    "retained_control_harness": 21
+    "paper": 25,
+    "precision": 5,
+    "repair": 10,
+    "external_control": 35,
+    "retained_control": 21,
+    "total": 96
+  },
+  "new_followup": {
+    "study_draws": 32000,
+    "interval_evaluations": 160000,
+    "all_intervals_finite": true
   }
 }

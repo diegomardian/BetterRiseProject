@@ -50,8 +50,6 @@ def controlled():
         ax.text(.97,.91,'90%',transform=ax.transAxes,ha='right',fontsize=7,color=colors[0])
         ax.text(.97,.73,'80%',transform=ax.transAxes,ha='right',fontsize=7,color=colors[1])
         ax.text(50,.04,'50',ha='center',fontsize=8,color='#222222')
-    axs[1,0].annotate('Nonmonotone exclusion',xy=(90,.435),xytext=(8,.17),fontsize=7,
-                      arrowprops={'arrowstyle':'->','color':'#555555','lw':.8})
     fig.tight_layout(rect=(0,0,1,.94),h_pad=1.4,w_pad=1.5)
     save(fig,'controlled_calibration.pdf')
 

@@ -1,0 +1,52 @@
+{
+  "purpose": "Exploratory fixed-pool reporting-band and skew-aware interval comparison",
+  "source_revision": "bf6b825",
+  "counts": [
+    30,
+    50
+  ],
+  "shifts": [
+    0.5,
+    1.0
+  ],
+  "methods": [
+    "percentile200",
+    "percentile2000",
+    "bca2000",
+    "bootstrap_t2000",
+    "welch"
+  ],
+  "seed_streams": [
+    202609170,
+    202609171,
+    202609172,
+    202609173,
+    202609174
+  ],
+  "replicates_per_stream": 400,
+  "outer_per_setting": 2000,
+  "settings": 16,
+  "study_draws": 32000,
+  "interval_evaluations": 160000,
+  "inner_bootstrap": 2000,
+  "source_pair_checks": 120,
+  "elapsed_seconds": 101.26661129199783,
+  "python": "3.13.7",
+  "numpy": "2.5.3",
+  "scipy": "1.18.1",
+  "input_sha256": {
+    "papers/whms_bode/repair_followup.py": "483591345bf6c63470cc558c1d6f031af06801b870b033b2b161964b0800d453",
+    "papers/whms_bode/REPAIR_FOLLOWUP_DESIGN.md": "ec29da148115145a69053eb4342a6b0839de909188fa681b93f8d6c685f34929",
+    "papers/whms_bode/precision_followup.py": "194565423f5d613ea4716fc2b03c9d0fad1708b1ff7fe97910488b4c869a37bd",
+    "papers/whms_bode/diagnostics/source_pool_properties.csv": "25c170f96a124aef0ca3f5996c91d5827454f07d116332e4584f83011fba66dc",
+    "src/harness/calibration_gap.py": "60ad80a3d82f62a1be48da08c0c89c96c45d16edf584a6476cb9cc6ede6f4746",
+    "src/harness/pseudobulk.py": "a1ac96538477ae2c3d3319c2646a88053172973f5a8ca5c9df02c5ad7d00166b",
+    "src/reference/labels.py": "ccade4117346de47f9133ef2b105f95647d1205b3ef071ad8d8e4824aeea0831"
+  },
+  "output_sha256": {
+    "repair_followup.csv": "42a63c02b5276843ea9fed98d9846d01c88cdb57ca68c9180b24e104a7114223",
+    "repair_seed_rates.csv": "9422ba34485ddc234d2928855eafc73ab585efe2051bd2edb3ce2be9f9533f06",
+    "repair_paired.csv": "66b22b33e20a756d6edee4f9dd518c397c8c883d8202e1962b49076c005197a3",
+    "repair_numerical.csv": "3d4f09469e1ec6ed69c7f7ed2354c342c5edddd153e795ada9b1fd24c22bd9bc"
+  }
+}

@@ -1,19 +1,19 @@
 \begin{abstract}
-Recovering a reference effect does not establish that a simulator supports
-the intended decision. We examine this gap through a synthetic external-control
-example and an empirical self-audit. In the former, using a reference for the
-wrong population favors an estimator of the wrong effect; an enrolled-population
-reference reverses that ranking. In the latter, we audit a 50-cell reporting
-rule in two colorectal single-cell cohorts that had been justified by
-point-estimate recovery. In 5{,}000 simulations per
-setting, its nominal 95\% percentile intervals reject a true null in
-9.8--32.2\% of studies at the reporting boundary. A paired comparison with
-Welch intervals improves effect coverage but leaves null rejection at
-8.9--30.8\%; substituting a Welch interval does not repair the rule. An exact variance calculation shows that, under a halving of expression,
-the sampled reference removes three quarters of the reference-arm variance
-contribution from the error being assessed; at 800 cells, apparent coverage
-exceeds fixed-pool coverage by 5.8--6.8 percentage points. We also document
-grid-dependent threshold selection. The practical lesson is to specify the target, test
-null and alternative performance together, and evaluate an interval and its
-reporting threshold as a combined rule.
+Scoring the same nominal 95\% intervals against a sampled reference gives
+98.9--99.6\% inclusion, versus 92.3--93.6\% coverage of the generating-pool
+effect, in a single-cell simulation audit at 800 cells. An exact variance
+calculation explains the discrepancy: under a halving of expression, sharing
+the sampled reference mean removes three quarters of the reference-arm
+variance contribution from the error being assessed. We trace the audit to
+a 50-cell reporting rule previously justified by point-estimate recovery.
+In 5{,}000 studies per setting, the original interval rejects a true null
+in 9.8--32.2\% of studies; a Welch control without bootstrap resampling noise
+still rejects in 8.9--30.8\%. A further 32{,}000-study comparison evaluates
+an interior point of the flag-wide band, larger bootstrap budgets, BCa and
+bootstrap-$t$. None of the tested methods satisfies coverage, detection and
+nominal null calibration jointly at 30 or 50 cells. A short external-control
+illustration distinguishes population alignment from numerical agreement.
+The evidence is conditional on empirical cell pools: it identifies a failed
+reporting claim and tests concrete repairs, without validating a replacement
+threshold or a patient world model.
 \end{abstract}

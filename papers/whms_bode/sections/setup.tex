@@ -1,54 +1,53 @@
-\section{Motivation: validate the decision, not just recovery}
+\section{Motivation: evaluate the reported uncertainty}
 \label{sec:intro}
 
-A clinical simulator may reproduce a treatment-effect reference accurately
-while providing inadequate evidence for the decision it is meant to support.
-The reference may average effects over the wrong population; even with the
-right target, recovering a point estimate does not establish the coverage or
-false-positive rate of the reported interval. Our thesis is that validation
-must address the target, interval and reporting policy together. We examine
-this gap through a constructed external-control example and a documented
-single-cell self-audit, with different evidential roles.
+A nominal 95\% interval can appear to cover its reference almost perfectly
+while covering the intended parameter less often. In our single-cell
+simulation audit, changing only the scoring reference changes inclusion
+from 98.9--99.6\% to 92.3--93.6\% at 800 cells. The source of the discrepancy
+is explicit: the estimate and reference share a sampled mean, canceling
+part of the error that the interval is meant to cover. We derive that
+variance difference and examine its consequences for a reporting rule.
 
-The external-control example isolates a target-population error relevant to
-single-arm trial simulation (Section~\ref{sec:eca}). A pooled-population
-estimator appears exact against its observed-data reference yet overstates
-the benefit among enrolled records. Changing the reference to their known
-potential-outcome effect reverses the estimator ranking. This establishes a
-possible failure and a diagnostic control in a fully specified synthetic
-setting.
+The case comes from our unpublished colorectal project, where point-estimate
+recovery had been used to justify a 50-cell reporting boundary. We audit that
+recorded inference using simulations resampled from observed single-cell
+distributions. The analysis covers GUCA2A, one labeling axis and one weighting,
+with ten SMC and six KUL3 patients. Each study draws cells from a two-patient
+pool; repeated draws quantify performance conditional on those source pools,
+not uncertainty over new patients. The contribution is this documented
+failure, its quantitative explanation and paired interval comparisons.
 
-The empirical audit examines an actual validation claim in our unpublished
-colorectal single-cell project (Section~\ref{sec:calibration}). Point-estimate
-recovery had justified a 50-cell reporting boundary. Direct evaluation finds
-excessive false positives with both percentile and Welch intervals, and
-changing the scoring target exposes misleading apparent coverage. Controlled
-grid comparisons document how the selected count depends on grid and binning
-choices. Together, these analyses trace how a reassuring recovery result
-can fail to justify the rule used downstream.
+Section~\ref{sec:calibration} assesses the original interval, a resampling-free
+control and skew-aware alternatives at specified counts, including an
+interior point of the flag-wide band. A short synthetic external-control
+illustration (Section~\ref{sec:eca}) separates a related question: whether
+the reference names the intended population. It supports the interpretation
+of the audit rather than providing a second empirical case.
 
-\paragraph{Contribution and prior work.}
-The contribution is a reproducible worked audit, not a new validation
-principle. Simulation-study methodology already separates estimands, methods
-and performance measures \citep{burton2006,morris2019}; ICH E9(R1) requires
-the clinical question to identify its target population \citep{ich2019}.
-Generator--analysis alignment is studied through congeniality
-\citep{meng1994}, plasmode and semi-synthetic benchmarks
-\citep{franklin2014,curth2021}, interventional evaluation \citep{gentzel2019}
-and the inverse crime \citep{wirgin2004,kaipio2007}; generators can also
-disadvantage good estimators \citep{shaw2026}. Clinical external-control
-validation already uses held-out studies to assess bias and type-I error
-\citep{ventz2019}. Prognostic adjustment retains trial randomization
-\citep{schuler2022}, and target-trial emulation makes the causal question and
-design explicit \citep{hernan2016}. We apply these established distinctions
-to an inspectable reporting-rule decision and a controlled population mismatch.
-Simulation-based calibration (SBC) checks Bayesian computation using ranks
-under prior-predictive simulation \citep{talts2018}; its sensitivity depends
-on the test quantities \citep{modrak2025}. Our frequentist audit instead
-measures coverage and rejection at specified effects and empirical source
-pools, documenting where recovery was used to justify a reporting rule.
-A supporting learned-generator check isolates why increasing generator
-complexity does not break an estimator--reference identity
-(Appendix~\ref{app:learned}).
-Section~\ref{sec:validation} draws out the resulting checks for clinical
-simulation; Appendix~\ref{app:relatedwork} provides further context.
+\paragraph{Relation to existing validation work.}
+Simulation methodology already separates estimands, methods and performance
+measures \citep{burton2006,morris2019}; ICH E9(R1) specifies the population
+targeted by the clinical question \citep{ich2019}. Generator--analysis
+alignment is studied through congeniality \citep{meng1994}, semi-synthetic
+benchmarks \citep{franklin2014,curth2021}, interventional evaluation
+\citep{gentzel2019}, and the inverse crime \citep{wirgin2004,kaipio2007}.
+Generators can also disadvantage good estimators \citep{shaw2026}.
+Simulation-based calibration checks Bayesian computation using
+prior-predictive ranks \citep{talts2018}, with sensitivity depending on the
+test quantities \citep{modrak2025}. Our frequentist assessment conditions
+on empirical pools and specified effects; it applies established validation
+principles to the claim made for this artifact.
+
+\paragraph{Connection to patient simulation.}
+Digital Twin Generators learn conditional clinical trajectories
+\citep{alam2024}; ClinicalGAN evaluates personalized sequence generation
+and trial-dropout prediction \citep{chandra2024}. Those modeling tasks differ
+from assessing the coverage of a downstream treatment-effect interval.
+Our audit addresses the latter validation layer, without evaluating either
+system. A supporting learned-generator check shows why generator complexity
+does not break an estimator--reference identity (Appendix~\ref{app:learned}).
+Clinical transfer additionally requires source comparability, as in held-out
+external-control validation \citep{ventz2019}, and an explicit causal design
+\citep{hernan2016,schuler2022}. These are requirements for applying the audit's
+lessons to patient world models, not results established by this study.

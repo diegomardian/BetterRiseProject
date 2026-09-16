@@ -1,4 +1,4 @@
-\subsection{Welch intervals improve coverage but do not repair the rule}
+\subsection{Welch as a control for bootstrap resampling noise}
 \label{sec:intervalcomparison}
 Welch intervals increase fixed-pool coverage at 50 cells by 1.5--5.0
 percentage points on the same draws (paired Monte Carlo standard errors
@@ -9,15 +9,8 @@ rejection on the same draws shows that finite inner-bootstrap noise cannot
 be the sole explanation for the failure shared by both methods.
 Detection remains below 80\% even at the upper confidence endpoints.
 Substituting Welch intervals therefore fails the joint requirements at 50 cells.
-The follow-up holds the percentile budget at 200; it does not measure how
-a larger budget would change those intervals.
-
-Bias and skewness corrections, including bias-corrected and accelerated
-(BCa) and studentized bootstrap intervals, are established in the bootstrap
-accuracy literature \citep{diciccio1996}. This experiment quantifies the
-operating characteristics of the implemented rule and one comparator; it
-does not discover the general vulnerability of simple intervals to skewed
-sampling distributions.
+Section~\ref{sec:repair} separately compares bootstrap budgets and
+skew-aware methods.
 
 \paragraph{Why detection can fall as cell count rises.}
 The apparent detection curve combines effect sensitivity with a changing

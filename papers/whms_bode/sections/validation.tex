@@ -1,10 +1,9 @@
 \section{Implications for clinical-simulation validation}
 \label{sec:validation}
 
-The two examples expose different breaks between recovery and a downstream
-claim. The external-control example changes the target population; the
-single-cell audit changes the scoring target and evaluates the reporting rule.
-They motivate three checks using established simulation-study practice.
+The audit measures a failure of the recorded reporting claim; the synthetic
+illustration explains why target-population alignment is a separate requirement.
+Three established checks make these distinctions operational.
 
 \paragraph{State the target before constructing its reference.}
 Distinguish a population treatment effect, a latent finite-cohort effect and
@@ -19,7 +18,8 @@ be reported. Record bias and error against the chosen target, null rejection,
 detection at the specified effect, and abstention frequency. Report both
 conditional interval performance among returned answers and how often a valid
 answer is returned. A successful effect-detection rate can accompany excessive
-null rejection, so the former alone cannot validate an interval. The null target here is 5\% because the intervals are nominally 95\%.
+null rejection, so the former alone cannot validate an interval. For a nominal 95\% interval, null rejection and null noncoverage are
+the same quantity; alternative coverage and detection answer different questions.
 
 \paragraph{Separate rule selection from assessment and transfer.}
 Separate selecting a rule from assessing it. If a scalar threshold is

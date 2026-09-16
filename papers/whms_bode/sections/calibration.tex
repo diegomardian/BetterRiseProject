@@ -1,16 +1,16 @@
-\section{Empirical audit: when recovery fails to validate a reporting rule}
+\section{Audit of a cell-count reporting rule}
 \label{sec:calibration}
 
 \paragraph{Application and reporting policy.}
-The empirical application separates two explanations for differentiation-marker
+The biological application separates two explanations for differentiation-marker
 loss in colorectal cancer: fewer marker-producing cells (a \emph{compositional}
 change), or lower output from the cells that remain (an \emph{intrinsic}
 change). These explanations suggest different biological interpretations.
 An empirical comparison of per-cell means requires the relevant population
 to be observed in both tissues. Let $f_N,f_T$ denote the relevant cell fractions
 in reference and diseased tissue, and $m_N,m_T$ their mean per-cell output.
-A reference-based decomposition, related to demographic standardization and
-Oaxaca--Blinder decompositions \citep{kitagawa1955,oaxaca1973,blinder1973}, is
+A reference-based decomposition, related to demographic standardization
+\citep{kitagawa1955}, is
 \begin{equation}
 \underbrace{(f_T-f_N)m_N}_{\text{compositional}} +
 \underbrace{f_N(m_T-m_N)}_{\text{intrinsic}} +
@@ -42,7 +42,7 @@ anonymized supporting record make this mismatch inspectable.
 \subsection{Simulation and inferential targets}
 The design document fixed a detectable halving of per-cell output ($s=0.5$),
 coverage of the target in at least $90\%$ of defined outputs, and discrimination of at least $80\%$, defined as the probability
-that the interval excludes zero at that effect. The implementation scored coverage against a drawn-reference benchmark;
+that the interval excludes zero at that effect. The implementation scored coverage against a draw-dependent reference benchmark;
 we retain that score and add coverage against the generating pool mean.
 The candidate $ok$ is the first evaluated count or bin meeting both criteria;
 $wide$ is the first meeting coverage alone. The committed values are 50 and 20.
@@ -80,10 +80,11 @@ $E[\bar Y_T]=s\mu_P$, making Equation~\ref{eq:fixedpool} its true intrinsic
 mean contrast. It is fixed across cell draws from that pool. Patient-pair
 selection changes $P$; reported coverage averages this conditional-pool
 question over the selected pairs. An all-patient pooled mean would use a
-different population from the generator's two-patient draw. Neither target
-supplies inference over new patients.
+different population from the generator's two-patient draw. Both targets are conditional on the source-pool design stated above.
 
-Two complementary runs separate historical selection from direct evaluation.
+The historical grid and precision follow-up separate selection from direct
+evaluation; the additional repair comparison is described in
+Section~\ref{sec:repair}.
 The controlled eight-seed grid retains inclusion of
 Equation~\ref{eq:requested}. An initial 200-replicate diagnostic reproduced
 its first-seed results and added fixed-pool coverage and null rejection.
@@ -92,14 +93,15 @@ The precision follow-up uses 5{,}000 fresh studies per cohort, pool, count
 160{,}000 studies in total. It samples the exact marginal law of mature-cell
 counts in the original generator; non-mature cells do not enter this contrast.
 On each study we compare the original 200-resample percentile interval with a
-Welch--Satterthwaite interval \citep{nistwelch}. This standard unequal-variance
-$t$ approximation is a comparator, not an assumed solution for sparse counts.
+Welch--Satterthwaite interval \citep{nistwelch}. This unequal-variance $t$ approximation provides an interval with no
+bootstrap resampling noise; it is not chosen for robustness to skewness.
 All 320{,}000 intervals are finite. The largest binomial Monte Carlo standard
 error is 0.71 percentage points, conditional on the empirical source pools.
 Appendix~\ref{app:precision} specifies the sampling and interval calculations.
 
 \input{sections/fixed_pool_results.tex}
 \input{sections/interval_comparison.tex}
+\input{sections/repair_results.tex}
 
 \subsection{Count grids change candidate cutpoints}
 Historical grids returned reference-only binned candidates of 100, 90 and 70,
@@ -116,22 +118,7 @@ Fixed bins share boundaries across grids; adaptive bins recalculate them.
 Binned candidates are median counts within the selected bin, not estimated
 crossing locations.
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\linewidth]{figures/controlled_calibration.pdf}
-\caption{Historical selection diagnostic on the controlled union of counts.
-Benchmark inclusion is not fixed-pool coverage; Figure~\ref{fig:precision}
-and Table~\ref{tab:precision} provide the direct interval assessment.
-Rows show cohorts; columns show draw pools. Curves are median rates over eight
-seeds and bands span their minima and maxima, conditional on the observed
-cohorts. Dashed lines mark the 90\% benchmark-inclusion and 80\% discrimination targets;
-the vertical line marks the committed count of 50. Rates condition on defined
-intervals and coverage uses the draw-dependent reference in
-Equation~\ref{eq:requested}. Zero-cell settings have no defined interval and
-are omitted. No pooled-cell candidate qualifies. Per-count reference-only
-candidates vary by seed and cohort (Table~\ref{tab:controlledgrid}).}
-\label{fig:calibration}
-\end{figure}
+
 
 With common fixed bins, SMC returns 100 on the committed grid and 70 on both
 expanded grids in all eight seeds. Adaptive bins return 65 on seven filled-grid
@@ -163,11 +150,8 @@ Both / pooled & all three & None & None & None \\
 At the committed count of 50, SMC reference-only discrimination ranges
 from 75.5\% to 81.0\% across seeds, with both criteria met on two of eight
 seeds. KUL3 reference-only discrimination is only 45.0--55.0\% at that count.
-These are noisy selections: three SMC/reference seeds cross the criterion
-and fall below it at a later count. With only 200 replicates per setting,
-these local crossings do not establish non-monotonicity of the underlying
-performance curve. The 5{,}000-study follow-up does not evaluate counts
-45, 60 or 70 and cannot resolve those crossings.
+The 200-replicate local crossings remain unresolved by the precision
+follow-up, which does not revisit counts 45, 60 or 70.
 
 The per-count summaries in Table~\ref{tab:controlledgrid} supply a useful
 check on the bin medians. In SMC, the filled grid's first qualifying actual
@@ -208,6 +192,7 @@ Interval calibration cannot establish a biological mechanism. The assumed
 retained-gene control, MS4A12, instead falls by $-0.971$ to $-0.951$ in
 non-sparse primary-cohort strata. Its depletion persists under broader cell
 inclusion and depth matching and appears in a separate bulk dataset.
-These checks undermine the panel's retention assumption; they do not separate
+MS4A12 therefore does not serve as a retained-gene control in these data,
+a distinct failure of the panel assumption. These observations do not separate
 composition from within-cell change. Appendix~\ref{app:controls} reports this
 control-panel audit as a limitation of the biological application.

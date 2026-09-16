@@ -1,12 +1,15 @@
-The synthetic external-control example shows how a validation reference can
-favor an estimator of the wrong population effect. The audited 50-cell rule fails joint interval evaluation despite reassuring
-point-estimate recovery. A larger simulation budget distinguishes three
-coverage failures from one passing condition, while excess null rejection
-and insufficient detection occur in all four. Welch intervals improve coverage
-but do not repair the reporting boundary. In the higher-precision pooled-draw study, the detection trough becomes
-interpretable alongside the changing false-positive rate.
+The audit separates three claims that had been conflated: recovering a
+reference value, covering the intended parameter, and meeting the requirements
+of a reporting rule. Sharing the sampled reference mean changes the error
+variance being assessed. Direct evaluation of the fixed-pool target finds
+undercoverage at the halving and still worse coverage at the null.
+Increasing the bootstrap budget and using skew-aware intervals improve some
+conditions but do not qualify either tested reporting count.
 
-A reporting threshold must be assessed with its actual interval, explicit
-target and null and alternative operating characteristics. The target must name the population over which effects are averaged, and
-qualification must address the range over which the rule will report.
-Recovery alone supplies neither guarantee.
+For this artifact, the practical action is to withdraw the claim that 50 cells
+is a validated reporting boundary. Outputs can be retained as exploratory
+estimates with unvalidated uncertainty; a warning about width is not a
+calibration guarantee. A replacement needs an explicit acceptable error rate,
+adequate detection and independent assessment across its intended reporting
+range. New patient-level evidence is needed before extending these conditional
+results to clinical decisions.

@@ -1,0 +1,44 @@
+\begin{table}[htbp]
+\centering\small
+\caption{Fixed-pool evaluation inside the flag-wide band and at the reporting
+boundary. Each cohort/pool/count/shift uses 2{,}000 studies; all methods share
+samples. Bootstrap budgets follow method names. $C_{.5}$ is coverage at the
+halving, $R_1$ null rejection (one minus null coverage), and $D_{.5}$ detection
+at the halving, all in percent. Nominal coverage is 95\%; the historical
+alternative-coverage minimum is 90\% and detection requirement 80\%.
+Maximum Monte Carlo SE is 1.12 percentage points; Wilson intervals and paired
+comparisons are supplied with the aggregate results. All intervals are finite.}
+\label{tab:repair}
+\begin{tabular}{@{}llrrrrrr@{}}
+\toprule
+ & & \multicolumn{3}{c}{30 cells: flag-wide} & \multicolumn{3}{c}{50 cells: report} \\
+\cmidrule(lr){3-5}\cmidrule(l){6-8}
+Cohort / pool & Interval & $C_{.5}$ & $R_1$ & $D_{.5}$ & $C_{.5}$ & $R_1$ & $D_{.5}$ \\
+\midrule
+SMC / pooled & Percentile, 200 & 80.5 & 31.0 & 53.6 & 87.8 & 22.8 & 48.9 \\
+ & Percentile, 2000 & 82.1 & 30.9 & 52.6 & 88.4 & 22.2 & 48.0 \\
+ & BCa, 2000 & 77.5 & 29.5 & 47.9 & 83.7 & 21.6 & 43.9 \\
+ & Bootstrap-$t$, 2000 & 79.7 & 28.1 & 48.0 & 86.3 & 20.8 & 43.2 \\
+ & Welch & 84.3 & 30.5 & 53.1 & 90.1 & 22.0 & 48.3 \\
+\addlinespace
+SMC / reference & Percentile, 200 & 89.1 & 14.2 & 67.9 & 91.3 & 9.5 & 77.8 \\
+ & Percentile, 2000 & 90.0 & 13.8 & 67.0 & 92.1 & 8.5 & 76.3 \\
+ & BCa, 2000 & 89.8 & 11.8 & 57.8 & 92.0 & 7.8 & 68.9 \\
+ & Bootstrap-$t$, 2000 & 91.2 & 9.0 & 53.8 & 92.6 & 6.1 & 65.9 \\
+ & Welch & 90.4 & 13.7 & 68.4 & 92.5 & 8.6 & 78.3 \\
+\addlinespace
+KUL3 / pooled & Percentile, 200 & 78.1 & 40.5 & 56.4 & 83.4 & 31.8 & 49.7 \\
+ & Percentile, 2000 & 79.1 & 40.1 & 55.8 & 84.4 & 30.9 & 49.9 \\
+ & BCa, 2000 & 72.6 & 40.3 & 54.4 & 77.5 & 32.2 & 48.4 \\
+ & Bootstrap-$t$, 2000 & 75.3 & 40.4 & 55.2 & 79.9 & 31.8 & 49.7 \\
+ & Welch & 83.7 & 39.4 & 56.1 & 88.2 & 30.7 & 49.8 \\
+\addlinespace
+KUL3 / reference & Percentile, 200 & 78.8 & 26.3 & 48.5 & 86.3 & 18.7 & 47.7 \\
+ & Percentile, 2000 & 79.4 & 25.7 & 47.9 & 87.3 & 18.2 & 46.6 \\
+ & BCa, 2000 & 77.3 & 24.0 & 42.2 & 85.4 & 17.0 & 39.5 \\
+ & Bootstrap-$t$, 2000 & 78.4 & 22.9 & 43.0 & 86.2 & 16.1 & 40.6 \\
+ & Welch & 80.5 & 26.3 & 49.7 & 88.8 & 18.6 & 48.9 \\
+\addlinespace
+\bottomrule
+\end{tabular}
+\end{table}
