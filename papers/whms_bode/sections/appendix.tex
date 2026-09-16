@@ -6,11 +6,9 @@ Five fresh seed streams (202609160--202609164), each with 1{,}000 studies
 per setting, provide 5{,}000 draws at each of four counts and two shifts in
 four cohort/pool combinations. Every draw uniformly chooses a two-patient
 pair, samples 800 reference and $n_T$ tumor mature-cell counts independently
-with replacement, and thins tumor counts binomially. This is the original
-generator's marginal law for this contrast, not a replay of its random stream.
-All 120 source-pair summaries match the earlier analysis. The vectorized
-percentile routine agrees with the original implementation on 32 actual-pool
-checks; the Welch implementation agrees with an independent library routine.
+with replacement, and thins tumor counts binomially. This reproduces the generator's marginal law;
+all 120 source-pair summaries match. Percentile and Welch implementations
+agree with independent checks.
 
 Writing $v_a=S_a^2/n_a$ for arm $a$, the Welch interval is
 $\hat\theta\pm t_{0.975,\nu} f_N\sqrt{v_N+v_T}$, where
@@ -52,72 +50,74 @@ across cohorts. Substitution contrasts are not additive causal shares or
 lower bounds on a skew contribution. At 800 cells the designs coincide;
 empirical null rejection is 4.55--6.40\%.
 
+\paragraph{Patient-$t$ target check.}\label{app:patienttarget}
+We replay the incoming patient-$t$ studies at 50 and 800 cells, two and five
+held-out patients, both shifts and all four cohort/pool conditions: 64{,}000
+studies (five streams of 400 per setting). Returned intervals, rejection,
+abstention and sampled-reference inclusion counts match all 32 original
+settings exactly. The two fixed targets use either the mean of all eligible
+source cells or the equally weighted mean of source-patient means, computed
+before drawing arms. Both condition on the selected pool. Patients lacking
+mature source cells are outside the latter mean; incomplete patient pairs
+can make the interval unavailable. At 50 cells and two held-out patients,
+equal-patient coverage is 96.1--97.6\%. Exports include all counts, target-specific
+coverage, Wilson intervals, availability and unconditional detection.
+
 \section{Calibration details and limits}
 \label{app:gridcaveats}
 
 \paragraph{Historical grids.}\label{app:historical}
-Before the controlled run, SMC reference-only binned candidates were 100,
-90 and 70 on the committed, filled and dense grids, with 500, 500 and 200
-replicates per setting. These runs changed random streams and bin boundaries
-as well as evaluated counts; Section~\ref{sec:calibration} separates those
-choices. KUL3 reference-only candidates were 400 or 800, and no pooled-draw
-candidate qualified. Its largest setting sampled 800 mature cells per arm
-with replacement from 844 distinct source cells, not additional patients.
+Earlier reference-only SMC cutoffs were 100, 90 and 70 under grids with
+500, 500 and 200 replicates. They changed streams, bins and budgets together;
+Section~\ref{sec:calibration} uses shared draws to separate grid effects.
+KUL3's largest setting resampled 800 mature cells per arm from 844 distinct
+source cells, not additional patients.
 
 \paragraph{Recovery accounting and unavailable contrasts.}\label{app:generator}
-The four diagnostic sweeps comprise 1{,}711{,}200 replicates: 1{,}283{,}400 with
-nonzero requested intrinsic reference and 427{,}800 with zero requested
-reference, for which ratios are undefined. The first 50-replicate sweep has
-119{,}600 draws, partitioned into 89{,}700 and 29{,}900, respectively. The
-maximum estimate--realized-reference residual is zero throughout. At a
-zero-cell setting the raw ratio is $1/(1-s)$ when the denominator is nonzero.
-These raw diagnostic values arise from the harness setting an empty-arm mean
-to zero; they do not define an effect in absent cells. The reporting gate
-abstains and the interval is undefined. Separately, undefined intervals were
-previously counted as failures through comparisons with \texttt{NaN}; corrected
-rates exclude them and report abstentions. An all-abstaining bin has no
-coverage estimate. One historical seed gives $ok=wide=45$, showing that a
-three-state specification need not yield three distinct fitted regions.
+Across 1{,}711{,}200 diagnostic replicates, 427{,}800 have zero requested
+reference and undefined recovery ratios. Estimate--realized-reference
+residuals are zero. At zero cells, raw diagnostic values arise from setting
+an empty-arm mean to zero; they define no effect in absent cells. The
+reporting gate abstains. Corrected interval rates exclude undefined outputs
+and report availability; an all-abstaining bin has no coverage estimate.
+The saved summaries retain the full sweep accounting.
 
 \paragraph{Biological scope and patient uncertainty.}\label{app:guards}
 \label{app:modal}\label{app:limitations}
-A separate comparability analysis over three cohorts and 42 patients remains
-undecided: patient-bootstrap log$_2$ expression intervals cross the accepted
-$[-0.5,0.5]$ boundaries in every cohort. Depth matching discards roughly three
-quarters of cells and pushes about half the remaining estimable rows below
-the count threshold. Within SMC, changing tissue eligibility changes the
-mature-cell pool from 662 to 3{,}824 cells; Section~\ref{sec:cohortgap} holds
-tissue eligibility fixed.
+Across three cohorts and 42 patients, patient-bootstrap expression intervals
+cross the accepted log$_2$ boundaries $[-0.5,0.5]$, leaving comparability
+undecided. Depth matching discards about three quarters of cells. Changing
+SMC tissue eligibility changes the mature-cell pool from 662 to 3{,}824;
+Section~\ref{sec:cohortgap} holds eligibility fixed.
 
 \input{sections/supporting_check.tex}
 
 \section{Synthetic external-control design}
 \label{app:eca}
+\input{sections/external_control_table.tex}
+For enrolled records $E$ and controls $C$, the target is
+$\tau_E=|E|^{-1}\sum_{i\in E}\{Y_i(1)-Y_i(0)\}$.
+The estimator averages stratum contrasts using either enrolled shares
+$n_{Eg}/|E|$ or pooled shares $(n_{Eg}+n_{Cg})/(|E|+|C|)$.
+At zero case-mix shift, pooled-standardization bias against $\tau_E$ is
+$-0.002$ units. Under the full shift, between-arm balance coexists with a
+maximum standardized difference of 0.964 from the enrolled population.
 
-The fixed registry contains 50{,}000 simulated records with stratum shares
-$(0.55,0.30,0.15)$, baseline outcomes $Y_0\mid g\sim
-\mathcal N(\mu_g,3^2)$, $\mu=(12,8,4)$, and effects
-$Y_1-Y_0=\delta_g r$, $\delta=(3,1.5,0.25)$,
-$r\sim\mathrm{Gamma}(4,0.25)$ (shape, scale). Responsiveness is fixed per record
-and hidden from estimators. Enrollment weights favor shares $(0.15,0.25,0.60)$;
-both arms sample without replacement and are disjoint. The pooled target is a
-mixture of enrolled and control records, not the registry population itself.
-Normal outcomes can be negative: this is an abstract continuous-outcome
-experiment, not a fitted progression-free-survival model.
 
-There are 200 study draws at each of $n=50,100,200,400,800,1600$,
-using one seed (20260915) and one fixed registry: 1{,}200 studies, eight
-estimators and five references yield 48{,}000 comparisons: 47{,}969 finite
-values and 31 exclusions from one study with an empty stratum arm at $n=50$.
-The registry uses the same seed. The intended finite-cohort truth averages
-both potential outcomes over enrolled records; it is available to the
-simulator, not to estimators observing one outcome per record. Five case-mix
-shifts and 50 balance draws at $n=1600$ provide controls. Threshold crossings
-in the saved shift table compare medians, not replicate-level decisions.
+The registry has 50{,}000 records with stratum shares $(0.55,0.30,0.15)$,
+$Y_0\mid g\sim\mathcal N(\mu_g,3^2)$, $\mu=(12,8,4)$,
+and $Y_1-Y_0=\delta_g r$, $\delta=(3,1.5,0.25)$,
+$r\sim\mathrm{Gamma}(4,0.25)$ (shape, scale), hidden from estimators.
+Enrollment favors $(0.15,0.25,0.60)$; disjoint arms sample without replacement.
+These are abstract continuous outcomes. The pooled population combines
+trial and control records.
 
-The nine prespecified falsification checks did not fire. They verify the
-constructed comparison, not clinical realism or the frequency of the
-validation mistake.
+One seed (20260915) generates the registry and 200 studies at each of
+$n=50,100,200,400,800,1600$. Eight estimators and five references give
+48{,}000 comparisons: 47{,}969 finite, with 31 exclusions from one empty-stratum
+study at $n=50$. Five case-mix shifts and 50 balance draws at $n=1600$
+provide controls. Saved threshold crossings compare medians, not individual
+decisions. All nine prespecified falsification checks pass.
 
 \section{The retained-gene control}
 \label{app:controls}
@@ -145,20 +145,17 @@ panel's prior expectation of retention therefore needs reassessment.
 \label{app:prevalence}
 
 \paragraph{Search and classification.}
-A pre-registered queue contained 41 entries; 19 were screened out and seven
-classified within 26 entries examined in order. A pre-inspection amendment
-relaxed unsuccessful queries without changing classification. All seven
-verdicts were \textsc{no}: six repositories use generating-parameter or
-outside-sample references. The seventh compares cross-fitted partialling-out
-with full-sample OLS; their residual changes from $4.0\times10^{-14}$ on
-noiseless linear data to 0.125 with noise, so agreement is restricted to the
-noiseless support. Classification had one reader, only that last repository
-was executed, and the sample is nonrandom. The virtual-control-arm query
-located no examinable code. These limits preclude a prevalence estimate.
+Of 41 queued entries, 26 were examined: 19 screened out and seven classified.
+A pre-inspection amendment relaxed unsuccessful queries without changing the
+rule. All verdicts were \textsc{no}: six use generating/outside-sample references;
+the seventh's near-zero residual on noiseless data becomes 0.125 with noise.
+One reader classified this nonrandom sample and executed only the seventh
+repository. No examinable virtual-control-arm code was found. The search
+supports no prevalence estimate.
 
 \paragraph{Related scope.}\label{app:relatedwork}
-Cell-count filters \citep{crowell2020}, composition analysis
-\citep{petukhov2022}, selective prediction \citep{chow1970,elyaniv2010,geifman2017}
+Cell-count filters \citep{crowell2020}, composition analysis (scCODA, Milo, propeller and cacoa)
+\citep{buettner2021,dann2022,phipson2022,petukhov2022}, selective prediction \citep{chow1970,elyaniv2010,geifman2017}
 and conformal coverage \citep{vovk2005,angelopoulos2023} address related tasks;
 none automatically validates this intrinsic-effect interval or its reporting rule.
 

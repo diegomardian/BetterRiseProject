@@ -26,6 +26,8 @@ def main():
     files.update(ROOT/f'diagnostics/incoming_{name}.csv' for name in
                  ['interval_diagnosis_rates','interval_repair_rates'])
     files.add(ROOT/'diagnostics/incoming_interval_readme.txt')
+    files.update(ROOT/f'diagnostics/{name}.csv' for name in
+                 ['patient_target_followup','patient_target_seed_rates'])
     target=ROOT/'source.zip'
     with ZipFile(target,'w',ZIP_DEFLATED) as z:
         for path in sorted(files):

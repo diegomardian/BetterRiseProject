@@ -1,6 +1,6 @@
 {
   "archive": "source.zip",
-  "sha256": "6b78cf6e275be1d77d866224c0a4d843efc7b7d6c1abf0560d6d31c3e4a2d541",
+  "sha256": "b8874170dcceec3383c73a7a973b96afe8273e60bd2f0e334a6ff2cf01bb5e8f",
   "files": [
     "diagnostics/candidate_reversals.json",
     "diagnostics/coverage_precision.json",
@@ -11,6 +11,8 @@
     "diagnostics/incoming_interval_readme.txt",
     "diagnostics/incoming_interval_repair_rates.csv",
     "diagnostics/low_count_diagnostic.csv",
+    "diagnostics/patient_target_followup.csv",
+    "diagnostics/patient_target_seed_rates.csv",
     "diagnostics/precision_followup.csv",
     "diagnostics/precision_paired.csv",
     "diagnostics/precision_seed_rates.csv",
@@ -24,6 +26,8 @@
     "diagnostics/source_pool_summary.json",
     "evidence/review_record.json",
     "figures/precision_rejection.pdf",
+    "figures/reference_mechanism.pdf",
+    "figures/repair_comparison.pdf",
     "main.bbl",
     "main.tex",
     "neurips_2026.sty",
@@ -41,7 +45,6 @@
     "sections/methods.tex",
     "sections/precision_table.tex",
     "sections/repair_results.tex",
-    "sections/repair_table.tex",
     "sections/responsible.tex",
     "sections/setup.tex",
     "sections/supporting_check.tex",

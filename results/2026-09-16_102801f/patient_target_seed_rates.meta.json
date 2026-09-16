@@ -1,0 +1,37 @@
+{
+  "source_revision": "102801fa65cd1711de21945718c08e0224ef98e6",
+  "incoming_revision": "ae8c1094b9b26b5d1a91b275fcc404065425ff25",
+  "settings": 32,
+  "study_draws": 64000,
+  "seed_streams": [
+    20260831,
+    1,
+    2,
+    3,
+    4
+  ],
+  "replicates_per_stream": 400,
+  "original_counts_reproduced": true,
+  "python": "3.13.7",
+  "numpy": "2.5.3",
+  "pandas": "3.0.5",
+  "source_input_sha256": {
+    "src/harness/interval_diagnosis.py": "e2fe82a5e2af95fc183cde1430ea3c28c25c73bb89a06cf41d0ec661028cbf9e",
+    "src/harness/interval_repair.py": "4fede0e53f7b7cea5fa9328b958379f01f2834443242eec296ed8be1bfc06e4a",
+    "src/harness/run_interval_repair.py": "7270fdffc52625f43e875f379400849ead551d94a6530d20d5253023499146c2",
+    "src/harness/pseudobulk.py": "f65b4fdd509639f3e8c71f8f5fe151347800dd95c3eacaf605231e187c55ada1"
+  },
+  "cache_sha256": {
+    "smc": "dcd500cbbc389a03d8602f52bed2ad02a0f79c6691faf60b134bfc5819c53d1e",
+    "kul3": "95912a1bd887436000a7df864bb00c7b09b117cd395730947c02de3dbbfe5d74"
+  },
+  "input_sha256": {
+    "patient_target_followup.py": "6810ed4f3791aa5daf5b4d5587947719f685efcd0cde4ebfc08e6a7cd0ca7c4b",
+    "PATIENT_TARGET_DESIGN.md": "53682bc4bb2a21fc9e426977ab9ff4e4b1a7080f9ad2ba6c923fe2a7afa04dce",
+    "incoming_interval_repair_pooled.csv": "9f6a7e2290d957c0f41361cd68d4aefec4d92619891d5880cee6f92058ecb73b"
+  },
+  "output_sha256": {
+    "patient_target_followup.csv": "9fbb4f34f7a56901e515ad32257e4cf028c791bdc885fa894e28a958c56a1548",
+    "patient_target_seed_rates.csv": "3e3582cf62343f7aeb74babb4d30dccf1a695f9626266fe92cfd1c1d89650f41"
+  }
+}

@@ -1,4 +1,4 @@
-\subsection{Testing the flag-wide band and skew-aware intervals}
+\subsection{Testing the warning range and alternative intervals}
 \label{sec:repair}
 A separate fixed-design follow-up evaluates 30 and 50 cells, using 2{,}000
 fresh studies per cohort/pool/shift: 32{,}000 studies and 160{,}000 interval
@@ -7,9 +7,22 @@ bias-corrected and accelerated (BCa) and bootstrap-$t$ intervals with 2{,}000
 resamples, and Welch. These skew-aware methods follow established bootstrap
 accuracy work \citep{diciccio1996}. All methods use the same study samples;
 bootstrap methods share resamples. Coverage uses the fixed-pool target.
-Appendix~\ref{app:repair} specifies implementation and numerical checks.
+These fresh draws differ from Table~\ref{tab:precision}, explaining small
+differences at the shared 50-cell setting. Appendix~\ref{app:repair} specifies
+implementation and numerical checks.
 
-\input{sections/repair_table.tex}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{figures/repair_comparison.pdf}
+\caption{All five intervals at 30 and 50 cells, with pointwise 95\% Wilson
+Monte Carlo intervals (2{,}000 studies per condition/effect). Method suffixes
+are bootstrap budgets. Alternative coverage and detection use the halving;
+null rejection uses no shift. Dashed lines mark nominal 95\% coverage,
+5\% null rejection and required 80\% detection; the dotted line marks the
+historical 90\% coverage minimum. All intervals are defined. Exact rates and
+paired comparisons accompany the figure.}
+\label{fig:repair}
+\end{figure}
 
 At 30 cells, the original interval has 78.1--89.1\% alternative coverage,
 14.2--40.5\% null rejection and 48.5--67.9\% detection. Flagging its width
@@ -30,16 +43,21 @@ coverage/detection requirements together with nominal null calibration at
 either count. This bounds the tested repair attempt without selecting a new rule.
 
 
-\paragraph{Changing the resampling unit.}
-A separate comparison with two held-out patients also tests cluster and
-paired patient-$t$ intervals (Appendix~\ref{app:substitution}). At 50 cells,
-patient-$t$ gives 2.77--6.29\% null rejection but only 4.21--8.02\%
-detection among returned intervals; alternative abstention is 0.35--34.55\%.
-It equally weights shared patients, changing the cell-weighted target.
-Its saved coverage uses the sampled-reference benchmark, so it cannot
-establish a fixed-pool repair. Full rates and abstentions for both clustered
-methods are supplied; these results concern this design, not patient-level
-inference generally.
+\paragraph{Patient resampling: a different target, not an automatic repair.}
+The project requires patients as the unit for patient-population inference.
+Our cell-draw audit instead evaluates uncertainty conditional on a fixed
+source pool. To test the proposed patient-level repair directly, we rescore
+the paired patient-$t$ interval on the original simulated draws against
+both fixed cell-weighted and equal-patient targets
+(Appendix~\ref{app:patienttarget}). At 50 cells and two held-out patients,
+fixed cell-weighted coverage is 96.0--97.8\%, while detection is only
+4.2--8.0\% and alternative abstention is 0.35--34.55\%.
+Thus the coverage/detection tradeoff survives correcting the scoring target.
+But increasing the holdout to five patients leaves KUL3 null rejection at
+8.7--18.1\% at 50 cells. Neither near-nominal rejection in some settings
+nor wider intervals establishes a general repair. These studies use two or
+five source patients per draw, not the full cohorts of ten and six; they
+cannot establish the power of a patient-population study of those cohorts.
 
 \paragraph{Source shape and arm balance.}
 A separate sensitivity study uses 2{,}000 studies and 2{,}000 percentile

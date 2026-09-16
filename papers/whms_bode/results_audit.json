@@ -1,7 +1,7 @@
 {
   "source_revision": "b503971",
   "external_control_source_revision": "a336594",
-  "scope": "Saved-table verification plus paired fixed-pool coverage and null evaluation on the same 6,400 exploratory draws; source-pool variance summaries; adopted synthetic external-control study; fresh 160,000-study precision and paired interval comparison; separate fixed-design 32,000-study comparison of five intervals at 30 and 50 cells; selective incoming source-substitution and patient-method evidence with all 64 null rates reproduced.",
+  "scope": "Saved-table verification plus paired fixed-pool coverage and null evaluation on the same 6,400 exploratory draws; source-pool variance summaries; adopted synthetic external-control study; fresh 160,000-study precision and paired interval comparison; separate fixed-design 32,000-study comparison of five intervals at 30 and 50 cells; selective incoming source-substitution and patient-method evidence with all 64 null rates reproduced; exact patient-t target re-scoring on 64,000 incoming draws.",
   "single_cell_target": "f_N * (s - 1) * drawn_normal_mature_mean; draw-dependent reference, not fixed pool mean",
   "learned_generator": {
     "scheduled_estimator_evaluations": 75600,
@@ -121,6 +121,9 @@
     "incoming_interval_repair_rates.csv": "f3227e2bcfc02c8a5dbd8c8151fede552ea6025496ef5c30f79eee76376e10fe",
     "low_count_diagnostic.csv": "a7caafb0026799f9675c791488795c1d83c92e3a2c68e4e1b15f5bf6953d401f",
     "low_count_provenance.json": "0bebe61d8b77998f9173baf11225c27909a7a1c58716494feb8024d694e5579b",
+    "patient_target_followup.csv": "9fbb4f34f7a56901e515ad32257e4cf028c791bdc885fa894e28a958c56a1548",
+    "patient_target_provenance.json": "f3e71bc5495e88e4a1ba83b4468350ce4ede5249929395d2da243a398b29361f",
+    "patient_target_seed_rates.csv": "3e3582cf62343f7aeb74babb4d30dccf1a695f9626266fe92cfd1c1d89650f41",
     "precision_followup.csv": "e7f881931021fdb59677fdf487d719d9a158b2dfa7b1faf3bba9abc68507549f",
     "precision_paired.csv": "67a5bbaecb967a0d454b5f0caaf2783f8e582ef8e3d5b94ba1501fa58d9a4db2",
     "precision_provenance.json": "db45e1d73bb969a3ebc81ebeebf576b7cb09385f45c18cf5cd2affab40ca605d",
@@ -134,6 +137,43 @@
     "retained_control_strata.csv": "47ab7c8ab1b33e20504e2a67b7aee303fb223a868c4b1b8fa764be631c0b9795",
     "source_pool_properties.csv": "25c170f96a124aef0ca3f5996c91d5827454f07d116332e4584f83011fba66dc",
     "source_pool_summary.json": "f2c7654617434f555b912653e0276198f03065086531d9fe9fd33467d34e604a"
+  },
+  "patient_target_followup": {
+    "source_revision": "102801fa65cd1711de21945718c08e0224ef98e6",
+    "incoming_revision": "ae8c1094b9b26b5d1a91b275fcc404065425ff25",
+    "settings": 32,
+    "study_draws": 64000,
+    "seed_streams": [
+      20260831,
+      1,
+      2,
+      3,
+      4
+    ],
+    "replicates_per_stream": 400,
+    "original_counts_reproduced": true,
+    "python": "3.13.7",
+    "numpy": "2.5.3",
+    "pandas": "3.0.5",
+    "source_input_sha256": {
+      "src/harness/interval_diagnosis.py": "e2fe82a5e2af95fc183cde1430ea3c28c25c73bb89a06cf41d0ec661028cbf9e",
+      "src/harness/interval_repair.py": "4fede0e53f7b7cea5fa9328b958379f01f2834443242eec296ed8be1bfc06e4a",
+      "src/harness/run_interval_repair.py": "7270fdffc52625f43e875f379400849ead551d94a6530d20d5253023499146c2",
+      "src/harness/pseudobulk.py": "f65b4fdd509639f3e8c71f8f5fe151347800dd95c3eacaf605231e187c55ada1"
+    },
+    "cache_sha256": {
+      "smc": "dcd500cbbc389a03d8602f52bed2ad02a0f79c6691faf60b134bfc5819c53d1e",
+      "kul3": "95912a1bd887436000a7df864bb00c7b09b117cd395730947c02de3dbbfe5d74"
+    },
+    "input_sha256": {
+      "patient_target_followup.py": "6810ed4f3791aa5daf5b4d5587947719f685efcd0cde4ebfc08e6a7cd0ca7c4b",
+      "PATIENT_TARGET_DESIGN.md": "53682bc4bb2a21fc9e426977ab9ff4e4b1a7080f9ad2ba6c923fe2a7afa04dce",
+      "incoming_interval_repair_pooled.csv": "9f6a7e2290d957c0f41361cd68d4aefec4d92619891d5880cee6f92058ecb73b"
+    },
+    "output_sha256": {
+      "patient_target_followup.csv": "9fbb4f34f7a56901e515ad32257e4cf028c791bdc885fa894e28a958c56a1548",
+      "patient_target_seed_rates.csv": "3e3582cf62343f7aeb74babb4d30dccf1a695f9626266fe92cfd1c1d89650f41"
+    }
   },
   "incoming_interval": {
     "source_branch": "origin/wmhs/repaired-interval",
@@ -374,7 +414,7 @@
     "pytest": "9.1.1"
   },
   "verification": {
-    "dedicated_result_tests": 45,
+    "dedicated_result_tests": 51,
     "retained_control_harness_tests": 21,
     "external_control_harness_tests": 35,
     "historical_original_manuscript_result_tests": 55,

@@ -1,4 +1,4 @@
-"""Generate the precision table and pooled rejection plot from saved aggregates."""
+"""Generate the precision table and all-condition rejection plot from saved aggregates."""
 from pathlib import Path
 import pandas as pd
 import matplotlib
@@ -41,17 +41,20 @@ def main():
     d=pd.read_csv(ROOT/'diagnostics/precision_followup.csv')
     (ROOT/'sections/precision_table.tex').write_text(render_table(d))
     plt.rcParams.update({'font.size':9,'axes.spines.top':False,'axes.spines.right':False})
-    fig,axes=plt.subplots(1,2,figsize=(6.4,2.6),sharey=True)
-    for ax,cohort in zip(axes,['smc','kul3']):
+    fig,axes=plt.subplots(2,2,figsize=(6.4,3.65),sharex=True,sharey=True)
+    for row,cohort in enumerate(['smc','kul3']):
+      for col,pool in enumerate(['pooled','reference']):
+        ax=axes[row,col]
         for method,color,label in [('percentile200','#00758a','Percentile'),('welch','#a44800','Welch')]:
             for shift,style,kind in [(.5,'-','halving'),(1.,'--','null')]:
-                q=d[(d.cohort==cohort)&(d.pool=='pooled')&(d.method==method)&(d['shift']==shift)].sort_values('n_cells_mature')
+                q=d[(d.cohort==cohort)&(d.pool==pool)&(d.method==method)&(d['shift']==shift)].sort_values('n_cells_mature')
                 ax.errorbar(q.n_cells_mature,100*q.rejection,yerr=[100*(q.rejection-q.rejection_low),100*(q.rejection_high-q.rejection)],color=color,linestyle=style,marker='o',markersize=3,capsize=2,label=f'{label}, {kind}')
-        ax.set_title(cohort.upper()+' / pooled tissues');ax.set_xscale('log');ax.set_xticks([5,50,100,800],[5,50,100,800]);ax.set_xlabel('Mature cells in diseased arm');ax.set_ylim(0,90)
+        ax.set_title(cohort.upper()+' / '+pool);ax.set_xscale('log');ax.set_xticks([5,50,100,800],[5,50,100,800]);ax.set_ylim(0,103)
+        if row==1:ax.set_xlabel('Mature cells in diseased arm')
+        if col==0:ax.set_ylabel('Exclusion of zero (%)')
         ax.axhline(5,color='.4',linewidth=.8,alpha=.6)
-    axes[0].set_ylabel('Exclusion of zero (%)')
-    handles,labels=axes[0].get_legend_handles_labels()
-    fig.legend(handles,labels,loc='upper center',ncol=2,frameon=False,bbox_to_anchor=(.5,1.08))
+    handles,labels=axes[0,0].get_legend_handles_labels()
+    fig.legend(handles,labels,loc='upper center',ncol=2,frameon=False,bbox_to_anchor=(.5,1.03))
     fig.tight_layout(rect=[0,0,1,.91])
     fig.savefig(ROOT/'figures/precision_rejection.pdf',bbox_inches='tight',metadata={'Creator':'','Producer':'','CreationDate':None})
     plt.close(fig)

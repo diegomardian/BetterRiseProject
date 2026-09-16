@@ -1,4 +1,4 @@
-"""Regenerate manuscript figures from the pinned, unchanged result tables."""
+"""Regenerate historical local figures (not compiled in the submission) from the pinned, unchanged result tables."""
 from pathlib import Path
 import matplotlib
 matplotlib.use('Agg')

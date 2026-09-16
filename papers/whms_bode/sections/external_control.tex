@@ -1,33 +1,13 @@
-\section{A population-mismatch illustration}
+\section{Population alignment in clinical simulation}
 \label{sec:eca}
-
-Changing the reference can also change the population being assessed.
-A constructed external-control example makes this distinction explicit.
-A fixed synthetic registry supplies a single-arm trial and three controls
-per enrollee, with enrollment favoring heavily pretreated strata and benefits
-varying by stratum and individual responsiveness. The intended finite-cohort
-target and the standardized estimator are
-\begin{equation}
-\tau_E=\frac{1}{|E|}\sum_{i\in E}\{Y_i(1)-Y_i(0)\},\qquad
-\hat\tau(w)=\sum_g w_g(\bar Y_{1g}-\bar Y_{0g}).
-\label{eq:ecatarget}
-\end{equation}
-For enrolled records $E$ and controls $C$, enrolled weights are
-$w_g=n_{Eg}/|E|$; pooled weights are
-$w_g=(n_{Eg}+n_{Cg})/(|E|+|C|)$. Deliberately using pooled weights in both
-estimator and observed-data reference makes their agreement an identity.
-It is a pedagogical construction, not an empirical frequency claim.
-
-\input{sections/external_control_table.tex}
-
-The informative control breaks that identity: the pooled potential-outcome
-reference still favors pooled standardization, whereas $\tau_E$ reverses
-the ranking (Table~\ref{tab:eca}). Thus avoiding an identical reference is
-insufficient when it still targets the wrong population. The Monte Carlo
-study quantifies errors under this chosen case mix; it does not discover
-the algebraic equality. Under zero case-mix shift, pooled-standardization
-bias against $\tau_E$ is only $-0.002$ units despite the same identity.
-Under the full shift, weighting balances measured strata between arms but
-leaves a maximum standardized difference of 0.964 against the enrolled
-population. Between-arm balance does not establish population alignment.
-Appendix~\ref{app:eca} specifies the 200-study-per-size design.
+A clinical simulation must also name the population whose effect is evaluated.
+In a constructed external-control example, the intended target $\tau_E$ is
+the average individual treatment effect among enrolled records. Averaging
+stratum contrasts over the pooled trial-plus-control population instead
+estimates a different target. Scoring that estimator against the same pooled
+contrast gives perfect agreement by construction. More informatively, a
+pooled potential-outcome reference breaks the identity yet still favors the
+wrong-population estimator; scoring against $\tau_E$ reverses the ranking.
+Under zero case-mix shift the mismatch nearly disappears. This separates
+target alignment from numerical recovery; Appendix~\ref{app:eca} gives the
+simulation, controls and results.

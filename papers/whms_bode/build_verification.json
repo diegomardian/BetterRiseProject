@@ -10,7 +10,7 @@
   "overfull_boxes": 0,
   "anonymity": "passed",
   "official_style_sha256": "c3fc2894e83d2517ca18b66741d6c595986d97957dc08ec08bb2125a7ec4555a",
-  "pdf_sha256": "1de4aa425b1eadf00b21d65033474da95c584473bddb76b1470e71ca53639433",
+  "pdf_sha256": "e0dd04f60249707c73aa61804abb57d054bde74a31a3a03110b0a0422bb018d0",
   "source_files": [
     "main.tex",
     "sections/abstract.tex",
@@ -20,24 +20,20 @@
     "sections/precision_table.tex",
     "sections/interval_comparison.tex",
     "sections/repair_results.tex",
-    "sections/repair_table.tex",
     "sections/cohort_gap.tex",
     "sections/external_control.tex",
-    "sections/external_control_table.tex",
     "sections/validation.tex",
     "sections/conclusion.tex",
     "sections/responsible.tex",
     "sections/appendix.tex",
     "sections/methods.tex",
     "sections/supporting_check.tex",
+    "sections/external_control_table.tex",
     "sections/llm.tex"
   ],
-  "parent_revision": "9c6afbc",
-  "incoming_revisions": {
-    "repaired_interval": "ae8c109",
-    "claude_revision": "0176c335"
-  },
-  "portable_source_build": "passed: 44 files, all 14 page texts match",
+  "parent_revision": "ce272ca",
+  "patient_target_design_revision": "102801f",
+  "portable_source_build": "passed: 47 files; all 14 page texts match",
   "visual_inspection": {
     "pages": [
       1,
@@ -56,25 +52,24 @@
       14
     ],
     "dpi": 120,
-    "method": "Ghostscript render, all page contact sheets reviewed"
+    "method": "rendered page review, with new figures and final reflow checked"
   },
   "tests": {
     "paper": 25,
     "precision": 5,
     "repair": 10,
     "incoming": 5,
+    "patient_target": 6,
     "external_control": 35,
     "retained_control": 21,
-    "total": 101
+    "total": 107
   },
-  "incoming_algorithm_tests": {
-    "passed": 86,
-    "skipped": 2,
-    "deselected_repository_context_checks": 7
+  "patient_target_followup": {
+    "study_draws": 64000,
+    "settings": 32,
+    "original_counts_reproduced": true
   },
-  "diagnosis_reproduction": {
-    "rows": 64,
-    "interval_evaluations": 128000,
-    "all_rates_match": true
+  "bibliography": {
+    "uncited_entries": 0
   }
 }

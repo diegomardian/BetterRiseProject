@@ -15,21 +15,11 @@ Exact 1:1 allocation within strata makes OLS, standardized and unadjusted
 contrasts coincide; balance only in expectation does not guarantee this identity.
 
 \paragraph{Learned-generator check.}\label{app:learned}
-Seven generators comprise four Gaussian mixtures, a multilayer-perceptron
-(MLP) conditional Gaussian and two parametric controls. Training cohorts
-are simulated from a three-stratum model with confounded treatment assignment
-and a homogeneous additive effect of 3; learned generators are fitted to
-these cohorts, not to clinical data. Ten estimators are then applied to fresh
-synthetic cohorts from each fitted generator. Six sizes ($100,200,500,1000,2000,5000$), six seed streams
-and 30 replicates schedule 75{,}600 evaluations on 7{,}560 cohorts;
-generator failures leave 75{,}580 evaluations on 7{,}558 cohorts. Of these,
-74{,}726 estimate--drawn-reference pairs are finite. The 854 exclusions
-include 410 nonfinite references and 731 nonfinite estimates, overlapping
-in 287 evaluations.
-
-Saturated G-computation has zero residual against $T(D)$ in all 42
-generator--size settings because the equality holds on every evaluable
-synthetic dataset. It does not depend on learning the generator correctly.
-Nonsaturated ridge and MLP outcome fits can depart; the largest MLP residual
-under mixture generators is 3.3 outcome units. These checks concern the
-estimator--reference pair, not realism of learned patient trajectories.
+Four Gaussian mixtures, a multilayer-perceptron conditional Gaussian and two
+parametric controls generate synthetic cohorts after fitting to simulated
+three-stratum training data. Across 42 generator--size settings, saturated
+G-computation has zero residual against $T(D)$ on every evaluable dataset;
+this follows from the identity above. Nonsaturated fits can depart, with a
+largest MLP residual of 3.3 outcome units under mixture generators.
+The aggregate archive retains all scheduled/evaluable counts and exclusions.
+Generator complexity alone does not make an identity-based check informative.

@@ -14,7 +14,8 @@ The original experiment implementations and saved precision results are unchange
 - `main.pdf`: revised anonymous manuscript.
 - `main.tex`, `sections/`, `refs.bib`, `figures/`: editable LaTeX sources and figures.
 - `source.zip`: portable LaTeX/Overleaf source bundle, with `main.tex` at its root.
-- `INCOMING_BRANCH_REVIEW.md`: current independent assessment of Diego's repaired-interval results and Claude's alternate manuscript.
+- `PATIENT_UNIT_CRITIQUE_REVIEW.md`: current assessment of inference units, new fixed-target results and presentation changes.
+- `INCOMING_BRANCH_REVIEW.md`: preceding independent assessment of Diego's repaired-interval results and Claude's alternate manuscript.
 - `REPAIR_CRITIQUE_REVIEW.md`: preceding independent assessment, experimental findings and remaining limitations.
 - `REPAIR_FOLLOWUP_DESIGN.md`, `repair_followup.py`: fixed design and implementation of the new interval comparison.
 - `PRECISION_CRITIQUE_REVIEW.md`: preceding assessment of Monte Carlo reversals, interval scope and supporting evidence.
@@ -85,21 +86,20 @@ comparison: all 240 primary and nine balance summary rows were independently
 reproduced. Original experiment code and saved tables remain unchanged.
 
 ```sh
-PYTHONPATH=. python -m pytest papers/whms_bode/test_results.py papers/whms_bode/test_precision_followup.py papers/whms_bode/test_repair_followup.py papers/whms_bode/test_incoming_interval.py tests/test_external_control_demo.py tests/test_retained_control_audit.py -q
+PYTHONPATH=. python -m pytest papers/whms_bode/test_results.py papers/whms_bode/test_precision_followup.py papers/whms_bode/test_repair_followup.py papers/whms_bode/test_incoming_interval.py papers/whms_bode/test_patient_target.py tests/test_external_control_demo.py tests/test_retained_control_audit.py -q
 python papers/whms_bode/make_tables.py --check
 python papers/whms_bode/audit_results.py
 python papers/whms_bode/make_tables.py
 python papers/whms_bode/make_diagnostic_table.py
 python papers/whms_bode/make_fixed_pool_tables.py
 python papers/whms_bode/make_external_control_table.py
-python papers/whms_bode/make_figures.py
 python papers/whms_bode/make_precision_results.py
-python papers/whms_bode/make_repair_results.py
+python papers/whms_bode/make_review_figures.py
 papers/whms_bode/build.sh
 python papers/whms_bode/package_source.py
 ```
 
-`make_figures.py` reads version-pinned tables and reproduces the historical controlled-calibration figure, now retained only as a local analytical artifact.
+`make_historical_figures.py` (optional, outside the submission build) reads version-pinned tables and reproduces the historical controlled-calibration figure, now retained only as a local analytical artifact.
 The controlled calibration figure deduplicates grid views only after asserting
 that rates at shared counts are identical. The learned-estimator table and extended estimator checks remain local
 analytical artifacts, excluded from the submission bundle; their purposes are
@@ -109,7 +109,7 @@ The redundant normal-mean interval-width demonstration is no longer compiled.
 
 Verification completed for this revision:
 
-- 45 paper/precision/repair/incoming-result tests, 35 external-control harness tests and 21
+- 51 paper/precision/repair/incoming-result/target tests, 35 external-control harness tests and 21
   retained-control audit tests passed,
   including target-dependent rankings and the corrected comparison denominators.
 - All 30 numerical cells in the retained learned-estimator analysis table match
@@ -171,7 +171,7 @@ The maximum binomial Monte Carlo SE is 0.71 percentage points. The
 `precision_provenance.json` sidecar hashes the fixed design, implementation,
 source-pool summaries and result files. The three precision CSVs ship in the
 anonymous ZIP, alongside the scientific figure showing null and effect
-curves together. The main text now contains four tables and one figure.
+curves together. The main text now contains one table and three figures; the external-control table is in the appendix.
 
 ## Reporting-band and interval-repair follow-up
 
@@ -228,7 +228,36 @@ pinned Git objects. `reproduce_incoming_diagnosis.py` reruns the diagnosis using
 an extracted incoming source tree and local Lee data; its command-line arguments
 are documented in the script and `INCOMING_BRANCH_REVIEW.md`.
 
-Validation now includes 101 relevant checks. The nine-page main text and
+That integration passed 101 relevant checks; the patient-target revision raises the total to 107. The nine-page main text and
 three-page appendix are retained. `INCOMING_BRANCH_REVIEW.md` explains each
 accepted and rejected change, including differences between interval targets,
 implementations, Monte Carlo criteria and resampling units.
+
+## Patient-unit critique follow-up
+
+`PATIENT_TARGET_DESIGN.md` and `patient_target_followup.py` were committed as
+`102801f` before running. The unchanged incoming patient-t interval was rescored
+against fixed cell-weighted and equal-patient targets over 64,000 original draws.
+All original rejection, availability and sampled-reference inclusion counts
+reproduce exactly. The new results confirm high alternative coverage with very
+low detection in the two-patient design, while five-patient KUL3 settings still
+have excessive null rejection. They do not validate patient-population inference
+or establish that the full ten/six-patient cohorts are too small.
+
+To rerun, extract `ae8c109`'s source as described above, prepare its cached cohort
+arrays with `reproduce_incoming_diagnosis.py`, then run:
+
+```sh
+python papers/whms_bode/patient_target_followup.py --source-dir /path/to/extracted/source --cache-dir /path/to/scratch/cache
+```
+
+Only aggregates are exported. Versioned parquet results and metadata are under
+`results/2026-09-16_102801f/`; CSV summaries, seed counts and provenance are under
+`diagnostics/patient_target_*`. Six new checks cover target weighting, replay,
+denominators, availability, reported claims and result provenance.
+
+The manuscript now uses a mechanism schematic, four-condition operating curves,
+and a complete repair comparison with pointwise Wilson intervals. Regenerate
+these with `make_precision_results.py` and `make_review_figures.py`. The earlier
+numerical repair table is a local analytical artifact; `make_repair_results.py`
+can regenerate it for inspection. It is excluded from the submission source graph.

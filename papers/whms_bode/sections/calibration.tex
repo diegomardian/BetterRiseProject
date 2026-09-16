@@ -9,8 +9,8 @@ change). These explanations suggest different biological interpretations.
 An empirical comparison of per-cell means requires the relevant population
 to be observed in both tissues. Let $f_N,f_T$ denote the relevant cell fractions
 in reference and diseased tissue, and $m_N,m_T$ their mean per-cell output.
-A reference-based decomposition, related to demographic standardization
-\citep{kitagawa1955}, is
+A reference-based decomposition, related to demographic standardization and Oaxaca--Blinder decompositions
+\citep{kitagawa1955,oaxaca1973,blinder1973}, is
 \begin{equation}
 \underbrace{(f_T-f_N)m_N}_{\text{compositional}} +
 \underbrace{f_N(m_T-m_N)}_{\text{intrinsic}} +
@@ -32,10 +32,10 @@ below also retain raw arithmetic before this reporting gate. We evaluate the bou
 counts to diagnose the curve's behavior.
 
 \paragraph{The claim being re-evaluated.}
-An internal assessment (Artifact A) treated the 50-cell boundary as validated
+An internal validation statement (record A) treated the 50-cell boundary as validated
 because recovery ratios were 0.85--1.08 above it and 1.18 in the 20--49-cell
-band, using six draws per setting at 1{,}200 cells per arm. The design record
-(Artifact B) instead required at least 90\% interval coverage and 80\% exclusion
+band, using six draws per setting at 1{,}200 cells per arm. The design specification
+(record B) instead required at least 90\% interval coverage and 80\% exclusion
 of zero at a halving of expression. Appendix~\ref{app:provenance} and the
 anonymized supporting record make this mismatch inspectable.
 
@@ -44,9 +44,10 @@ The design document fixed a detectable halving of per-cell output ($s=0.5$),
 coverage of the target in at least $90\%$ of defined outputs, and discrimination of at least $80\%$, defined as the probability
 that the interval excludes zero at that effect. The implementation scored coverage against a draw-dependent reference benchmark;
 we retain that score and add coverage against the generating pool mean.
-The candidate $ok$ is the first evaluated count or bin meeting both criteria;
-$wide$ is the first meeting coverage alone. The committed values are 50 and 20.
-The first-crossing definition does not require larger counts to qualify.
+We call the first tested count meeting both criteria a proposed reporting
+cutoff, and the first meeting coverage alone a proposed warning cutoff.
+The implemented cutoffs are 50 and 20. Passing at one count does not require
+larger counts to qualify.
 
 The calibration uses paired subsets of the published colorectal atlas
 \citep{lee2020}: ten patients from GSE132465 (SMC) and six from
@@ -103,66 +104,29 @@ Appendix~\ref{app:precision} specifies the sampling and interval calculations.
 \input{sections/interval_comparison.tex}
 \input{sections/repair_results.tex}
 
-\subsection{Count grids change candidate cutpoints}
-Historical grids returned reference-only binned candidates of 100, 90 and 70,
-but changed random streams, bin boundaries and replicate budgets together
-(Appendix~\ref{app:historical}). To isolate these choices, we simulated the
-union of counts once per cohort, pool and each of eight seeds, with 200 outer
-replicates and 200 inner bootstrap draws. Every grid summary reuses the same
-outputs at shared counts. A \emph{grid} is the set of mature-cell counts a
-sweep can evaluate, fixed by which mature-cell fractions it varies. The
-committed grid is the one recorded in the original design and reaches
-$\{0,20,40,100,200,400,800\}$; the filled and dense grids add support between
-and below those counts, and differ from it in nothing else.
-Fixed bins share boundaries across grids; adaptive bins recalculate them.
-Binned candidates are median counts within the selected bin, not estimated
-crossing locations.
-
-
-
-Table~\ref{tab:controlledgrid} summarizes the candidates. The largest binomial
-Monte Carlo standard error in this grid is 0.035.
-
-\begin{table}[htbp]
-\centering\small
-\caption{Joint coverage-and-discrimination candidates from the controlled
-union-grid run. Entries give candidates with seed frequencies in parentheses
-where they vary; otherwise all eight seeds agree. Every grid summary reuses the
-same draws at shared counts. ``None'' means no tested count or bin qualifies.}
-\label{tab:controlledgrid}
-\begin{tabular}{@{}llccc@{}}
-\toprule
-cohort / pool & grid & fixed bins & adaptive bins & per count \\
-\midrule
-SMC / reference & committed & $100$ & $100$ & $100$ \\
- & filled & $70$ & $65\ (7),\ 90\ (1)$ & $50$--$80$ \\
- & dense & $70$ & $70$ & $45$--$80$ \\
-KUL3 / reference & all three & $400\ (6),\ 800\ (2)$ & same & same \\
-Both / pooled & all three & None & None & None \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-At the committed count of 50, SMC reference-only discrimination ranges
-from 75.5\% to 81.0\% across seeds, with both criteria met on two of eight
-seeds. KUL3 reference-only discrimination is only 45.0--55.0\% at that count.
-The 200-replicate local crossings remain unresolved by the precision
-follow-up, which does not revisit counts 45, 60 or 70.
-
-A stable binned candidate of 70 is not a uniquely determined threshold:
-SMC's first qualifying actual counts span 50--80 on the filled grid and
-45--80 on the dense grid. Adding settings can change both a bin's median
-count and its aggregate performance even when its boundaries stay fixed.
+\subsection{A first passing count depends on the evaluated grid}
+A grid is the set of counts tested in a simulation. We compare the original
+set $\{0,20,40,100,200,400,800\}$ with two expanded sets, using the same
+simulated outputs at shared counts (eight streams; 200 studies and 200
+bootstrap draws per setting). With fixed bin boundaries, SMC's proposed
+reporting cutoff moves from 100 to 70 in all eight streams. Yet the first
+passing individual counts span 50--80 and 45--80 on the two expanded grids.
+A binned cutoff is the median count in a qualifying bin, not a measured
+crossing location. KUL3 returns 400 in six streams and 800 in two; pooled
+draws yield no qualifying cutoff. These exploratory rates have Monte Carlo
+SEs up to 3.5 percentage points. Unresolved local crossings at counts
+45, 60 and 70 cannot establish a nonmonotone performance curve.
+Appendix~\ref{app:historical} and the saved grid tables retain the settings.
 
 \subsection{Patient influence and the cohort gap}
 Enumerating all 45 and 15 two-patient holdout pairs separates patient omission
 from repeated simulation. Keying streams to the sorted pair identifiers keeps
 every retained pair fixed. Raising the inner bootstrap budget from 200 to 1{,}000
-and 5{,}000 leaves the first cohort's candidate at 70, but moves the second's
+and 5{,}000 leaves the first cohort's proposed cutoff at 70, but moves the second's
 400 to 300 and back to 400. Omitting one source patient changes the joint
-coverage-and-discrimination candidate for none of ten patients in the first
+joint cutoff for none of ten patients in the first
 cohort and three of six in the second (KUL01, KUL30 and KUL31). For the
-coverage-only candidate, the corresponding counts are five of ten and zero of
+coverage-only cutoff, the corresponding counts are five of ten and zero of
 six. These checks quantify influence within each observed cohort.
 Appendix~\ref{app:guards} gives the biological comparability limits.
 
@@ -170,7 +134,7 @@ Appendix~\ref{app:guards} gives the biological comparability limits.
 The sensitivity windows cover counts $40,50,60,70,80,90,100,110$ in SMC and
 $200,300,400,600,800$ in KUL3. These per-count summaries use a fixed pair
 schedule, so they are a separate experiment from the eight-seed union grid.
-Omitting KUL01 or KUL30 moves the joint candidate from 400 to 300; omitting
+Omitting KUL01 or KUL30 moves the joint cutoff from 400 to 300; omitting
 KUL31 moves it to the lowest tested count, 200, with its lower boundary
 unobserved. The coverage-only baselines likewise occur at the lowest tested
 counts, 40 and 200. Their stability cannot locate a lower crossing outside

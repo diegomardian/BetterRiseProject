@@ -46,6 +46,16 @@ continues resampling both arms. This explains why near-perfect benchmark
 inclusion can accompany lower coverage of the generating parameter. Skewed
 finite-sample errors still determine the actual percentile-interval rates.
 
-These precision runs assess four specified counts, without selecting a
-replacement threshold. The eight-seed grid below remains scored against
-its original benchmark and cannot be reinterpreted as fixed-pool calibration.
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{figures/reference_mechanism.pdf}
+\caption{How scoring changes the error while keeping the reported interval
+fixed. The schematic uses centered arm means conditional on pool $P$.
+At a halving, the sampled-reference score halves the reference-arm error,
+reducing that arm's variance contribution to one quarter. The tumor-arm
+contribution is unchanged; the bars show reference-arm variance only.}
+\label{fig:mechanism}
+\end{figure}
+
+The historical grid retains its original sampled-reference score; it does
+not supply fixed-pool calibration.
