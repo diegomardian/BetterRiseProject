@@ -1,17 +1,21 @@
 # Revised WMHS paper
 
-**Auditing a single-cell reporting rule: coverage, false positives and target choice**
+**When recovery does not validate a reporting rule: a synthetic trial example and an empirical audit**
 
 This independent revision starts from repository commit `b503971` and addresses
 the review of `WHMS_BIO_PAPER.pdf`. After pulling through `a336594`, it adopts
 the verified synthetic external-control example from the incoming paper while
 preserving the later fixed-pool and false-positive analyses. This integration
 does not modify the other manuscript, experiment implementations or saved results.
+The latest structural revision pulls through `7c3c818`, leads with the clinical
+simulation example, narrows the interval-comparator conclusion, and consolidates
+the general limitations. The empirical evidence and numerical results are unchanged.
 
 - `main.pdf`: revised anonymous manuscript.
 - `main.tex`, `sections/`, `refs.bib`, `figures/`: editable LaTeX sources and figures.
 - `source.zip`: portable LaTeX/Overleaf source bundle, with `main.tex` at its root.
-- `THIRD_CRITIQUE_RESPONSE.md`: current independent assessment and experimental follow-up.
+- `STRUCTURE_REVIEW.md`: current assessment of venue fit, structure, novelty and bootstrap claims.
+- `THIRD_CRITIQUE_RESPONSE.md`: preceding independent assessment and experimental follow-up.
 - `FOLLOWUP_DESIGN.md`: analysis settings fixed before the larger run.
 - `precision_followup.py`: 160,000-study precision and paired interval comparison.
 - `INCOMING_PAPER_REVIEW.md`: assessment of the pulled paper, adopted findings and corrected overclaims.
@@ -26,8 +30,8 @@ does not modify the other manuscript, experiment implementations or saved result
 - `results_manifest.json`: 38 original pinned input tables, four external-control tables and five
   control-panel audit inputs.
 
-The condensed build has **8 pages of main text**, **2 pages of references**
-(starting on page 9), and **3 pages of appendix**, for **13 pages overall**.
+The current build has **9 pages of main text**, **2 pages of references**
+(starting on page 10), and **3 pages of appendix**, for **14 pages overall**.
 Earlier versions are preserved in `archive/expanded_18page_source.zip` and
 `archive/condensed_14page_source.zip`; the first critique revision is preserved
 in `archive/first_critique_source.zip`. The pre-precision revision is in
@@ -76,7 +80,7 @@ comparison: all 240 primary and nine balance summary rows were independently
 reproduced. Original experiment code and saved tables remain unchanged.
 
 ```sh
-PYTHONPATH=. python -m pytest papers/whms_bode/test_results.py papers/whms_bode/test_precision_followup.py tests/test_external_control_demo.py -q
+PYTHONPATH=. python -m pytest papers/whms_bode/test_results.py papers/whms_bode/test_precision_followup.py tests/test_external_control_demo.py tests/test_retained_control_audit.py -q
 python papers/whms_bode/make_tables.py --check
 python papers/whms_bode/audit_results.py
 python papers/whms_bode/make_tables.py
@@ -107,7 +111,7 @@ Verification completed for this revision:
   manuscript by themselves; they did not catch several corrected issues.
 - Build and anonymity checks passed with no errors, undefined references or
   overfull boxes.
-- All 13 rendered pages were visually inspected, including figures and tables.
+- All 14 rendered pages were visually inspected, including figures and tables.
 
 The temporary review environment used while editing was
 `/tmp/whms_bode_env/bin/python`; it need not exist on another machine.

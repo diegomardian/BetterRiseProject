@@ -1,4 +1,5 @@
-The audited 50-cell rule fails joint interval evaluation despite reassuring
+The synthetic external-control example shows how a validation reference can
+favor an estimator of the wrong population effect. The audited 50-cell rule fails joint interval evaluation despite reassuring
 point-estimate recovery. A larger simulation budget distinguishes three
 coverage failures from one passing condition, while excess null rejection
 and insufficient detection occur in all four. Welch intervals improve coverage
@@ -6,8 +7,6 @@ but do not repair the reporting boundary. The non-monotone detection curve
 also becomes interpretable only beside the changing false-positive rate.
 
 A reporting threshold must be assessed with its actual interval, explicit
-target and null and alternative operating characteristics. The synthetic
-external-control example adds that the target must name the population over
-which effects are averaged. These results establish failures and delimit one
-attempted repair; they do not validate a replacement rule or a patient world
-model.
+target and null and alternative operating characteristics. The target must name the population over which effects are averaged, and
+qualification must address the range over which the rule will report.
+Recovery alone supplies neither guarantee.

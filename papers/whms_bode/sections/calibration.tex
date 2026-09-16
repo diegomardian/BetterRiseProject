@@ -1,5 +1,35 @@
-\section{Calibration study and results}
+\section{Empirical audit: when recovery fails to validate a reporting rule}
 \label{sec:calibration}
+
+\paragraph{Application and reporting policy.}
+The empirical application separates two explanations for differentiation-marker
+loss in colorectal cancer: fewer marker-producing cells (a \emph{compositional}
+change), or lower output from the cells that remain (an \emph{intrinsic}
+change). These explanations suggest different biological interpretations.
+An empirical comparison of per-cell means requires the relevant population
+to be observed in both tissues. Let $f_N,f_T$ denote the relevant cell fractions
+in reference and diseased tissue, and $m_N,m_T$ their mean per-cell output.
+A reference-based decomposition, related to demographic standardisation and
+Oaxaca--Blinder decompositions \citep{kitagawa1955,oaxaca1973,blinder1973}, is
+\begin{equation}
+\underbrace{(f_T-f_N)m_N}_{\text{compositional}} +
+\underbrace{f_N(m_T-m_N)}_{\text{intrinsic}} +
+\underbrace{(f_T-f_N)(m_T-m_N)}_{\text{interaction}}
+= f_Tm_T-f_Nm_N.
+\label{eq:kitagawa}
+\end{equation}
+The interaction is reported separately. If no relevant cells are observed in
+an arm, its sample mean is undefined; the identity cannot supply the missing
+mean. In a synthetic population with no such cells, the corresponding
+conditional mean itself has no referent. Substituting zero in either case
+turns an unavailable contrast into an apparent effect.
+
+The implemented reporting rule returns an estimate at $n\geq50$, flags a wide
+interval at $20\leq n<50$, and returns \notest{} below 20, where $n$ is the
+relevant-cell count in diseased tissue. Unavailable reported contrasts are
+stored as \texttt{None}, not zero. The diagnostic oracle calculations examined
+below also retain raw arithmetic before this reporting gate. We evaluate the boundary directly and retain pre-gate intervals at smaller
+counts to diagnose the curve's behavior.
 
 \paragraph{The claim being re-evaluated.}
 An internal assessment (Artifact A) treated the 50-cell boundary as validated
@@ -79,7 +109,7 @@ union of counts once per cohort, pool and each of eight seeds, with 200 outer
 replicates and 200 inner bootstrap draws. Every grid summary reuses the same
 outputs at shared counts. A \emph{grid} is the set of mature-cell counts a
 sweep can evaluate, fixed by which mature-cell fractions it varies. The
-committed grid is the pre-registered one and reaches
+committed grid is the one recorded in the original design and reaches
 $\{0,20,40,100,200,400,800\}$; the filled and dense grids add support between
 and below those counts, and differ from it in nothing else.
 Fixed bins share boundaries across grids; adaptive bins recalculate them.
@@ -178,22 +208,11 @@ those windows. Overlapping pairs do not add independent patients.
 
 \input{sections/cohort_gap.tex}
 
-\subsection{Biological controls fail to establish mechanism}\label{sec:biocontrols}
-The pre-committed panel included compositional, intrinsic and retained-gene
-controls. In the primary cohort the retained-gene control, MS4A12, changed by
-$-0.971$ to $-0.951$ relative to baseline after excluding sparse strata,
-nearly matching the compositional controls. The $-1.000$ endpoint occurs in
-strata with very few relevant tumour cells and is not evidence of a precisely
-measured complete loss. The intrinsic control had only 0.04 CP10K, compared
-with 19.4 and 24.9 for the abundant compositional controls (counts per
-10{,}000), limiting its usefulness for the intended test.
-
-A follow-up audit finds that the retained-control drop persists when all
-epithelial cells are included and after depth matching; another gene measured
-on the same cells retains substantially more expression. A separate bulk
-analysis also finds depletion of MS4A12 (Appendix~\ref{app:controls}). These
-checks argue against marker-based selection or measured depth differences
-being the sole explanation, and undermine this gene's assumed retained status.
-Bulk depletion does not itself separate composition from within-cell change.
-Thus interval calibration and control-panel suitability remain distinct
-problems; improving either one would not establish the other.
+\paragraph{Biological interpretation is a separate requirement.}\label{sec:biocontrols}
+Interval calibration cannot establish a biological mechanism. The assumed
+retained-gene control, MS4A12, instead falls by $-0.971$ to $-0.951$ in
+non-sparse primary-cohort strata. Its depletion persists under broader cell
+inclusion and depth matching and appears in a separate bulk dataset.
+These checks undermine the panel's retention assumption; they do not separate
+composition from within-cell change. Appendix~\ref{app:controls} reports this
+control-panel audit as a limitation of the biological application.

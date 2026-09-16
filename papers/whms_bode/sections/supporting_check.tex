@@ -2,11 +2,12 @@
 \label{app:matrix}\label{sec:matrix}
 
 \paragraph{Reference dependence.}
-With nonempty stratum arms, saturated G-computation \citep{robins1986}, IPW
-using empirical stratum propensities, non-cross-fitted saturated AIPW and
+With nonempty stratum arms, saturated G-computation \citep{robins1986}, inverse-probability weighting
+(IPW) using empirical stratum propensities, non-cross-fitted saturated
+augmented IPW (AIPW) and
 matching using every control all reproduce
 $T(D)=\sum_g(n_g/n)(\bar Y_{1g}-\bar Y_{0g})$. The IPW weights recover each
-stratum mean; the AIPW augmentation sums to zero within stratum. OLS with
+stratum mean; the AIPW augmentation sums to zero within stratum. Ordinary least squares (OLS) with
 additive stratum indicators instead weights contrasts by normalized
 $n_g\hat p_g(1-\hat p_g)$ \citep{angrist1998,frisch1933}. Under confounded
 assignment at 5{,}000 patients, switching between these two references changes

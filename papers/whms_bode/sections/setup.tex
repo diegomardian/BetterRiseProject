@@ -1,59 +1,46 @@
-\section{Motivation: recovery and decision-rule validation}
+\section{Motivation: validate the decision, not just recovery}
 \label{sec:intro}
 
-A cell-count threshold is useful only if the estimates it permits have
-adequate uncertainty. We audit a 50-cell reporting rule in colorectal
-single-cell analysis, testing coverage, false positives and threshold
-stability. We then change the interval method while holding the simulated
-samples fixed, to distinguish a failure of this implementation from a problem
-that a simple interval substitution resolves. The contribution is an empirical
-case study of a previously overstated validation claim in an unpublished
-project, with reproducible comparisons of targets and interval methods.
+A clinical simulator may reproduce a treatment-effect reference accurately
+while providing inadequate evidence for the decision it is meant to support.
+The reference may average effects over the wrong population; even with the
+right target, recovering a point estimate does not establish the coverage or
+false-positive rate of the reported interval. Our thesis is that validation
+must address the target, interval and reporting policy together. We examine
+this gap through a constructed external-control example and a documented
+single-cell self-audit, with different evidential roles.
 
-Our motivating application separates two explanations for differentiation-marker
-loss in colorectal cancer: fewer marker-producing cells (a \emph{compositional}
-change), or lower output from the cells that remain (an \emph{intrinsic}
-change). These explanations suggest different biological interpretations.
-An empirical comparison of per-cell means requires the relevant population
-to be observed in both tissues. Let $f_N,f_T$ denote the relevant cell fractions
-in reference and diseased tissue, and $m_N,m_T$ their mean per-cell output.
-A reference-based decomposition, related to demographic standardisation and
-Oaxaca--Blinder decompositions \citep{kitagawa1955,oaxaca1973,blinder1973}, is
-\begin{equation}
-\underbrace{(f_T-f_N)m_N}_{\text{compositional}} +
-\underbrace{f_N(m_T-m_N)}_{\text{intrinsic}} +
-\underbrace{(f_T-f_N)(m_T-m_N)}_{\text{interaction}}
-= f_Tm_T-f_Nm_N.
-\label{eq:kitagawa}
-\end{equation}
-The interaction is reported separately. If no relevant cells are observed in
-an arm, its sample mean is undefined; the identity cannot supply the missing
-mean. In a synthetic population with no such cells, the corresponding
-conditional mean itself has no referent. Substituting zero in either case
-turns an unavailable contrast into an apparent effect.
+The external-control example isolates a target-population error relevant to
+single-arm trial simulation (Section~\ref{sec:eca}). A pooled-population
+estimator appears exact against its observed-data reference yet overstates
+the benefit among enrolled records. Changing the reference to their known
+potential-outcome effect reverses the estimator ranking. This establishes a
+possible failure and a diagnostic control in a fully specified synthetic
+setting.
 
-The implemented reporting rule returns an estimate at $n\geq50$, flags a wide
-interval at $20\leq n<50$, and returns \notest{} below 20, where $n$ is the
-relevant-cell count in diseased tissue. Unavailable reported contrasts are
-stored as \texttt{None}, not zero. The diagnostic oracle calculations examined
-below also retain raw arithmetic before this reporting gate. We evaluate the boundary directly and retain pre-gate intervals at smaller
-counts to diagnose the curve's behavior.
+The empirical audit examines an actual validation claim in our unpublished
+colorectal single-cell project (Section~\ref{sec:calibration}). Point-estimate
+recovery had justified a 50-cell reporting boundary. Direct evaluation finds
+excessive false positives with both percentile and Welch intervals, and
+changing the scoring target exposes misleading apparent coverage. Controlled
+grid comparisons then show why a first passing count does not certify all
+larger counts. Together, these analyses trace how a reassuring recovery result
+can fail to justify the rule used downstream.
 
-\paragraph{Relation to existing validation methods.}
-Simulation-study methodology already separates estimands, methods and
-performance measures \citep{burton2006,morris2019}. Generator--analysis alignment
-is discussed in congeniality \citep{meng1994}, plasmode and semi-synthetic
-benchmarks \citep{franklin2014,curth2021}, interventional evaluation
-\citep{gentzel2019} and the inverse crime \citep{wirgin2004,kaipio2007}; generators
-can also disadvantage good estimators \citep{shaw2026}. We apply these distinctions to the recorded reporting-rule decision. For clinical trials, external-control validation
-already examines bias and type-I error using held-out studies
-\citep{ventz2019}. Prognostic adjustment with historical data retains trial
-randomisation and evaluates precision gains \citep{schuler2022}; target-trial
-emulation states the causal question and design explicitly \citep{hernan2016}.
-These methods motivate the clinical-simulation validation questions in
-Section~\ref{sec:validation}. The empirical study uses single-cell pools; a separate synthetic
-external-control experiment illustrates target-population mismatch. Neither
-validates a patient world model. Simulation-based calibration evaluates posterior ranks
-\citep{talts2018,modrak2025}.
-Appendix~\ref{app:relatedwork}
-provides further context.
+\paragraph{Contribution and prior work.}
+The contribution is a reproducible worked audit, not a new validation
+principle. Simulation-study methodology already separates estimands, methods
+and performance measures \citep{burton2006,morris2019}; ICH E9(R1) requires
+the clinical question to identify its target population \citep{ich2019}.
+Generator--analysis alignment is studied through congeniality
+\citep{meng1994}, plasmode and semi-synthetic benchmarks
+\citep{franklin2014,curth2021}, interventional evaluation \citep{gentzel2019}
+and the inverse crime \citep{wirgin2004,kaipio2007}; generators can also
+disadvantage good estimators \citep{shaw2026}. Clinical external-control
+validation already uses held-out studies to assess bias and type-I error
+\citep{ventz2019}. Prognostic adjustment retains trial randomisation
+\citep{schuler2022}, and target-trial emulation makes the causal question and
+design explicit \citep{hernan2016}. We apply these established distinctions
+to an inspectable reporting-rule decision and a controlled population mismatch.
+Section~\ref{sec:validation} draws out the resulting checks for clinical
+simulation; Appendix~\ref{app:relatedwork} provides further context.

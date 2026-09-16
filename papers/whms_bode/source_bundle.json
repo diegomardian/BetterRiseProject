@@ -1,6 +1,6 @@
 {
   "archive": "source.zip",
-  "sha256": "77fae1eaae54bd89d0af00c9f400f3895c058b445b749e86e1ae719fdc7acbb9",
+  "sha256": "7240f8e71a3feffb3ec1bc94d5972e2e9a6b850fd8df0d6e55b477c7ce42918b",
   "files": [
     "diagnostics/candidate_reversals.json",
     "diagnostics/coverage_precision.json",
@@ -27,6 +27,7 @@
     "sections/calibration.tex",
     "sections/cohort_gap.tex",
     "sections/conclusion.tex",
+    "sections/external_control.tex",
     "sections/external_control_table.tex",
     "sections/fixed_pool_results.tex",
     "sections/interval_comparison.tex",

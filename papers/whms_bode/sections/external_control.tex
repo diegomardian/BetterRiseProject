@@ -1,0 +1,64 @@
+\section{Clinical-simulation example: validating the wrong population}
+\label{sec:eca}
+
+Consider validating an estimator for a single-arm trial using an external
+control arm (ECA). This constructed experiment isolates a mismatch between
+the population named by the clinical question and the population used in
+validation.
+A fixed synthetic registry supplies a single-arm trial and three external
+controls per enrolled patient. Enrolment favors heavily pretreated strata;
+induced benefits vary by stratum and latent individual responsiveness.
+The intended target is the finite-cohort mean treatment effect among enrolled
+records $E$, available to the simulator through both potential outcomes:
+\begin{equation}
+\tau_E=\frac{1}{|E|}\sum_{i\in E}\{Y_i(1)-Y_i(0)\},\qquad
+\hat\tau(w)=\sum_g w_g(\bar Y_{1g}-\bar Y_{0g}).
+\label{eq:ecatarget}
+\end{equation}
+Here $g$ indexes treatment-history strata, and the observed means use treated
+enrollees and untreated external controls. Enrolled standardization uses
+$w_g=n_{Eg}/|E|$; pooled standardization uses
+$w_g=(n_{Eg}+n_{Cg})/(|E|+|C|)$ for controls $C$. Both use the same stratum
+contrasts. Because effects vary across strata and enrolment changes their
+mix, these weights answer different questions. Pooled standardization is
+inappropriate for the stated enrolled target, not intrinsically invalid.
+
+We evaluate 200 studies at each of six trial sizes from 50 to 1{,}600,
+holding the synthetic registry fixed. At the largest size,
+Table~\ref{tab:eca} compares the same estimates against three references:
+the observed pooled contrast, the pooled potential-outcome effect, and
+$\tau_E$. Appendix~\ref{app:eca} specifies the generator and denominators.
+
+\input{sections/external_control_table.tex}
+
+At 1{,}600 enrolled patients, pooled standardization has a median estimate of
+1.890 outcome units while the enrolled records' median true effect is 1.003.
+These medians fall on opposite sides of the prespecified illustrative threshold
+of 1.5; this is not an estimated probability of a wrong decision.
+Against the observed pooled contrast, the pooled estimator has zero error by
+construction, while enrolled standardization appears inaccurate
+(Table~\ref{tab:eca}). Using the enrolled potential-outcome reference reverses
+that ranking. Merely using potential outcomes is insufficient: averaging them
+over the pooled population still favors the estimator of the wrong target.
+The target must specify both the effect and the population over which it is
+averaged.
+
+\paragraph{Controls distinguish agreement from target alignment.} At zero case-mix shift, pooled
+standardization still reproduces its observed-data reference but its bias
+against the enrolled effect is only $-0.002$ units. Equality therefore does
+not establish that an estimate is wrong. Under the full shift, pooled
+weighting balances the measured strata between arms to numerical precision
+while their weighted distribution differs from the enrolled distribution
+(maximum standardized difference 0.964). Between-arm balance does not establish
+target-population alignment. Across trial sizes, root mean squared error against $\tau_E$ falls from
+0.608 to 0.105 for enrolled standardization, compared with 1.082 to 0.892
+for pooled standardization. Increasing sample size therefore does not remove
+the population mismatch in this experiment.
+
+For clinical-simulation validation, the actionable check is to compare the
+analysis population with the population named by the estimand, in addition
+to checking between-arm balance. Potential-outcome access solves the missing
+counterfactual problem inside this simulation; it does not choose the target
+population. The next section examines the complementary problem: even a
+correctly specified target requires direct evaluation of interval performance
+and the reporting boundary.

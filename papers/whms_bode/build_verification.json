@@ -1,27 +1,28 @@
 {
-  "main_text_pages": 8,
-  "reference_start_page": 9,
+  "main_text_pages": 9,
+  "reference_start_page": 10,
   "reference_pages": 2,
-  "appendix_start_page": 11,
+  "appendix_start_page": 12,
   "appendix_pages": 3,
-  "total_pages": 13,
+  "total_pages": 14,
   "latex_errors": 0,
   "undefined_references": 0,
   "overfull_boxes": 0,
   "anonymity": "passed",
   "official_style_sha256": "c3fc2894e83d2517ca18b66741d6c595986d97957dc08ec08bb2125a7ec4555a",
-  "pdf_sha256": "0d9592f6525f8a8b0b05c0698b8ee98e160ce70519d15afcc2faf737adfa3490",
+  "pdf_sha256": "01d70d515bf360c05515e22fba354bd3917e5c75d4a694c062fbb7c83c75df03",
   "source_files": [
     "main.tex",
     "sections/abstract.tex",
     "sections/setup.tex",
+    "sections/external_control.tex",
+    "sections/external_control_table.tex",
     "sections/calibration.tex",
     "sections/fixed_pool_results.tex",
     "sections/precision_table.tex",
     "sections/interval_comparison.tex",
     "sections/cohort_gap.tex",
     "sections/validation.tex",
-    "sections/external_control_table.tex",
     "sections/conclusion.tex",
     "sections/responsible.tex",
     "sections/appendix.tex",
@@ -29,7 +30,7 @@
     "sections/supporting_check.tex",
     "sections/llm.tex"
   ],
-  "merged_remote_revision": "95e6dfb",
+  "merged_remote_revision": "7c3c818",
   "visual_review": {
     "pages": [
       1,
@@ -44,13 +45,14 @@
       10,
       11,
       12,
-      13
+      13,
+      14
     ],
-    "render_dpi": 100,
-    "result": "passed; merged layout inspected and final affected pages reinspected"
+    "render_dpi": 120,
+    "result": "passed; all pages inspected at 100 dpi, final affected appendix pages and clinical table reinspected at 120 dpi"
   },
   "portable_source_compile": {
-    "pages": 13,
+    "pages": 14,
     "page_text_identical": true,
     "latex_errors": 0,
     "undefined_references": 0,
