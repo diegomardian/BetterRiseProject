@@ -86,8 +86,9 @@ import numpy as np
 import pandas as pd
 
 from src.common.io import write_versioned_table
-from src.common.panel import tier_expectation, tier_of
+from src.common.panel import tier_expectation, tier_genes, tier_of
 from src.common.paths import RESULTS_DIR
+from src.common.provenance import _git
 
 log = logging.getLogger(__name__)
 
@@ -114,6 +115,11 @@ SINGLE_CELL_SOURCES: tuple[tuple[str, str, str], ...] = (
 )
 
 BULK_SOURCE = "results/2026-09-04_e78e741/gse39582_fold_change.parquet"
+
+#: Below this a CP10K per-cell mean is not a measurement of expression. One
+#: count in 250,000 UMIs is the figure `docs/prereg_g2_mlh1.md` itself uses for
+#: MLH1; 0.1 CP10K is one count per 100,000 and is generous to the panel.
+MEASURABLE_CP10K = 0.10
 
 #: A stratum whose tumour mature compartment is smaller than this is reported as
 #: degenerate: its -1.0000 is an empty denominator population, not a measurement.
@@ -491,6 +497,131 @@ def adjudicate(grid: pd.DataFrame, bulk: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def tier_b_abundance(grid: pd.DataFrame) -> pd.DataFrame:
+    """Every tier-B gene's baseline, not just the one the reviewer noticed.
+
+    The papers quote "the intrinsic control had only 0.04 CP10K", which names
+    MLH1 and reads as one unlucky gene. MLH1 is the most abundant of the three.
+    """
+    per_gene = per_gene_abundance(grid)
+    rows = []
+    for gene in tier_genes("B"):
+        present = gene in per_gene.index
+        baseline = float(per_gene.loc[gene, "baseline"]) if present else 0.0
+        rows.append({
+            "gene": gene,
+            "tier": "B",
+            "baseline_cp10k_normal": baseline,
+            "has_measurable_baseline": bool(baseline >= MEASURABLE_CP10K),
+            "note": (
+                "no stratum with a non-zero baseline survives the degeneracy "
+                "filter" if not present else ""
+            ),
+        })
+    return pd.DataFrame(rows).sort_values("baseline_cp10k_normal")
+
+
+def precommitment_timeline(repo_root: Path) -> pd.DataFrame:
+    """When the panel froze, when data arrived, when the problem was written down.
+
+    Read from git at run time rather than transcribed, so it cannot drift. The
+    question it answers is narrow and it is asked of the authors' own process:
+    was the intrinsic control MEASURABLY too low-expressed before the panel was
+    frozen, or did that only become apparent afterwards?
+
+    `docs/prereg_g2_mlh1.md` states "not a mistake anyone could have caught
+    before measuring." This table is the record that claim has to sit against.
+    """
+    def first_commit(path: str) -> tuple[str, str, str]:
+        out = _git("log", "--follow", "--reverse", "--format=%h|%aI|%s", "--", path)
+        if not out:
+            return ("", "", "")
+        return tuple(out.splitlines()[0].split("|", 2))  # type: ignore[return-value]
+
+    def n_commits(path: str) -> int:
+        out = _git("log", "--follow", "--format=%h", "--", path)
+        return len(out.splitlines()) if out else 0
+
+    def first_commit_adding(pickaxe: str, path: str) -> tuple[str, str, str]:
+        """First commit that introduced ``pickaxe`` into ``path``.
+
+        `first_commit` on data/manifest.csv returns the scaffold commit, which
+        created the file as a bare CSV header. The question here is when a
+        DATASET first appeared in it, which is a pickaxe search, not a file
+        history.
+        """
+        out = _git("log", "--reverse", "-S", pickaxe,
+                   "--format=%h|%aI|%s", "--", path)
+        if not out:
+            return ("", "", "")
+        return tuple(out.splitlines()[0].split("|", 2))  # type: ignore[return-value]
+
+    panel_sha, panel_when, panel_subject = first_commit("config/panel.yaml")
+    data_sha, data_when, data_subject = first_commit_adding(
+        "data/raw/", "data/manifest.csv"
+    )
+
+    rows = [
+        {
+            "event": "panel frozen — tier B committed to MLH1, SFRP1, SFRP2",
+            "git_sha": panel_sha,
+            "when": panel_when,
+            "subject": panel_subject,
+            "evidence": (
+                f"config/panel.yaml has {n_commits('config/panel.yaml')} commit(s) "
+                f"in its whole history and is byte-identical at HEAD"
+            ),
+        },
+        {
+            "event": "first expression data registered in the manifest",
+            "git_sha": data_sha,
+            "when": data_when,
+            "subject": data_subject,
+            "evidence": (
+                "data/manifest.csv is header-only in the freeze commit — no "
+                "dataset was registered when the panel was frozen"
+            ),
+        },
+        {
+            "event": "first committed table carrying a tier-B per-cell mean",
+            "git_sha": "6f81018",
+            "when": "2026-08-28",
+            "subject": "decomposition_summary, GSE178341",
+            "evidence": (
+                "results/2026-08-28_6f81018/decomposition_summary.parquet is "
+                "the earliest sidecar listing MLH1 in its genes field"
+            ),
+        },
+        {
+            "event": "the abundance problem written down",
+            "git_sha": "05dadda",
+            "when": "2026-08-29T20:21:02-05:00",
+            "subject": "prereg: the G2 tier-B result",
+            "evidence": (
+                "docs/prereg_g2_mlh1.md RESULT: 'MLH1 sits ~600x below GUCA2A "
+                "— roughly one count per 250,000 UMIs'"
+            ),
+        },
+        {
+            "event": (
+                "abundance reasoning present at freeze for tier A, absent for tier B"
+            ),
+            "git_sha": panel_sha,
+            "when": panel_when,
+            "subject": "config/panel.yaml role fields, as frozen",
+            "evidence": (
+                "tier A's role reasons about population abundance ('under 5% of "
+                "epithelium even in healthy colon'); tier B's role reasons about "
+                "breadth of expression ('MLH1 is broadly expressed across colonic "
+                "epithelium, so its compositional term should be structurally near "
+                "zero') and never about transcript level, which is the quantity "
+                "its own test depends on"
+            ),
+        },
+    ]
+    return pd.DataFrame(rows)
+
+
 def verdict(ledger: pd.DataFrame) -> dict[str, str]:
     """The one-line answer to the reviewer, derived from the ledger."""
     axis = ledger[ledger["hypothesis"].str.startswith("a_")]["verdict"]
@@ -576,13 +707,29 @@ def main(argv: list[str] | None = None) -> int:
         "degenerate_mature_cell_floor": DEGENERATE_MATURE_CELLS,
         "abundance_rank_correlation": abundance_rank_correlation(grid),
         "abundance_inversions": abundance_inversions(grid).index.tolist(),
+        "measurable_cp10k_floor": MEASURABLE_CP10K,
         "verdict": outcome,
         "frozen_config_touched": False,
         "exploratory": False,
         "pre_registered": False,
     }
+    tier_b = tier_b_abundance(grid)
+    timeline = precommitment_timeline(args.repo_root)
+
+    log.info("\n%s\nTIER B — THE INTRINSIC CONTROL'S ABUNDANCE\n%s",
+             "=" * 72, "=" * 72)
+    for r in tier_b.itertuples():
+        log.info("  %-8s %10.4f CP10K  measurable=%s %s",
+                 r.gene, r.baseline_cp10k_normal, r.has_measurable_baseline, r.note)
+
+    log.info("\n%s\nPRE-COMMITMENT TIMELINE\n%s", "=" * 72, "=" * 72)
+    for r in timeline.itertuples():
+        log.info("  %-24s %s\n      %s", r.when[:25], r.event, r.evidence)
+
     for name, table in (("retained_control_strata", grid),
-                        ("retained_control_hypotheses", ledger)):
+                        ("retained_control_hypotheses", ledger),
+                        ("intrinsic_control_abundance", tier_b),
+                        ("intrinsic_control_precommitment", timeline)):
         log.info("wrote %s", write_versioned_table(
             table, name, seed=args.seed, results_dir=args.results_dir,
             allow_dirty=args.allow_dirty, extra_meta=meta,

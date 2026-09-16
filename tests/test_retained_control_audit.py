@@ -4,6 +4,8 @@ An audit that can only exonerate is not an audit. Every test here that asserts
 REFUTED has a sibling feeding data where the same check FIRES.
 """
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -12,6 +14,8 @@ from src.reference.jobs.retained_control_audit import (
     AXIS_CONTROL_GENE,
     RETAINED_GENE,
     abundance_inversions,
+    precommitment_timeline,
+    tier_b_abundance,
     abundance_rank_correlation,
     adjudicate,
     relative_change,
@@ -232,3 +236,53 @@ def test_every_ledger_row_states_its_prediction_before_its_observation():
     ledger = adjudicate(stratum_table(_frames(0.08)), _bulk())
     for col in ("statement", "prediction", "observed", "verdict"):
         assert ledger[col].map(bool).all(), f"{col} is empty somewhere"
+
+
+# --------------------------------------------------------------------------
+# tier B — the intrinsic control's abundance, and the process question
+# --------------------------------------------------------------------------
+
+def test_every_tier_b_gene_is_scored_not_just_the_one_the_reviewer_named():
+    """The papers quote 0.04 CP10K, which names MLH1 and reads as one unlucky
+    gene. All three must appear so a reader can see MLH1 is the best of them."""
+    rows = []
+    for rung in ("epithelial", "lineage"):
+        rows += _rows("MLH1", rung, "stem_pole", base=0.04, tip=0.041)
+        rows += _rows("SFRP2", rung, "stem_pole", base=0.009, tip=0.0)
+        rows += _rows(RETAINED_GENE, rung, "stem_pole", base=2.5, tip=0.08)
+    grid = stratum_table({("TEST", "unmatched"): pd.DataFrame(rows)})
+
+    table = tier_b_abundance(grid)
+
+    assert set(table["gene"]) == {"MLH1", "SFRP1", "SFRP2"}
+    assert not table["has_measurable_baseline"].any()
+    # SFRP1 never appears in the grid at all; it must still be reported.
+    assert table.loc[table["gene"] == "SFRP1", "note"].iloc[0]
+
+
+def test_a_tier_b_gene_above_the_floor_is_reported_measurable():
+    """The check has to be able to pass, or it is not a check."""
+    rows = []
+    for rung in ("epithelial", "lineage"):
+        rows += _rows("MLH1", rung, "stem_pole", base=5.0, tip=1.0)
+    grid = stratum_table({("TEST", "unmatched"): pd.DataFrame(rows)})
+
+    table = tier_b_abundance(grid)
+
+    assert table.loc[table["gene"] == "MLH1", "has_measurable_baseline"].iloc[0]
+
+
+def test_the_precommitment_timeline_reads_the_real_repo():
+    """Derived from git at run time, so it cannot drift from the history."""
+    table = precommitment_timeline(Path.cwd())
+
+    froze = table[table["event"].str.startswith("panel frozen")].iloc[0]
+    data = table[table["event"].str.startswith("first expression data")].iloc[0]
+
+    assert froze["git_sha"], "the freeze commit must be findable"
+    assert "1 commit(s)" in froze["evidence"], (
+        "config/panel.yaml has been edited since the freeze — invariant 3"
+    )
+    # The ordering is the whole question: the panel must have frozen BEFORE any
+    # expression data was registered, or the pre-registration is not blind.
+    assert froze["when"] < data["when"]
