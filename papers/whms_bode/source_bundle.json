@@ -1,0 +1,28 @@
+{
+  "archive": "source.zip",
+  "sha256": "ac24aed4396f11fd8900e0bb07bea2a871a230d8b436298c5d7713da546e596e",
+  "files": [
+    "diagnostics/candidate_reversals.json",
+    "diagnostics/low_count_diagnostic.csv",
+    "evidence/case_provenance.json",
+    "figures/controlled_calibration.pdf",
+    "main.bbl",
+    "main.tex",
+    "neurips_2026.sty",
+    "refs.bib",
+    "sections/abstract.tex",
+    "sections/appendix.tex",
+    "sections/blind.tex",
+    "sections/calibration.tex",
+    "sections/conclusion.tex",
+    "sections/learned_table.tex",
+    "sections/llm.tex",
+    "sections/low_count_table.tex",
+    "sections/matrix_table.tex",
+    "sections/methods.tex",
+    "sections/refdesign.tex",
+    "sections/responsible.tex",
+    "sections/setup.tex",
+    "sections/validation.tex"
+  ]
+}
