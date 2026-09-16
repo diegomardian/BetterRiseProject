@@ -1,12 +1,15 @@
 {
   "archive": "source.zip",
-  "sha256": "174067861e88bfedb215130a2194fd6669fb2d0e6f573178e0f31370ecec312e",
+  "sha256": "6b78cf6e275be1d77d866224c0a4d843efc7b7d6c1abf0560d6d31c3e4a2d541",
   "files": [
     "diagnostics/candidate_reversals.json",
     "diagnostics/coverage_precision.json",
     "diagnostics/external_control_balance.csv",
     "diagnostics/external_control_primary.csv",
     "diagnostics/external_control_shift.csv",
+    "diagnostics/incoming_interval_diagnosis_rates.csv",
+    "diagnostics/incoming_interval_readme.txt",
+    "diagnostics/incoming_interval_repair_rates.csv",
     "diagnostics/low_count_diagnostic.csv",
     "diagnostics/precision_followup.csv",
     "diagnostics/precision_paired.csv",

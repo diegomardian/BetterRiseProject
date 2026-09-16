@@ -1,7 +1,7 @@
 {
   "source_revision": "b503971",
   "external_control_source_revision": "a336594",
-  "scope": "Saved-table verification plus paired fixed-pool coverage and null evaluation on the same 6,400 exploratory draws; source-pool variance summaries; adopted synthetic external-control study; fresh 160,000-study precision and paired interval comparison; separate fixed-design 32,000-study comparison of five intervals at 30 and 50 cells.",
+  "scope": "Saved-table verification plus paired fixed-pool coverage and null evaluation on the same 6,400 exploratory draws; source-pool variance summaries; adopted synthetic external-control study; fresh 160,000-study precision and paired interval comparison; separate fixed-design 32,000-study comparison of five intervals at 30 and 50 cells; selective incoming source-substitution and patient-method evidence with all 64 null rates reproduced.",
   "single_cell_target": "f_N * (s - 1) * drawn_normal_mature_mean; draw-dependent reference, not fixed pool mean",
   "learned_generator": {
     "scheduled_estimator_evaluations": 75600,
@@ -112,6 +112,13 @@
     "external_control_primary.csv": "b47ed79a1a0158948e4c581d898eb2a84c420d680caba039510f06c181858643",
     "external_control_provenance.json": "334aeed02152b37c4100587f23d630101273675f67c2b8c920e49dfd4f672fc6",
     "external_control_shift.csv": "affe4f3697d2e0cb19d73b6404a37223c0ec573d9f05087f5397ebc997196b21",
+    "incoming_interval_diagnosis_attribution.csv": "7c8f924ed77db8787a5846aa3f66ba07d40bcf683395b675d76eabc620f23404",
+    "incoming_interval_diagnosis_rates.csv": "c19483a365daa36767e8f38b64001c026f81363ba1594558139164ce9c2636ab",
+    "incoming_interval_provenance.json": "4672fda4eda7042b6e7134a4d4accb2cfa9c444a031fe989aabb85b0b0fd77fc",
+    "incoming_interval_readme.txt": "c81a2fdd4ca4ca232ba66250b4afa209c52010446c5357e462266cc6d7d032aa",
+    "incoming_interval_repair_by_seed.csv": "548b6a27a1233da29d1907fdf3563c7c6a91c724b65b30d5ce27d0887bb9e344",
+    "incoming_interval_repair_pooled.csv": "9f6a7e2290d957c0f41361cd68d4aefec4d92619891d5880cee6f92058ecb73b",
+    "incoming_interval_repair_rates.csv": "f3227e2bcfc02c8a5dbd8c8151fede552ea6025496ef5c30f79eee76376e10fe",
     "low_count_diagnostic.csv": "a7caafb0026799f9675c791488795c1d83c92e3a2c68e4e1b15f5bf6953d401f",
     "low_count_provenance.json": "0bebe61d8b77998f9173baf11225c27909a7a1c58716494feb8024d694e5579b",
     "precision_followup.csv": "e7f881931021fdb59677fdf487d719d9a158b2dfa7b1faf3bba9abc68507549f",
@@ -127,6 +134,65 @@
     "retained_control_strata.csv": "47ab7c8ab1b33e20504e2a67b7aee303fb223a868c4b1b8fa764be631c0b9795",
     "source_pool_properties.csv": "25c170f96a124aef0ca3f5996c91d5827454f07d116332e4584f83011fba66dc",
     "source_pool_summary.json": "f2c7654617434f555b912653e0276198f03065086531d9fe9fd33467d34e604a"
+  },
+  "incoming_interval": {
+    "source_branch": "origin/wmhs/repaired-interval",
+    "source_revision": "ae8c1094b9b26b5d1a91b275fcc404065425ff25",
+    "comparison_revision": "0176c335c70f0592e195c3d8b44565ceebba7ba9",
+    "producing_revision": "effd3b2d3ef201d1180e185f9431fe6d06647fd4",
+    "source_paths_sha256": {
+      "results/2026-09-15_effd3b2/interval_diagnosis_rates.parquet": "97e5d38427432495c62ed67eb2a461246169a23635321f27d26a7bcce1e40500",
+      "results/2026-09-15_effd3b2/interval_diagnosis_rates.meta.json": "9e59f59f98ca754c7f31d5f221d4e92a23fb3a13bc17692f061d3445930db7dd",
+      "results/2026-09-15_effd3b2/interval_diagnosis_attribution.parquet": "4fc36ba8b7c9a5a3c26bb31ae8b069f543f69ea706901fc7e2bfad052765cf24",
+      "results/2026-09-15_effd3b2/interval_diagnosis_attribution.meta.json": "7cd0c56e68fdd2dc5330a225c6a19ff59b125bbdb4610bece06b7224958cf54b",
+      "results/2026-09-15_effd3b2/interval_repair_rates.parquet": "b619fc444be8d1b3250a87a1ca1e029ac17f4e799fa7095a311e462bbb17c950",
+      "results/2026-09-15_effd3b2/interval_repair_rates.meta.json": "92ffbe688a074af4c6e6592f5b619db8860291af2d97923d2de76f550c5b5978",
+      "results/2026-09-15_effd3b2/interval_repair_pooled.parquet": "df06b97ce1cd575c39f10f4cc167a6894d5db55fea3bd3fe0e8f5903f7803784",
+      "results/2026-09-15_effd3b2/interval_repair_pooled.meta.json": "21f56314391e13a4a5c9c81e35eb05984eb188078db8577b3707396d750a3725",
+      "results/2026-09-15_effd3b2/interval_repair_by_seed.parquet": "46de8405301fc880831ad93ed2f8d9c0874b7dfe0309f2af8ca84cf6f8ad7f99",
+      "results/2026-09-15_effd3b2/interval_repair_by_seed.meta.json": "e50aa54b3dc711793a0ef1f74e0956fa2793949b19641a1b8b142742c35c68e5",
+      "src/harness/interval_diagnosis.py": "e2fe82a5e2af95fc183cde1430ea3c28c25c73bb89a06cf41d0ec661028cbf9e",
+      "src/harness/interval_repair.py": "4fede0e53f7b7cea5fa9328b958379f01f2834443242eec296ed8be1bfc06e4a",
+      "src/harness/run_interval_repair.py": "7270fdffc52625f43e875f379400849ead551d94a6530d20d5253023499146c2",
+      "src/harness/pseudobulk.py": "f65b4fdd509639f3e8c71f8f5fe151347800dd95c3eacaf605231e187c55ada1",
+      "docs/prereg_repaired_interval.md": "0247d58756f85511aab7e2e7028ca88c71bb0c10df9b2c204b77578393ba5231"
+    },
+    "aggregate_exports_sha256": {
+      "incoming_interval_diagnosis_rates.csv": "c19483a365daa36767e8f38b64001c026f81363ba1594558139164ce9c2636ab",
+      "incoming_interval_diagnosis_attribution.csv": "7c8f924ed77db8787a5846aa3f66ba07d40bcf683395b675d76eabc620f23404",
+      "incoming_interval_repair_rates.csv": "f3227e2bcfc02c8a5dbd8c8151fede552ea6025496ef5c30f79eee76376e10fe",
+      "incoming_interval_repair_pooled.csv": "9f6a7e2290d957c0f41361cd68d4aefec4d92619891d5880cee6f92058ecb73b",
+      "incoming_interval_repair_by_seed.csv": "548b6a27a1233da29d1907fdf3563c7c6a91c724b65b30d5ce27d0887bb9e344"
+    },
+    "coverage_warning": "Incoming repair coverage uses a drawn-reference benchmark, not the fixed-pool target. The verdict function omits alternative coverage and uses a Monte Carlo-dependent null tolerance. Do not import its pass labels as fixed-pool validation.",
+    "diagnosis_scope": "Null sensitivity experiments; altered distributions and arm sizes, not causal attribution or alternative-power assessment.",
+    "aggregate_audit": {
+      "diagnosis_rows": 64,
+      "repair_rows": 144,
+      "repair_seed_rows": 1440,
+      "source_joint_pass_labels": 11,
+      "source_null_tolerance_passes": 46,
+      "repair_count_reaggregation": "passed",
+      "null_coverage_complementarity": "passed"
+    },
+    "diagnosis_reproduction": {
+      "status": "all 64 null rates match at absolute tolerance 1e-15",
+      "study_interval_evaluations": 128000,
+      "seed_stream_rows": 320,
+      "streams": [
+        20260831,
+        1,
+        2,
+        3,
+        4
+      ],
+      "inner_bootstrap": 2000,
+      "seconds": 391.0,
+      "numpy": "2.5.3",
+      "pandas": "3.0.5",
+      "scipy": "1.18.1",
+      "aggregate_rerun_sha256": "5d49a5ce8ccd35b15490fc3df925a70c21dad8914f4d4c0fdc98bcad0206e468"
+    }
   },
   "repair_followup": {
     "purpose": "Exploratory fixed-pool reporting-band and skew-aware interval comparison",
@@ -308,7 +374,7 @@
     "pytest": "9.1.1"
   },
   "verification": {
-    "dedicated_result_tests": 40,
+    "dedicated_result_tests": 45,
     "retained_control_harness_tests": 21,
     "external_control_harness_tests": 35,
     "historical_original_manuscript_result_tests": 55,

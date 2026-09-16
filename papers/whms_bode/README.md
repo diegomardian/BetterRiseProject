@@ -3,7 +3,7 @@
 **When the reference hides uncertainty: a data-based simulation audit**
 
 This independent revision audits the recorded justification for a 50-cell
-reporting rule. The latest revision starts from `bf6b825`, independently
+reporting rule. The interval-comparison revision starts from `bf6b825`, independently
 assesses the new critique, and adds a fixed-design comparison of five intervals
 at 30 and 50 cells: 32,000 simulated studies and 160,000 interval evaluations.
 It leads with the measured reference-versus-parameter coverage discrepancy,
@@ -14,7 +14,8 @@ The original experiment implementations and saved precision results are unchange
 - `main.pdf`: revised anonymous manuscript.
 - `main.tex`, `sections/`, `refs.bib`, `figures/`: editable LaTeX sources and figures.
 - `source.zip`: portable LaTeX/Overleaf source bundle, with `main.tex` at its root.
-- `REPAIR_CRITIQUE_REVIEW.md`: current independent assessment, experimental findings and remaining limitations.
+- `INCOMING_BRANCH_REVIEW.md`: current independent assessment of Diego's repaired-interval results and Claude's alternate manuscript.
+- `REPAIR_CRITIQUE_REVIEW.md`: preceding independent assessment, experimental findings and remaining limitations.
 - `REPAIR_FOLLOWUP_DESIGN.md`, `repair_followup.py`: fixed design and implementation of the new interval comparison.
 - `PRECISION_CRITIQUE_REVIEW.md`: preceding assessment of Monte Carlo reversals, interval scope and supporting evidence.
 - `ANALYTICAL_ARTIFACTS.md`: inventory of local diagnostic sources excluded from the submission.
@@ -84,7 +85,7 @@ comparison: all 240 primary and nine balance summary rows were independently
 reproduced. Original experiment code and saved tables remain unchanged.
 
 ```sh
-PYTHONPATH=. python -m pytest papers/whms_bode/test_results.py papers/whms_bode/test_precision_followup.py papers/whms_bode/test_repair_followup.py tests/test_external_control_demo.py tests/test_retained_control_audit.py -q
+PYTHONPATH=. python -m pytest papers/whms_bode/test_results.py papers/whms_bode/test_precision_followup.py papers/whms_bode/test_repair_followup.py papers/whms_bode/test_incoming_interval.py tests/test_external_control_demo.py tests/test_retained_control_audit.py -q
 python papers/whms_bode/make_tables.py --check
 python papers/whms_bode/audit_results.py
 python papers/whms_bode/make_tables.py
@@ -108,7 +109,7 @@ The redundant normal-mean interval-width demonstration is no longer compiled.
 
 Verification completed for this revision:
 
-- 40 paper/precision/repair tests, 35 external-control harness tests and 21
+- 45 paper/precision/repair/incoming-result tests, 35 external-control harness tests and 21
   retained-control audit tests passed,
   including target-dependent rankings and the corrected comparison denominators.
 - All 30 numerical cells in the retained learned-estimator analysis table match
@@ -207,3 +208,27 @@ implementation on continuous, discrete, skewed and sparse samples. Further
 checks cover the original percentile/Welch routines, studentized endpoint
 construction, affine transformations, arm exchange, degeneracy, exact null
 coverage/rejection accounting, numerical exports and provenance hashes.
+
+## Selective integration of incoming branches
+
+After `9c6afbc`, the incoming diagnosis at `ae8c109` and alternate manuscript
+at `0176c335` were independently reviewed. The paper adds source-shape/arm-size
+sensitivity, a qualified patient-t detection/availability comparison, and the
+exact-assignment-balance implication of the existing estimator identity. It keeps
+the fixed-pool result in the main text and does not import the incoming repair
+pass labels, causal skew shares, or blanket patient-method abstention claims.
+
+All 64 diagnosis rates were reproduced from local source data (128,000 interval
+evaluations). All 1,440 repair seed rows were reaggregated and checked against
+the saved summaries. The source bundle includes the two aggregate tables used
+in the paper and an interpretation README. The full local exports and pinned
+code/result hashes are in `diagnostics/incoming_*`; no raw cells are exported.
+`audit_incoming_interval.py` regenerates and verifies these exports from the
+pinned Git objects. `reproduce_incoming_diagnosis.py` reruns the diagnosis using
+an extracted incoming source tree and local Lee data; its command-line arguments
+are documented in the script and `INCOMING_BRANCH_REVIEW.md`.
+
+Validation now includes 101 relevant checks. The nine-page main text and
+three-page appendix are retained. `INCOMING_BRANCH_REVIEW.md` explains each
+accepted and rejected change, including differences between interval targets,
+implementations, Monte Carlo criteria and resampling units.

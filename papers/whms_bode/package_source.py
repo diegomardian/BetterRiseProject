@@ -23,6 +23,9 @@ def main():
                   'retained_control_strata','retained_control_bulk'])
     files.update(ROOT/f'diagnostics/{name}.csv' for name in
                  ['repair_followup','repair_seed_rates','repair_paired','repair_numerical'])
+    files.update(ROOT/f'diagnostics/incoming_{name}.csv' for name in
+                 ['interval_diagnosis_rates','interval_repair_rates'])
+    files.add(ROOT/'diagnostics/incoming_interval_readme.txt')
     target=ROOT/'source.zip'
     with ZipFile(target,'w',ZIP_DEFLATED) as z:
         for path in sorted(files):

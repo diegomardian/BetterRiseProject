@@ -18,17 +18,12 @@ $\nu=(v_N+v_T)^2/[v_N^2/(n_N-1)+v_T^2/(n_T-1)]$.
 Zero estimated total variance would give an unavailable comparator interval;
 none occurred. For the sparsity diagnostic, sample-based standard error is
 compared with $f_N\sqrt{\sigma_P^2/n_N+
-(s^2\sigma_P^2+s(1-s)\mu_P)/n_T}$. Aggregate outputs retain signed
-rejections, widths, seed-specific rates and paired differences. The settings
-and single comparator were fixed before this follow-up was run; it remains an
-exploratory study on previously examined source data. The earlier 200-draw
-target diagnostic is retained in the supporting summaries.
-
+(s^2\sigma_P^2+s(1-s)\mu_P)/n_T}$. Settings were fixed before this exploratory follow-up; aggregate exports retain
+widths, seed rates and paired differences.
 
 \paragraph{Reporting-band and repair follow-up.}\label{app:repair}
 Five fresh streams (202609170--202609174), 400 studies each, use the same
-pool-conditional sampling law at 30 and 50 cells. All 120 source-pool summaries
-match the preceding study. For BCa, bias correction uses midpoint ties;
+pool-conditional sampling law at 30 and 50 cells. For BCa, bias correction uses midpoint ties;
 acceleration uses signed two-sample influence contributions
 $-(Y_{Ni}-\bar Y_N)/n_N$ and $(Y_{Ti}-\bar Y_T)/n_T$.
 Endpoints agree with SciPy's independent two-sample jackknife implementation
@@ -44,6 +39,18 @@ order positions in 5.2--56.3\% of studies across settings. These finite-budget
 results therefore do not characterize BCa with arbitrarily precise tail
 quantiles. Seed rates, paired differences and numerical diagnostics accompany
 the aggregate summaries.
+
+\paragraph{Source substitutions and clustered alternatives.}\label{app:substitution}
+The separately registered diagnosis crosses two counts (50, 800), four
+cohort/pool conditions, four source families and two arm-size designs.
+Each of its 64 rows uses five streams of 400 draws, 2{,}000 inner resamples
+and the same two-patient pools; all intervals are defined. The families are
+empirical counts, mean-rescaled positive counts, mean/skew-matched gamma
+(with some skew clipping), and mean/variance-matched Gaussian. All rates
+were reproduced from source data. Gaussian rows reuse standardized draws
+across cohorts. Substitution contrasts are not additive causal shares or
+lower bounds on a skew contribution. At 800 cells the designs coincide;
+empirical null rejection is 4.55--6.40\%.
 
 \section{Calibration details and limits}
 \label{app:gridcaveats}
@@ -80,8 +87,7 @@ $[-0.5,0.5]$ boundaries in every cohort. Depth matching discards roughly three
 quarters of cells and pushes about half the remaining estimable rows below
 the count threshold. Within SMC, changing tissue eligibility changes the
 mature-cell pool from 662 to 3{,}824 cells; Section~\ref{sec:cohortgap} holds
-tissue eligibility fixed. These checks restrict biological interpretation;
-overlapping pairs do not supply independent patient replication.
+tissue eligibility fixed.
 
 \input{sections/supporting_check.tex}
 
@@ -151,21 +157,13 @@ was executed, and the sample is nonrandom. The virtual-control-arm query
 located no examinable code. These limits preclude a prevalence estimate.
 
 \paragraph{Related scope.}\label{app:relatedwork}
-Cell-count filters are established in pseudobulk analysis \citep{crowell2020};
-cacoa separates composition and expression changes \citep{petukhov2022}. Selective prediction
-motivates evaluating both answers and abstentions
-\citep{chow1970,elyaniv2010,geifman2017}. Conformal prediction coverage
-\citep{vovk2005,angelopoulos2023} does not define a missing conditional
-population or automatically provide intervals for this intrinsic parameter.
+Cell-count filters \citep{crowell2020}, composition analysis
+\citep{petukhov2022}, selective prediction \citep{chow1970,elyaniv2010,geifman2017}
+and conformal coverage \citep{vovk2005,angelopoulos2023} address related tasks;
+none automatically validates this intrinsic-effect interval or its reporting rule.
 
-\paragraph{Documentary source of the case.}\label{app:provenance}
-The anonymous review record includes the original validation statement
-(Artifact A), interval criteria (Artifact B), and numerical context. Exact
-source mapping and checksums remain outside the review bundle. This records
-one internal validation error; the external search found no positive case.
-
-\paragraph{Implementation and provenance.}\label{app:withdrawn}
-Corrections separated collapsed population definitions, aligned labeling,
-tracked producing scripts, and repaired undefined-interval denominators.
-Saved tables retain commit hashes and seeds; these establish traceability,
-not statistical validity.
+\paragraph{Documentary and implementation provenance.}\label{app:provenance}\label{app:withdrawn}
+The anonymous record includes the original validation statement (Artifact A),
+interval criteria (Artifact B), and numerical context. Exact source mappings
+remain outside the review bundle. Saved tables carry commit hashes and seeds;
+these establish traceability, not statistical validity.

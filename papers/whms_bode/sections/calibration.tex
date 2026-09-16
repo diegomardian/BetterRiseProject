@@ -120,12 +120,8 @@ crossing locations.
 
 
 
-With common fixed bins, SMC returns 100 on the committed grid and 70 on both
-expanded grids in all eight seeds. Adaptive bins return 65 on seven filled-grid
-seeds and 90 on one, while the dense grid returns 70 throughout. KUL3 instead
-returns 400 on six seeds and 800 on two, with all grid and binning schemes
-agreeing within each seed. Pooled draws yield no joint candidate in either
-cohort. The largest binomial Monte Carlo standard error in this grid is 0.035.
+Table~\ref{tab:controlledgrid} summarizes the candidates. The largest binomial
+Monte Carlo standard error in this grid is 0.035.
 
 \begin{table}[htbp]
 \centering\small
@@ -153,14 +149,10 @@ seeds. KUL3 reference-only discrimination is only 45.0--55.0\% at that count.
 The 200-replicate local crossings remain unresolved by the precision
 follow-up, which does not revisit counts 45, 60 or 70.
 
-The per-count summaries in Table~\ref{tab:controlledgrid} supply a useful
-check on the bin medians. In SMC, the filled grid's first qualifying actual
-count is 50 on two seeds, 60 on five and 80 on one; the dense grid adds a
-candidate of 45 on one seed. Thus a stable binned candidate of 70 is not
-evidence that 70 is a uniquely determined biological threshold. A bin pools
-outcomes over several count settings, whereas a per-count rate addresses only
-that setting. Fixed bins hold the boundaries constant, but adding settings can
-still change both a bin's median count and its aggregate performance.
+A stable binned candidate of 70 is not a uniquely determined threshold:
+SMC's first qualifying actual counts span 50--80 on the filled grid and
+45--80 on the dense grid. Adding settings can change both a bin's median
+count and its aggregate performance even when its boundaries stay fixed.
 
 \subsection{Patient influence and the cohort gap}
 Enumerating all 45 and 15 two-patient holdout pairs separates patient omission

@@ -10,7 +10,7 @@
   "overfull_boxes": 0,
   "anonymity": "passed",
   "official_style_sha256": "c3fc2894e83d2517ca18b66741d6c595986d97957dc08ec08bb2125a7ec4555a",
-  "pdf_sha256": "c39d8836de072f4efc6f35fb3f57a5ca7503ee46ba4231e6bcbf3332d6ecd542",
+  "pdf_sha256": "1de4aa425b1eadf00b21d65033474da95c584473bddb76b1470e71ca53639433",
   "source_files": [
     "main.tex",
     "sections/abstract.tex",
@@ -32,8 +32,12 @@
     "sections/supporting_check.tex",
     "sections/llm.tex"
   ],
-  "parent_revision": "bf6b825",
-  "portable_source_build": "passed: 41 files, all 14 page texts match",
+  "parent_revision": "9c6afbc",
+  "incoming_revisions": {
+    "repaired_interval": "ae8c109",
+    "claude_revision": "0176c335"
+  },
+  "portable_source_build": "passed: 44 files, all 14 page texts match",
   "visual_inspection": {
     "pages": [
       1,
@@ -52,19 +56,25 @@
       14
     ],
     "dpi": 120,
-    "method": "rendered page review; final repair-table rounding rechecked"
+    "method": "Ghostscript render, all page contact sheets reviewed"
   },
   "tests": {
     "paper": 25,
     "precision": 5,
     "repair": 10,
+    "incoming": 5,
     "external_control": 35,
     "retained_control": 21,
-    "total": 96
+    "total": 101
   },
-  "new_followup": {
-    "study_draws": 32000,
-    "interval_evaluations": 160000,
-    "all_intervals_finite": true
+  "incoming_algorithm_tests": {
+    "passed": 86,
+    "skipped": 2,
+    "deselected_repository_context_checks": 7
+  },
+  "diagnosis_reproduction": {
+    "rows": 64,
+    "interval_evaluations": 128000,
+    "all_rates_match": true
   }
 }

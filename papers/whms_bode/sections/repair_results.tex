@@ -28,3 +28,29 @@ the equal-budget percentile interval. All methods return intervals, so these
 comparisons are not driven by abstention. No tested method meets the historical
 coverage/detection requirements together with nominal null calibration at
 either count. This bounds the tested repair attempt without selecting a new rule.
+
+
+\paragraph{Changing the resampling unit.}
+A separate comparison with two held-out patients also tests cluster and
+paired patient-$t$ intervals (Appendix~\ref{app:substitution}). At 50 cells,
+patient-$t$ gives 2.77--6.29\% null rejection but only 4.21--8.02\%
+detection among returned intervals; alternative abstention is 0.35--34.55\%.
+It equally weights shared patients, changing the cell-weighted target.
+Its saved coverage uses the sampled-reference benchmark, so it cannot
+establish a fixed-pool repair. Full rates and abstentions for both clustered
+methods are supplied; these results concern this design, not patient-level
+inference generally.
+
+\paragraph{Source shape and arm balance.}
+A separate sensitivity study uses 2{,}000 studies and 2{,}000 percentile
+resamples per setting (Appendix~\ref{app:substitution}). At 50 tumor cells,
+empirical-pool null rejection is 9.70--31.80\%; removing zeros and rescaling
+the positive counts to the original mean gives 7.10--12.65\%, while a
+mean/variance-matched Gaussian gives 5.45\%. Keeping the empirical pools but
+changing the reference count from 800 to 50 gives 7.45--11.45\%.
+This implicates source shape and arm imbalance without isolating their
+individual contributions. Under the null, equal-sized independent arms
+have an exactly symmetric difference by exchangeability, even when the
+source is skewed. Balancing also changes variance and the reference sample
+size; alternative detection was not evaluated for this design change, so
+these rates do not justify discarding reference cells or establish a repair.
