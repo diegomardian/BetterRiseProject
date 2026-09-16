@@ -1,0 +1,69 @@
+{
+  "date": "2026-09-15",
+  "utc_timestamp": "2026-09-16T02:38:27+00:00",
+  "git_sha": "6b4a31a35e3fe463b48905dfb1467829ff8f8c11",
+  "git_sha_short": "6b4a31a",
+  "git_branch": "wmhs/external-control-demo",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260915,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "name": "external_control_balance",
+  "n_rows": 9,
+  "columns": [
+    "weighting",
+    "stratum",
+    "stratum_name",
+    "n_replicates",
+    "mean_smd_between_arms",
+    "max_abs_smd_between_arms",
+    "mean_smd_vs_enrolled",
+    "max_abs_smd_vs_enrolled",
+    "mean_share_pseudo_population",
+    "mean_share_enrolled",
+    "smd_threshold",
+    "between_arms_passes",
+    "vs_enrolled_passes"
+  ],
+  "table_kind": "harness",
+  "SYNTHETIC": "A fixed finite registry pool of simulated records, resampled. The plasmode mechanic is preserved; the provenance of the numbers is not real. Nothing here is a result about any real registry, trial or agent.",
+  "prereg": "docs/prereg_external_control_demo.md",
+  "n_pool": 50000,
+  "pool_mix": [
+    0.55,
+    0.3,
+    0.15
+  ],
+  "trial_mix": [
+    0.15,
+    0.25,
+    0.6
+  ],
+  "pool_means": [
+    12.0,
+    8.0,
+    4.0
+  ],
+  "pool_sd": 3.0,
+  "induced_delta": [
+    3.0,
+    1.5,
+    0.25
+  ],
+  "responsiveness_gamma": [
+    4.0,
+    0.25
+  ],
+  "control_ratio": 3.0,
+  "mcid": 1.5,
+  "pool_seed": 20260915,
+  "equality_tolerance": 1e-10,
+  "n_replicates": 200,
+  "balance_replicates": 50,
+  "smd_threshold": 0.1,
+  "what_this_answers": "Whether the post-weighting covariate balance table an external-control protocol actually runs would have caught the defect. It reports balance BETWEEN ARMS; the defect is in balance against the ENROLLED population, which it does not look at."
+}

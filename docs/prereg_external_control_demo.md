@@ -423,3 +423,239 @@ clause is unsupported and must not be written.
 - `tests/test_external_control_demo.py`, containing for every guard the input
   that **forces it to fail**, per `tests/test_checks_can_fail.py`.
 - A `## RESULT` section appended below, stating which falsifiers fired.
+
+---
+
+## RESULT
+
+**Run:** `results/2026-09-15_6b4a31a/` · seed `20260915` · 200 replicates per
+cell · 6 cohort sizes · 8 estimators · 5 references · 5 case-mix shifts ·
+50 balance replicates. Tables:
+`external_control_{primary,shift,balance,falsifiers}.parquet`.
+
+**No falsifier fired.** F1, F2, F3a, F3b, F3c, F3d, F3e, F4, F5 all clear, each
+with the number that decided it recorded in
+`external_control_falsifiers.parquet`. P1–P4 all hold. The demonstration exists.
+
+Reading F5 first, as §8 requires: `max |median(po-trial) − median(induced-trial)|
+= 0.0098` months. The realised truth is genuinely not the parameter-plus-counts
+construction, so F5 does not fire — **but the gap is about 1% of the ATT**, and
+§13 below says what that costs §1.1.
+
+### 1 · P1 — the validation passes, and it passes *best* for the defective arm
+
+Against `obs-pooled`, the reference the analyst wrote:
+
+| estimator | max residual | RMSE | ratio median (IQR) | median estimate |
+|---|---|---|---|---|
+| `ate-standardisation` | **0.0 bitwise**, every n | 0.0 | 1.000000 (0.000000) | 1.85–1.93 |
+| `ate-ipw` | 4.7e−15 … 6.0e−15 | 1.6e−15 | 1.000000 (0.000000) | 1.85–1.93 |
+| `ate-ipw-logistic` | 6.1e−14 … 5.4e−13 | 1.7e−13 | 1.000000 (0.000000) | 1.85–1.93 |
+| `att-standardisation` (**correct**) | 1.11 … 2.38 | **0.876 … 1.015, not shrinking** | 0.512–0.552 | 0.94–1.03 |
+| `ols-stratum-dummies` | 0.69 … 1.87 | 0.529 … 0.669 | 0.694–0.721 | 1.28–1.38 |
+| `unadjusted` | 4.72 … 7.06 | 4.31 … 4.37 | −1.25 to −1.37 | −2.42 |
+
+The defective arm has the smallest RMSE of all seven primary estimators **at
+every cohort size**. The correct estimator looks 48% attenuated and looks not to
+improve with n. An analyst running this bake-off does not merely fail to catch
+the defect: **the validation instructs them to discard the correct estimator and
+deploy the broken one.**
+
+`ate-ipw-logistic` matters here. Hand-counted saturated weights give bitwise
+zero, which a suspicious analyst might notice. The fitted-propensity
+implementation — what anyone actually writes — gives a residual of 1.7e−13
+months, which does not read as "something is wrong". It reads as "my estimator
+recovers the truth to numerical precision".
+
+### 2 · P3 — the conclusion is wrong in a way that would be acted on
+
+Median defective estimate **1.82–1.93 months** at every cohort size, against a
+pre-specified MCID of **1.5**. Median `po-trial` — the benefit the enrolled
+patients actually received — is **0.97–1.00 months** at every cohort size.
+Overstatement **×1.89**. The agent clears the bar on the analysis and misses it
+in the population studied. This is a filing decision, or the effect size a
+confirmatory trial is powered on.
+
+### 3 · P2 — the counterfactual: the honest reference reveals it
+
+Same replicates, same estimators, reference swapped to `po-trial`:
+
+| estimator | bias at n=50 → n=1600 | RMSE at n=50 → n=1600 | ratio median |
+|---|---|---|---|
+| `ate-ipw` | +0.844 → **+0.885** (flat) | 1.082 → **0.892** (floors) | **1.88**, not 1 |
+| `att-standardisation` | −0.015 → +0.013 | 0.608 → **0.105** (falls as n^−1/2) | 0.98 → 1.02 |
+
+**The ranking inverts completely.** The recovery curve that was pinned at exactly
+1 now sits at 1.88 and stays there; the estimator that looked 48% attenuated is
+unbiased and converges. The same check, run against a reference the estimator
+cannot reproduce, gives the opposite and correct answer.
+
+### 4 · P4 — and breaking the equality is NOT enough
+
+The control arm is the reason this is not just "use any other reference".
+Against `po-pooled` — potential outcomes, so no estimator reproduces it, but the
+*pooled* population:
+
+| estimator | max residual | bias at n=1600 |
+|---|---|---|
+| `ate-ipw` | 0.36 … 2.04 (**equality broken**) | **+0.003** — defect invisible |
+| `att-standardisation` (**correct**) | 1.18 … 2.68 | **−0.869** — looks broken |
+
+Breaking the equality bought nothing. It reproduces the original wrong answer
+with a different reference. **The reference must name the right target
+population**; not being reproduced is necessary and not sufficient. §11's second
+clause is supported.
+
+### 5 · The equality screen is a property of the PAIR, not a verdict on the estimator
+
+`equality_flagged`, all six cohort sizes:
+
+| estimator | `obs-pooled` | `obs-trial` | `po-trial` | `po-pooled` |
+|---|---|---|---|---|
+| `ate-*` (defective) | **True** | False | False | False |
+| `att-*` (correct) | False | **True** | False | False |
+| `ols`, `unadjusted` | False | False | False | False |
+
+The three correct estimators are exactly as "blind" against `obs-trial` as the
+defective ones are against `obs-pooled`. **The screen does not identify the
+defective estimator.** What it identifies is that a particular validation could
+not have failed. That is the honest claim, it is the one `blind.tex` already
+makes, and this table is the sharpest version of it we have.
+
+### 6 · F4 — the demonstration's own null, which it passes
+
+At `shift = 0` the trial enrols the registry's own case mix. `ate-ipw` bias
+against `po-trial` is **0.0017 months** — the harm is gone. And the equality is
+still there: max residual against `obs-pooled` is 4.4e−15, still flagged.
+**Equality is not itself harm.** The screen flags a validation that could not
+fail, which is true at `shift = 0` as well; whether that costs anything depends
+on the design. This is a real qualification on how the paper should sell the
+audit, and it came out of the pre-registered null rather than out of review.
+
+### 7 · F3d — the decision flips well before the extreme
+
+| shift | trial mix | `ate-ipw` median | `po-trial` | bias | decision flips |
+|---|---|---|---|---|---|
+| 0.00 | (0.55, 0.30, 0.15) | 2.14 | 2.13 | 0.002 | no |
+| 0.25 | (0.45, 0.29, 0.26) | 2.07 | 1.85 | 0.23 | no (both clear MCID) |
+| 0.50 | (0.35, 0.28, 0.38) | 2.00 | 1.57 | 0.43 | no (both clear MCID) |
+| 0.75 | (0.25, 0.26, 0.49) | 1.95 | 1.29 | 0.67 | **yes** |
+| 1.00 | (0.15, 0.25, 0.60) | 1.89 | 1.00 | 0.88 | **yes** |
+
+Smallest flip at `shift = 0.75`. The bias is monotone and substantial from
+`shift = 0.25`. F3d does not fire.
+
+### 8 · F3e — the diagnostic a protocol actually runs stays silent
+
+Post-weighting standardised mean differences, 50 replicates at n=1600:
+
+| weighting | worst \|SMD\| **between arms** | worst \|SMD\| **vs the enrolled population** |
+|---|---|---|
+| ATE (defective) | **5.6e−16** — passes perfectly | **0.964** |
+| ATT (correct) | 4.5e−16 | 2.3e−16 |
+| unweighted | 1.13 — fails, as expected | 0.964 |
+
+The balance table an external-control protocol reports is **immaculate** under
+the defective weights, because ATE weighting balances the two arms against each
+other — against the pooled mix. The pseudo-population is a full standardised
+difference away from the patients enrolled, and that column is not in anyone's
+Table 1. Positivity is also clean throughout (stratum propensities 0.083 /
+0.217 / 0.571; zero exclusions in all 48,000 primary draws).
+
+### 9 · §9's predictions against the run
+
+| quantity | predicted | observed |
+|---|---|---|
+| ATT | 0.975 | 0.97–1.00 |
+| pooled ATE | 1.847 | 1.85–1.93 |
+| overstatement | ×1.89 | ×1.89 |
+| `ate-standardisation` residual vs `obs-pooled` | 0 or ~1e−15 | **0.0 bitwise** |
+| `att-*` apparent bias vs `obs-pooled` | ≈ −0.87, flat | −0.876 … −1.015, flat |
+| `ate-*` bias vs `po-trial` | ≈ +0.87, flat | +0.844 … +0.921, flat |
+| `ate-*` bias vs `po-pooled` | ≈ 0 | +0.003 at n=1600 |
+
+Nothing was back-filled and nothing missed.
+
+### 10 · Our own verdict on F3 (contrivedness)
+
+No F3 sub-charge fired. Our honest reading, stated more harshly than the
+falsifiers require:
+
+**What survives scrutiny.** The workflow is one a reviewer will recognise: an
+external control arm from a registry, validated by plasmode resampling, with
+case-mix shift and effect modification. Every component is ordinary. The defect
+is reachable by two independent routes — an IPW weight slip and plain "average
+over my analysis file" — so it is a way of thinking, not a typo (F3a). The
+mistaken reference is bit-identical to the functional the repository already
+shipped and the paper already analyses, asserted in the test suite (F3b). The
+equality survives a fitted propensity (F3c). The decision flips at three
+quarters of the shift, not only at the extreme (F3d). Every routine safeguard —
+positivity, weight extremity, post-weighting balance — passes cleanly (F3e).
+
+**Three places a determined reviewer can still push.**
+
+1. **The winner's recovery ratio is exactly 1.000000 with zero IQR**, not "near
+   1 and tightening". A curve with no dispersion at any n is itself odd, and an
+   alert analyst might ask why. Our answer is `ate-ipw-logistic`: the
+   implementation anyone actually writes gives 1.7e−13 months, which reads as a
+   triumph rather than an alarm. But this is a real caveat and the paper should
+   not claim the curve is indistinguishable from a healthy one — it is
+   distinguishable, by a reader who already knows to look, which is the reader
+   the audit is for.
+2. **The analyst must get the target population wrong twice** — once in the
+   estimator, once in the reference. That is the mechanism, not a coincidence:
+   it is one belief about "the population" expressed in two places, and neither
+   place writes it down as a parameter; it is the implicit denominator, `len(df)`
+   in one and the weight formula in the other. `trial_recovery.py`'s own
+   docstring already describes this as "the natural first thing to build when
+   the simulator and the estimator are written by the same person in the same
+   afternoon". We think this is realistic. We accept that it is the load-bearing
+   assumption of the whole demonstration, and that a reviewer who rejects it
+   rejects the result.
+3. **The registry pool is synthetic** (§10.1). The plasmode mechanic is
+   preserved; the provenance is not real.
+
+We do **not** think the scenario is contrived. We do think its realism rests
+entirely on point 2, and the paper should say so in that form rather than
+claiming more.
+
+### 11 · What this does and does not establish
+
+It establishes that the harm is **reachable by ordinary practice**, with a
+measured consequence: a ×1.89 overstatement that crosses a decision threshold,
+produced by a validation that ranks the broken estimator first.
+
+It does **not** raise the audit's measured prevalence above **0 of 7**. This is a
+constructed workflow, not an observed one. The paper must not cite it as
+evidence that anybody has done this.
+
+### 12 · The correction this forces on the paper's own remedy
+
+Two, both from pre-registered controls rather than from review:
+
+- **P4.** "Use a reference the estimator does not reproduce" is insufficient.
+  `po-pooled` is not reproduced and is just as misleading. The remedy is
+  *"construct the reference from information the estimator cannot consume, **and
+  state the target population it is constructed for**"*.
+- **F4.** At zero case-mix shift the equality persists and the harm does not.
+  Equality flags a validation that could not have failed; it does not flag a
+  wrong answer. The audit is a statement about evidence, never about validity —
+  which is what `blind.tex` already says, now with a case where the distinction
+  has a price tag and a case where it does not.
+
+### 13 · What it costs §1.1
+
+F5 did not fire, but only by 0.0098 months — about 1% of the ATT. The latent
+responsiveness makes the realised truth formally non-parametric and practically
+almost parametric. So the strongest form of §1.1 — *"`theta` does not exist
+here"* — is **not** what the run supports. The supported form is weaker and more
+useful:
+
+> The marginal estimand cannot be read off the configuration. It must be
+> **assembled**, and assembling it requires naming a target population — which is
+> exactly the decision the defect corrupts. An analyst who assembles it from the
+> generating parameters *and states the population* catches this. An analyst who
+> reads "the average effect in my cohort" off the analysis file does not.
+
+That is a narrower claim than the pre-registration hoped for, and it is the one
+the paper should make.

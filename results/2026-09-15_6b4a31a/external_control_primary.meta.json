@@ -1,0 +1,94 @@
+{
+  "date": "2026-09-15",
+  "utc_timestamp": "2026-09-16T02:38:27+00:00",
+  "git_sha": "6b4a31a35e3fe463b48905dfb1467829ff8f8c11",
+  "git_sha_short": "6b4a31a",
+  "git_branch": "wmhs/external-control-demo",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260915,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "name": "external_control_primary",
+  "n_rows": 240,
+  "columns": [
+    "estimator",
+    "target_population",
+    "reference",
+    "n_trial",
+    "n_valid",
+    "n_excluded",
+    "max_residual",
+    "equality_flagged",
+    "bias",
+    "rmse",
+    "ratio_median",
+    "ratio_q25",
+    "ratio_q75",
+    "estimate_median",
+    "reference_median"
+  ],
+  "table_kind": "harness",
+  "SYNTHETIC": "A fixed finite registry pool of simulated records, resampled. The plasmode mechanic is preserved; the provenance of the numbers is not real. Nothing here is a result about any real registry, trial or agent.",
+  "prereg": "docs/prereg_external_control_demo.md",
+  "n_pool": 50000,
+  "pool_mix": [
+    0.55,
+    0.3,
+    0.15
+  ],
+  "trial_mix": [
+    0.15,
+    0.25,
+    0.6
+  ],
+  "pool_means": [
+    12.0,
+    8.0,
+    4.0
+  ],
+  "pool_sd": 3.0,
+  "induced_delta": [
+    3.0,
+    1.5,
+    0.25
+  ],
+  "responsiveness_gamma": [
+    4.0,
+    0.25
+  ],
+  "control_ratio": 3.0,
+  "mcid": 1.5,
+  "pool_seed": 20260915,
+  "equality_tolerance": 1e-10,
+  "n_replicates": 200,
+  "cohort_sizes": [
+    50,
+    100,
+    200,
+    400,
+    800,
+    1600
+  ],
+  "estimators": {
+    "att-standardisation": "enrolled",
+    "att-ipw": "enrolled",
+    "att-matching-all": "enrolled",
+    "ate-standardisation": "pooled",
+    "ate-ipw": "pooled",
+    "ate-ipw-logistic": "pooled",
+    "ols-stratum-dummies": "variance-weighted",
+    "unadjusted": "none"
+  },
+  "references": [
+    "obs-pooled",
+    "obs-trial",
+    "po-trial",
+    "po-pooled",
+    "induced-trial"
+  ],
+  "what_this_answers": "Whether validating an external-control estimator against an observed-data reference computed on the analysis file can lead a competent analyst to deploy an estimator that answers for the wrong target population. The defective arm reproduces obs-pooled exactly, so the validation cannot fail; against po-trial, which reads both potential outcomes of the enrolled records and which no estimator can reproduce, the same recovery check reveals the defect."
+}
