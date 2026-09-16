@@ -52,8 +52,10 @@ one.
 > *larger*, i.e. it works marginally against the argument being made here, and
 > it changes no conclusion: 0.05 pp is still two orders of magnitude short of
 > the 4.5 pp excess at 800 cells. Recorded rather than silently edited, and
-> caught by `tests/test_interval_diagnosis.py::test_normal_quantile_shortfall_is_a_floor_not_an_explanation`. It is entered as the measured floor `P3` below, precisely so that the gap
-between it and the observed rate is visible as a number.
+> caught by `tests/test_interval_diagnosis.py::test_normal_quantile_shortfall_is_a_floor_not_an_explanation`.
+
+The closed form is entered as the measured floor `P3` below, precisely so that
+the gap between it and the observed rate is visible as a number.
 
 ## 1. The object, stated as algebra
 
@@ -146,6 +148,15 @@ fixed-fraction design      = R(D_frac) − R(D_bal)   (at matched pool)
 floor (z/t, plug-in sd)    = R(P3) − 5%
 residual, unexplained      = R(P0) − 5% − (sum of the above)
 ```
+
+**Only the three named causes are credited.** The step from `P1` to `P2`
+replaces a discrete empirical pool with a continuous one matched on its first
+three moments, so it removes **discreteness** and every moment above the third.
+That is a fourth cause, it is nobody's hypothesis, and folding it into "skew"
+would make the skew number an overstatement. It is reported as
+`pp_discreteness_and_higher_moments` and it falls into the residual, which is
+where an unnamed cause belongs. (Registered 2026-09-15, before any result;
+implemented in `interval_diagnosis.attribute`.)
 
 Both the **sequential** (order-dependent) attribution and the **single-factor**
 deltas are reported. If they disagree, the causes are not additive, and that is
