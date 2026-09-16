@@ -97,3 +97,6 @@ overleaf/
 overleaf.zip
 paper/icbinb/overleaf/
 paper/icbinb/overleaf.zip
+
+# cached Lee arrays for the repaired-interval study (src/harness/run_interval_repair.py)
+.interval_cache/

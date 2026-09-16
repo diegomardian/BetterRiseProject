@@ -1585,3 +1585,164 @@ def test_a_result_sidecar_says_what_defined_the_population():
     assert sidecar["label_provenance"]["genes"] == ""      # declared, not omitted
     assert "GUCA2A" in sidecar["claim_provenance"]["genes"]
     assert sidecar["overlapping_genes"] == ""
+
+
+# ---------------------------------------------------------------------------
+# The repaired-interval study (docs/prereg_repaired_interval.md)
+#
+# Four guards, and the committed input that forces each one to fail. Three of
+# them protect an attribution rather than a result, which is the harder case to
+# test and the easier one to get wrong: a diagnosis that cannot report "this
+# does not add up" will always appear to add up.
+# ---------------------------------------------------------------------------
+
+
+def _diagnosis_row(**over):
+    row = {
+        "family": "gaussian_matched", "design": "balanced",
+        "n_cells_mature": 50, "n_normal": 50, "n_tumour": 50,
+        "null_rejection": 0.055, "null_rejection_mcse": 0.005,
+        "n_replicates": 2000, "n_scored": 2000, "n_pool_undefined": 0,
+        "median_ci_width": 1.0,
+    }
+    return row | over
+
+
+def test_a_gaussian_floor_that_defies_its_own_arithmetic_is_refused():
+    """Falsifier F5. The floor is closed-form; a run that misses it is broken.
+
+    ``gaussian_matched`` draws both arms from one normal distribution, so its
+    null rejection is fixed by arithmetic containing no data at all:
+    ``gaussian_floor(50, 50)`` is 5.52%. A measured 14% there does not mean the
+    interval is worse than thought, it means the apparatus is not simulating
+    what it says it is -- and every percentage point it attributes downstream
+    would be attributed inside the wrong simulation.
+    """
+    from src.harness.interval_diagnosis import (
+        DiagnosisError,
+        check_gaussian_floor_matches_its_arithmetic,
+        gaussian_floor,
+    )
+
+    assert gaussian_floor(50, 50) == pytest.approx(0.0552, abs=0.0005)
+    check_gaussian_floor_matches_its_arithmetic([_diagnosis_row()])  # the pass path
+
+    with pytest.raises(DiagnosisError, match="does not match the closed form"):
+        check_gaussian_floor_matches_its_arithmetic(
+            [_diagnosis_row(null_rejection=0.14)]
+        )
+
+
+def test_two_designs_that_are_the_same_design_may_not_disagree():
+    """The design's share of the attribution is the reviewer's own question.
+
+    At 800 mature cells ``fixed_fraction`` and ``balanced`` both give arms of
+    (800, 800): they are not similar designs, they are the same design, and the
+    difference between them must be zero up to Monte-Carlo noise. A systematic
+    gap there would be credited to "fixed-fraction resampling" and would be the
+    single most misleading number the study could produce.
+    """
+    from src.harness.interval_diagnosis import (
+        DiagnosisError,
+        check_design_effect_vanishes_where_the_arms_coincide,
+    )
+
+    same = [
+        _diagnosis_row(family="empirical", design=d, n_cells_mature=800,
+                       n_normal=800, n_tumour=800, null_rejection=r)
+        for d, r in (("fixed_fraction", 0.071), ("balanced", 0.069))
+    ]
+    check_design_effect_vanishes_where_the_arms_coincide(same)  # the pass path
+
+    diverged = [
+        _diagnosis_row(family="empirical", design=d, n_cells_mature=800,
+                       n_normal=800, n_tumour=800, null_rejection=r)
+        for d, r in (("fixed_fraction", 0.095), ("balanced", 0.050))
+    ]
+    with pytest.raises(DiagnosisError, match="where they are the same design"):
+        check_design_effect_vanishes_where_the_arms_coincide(diverged)
+
+
+def test_a_diagnosis_that_over_explains_is_not_a_closed_diagnosis():
+    """Falsifier F3, in the direction that looks like success.
+
+    Causes summing to MORE than the excess describes the mechanism no better
+    than causes summing to less -- they are interacting, or a substituted pool
+    is not what it is named. A bare "closes / does not close" on the unsigned
+    residual would have called this one closed.
+    """
+    from src.harness.interval_diagnosis import closure_verdict, diagnosis_closes
+
+    over = {"excess_over_nominal": 0.25, "share_unexplained": -1.30}
+    assert closure_verdict(over) == "over_explained"
+    assert diagnosis_closes(over) is False
+
+    under = {"excess_over_nominal": 0.25, "share_unexplained": 0.80}
+    assert closure_verdict(under) == "leaves_most_unexplained"
+    assert diagnosis_closes(under) is False
+
+
+def test_a_candidate_that_reaches_nominal_by_abstaining_is_not_a_pass():
+    """Falsifier F2. The hollow pass, which is what a summary table rewards.
+
+    An interval that declines to answer a third of the time, or that reaches
+    nominal by growing until it excludes nothing, has a beautiful null
+    rejection and is useless. ``verdict`` must name both rather than fold them
+    into ``pass`` -- and the pre-registration fixes the thresholds (10%
+    abstention, 3x the baseline width, discrimination below 0.80 where the
+    baseline reached it) so they cannot be chosen after the fact.
+    """
+    from src.harness.run_interval_repair import verdict
+
+    base = {
+        "null_rejection": 0.048, "null_rejection_mcse": 0.005,
+        "null_abstention_rate": 0.01, "width_ratio_vs_percentile": 1.1,
+        "discrimination": 0.91, "baseline_discrimination": 0.95,
+    }
+    assert verdict(base) == "pass"
+
+    assert verdict(base | {"null_abstention_rate": 0.34}) == "passes_by_abstention"
+    assert verdict(base | {"width_ratio_vs_percentile": 8.0}) == "passes_by_width"
+    assert verdict(base | {"discrimination": 0.21}) == "passes_by_width"
+    assert verdict(base | {"null_rejection": 0.30}) == "fails_null"
+    assert verdict(base | {"null_rejection": float("nan")}) == "all_abstained"
+    # calibrated, underpowered, but the baseline was underpowered too: that is
+    # not the candidate buying calibration with power, and must not be named so
+    assert verdict(
+        base | {"discrimination": 0.21, "baseline_discrimination": 0.25}
+    ) == "calibrated_but_underpowered"
+
+
+def test_a_substituted_pool_that_does_not_reproduce_the_generator_is_refused():
+    """The diagnosis substitutes the population, so it leaves the generator.
+
+    Its ``empirical`` family is supposed to be the committed sweep by another
+    route. If it is not -- and nothing else in the study would notice -- then
+    the percentage points it attributes are attributed inside a simulation
+    nobody is arguing about.
+    """
+    from src.harness.run_interval_repair import (
+        ReproductionError,
+        check_diagnosis_reproduces_the_generator,
+    )
+
+    diagnosis = pd.DataFrame([{
+        "family": "empirical", "design": "fixed_fraction", "n_held_out": 2,
+        "cohort": "smc", "pool": "pooled", "n_cells_mature": 50,
+        "null_rejection": 0.284, "null_rejection_mcse": 0.010,
+    }])
+    agrees = pd.DataFrame([{
+        "candidate": "percentile", "n_held_out": 2, "cohort": "smc",
+        "pool": "pooled", "n_cells_mature": 50,
+        "null_rejection": 0.279, "null_rejection_mcse": 0.010,
+    }])
+    check_diagnosis_reproduces_the_generator(diagnosis, agrees)  # the pass path
+
+    disagrees = agrees.assign(null_rejection=0.061)
+    with pytest.raises(ReproductionError, match="does not reproduce the generator"):
+        check_diagnosis_reproduces_the_generator(diagnosis, disagrees)
+
+    # and a run that never overlaps is not a silent pass
+    elsewhere = agrees.assign(cohort="kul3")
+    with pytest.raises(ReproductionError, match="never checked against"):
+        check_diagnosis_reproduces_the_generator(diagnosis, elsewhere)

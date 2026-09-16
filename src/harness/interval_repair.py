@@ -21,8 +21,8 @@ The one over **cells**, within a patient. ``src/reference/interval_calibration``
 analyses the one over **patients**, within a cohort, and proves a closed form:
 the percentile interval is ``z*sqrt((n-1)/n)/t(n-1)`` times the width it claims.
 That arithmetic is about a mean of ``n`` exchangeable values and so applies here
-too, at the cell count — but it is worth 0.8 percentage points at n=50 and 0.07
-at n=800. It is a floor, not the explanation, and this module does not offer it
+too, at the cell count -- but it is worth 0.8 percentage points at n=50 and
+0.05 at n=800. It is a floor, not the explanation, and this module does not offer it
 as one. See the pre-registration §0.
 
 THE ESTIMAND, WHICH IS AFFINE AND THAT MATTERS
@@ -377,14 +377,22 @@ def patient_cluster_interval(
     if labels_n.size < 2 or labels_t.size < 2:
         return ABSTAIN
 
-    draws = np.empty(n_boot)
+    # The mean of a set of resampled clusters is
+    # ``sum(block sums) / sum(block sizes)``, so the resample never has to be
+    # materialised. Concatenating the blocks B times instead would make this
+    # candidate ten times the cost of the other five, and a candidate that is
+    # run at a smaller B than its rivals is not being compared to them.
+    sums_n = np.array([b.sum() for b in blocks_n])
+    sizes_n = np.array([b.size for b in blocks_n], dtype=float)
+    sums_t = np.array([b.sum() for b in blocks_t])
+    sizes_t = np.array([b.size for b in blocks_t], dtype=float)
+
     k_n, k_t = labels_n.size, labels_t.size
     pick_n = rng.integers(0, k_n, size=(n_boot, k_n))
     pick_t = rng.integers(0, k_t, size=(n_boot, k_t))
-    for b in range(n_boot):
-        m_n = np.concatenate([blocks_n[i] for i in pick_n[b]]).mean()
-        m_t = np.concatenate([blocks_t[i] for i in pick_t[b]]).mean()
-        draws[b] = frac_mature_normal * (m_t - m_n)
+    m_n = sums_n[pick_n].sum(axis=1) / sizes_n[pick_n].sum(axis=1)
+    m_t = sums_t[pick_t].sum(axis=1) / sizes_t[pick_t].sum(axis=1)
+    draws = frac_mature_normal * (m_t - m_n)
     lo, hi = np.percentile(draws, [100 * alpha / 2, 100 * (1 - alpha / 2)])
     return float(lo), float(hi)
 
