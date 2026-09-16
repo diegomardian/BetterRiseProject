@@ -1,67 +1,56 @@
-\section{Worked checks: what changes an empirical comparison?}
-\label{sec:matrix}
+\section{Supporting estimator and trial checks}
+\label{app:matrix}\label{sec:matrix}
 
-The following examples use established relationships to check three choices:
-the reference, the observation process and the fitted estimator. They are
-implementation evidence for interpreting a recovery curve, not new equivalence
-theorems. Appendix~\ref{app:methods} gives the simulation settings.
+\paragraph{Reference dependence.}
+With nonempty stratum arms, saturated G-computation \citep{robins1986}, IPW
+using empirical stratum propensities, non-cross-fitted saturated AIPW and
+matching using every control all reproduce
+$T(D)=\sum_g(n_g/n)(\bar Y_{1g}-\bar Y_{0g})$. The IPW weights recover each
+stratum mean; the AIPW augmentation sums to zero within stratum. OLS with
+additive stratum indicators instead weights contrasts by normalized
+$n_g\hat p_g(1-\hat p_g)$ \citep{angrist1998,frisch1933}. Under confounded
+assignment at 5{,}000 patients, switching between these two references changes
+the G-computation/OLS residuals from $0/0.0663$ to $0.0663/3.5\times10^{-14}$.
+Complete 1:1 blocks make the weights coincide. These are implementation checks
+of established identities. Under effect heterogeneity, OLS recovery rises
+from 1.003 to 1.132 while its own-reference residual stays at numerical precision.
 
-\paragraph{Choose the reference before interpreting a residual.}
-For stratum counts $n_g$ and arm means $\bar Y_{ag}$, standardisation uses
-$T(D)=\sum_g(n_g/n)(\bar Y_{1g}-\bar Y_{0g})$.
-Saturated G-computation \citep{robins1986} equals this functional by construction.
-Empirical-propensity IPW also equals it when both arms are nonempty in each
-stratum: weighting the treated mean by $1/\hat p_g$, with
-$\hat p_g=n_{1g}/n_g$, gives $(n_g/n)\bar Y_{1g}$, and similarly for controls.
-The augmentation terms of non-cross-fitted saturated AIPW sum to zero within
-stratum; matching with all controls recovers the same stratum means.
+\paragraph{Interval control.}
+For 200 independent $\mathcal N(\theta,1)$ observations and 2{,}000 draws per
+effect, the full-sample mean has 94.60\% and 95.40\% coverage at
+$\theta=0,0.5$. Quartering the interval half-width leaves the estimate and its
+zero residual against the empirical mean unchanged, but reduces coverage to
+35.95\% and 36.30\%. The control illustrates why residuals cannot certify
+intervals.\label{tab:cleancontrol}
 
-OLS with additive stratum indicators instead weights stratum contrasts by
-normalised $n_g\hat p_g(1-\hat p_g)$ \citep{angrist1998}, obtained by
-residualising treatment and outcome on stratum indicators
-\citep{frisch1933}. Table~\ref{tab:matrix} checks these identities numerically.
-Under confounding, G-computation and OLS switch between zero and 0.0663
-residual when the reference changes. Complete 1:1 blocks make both weights
-proportional to $n_g$, whereas Bernoulli assignment balances only in expectation.
-The result is an instruction for interpreting the comparison: specify its
-weights and assignment constraints before calling two recovery curves independent
-evidence. The observed $10^{-14}$ residuals verify the implementation.
+\paragraph{Censoring and implementation checks.}\label{app:cox}
+The standardized exponential estimator equals its events/exposure reference.
+At 3{,}000 patients its maximum departure from the latent-time reference grows
+from zero without censoring to 0.376 at 78\% censoring. RMST at $\tau=2$, below
+every censoring horizon, agrees with the empirical latent truncated-mean
+contrast to $2.8\times10^{-15}$. The most affected setting excludes 463 of
+1{,}200 pairs with nonfinite fits. Eight independent Cox comparisons agree
+with \texttt{lifelines} to $1.4\times10^{-7}$ against a $10^{-5}$ tolerance.
 
-\input{sections/matrix_table.tex}
+\paragraph{Learned-generator design and exclusions.}\label{app:learned}
+Seven generators (four Gaussian mixtures, an MLP conditional Gaussian and two
+parametric controls), ten estimators, six sizes, six seed streams and 30
+replicates schedule 75{,}600 evaluations on 7{,}560 cohorts. Generator failures
+leave 75{,}580 evaluations on 7{,}558 cohorts; 74{,}726 drawn-reference pairs
+are finite. The 854 exclusions comprise 410 nonfinite references and 731
+nonfinite estimates, overlapping in 287 evaluations. Saturated G-computation
+has zero residual in every setting because the identity holds on each drawn
+dataset. Ridge and MLP outcome fits can depart; the largest mixture-generated
+MLP residual is 3.3. Generator complexity by itself does not test an estimator
+identity or establish fidelity to patients.
 
-\paragraph{Distinguish observed and latent quantities.}
-With administrative censoring, the standardised exponential estimator uses
-events divided by exposure. Against that same observed-data functional its
-residual is exactly zero; against the corresponding latent-time functional,
-the maximum at 3{,}000 patients rises from zero without censoring to 0.376 at
-78\% censoring. The estimator has not changed; the comparison now includes
-information hidden by censoring. Conversely, standardised Kaplan--Meier RMST
-at $\tau=2$, below every censoring horizon, agrees with the empirical latent
-truncated-mean contrast to $2.8\times10^{-15}$. Censoring outside the target
-horizon leaves this functional observable. Nonfinite fits are excluded in
-pairs; the most affected setting loses 463 of 1{,}200 draws
-(Appendix~\ref{app:cox}). A larger latent residual does not rank estimator quality.
-
-\paragraph{Separate generator complexity from estimator complexity.}
-Saturated G-computation reproduces the drawn reference in all 30 learned-generator
-and 12 parametric-control settings because the equality holds for each dataset,
-regardless of its generator. A mixture M-step likewise has
-$\pi_k=n_k/n$ and $\mu_k=\sum_i r_{ik}y_i/n_k$, implying
-$\sum_k\pi_k\mu_k=\bar y$. These are explanatory identities, not tests of
-patient-model fidelity. Table~\ref{tab:learned} shows their scope: ridge and MLP
-outcome fits can depart, with an MLP maximum of 3.3 on mixture-generated data.
-The run contains 75{,}580 evaluations and 74{,}726 finite drawn-reference pairs.
-Of 420 settings, 41 ridge settings change numerical classification when
-relative tolerance is added. This demonstrates why the raw residual, outcome
-units and tolerances must accompany any closeness label
-(Appendix~\ref{app:learned}).
-
-\input{sections/learned_table.tex}
-
-\paragraph{External evidence bounds the claim.}
-The pre-registered search found no functional reuse in seven classified public
-repositories and no examinable code for its virtual-control-arm query.
-This is neither a representative prevalence estimate nor corroboration of a
-widespread failure mode. The positive evidence in this paper is the documented
-internal case; the negative search result limits its external reach
-(Appendix~\ref{app:prevalence}).
+\paragraph{Tolerance and reference choice.}\label{app:scale}
+Of 420 settings, 41 ridge settings pass only a relative-plus-absolute comparison.
+Thirteen generator--estimator combinations switch into this category between
+$n=100$ and $5{,}000$. The comparisons use $10^{-8}$ against zero and
+$10^{-8}+10^{-5}|T|$ against the reference. Report raw maxima, outcome units
+and both tolerances; distinguish a proved identity from agreement on tested
+draws. The optional ratio of median departure to median reference error is
+undefined at zero denominator and cannot rank estimators. Mixture model-target
+references use 200{,}000 Monte Carlo observations; saved median standard
+errors are 0.019--0.027. Parametric and MLP model-target references are analytic.

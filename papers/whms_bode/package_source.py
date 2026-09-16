@@ -12,10 +12,20 @@ def main():
     for path in graph:files.update(ROOT/name for name in GRAPHICS.findall(path.read_text()))
     files.update([ROOT/'diagnostics/low_count_diagnostic.csv',
                   ROOT/'diagnostics/candidate_reversals.json',
-                  ROOT/'evidence/case_provenance.json'])
+                  ROOT/'diagnostics/coverage_precision.json',
+                  ROOT/'diagnostics/source_pool_properties.csv',
+                  ROOT/'diagnostics/source_pool_summary.json',
+                  ROOT/'evidence/review_record.json'])
+    files.update(ROOT/f'diagnostics/external_control_{name}.csv'
+                 for name in ['primary','shift','balance'])
     target=ROOT/'source.zip'
     with ZipFile(target,'w',ZIP_DEFLATED) as z:
-        for path in sorted(files):z.write(path,path.relative_to(ROOT))
+        for path in sorted(files):
+            if path.suffix in {'.tex','.bib','.bbl','.json','.csv'}:
+                content=path.read_text().replace(r'\_', '_').lower()
+                for token in ['gate_memo_w2','harness_design_spec','betterriseproject','bodebosell','diegomardian','/users/']:
+                    assert token not in content, f'Identifying string in review bundle: {path.name}'
+            z.write(path,path.relative_to(ROOT))
     result={'archive':'source.zip','sha256':hashlib.sha256(target.read_bytes()).hexdigest(),
             'files':[str(p.relative_to(ROOT)) for p in sorted(files)]}
     (ROOT/'source_bundle.json').write_text(json.dumps(result,indent=2)+'\n')

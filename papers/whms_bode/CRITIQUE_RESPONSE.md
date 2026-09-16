@@ -1,4 +1,8 @@
-# Assessment of the supplied critique
+# Assessment of the first supplied critique
+
+Historical record: `SECOND_CRITIQUE_RESPONSE.md` describes the current revision.
+The current PDF is 13 pages and its review bundle excludes the internal source
+filenames and exact-source mapping described below.
 
 The main criticisms are valid. The revised paper is a documented failed-calibration
 case study, not a new theorem, a general indictment of simulations, or evidence

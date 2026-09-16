@@ -1,5 +1,12 @@
 # Revision notes
 
+Current revision: see `SECOND_CRITIQUE_RESPONSE.md`. It adds paired fixed-pool
+coverage and a variance explanation, compares source-pool dispersion across
+cohorts, moves the known-identity examples to the appendix, and removes internal
+filenames from the review package. The current PDF is 8 main-text pages plus
+2 references and 3 appendix pages. Earlier records below describe historical
+versions, not the current section layout.
+
 The sections below document the first revision and its condensation. The latest
 critique-driven revision is described in `CRITIQUE_RESPONSE.md`; it supersedes
 the earlier title, Section 4 organization, figure count and no-new-simulations

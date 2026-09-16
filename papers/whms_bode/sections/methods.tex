@@ -17,8 +17,9 @@ Interval construction &
 A nominal 95\% percentile interval from 200 resamples of mature cells
 within each synthetic arm, holding cell fractions fixed. This assesses the
 conditional intrinsic contrast; it does not estimate population uncertainty
-across patients. Coverage and discrimination condition on defined intervals. Coverage uses
-$f_N(s-1)\bar Y_N$ with the drawn reference-arm mean, not a fixed pool mean. \\
+across patients. Coverage and discrimination condition on defined intervals. The historical inclusion score uses the drawn reference in
+Equation~\ref{eq:requested}; the paired follow-up also evaluates fixed-pool
+coverage using Equation~\ref{eq:fixedpool}. \\
 Patient outcomes &
 Stratum probabilities $(0.5,0.3,0.2)$, baseline means $(10,14,25)$ and
 $Y\mid(g,A)\sim\mathcal N(\mu_g+3A,4^2)$.
@@ -36,8 +37,7 @@ six seeds. \\
 \bottomrule
 \end{tabular}
 \end{center}
-Settings are recorded by \texttt{calibration\_gap}, \texttt{trial\_recovery}
-and \texttt{trial\_survival}; the dense calibration grid is specified by
-\texttt{cutpoint\_dense\_grid}. Historical grid budgets are reported in
-Appendix~\ref{app:historical}; Section~\ref{sec:calibration} specifies the
-controlled runs. These are existing simulations, not clinical-trial data.
+Historical grid budgets are reported in Appendix~\ref{app:historical};
+Section~\ref{sec:calibration} specifies the controlled runs and paired target
+analysis. The source cells are observed data; the treatment and survival
+outcomes are simulated.

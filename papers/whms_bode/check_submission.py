@@ -47,7 +47,8 @@ def main():
     assert 'Responsible use, limitations and impact' in '\n'.join(texts[:ref])
     assert 'Data and impact.' in '\n'.join(texts[:ref]),'Responsible-use statement is incomplete'
     combined='\n'.join(texts)+'\n'+'\n'.join(x.read_text() for x in graph)+'\n'+(ROOT/'refs.bib').read_text()
-    for pat in [r'bodebosell',r'diegomardian',r'BetterRiseProject',r'/Users/',r'/home/[a-z]',r'extbfNone']:
+    combined=combined.replace(r'\_', '_')
+    for pat in [r'gate_memo_w2',r'harness_design_spec',r'bodebosell',r'diegomardian',r'BetterRiseProject',r'/Users/',r'/home/[a-z]',r'extbfNone']:
         assert not re.search(pat,combined,re.I),f'Anonymity/typesetting issue: {pat}'
     meta=reader.metadata or {}
     assert not str(meta.get('/Author','')).strip(),'Author metadata present'

@@ -1,0 +1,21 @@
+{
+  "status": "Anonymized artifact labels and paraphrased context with one verbatim statement; exact source mapping retained locally and excluded from review bundle",
+  "artifact_A": {
+    "claim": "The recorded assessment treated the 50-cell reporting boundary as validated using real-cell point-estimate recovery.",
+    "replicates_per_setting": 6,
+    "cells_per_arm": 1200,
+    "recovery_above_boundary": [
+      0.85,
+      1.08
+    ],
+    "recovery_below_boundary": 1.18,
+    "original_statement": "The pre-committed cutpoint is validated on real cells."
+  },
+  "artifact_B": {
+    "effect_multiplier": 0.5,
+    "nominal_interval_level": 0.95,
+    "minimum_target_coverage": 0.9,
+    "minimum_exclusion_of_zero_at_effect": 0.8,
+    "selection_rule": "First evaluated count meeting the two criteria."
+  }
+}

@@ -1,6 +1,7 @@
 {
   "source_revision": "b503971",
-  "scope": "Saved-table verification plus a separately stored exploratory 6,400-draw low-count diagnostic.",
+  "external_control_source_revision": "a336594",
+  "scope": "Saved-table verification plus paired fixed-pool coverage and null evaluation on the same 6,400 exploratory draws; source-pool variance summaries; adopted synthetic external-control study and independently reproduced primary and balance summaries.",
   "single_cell_target": "f_N * (s - 1) * drawn_normal_mature_mean; draw-dependent reference, not fixed pool mean",
   "learned_generator": {
     "scheduled_estimator_evaluations": 75600,
@@ -103,8 +104,23 @@
       "NO": 7
     }
   },
+  "diagnostic_artifact_sha256": {
+    "candidate_reversals.json": "c2f367ec420d4cb4c9fbcede16404227a360e7d0a9a3fd5e1ac734c15e0b7776",
+    "coverage_precision.json": "2201dab3402ab59a64911c20590c13c61f695c068bed1d09387a96780c0ba40e",
+    "external_control_balance.csv": "c9848d88045971c1cccf2db915cdf4965a542b5e381f96f6abe3e4a6c372af24",
+    "external_control_falsifiers.csv": "b27adbfe462d507d21c70d1df26e664ebf34451999b6084d85f326a3aaff59cc",
+    "external_control_primary.csv": "b47ed79a1a0158948e4c581d898eb2a84c420d680caba039510f06c181858643",
+    "external_control_provenance.json": "334aeed02152b37c4100587f23d630101273675f67c2b8c920e49dfd4f672fc6",
+    "external_control_shift.csv": "affe4f3697d2e0cb19d73b6404a37223c0ec573d9f05087f5397ebc997196b21",
+    "low_count_diagnostic.csv": "a7caafb0026799f9675c791488795c1d83c92e3a2c68e4e1b15f5bf6953d401f",
+    "low_count_provenance.json": "0bebe61d8b77998f9173baf11225c27909a7a1c58716494feb8024d694e5579b",
+    "source_pool_properties.csv": "25c170f96a124aef0ca3f5996c91d5827454f07d116332e4584f83011fba66dc",
+    "source_pool_summary.json": "f2c7654617434f555b912653e0276198f03065086531d9fe9fd33467d34e604a"
+  },
   "additional_diagnostic": {
-    "purpose": "Exploratory response to low-count anomaly; not independent calibration",
+    "purpose": "Exploratory paired evaluation of drawn-reference inclusion and fixed eligible-pool coverage; not independent threshold validation",
+    "fixed_target": ".4 * (shift - 1) * arithmetic mean of GUCA2A raw counts in all mature cells of the eligible two-patient source pool; fixed conditional on the pair before cell draws",
+    "previous_diagnostic_columns_reproduced": true,
     "seed": 20260831,
     "counts": [
       5,
@@ -119,9 +135,9 @@
       "src/harness/pseudobulk.py": "a1ac96538477ae2c3d3319c2646a88053172973f5a8ca5c9df02c5ad7d00166b",
       "src/harness/interval.py": "4c976b93a8a8bc08265c19de97138e55032cbbc6c7a37391eae0589a38822a62",
       "src/harness/attenuation.py": "86c340348d135a834522af08130cb6e1252c71087c40997932f5ecde98d841d8",
-      "papers/whms_bode/diagnose_low_counts.py": "9959fb0af5f901f276a3f2ed5bb2cdffe4dce55a9c25b72c93d42d26df218b02"
+      "papers/whms_bode/diagnose_low_counts.py": "9094b30c5ad44e71f30c2f4752179ff15489ccede1ebccb33b090bb98dfec4f4"
     },
-    "output_sha256": "488d870b6745569ee93635b0d8569c724422c3a90f74a4230d93737694b11b39"
+    "output_sha256": "a7caafb0026799f9675c791488795c1d83c92e3a2c68e4e1b15f5bf6953d401f"
   },
   "input_sha256": {
     "calibration_gap_bins_kul3_r500": "eeecdd50b08b3c9ca46744e175a076970076468925e5bc454b124fe344164ce9",
@@ -161,7 +177,11 @@
     "trial_survival": "7cb5b7df8868f8716ca0817fd6a8918745e549e9284c7d0b61dfa6915ceb4bcf",
     "trial_survival_headline": "1bcb885baa536c4a6b52636a7faf2445d7ee21ac4e69a0d372dc28c59a61c630",
     "trial_survival_lifelines_check": "4121fe4aa83a6c1f094566ed29afa6294651a0d6a1bebc5eea56ebf92e4a3977",
-    "width_gate_step_location": "3198d38bf32ecfa9a7fc7d76251823d24cf4644fd0a86ce61b6cbe7a730c2f4a"
+    "width_gate_step_location": "3198d38bf32ecfa9a7fc7d76251823d24cf4644fd0a86ce61b6cbe7a730c2f4a",
+    "external_control_primary": "0c3078a4f4da9be1b4a3093a9d8b500a695c11768ebc89c787d46c2ecb35441c",
+    "external_control_shift": "4b6339cc7d84cdfbfcd8f6f8d791a6fb53547ce9a544850015710e4674637843",
+    "external_control_balance": "1e49c3f3a6e9483e7cad756c930c0b710197e46feacaad0a8454bedc32bc0ede",
+    "external_control_falsifiers": "fea9900c3b959dfbd0b165d799ed6c3ffe67fbeb6c521e609d61b3911d1a6df7"
   },
   "review_environment": {
     "python": "3.13.7",
@@ -173,7 +193,8 @@
     "pytest": "9.1.1"
   },
   "verification": {
-    "dedicated_result_tests": 17,
+    "dedicated_result_tests": 24,
+    "external_control_harness_tests": 35,
     "original_manuscript_result_tests": 55,
     "learned_table_numeric_entries": 30
   }

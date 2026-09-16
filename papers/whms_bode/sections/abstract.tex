@@ -1,20 +1,21 @@
 \begin{abstract}
-We re-evaluate a single-cell reporting rule whose 50-cell cutpoint was declared
-validated from point-estimate recovery. The original memo and calibration
-criteria are reproduced in the paper. Direct evaluation on two colorectal
-single-cell cohorts yields no qualifying cutpoint under pooled-tissue draws;
-reference-only candidates change with cohort, count grid and aggregation.
-At 50 cells, discrimination is 75.5--81.0\% in one cohort and 45.0--55.0\% in
-the other, against an 80\% requirement. Controlled reuse of the same simulation
-draws separates grid effects from random-stream changes. The interval target
-is a draw-dependent benchmark, so these results test the recorded calibration
-specification rather than population coverage. A targeted diagnostic finds 37.5--67.0\% null rejection at five cells,
-explaining why high low-count exclusion rates cannot be read as reliable power.
-Biological controls also fail
-to establish the intended mechanistic separation. We explain the recovery
-curve using an elementary estimator identity and use established trial-estimator
-relationships as implementation checks. The contribution is a reproducible
-failed-calibration case study: threshold validation requires direct evaluation
-of intervals, null rejection and abstention, with the target and sampling
-unit declared in advance.
+A 50-cell reporting rule supported by point-estimate recovery fails direct
+interval evaluation in two colorectal single-cell cohorts. At its reporting
+boundary, a paired simulation study finds 84.5--91.0\% coverage of the fixed
+source-pool effect and 12.0--30.0\% false-positive rates for nominal 95\%
+intervals. Scoring the same intervals against a sampled reference instead of
+the generating-pool parameter changes the assessment: at 800 cells, inclusion
+falls from 99.0--100.0\% to 90.5--94.0\% when the target is fixed. An exact
+variance calculation explains how the sampled reference removes part of the
+error being evaluated. Controlled grid comparisons also identify three of
+eight seed streams that fail at a larger count after first qualifying.
+Greater relative expression variance helps explain weaker detection in the
+second cohort. This self-audit documents how target choice, sparse-sample
+interval behavior and threshold selection affected an intervention simulation.
+A synthetic external-control example further shows that a reference for the
+wrong population can favor an estimator whose median effect exceeds an
+illustrative decision threshold while the intended target falls below it.
+The resulting evaluation separates fixed-pool coverage, null rejection,
+effect detection and abstention, with explicit source populations and
+Monte Carlo uncertainty.
 \end{abstract}

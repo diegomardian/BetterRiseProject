@@ -1,0 +1,46 @@
+[
+  {
+    "cohort": "kul3",
+    "pool": "pooled",
+    "pairs": 15,
+    "total_source_cells": 2475,
+    "median_source_cells": 871.0,
+    "median_mean": 4.2377109317681585,
+    "median_squared_cv": 52.4871263697418,
+    "median_zero_fraction": 0.757201646090535,
+    "median_snr_at_50": 0.871166278569134
+  },
+  {
+    "cohort": "kul3",
+    "pool": "reference",
+    "pairs": 15,
+    "total_source_cells": 844,
+    "median_source_cells": 314.0,
+    "median_mean": 11.916299559471366,
+    "median_squared_cv": 16.99327726981517,
+    "median_zero_fraction": 0.6213592233009708,
+    "median_snr_at_50": 1.5274410952141788
+  },
+  {
+    "cohort": "smc",
+    "pool": "pooled",
+    "pairs": 45,
+    "total_source_cells": 3824,
+    "median_source_cells": 796.0,
+    "median_mean": 4.2465753424657535,
+    "median_squared_cv": 21.501873149896912,
+    "median_zero_fraction": 0.7703862660944206,
+    "median_snr_at_50": 1.3584023880980995
+  },
+  {
+    "cohort": "smc",
+    "pool": "reference",
+    "pairs": 45,
+    "total_source_cells": 662,
+    "median_source_cells": 135.0,
+    "median_mean": 19.533333333333335,
+    "median_squared_cv": 4.3455580677556656,
+    "median_zero_fraction": 0.3925233644859813,
+    "median_snr_at_50": 3.020530169384347
+  }
+]

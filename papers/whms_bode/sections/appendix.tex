@@ -47,123 +47,46 @@ control rows pass a 0.10 tolerance despite expression changes of 1.19--1.64
 fold. Patient-bootstrap log$_2$ expression intervals cross the accepted
 $[-0.5,0.5]$ boundaries in every cohort, leaving the comparisons undecided.
 Depth matching discards roughly three quarters of the cells and pushes about
-half the remaining estimable rows below the count threshold. The two source
-pools also differ jointly in tissue mixture, dispersion and distinct mature-cell
-counts (662 versus 3{,}824); their comparison cannot isolate these factors.
+half the remaining estimable rows below the count threshold. Within SMC, changing tissue eligibility changes the mature-cell pool from
+662 to 3{,}824 cells. The across-cohort comparison in
+Section~\ref{sec:cohortgap} instead holds tissue eligibility fixed.
 These observations restrict biological interpretation. Repeated cell draws and
 overlapping patient pairs do not supply independent patient replication.
 
-\section{Supporting trial and generator checks}
-\label{app:matrix}
+\input{sections/refdesign.tex}
 
-\paragraph{Reference dependence beyond the main comparison.}
-For logistic-propensity IPW, confounded-design maximum residuals against the
-standardised reference are 0.403, 0.045, 0.0103 and 0.010 at
-$C=0.1,1,100,10^6$; tightening solver tolerance to $10^{-8}$ reduces the last
-to $1.3\times10^{-6}$. Under increasing effect heterogeneity ($\tau=0$ to 16,
-fixed population ATE), OLS recovery grows from 1.003 to 1.132, while its residual
-against its own variance-weighted reference stays at numerical precision.
-Recovery can therefore reveal target mismatch even when functional equality
-persists. These results supplement Table~\ref{tab:matrix}.
-
-\paragraph{Residual scale.}\label{app:scale}
-The optional descriptor
-$\rho=\mathrm{med}|\hat\theta-T|/\mathrm{med}|T-\theta|$ compares typical
-departure with reference error when its denominator is positive. It is zero
-at exact equality and undefined when the denominator is zero. Because the two
-terms in $\hat\theta-\theta=(\hat\theta-T)+(T-\theta)$ can covary or cancel,
-$\rho$ neither decomposes total error nor ranks estimators. A zero median can
-also conceal nonzero residuals, so it cannot replace the maximum-residual check.
-
-\paragraph{Independent Cox implementation check.}\label{app:cox}
-The survival sweep uses 1{,}200 paired draws per setting; at 78\% censoring
-and 100 patients, 463 have nonfinite fits and are excluded. Eight stratified and unadjusted Cox fits on one fixed 1{,}500-patient cohort at
-four censoring horizons agree with \texttt{lifelines.CoxPHFitter} to
-$1.4\times10^{-7}$, below the specified $10^{-5}$ tolerance. All eight pairs
-are finite. This checks the implemented coefficients on that cohort, not
-coverage or convergence over the simulation grid.
-
-\paragraph{Learned-generator design and exclusions.}\label{app:learned}
-The pre-registration preceded the module; a recorded amendment added penalised
-outcome models after the original estimator set could not test the proposed
-near-equality interval. Seven generators (mixtures at $K=1,2,4,8$, an MLP
-conditional Gaussian and two parametric controls), ten estimators, six cohort
-sizes, six seed streams and 30 replicates schedule 75{,}600 evaluations on
-7{,}560 synthetic cohorts (seed 20260913). After generator failures the saved
-table contains 75{,}580 evaluations on 7{,}558 cohorts. Against the drawn
-reference, 74{,}726 pairs are finite and 854 are excluded: 410 have nonfinite
-references and 731 nonfinite estimates, overlapping in 287 evaluations. All
-420 generator-by-estimator-by-size cells retain valid pairs. Table~\ref{tab:learned}
-uses maxima within each generator family, conditional on those pairs.
-
-\paragraph{Tolerance and the model-based target.}
-NumPy's default comparisons use $10^{-8}$ against a zero residual and
-$10^{-8}+10^{-5}|T|$ for estimate versus reference. Thirteen generator--estimator combinations
-fail both at $n=100$ but pass only the second at $n=5{,}000$; all use ridge
-penalties. In the saturated ridge model, fitted means are
-$\bar y_{ga}n_{ga}/(n_{ga}+\alpha)$, so a fixed penalty diminishes with cell
-count. This numerical transition does not imply declining statistical validity.
-The fitted generator's population effect $T_{\mathrm{model}}$ is a different
-reference from the empirical $T(\tilde D)$. Mixture references use 200{,}000
-Monte Carlo observations; saved median standard errors are 0.019--0.027.
-Parametric and MLP references are analytic. In
-$\hat\theta-\theta=(\hat\theta-T_{\mathrm{model}})+(T_{\mathrm{model}}-\theta)$,
-estimator departure and generator target discrepancy can covary. The finite
-Monte Carlo budget limits numerical resolution, not the target's intrinsic
-precision; neither reference validates a model for real patients.
-
-\section{The external-control demonstration}
+\section{Synthetic external-control design}
 \label{app:eca}
 
-Pre-registered in \texttt{docs/prereg\_external\_control\_demo.md} with nine
-falsifiers, committed before the module. None fired. Registry pool of fixed
-size; enrolment without replacement under eligibility weights enriching for
-refractory patients; an effect-modified benefit induced on each record's own
-outcome; external control arm three times the trial; six cohort sizes, six
-seeds, seed 20260915.
+The fixed registry contains 50{,}000 simulated records with stratum shares
+$(0.55,0.30,0.15)$, baseline outcomes $Y_0\mid g\sim
+\mathcal N(\mu_g,3^2)$, $\mu=(12,8,4)$, and effects
+$Y_1-Y_0=\delta_g r$, $\delta=(3,1.5,0.25)$,
+$r\sim\mathrm{Gamma}(4,0.25)$ (shape, scale). Responsiveness is fixed per record
+and hidden from estimators. Enrolment weights favor shares $(0.15,0.25,0.60)$;
+both arms sample without replacement and are disjoint. The pooled target is a
+mixture of enrolled and control records, not the registry population itself.
+Normal outcomes can be negative: this is an abstract continuous-outcome
+experiment, not a fitted progression-free-survival model.
 
-\begin{table}[htbp]
-\small
-\centering
-\caption{Maximum residual and median recovery ratio at the largest cohort, by
-which reference the analyst validates against. The defective estimator targets
-the pooled analysis file; the correct one targets the enrolled patients. The
-observed-data reference ranks them in the wrong order, and a
-potential-outcome reference computed on the wrong population does too.}
-\label{tab:eca}
-\begin{tabular}{@{}lcccc@{}}
-\toprule
-& \multicolumn{2}{c}{\textbf{defective (pooled target)}}
-& \multicolumn{2}{c}{\textbf{correct (enrolled target)}} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}
-reference & residual & ratio & residual & ratio \\
-\midrule
-observed-data, pooled        & $0$ (bitwise) & $1.000000$ & $1.111$ & $0.538$ \\
-potential outcomes, pooled   & $0.357$       & $1.004$    & $1.181$ & $0.544$ \\
-potential outcomes, enrolled & $1.157$       & $1.879$    & $0.297$ & $1.017$ \\
-\bottomrule
-\end{tabular}
-\end{table}
+There are 200 study draws at each of $n=50,100,200,400,800,1600$,
+using one seed (20260915) and one fixed registry: 1{,}200 studies, eight
+estimators and five references yield 48{,}000 comparisons: 47{,}969 finite
+values and 31 exclusions from one study with an empty stratum arm at $n=50$.
+The registry uses the same seed. The intended finite-cohort truth averages
+both potential outcomes over enrolled records; it is available to the
+simulator, not to estimators observing one outcome per record. Five case-mix
+shifts and 50 balance draws at $n=1600$ provide controls. Threshold crossings
+in the saved shift table compare medians, not replicate-level decisions.
 
-The middle row is the one that corrected our own prescription. Its residual is
-not zero, so a rule of ``choose a reference the estimator does not reproduce''
-is satisfied --- and it still ranks the defective estimator first, because it
-names the wrong population. Breaking the equality is necessary and not
-sufficient.
-
-Balance diagnostics do not catch it either. Under the defective weighting the
-worst between-arm standardised mean difference is $5.6\times10^{-16}$, while
-the same weighted pseudo-population differs from the enrolled patients by
-$0.964$. Under the correct weighting both are at machine zero. Protocols
-tabulate the first column.
-
-Three honest limits. The workflow is constructed rather than observed, so it
-bounds harm and not prevalence. The defective estimator's recovery ratio is
-exactly $1$ with zero interquartile range rather than tightening with $n$,
-which is itself a signal a careful reader might notice. And the scenario rests
-on the analyst misidentifying the target population in both the estimator and
-the reference; we argue that is one belief expressed twice rather than two
-independent errors, but a reader who rejects that rejects the demonstration.
+For enrolled standardization, RMSE against enrolled truth falls from 0.608
+at $n=50$ to 0.105 at $n=1600$; pooled standardization falls from 1.082 to
+0.892. The nine prespecified falsification checks did not fire, but this
+shows consistency with those checks, not clinical realism. The example
+assumes the same target-population mistake in estimator and reference;
+its identical recovery curve may itself alert a careful analyst. It neither
+estimates a failure frequency nor requires a reference to disagree numerically
+with a correct estimator on every dataset.
 
 \section{External audit and research context}
 \label{app:prevalence}
@@ -198,19 +121,13 @@ motivates evaluating both answers and abstentions
 population or automatically provide intervals for this intrinsic parameter.
 
 \paragraph{Documentary source of the case.}\label{app:provenance}
-The quoted validation claim and its six-draw recovery table occur in
-\texttt{docs/gate\_memo\_w2.md}, Section 15. The interval requirements occur in
-\texttt{docs/harness\_design\_spec.md}, Section 4. The former declares the
-50-cell cutpoint validated; the latter requires 90\% inclusion and 80\%
-exclusion of zero at $s=0.5$. Section~\ref{sec:calibration} reproduces the
-relevant claim and numbers so this comparison can be inspected without access
-to an identified repository. These are internal documents, not a published
-clinical validation. Checksums and exact source excerpts accompany the revision.
+The anonymous review record includes the original validation statement
+(Artifact A), interval criteria (Artifact B), and numerical context. Exact
+source mapping and checksums remain outside the review bundle. This records
+one internal validation error; the external search found no positive case.
 
 \paragraph{Implementation and provenance.}\label{app:withdrawn}
-Corrections separated population definitions collapsed by de-duplication,
-derived fractions and means from one labelling call, tracked producing scripts,
-and repaired undefined-interval denominators. Saved tables retain commit hashes
-and seeds. These implementation checks support traceability, not statistical
-validity; the draw-dependent calibration target is stated in
-Equation~\ref{eq:requested}.
+Corrections separated collapsed population definitions, aligned labelling,
+tracked producing scripts, and repaired undefined-interval denominators.
+Saved tables retain commit hashes and seeds; these establish traceability,
+not statistical validity.
