@@ -51,6 +51,7 @@ the three numbers the week-5 cutpoints are derived from.
 | [g1_amendment.py](g1_amendment.py) | **done** — W2's ratification of prereg amendment 2 (#37): five worlds, can the proposed G1 fail? |
 | [gate_cost.py](gate_cost.py) | **done** — the gate re-costed at 10 and 36 patients rather than the plan's 60 |
 | [ambient_sensitivity.py](ambient_sensitivity.py) | **done** — what residual soup does to a known decomposition; the artefact is one-directional |
+| [depth_confound.py](depth_confound.py) | **done** — is the maturity call measuring maturity or sequencing depth? On Lee it is depth (#44) |
 | `ingest.py` | unblocked once W4 merges `w2/lee-raw-counts` (open_decisions #8) |
 
 ## The two arms, and why both

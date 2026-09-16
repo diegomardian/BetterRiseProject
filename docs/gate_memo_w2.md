@@ -1,9 +1,16 @@
 # W2 gate memo — draft
 
-**Status: DRAFT ON SYNTHETIC DATA.** Every number here comes from simulated
-cells. Nothing in it is a result about colorectal cancer, and none of it should
-be read into the gate until the same runs have been done on real cells. What it
-does establish is that the machinery works and would produce an answer.
+**Status: DRAFT. §1-§10 are on synthetic data; §11 is the first real-data run.**
+Every number in §1-§10 comes from simulated cells — nothing there is a result
+about colorectal cancer, and what it establishes is that the machinery works and
+would produce an answer.
+
+**§11 is real, and it is a negative result.** The harness now runs on Lee/SMC,
+and the first thing it found is that the maturity labels on that cohort are not
+separable from sequencing depth (issue #44). **No decomposition from those labels
+should be quoted, including as preliminary.** The banner therefore stays: real
+cells are in the memo, but they have not yet produced a quotable decomposition,
+and the reason is worth more than the number would have been.
 
 Date: 2026-08-16 · Owner: W2 · Reads against
 [execution_plan.md §5](../execution_plan.md#5-week-5-gate)
@@ -341,7 +348,9 @@ mean the answer is true.
 
 ## 8 · What this memo needs before the gate
 
-1. Every run above, on real cells. **This entry named the wrong blocker.**
+1. Every run above, on real cells. **Partly done — see §11**, which is the first
+   real-data run and found a labelling confound that has to be resolved before a
+   decomposition is worth running. **This entry also named the wrong blocker.**
    [open_decisions #8](open_decisions.md) is **CLOSED** — `w2/lee-raw-counts`
    merged at `9513186` and W4 reviewed it retrospectively on 2026-08-22
    ("correct, and it is the option this entry recommended"). The accessor has
@@ -560,3 +569,119 @@ parametric truth (§3 of the handoff), one module along, and it produced a numbe
 that looked like a finding.
 
 `src/harness/ambient_sensitivity.py`, `tests/test_ambient_sensitivity.py`, [`results/2026-08-26_09f0bc3/ambient_sensitivity_sweep.parquet`](../results/2026-08-26_09f0bc3/ambient_sensitivity_sweep.parquet).
+
+---
+
+## 11 · The first real-data run, and what it found
+
+The harness had never touched real cells. `data/raw/` is gitignored and the
+manifest's files were on other machines; the four Lee files were fetched from
+GEO and verified against `data/manifest.csv` (4/4 sha256 match). **SMC loads:
+39,094 cells, 10 paired patients** — confirming the cohort-size finding, since
+13 of 23 patients have no matched normal.
+
+Three things came out of it, and the third is the one that matters.
+
+### 11.1 · G4's first real number behaves exactly as §9 predicted
+
+Per-patient mature-cell counts, SMC tumour arm, `stem_pole`/`lineage`:
+
+```
+n_patients 10 · n_below_threshold 2 · fraction_below 0.20
+passes True · resolvable FALSE
+95% CI [5.7%, 51.0%] — contains the 50% line
+```
+
+So G4 on SMC returns **PASS and cannot defend it**, which is what §9.1 said would
+happen at n=10 before the data arrived. The re-costing was not academic.
+
+The per-patient counts also exercise decision #22 for real. SMC06's tumour arm
+has 189 epithelial cells and **9 mature** — `not_estimable` on the intrinsic arm,
+`ok` on the compositional one. That is precisely the row the second cutpoint
+exists to describe, and it appears on the first cohort we looked at.
+
+### 11.2 · The compositional cutpoint never binds on Lee, for a structural reason
+
+`n_cells_resolved == n_cells_epithelial` for every patient × arm. W4's
+`src/estimator/labels.py` has no `unresolved` category at all — every epithelial
+cell gets a boolean call. So decision #22's gate has nothing to bite on here.
+
+That is not a defect in #22. It is the first observable consequence of the
+labelling divergence in decision #13, and it leads directly to the next section.
+
+### 11.3 · The maturity labels are not separable from sequencing depth
+
+**This is the finding.** Raised as [issue #44](https://github.com/diegomardian/BetterRiseProject/issues/44); the mechanism in one line: **the maturity axis is inverted, so a cell that sampled zero stem markers scores at the top of it, and sampling zero is mostly a matter of depth.**
+
+| | n | median n_counts |
+|---|---|---|
+| epithelial cells with no stem marker | 2,269 (32.0%) | **4,681** |
+| the rest | 4,811 | **21,936** |
+
+4.7× shallower, with a monotone dose-response across depth deciles (80.8% of the
+shallowest decile called mature, 8.5% of the deepest; rank correlation −0.92).
+
+And the arms are not depth-matched: **normal epithelium 4,519 UMI against tumour
+19,244 — 4.3×, with tumour deeper in 9 of 10 patients.** So the sensitivity is
+converted into a between-arm difference, which *is* the compositional term:
+
+| rung | normal called mature | tumour called mature | ρ(depth, mature) worst arm |
+|---|---|---|---|
+| epithelial | 80.8% | 44.5% | −0.33 |
+| lineage | 72.7% | 28.3% | −0.49 |
+| crypt_position | 71.0% | 25.1% | −0.54 |
+| best4 | 71.0% | 25.1% | −0.54 |
+
+Every rung is confounded, and it worsens as the rung gets finer — the finer
+thresholds sit closer to the zero-atom. A 46-point apparent compositional loss,
+in the hypothesised direction, from a labeller reading dropout.
+
+**CP10K does not rescue this.** Normalisation rescales counts; it cannot undo
+dropout. A gene sampled zero times stays zero after scaling.
+
+Two of the four rungs also do not exist on this cohort: `quantile(0.85)` and
+`quantile(0.95)` both return 0.0 because 32% of cells sit exactly there, so
+`crypt_position` and `best4` are bit-identical (Jaccard 1.0000) and `best4` is
+32% of epithelium where it is designed to be 5%. That is
+[#42](https://github.com/diegomardian/BetterRiseProject/issues/42)'s mechanism —
+*"the tie is in the score, not the threshold"* — reproduced in a **different
+codebase on a different cohort at a different rung pair**, which is much stronger
+evidence than either instance alone.
+
+**W1's labeller already solves this and W4's did not inherit it.**
+`src/reference/labels.py` thins marker counts to a common depth and marks shallow
+epithelial cells `unresolved` — *"not scored, not counted as immature"* — and
+depth-matches the population that sets the cut points. The population W1 refuses
+to score is the population W4 calls most mature.
+
+### 11.4 · What W2 built so this is detectable without someone looking
+
+`src/harness/depth_confound.py`. Two conditions, kept separate because the fixes
+differ: whether the maturity call tracks depth *within* an arm, and whether the
+arms are depth-matched. Either alone is a caveat; **both together mean the
+compositional term and the depth imbalance are not separable in the data.**
+
+It is **not a gate criterion.** G1–G4 are pre-registered and this is not among
+them; adding a gate after seeing a result is the move this project refuses
+everywhere else. It is a diagnostic to be quoted beside the decomposition.
+
+`tests/test_depth_confound.py` requires it to fire on the Lee pattern **and to
+stay quiet** on a depth-matched cohort with a genuine biological difference, on
+depth sensitivity alone, and on depth imbalance alone. A diagnostic that always
+says "confounded" would be the fifth guard this project has had to withdraw.
+
+### 11.5 · What this does and does not mean for the gate
+
+- **It is not a G1 or G2 finding.** It is upstream of both — a labelling
+  question, not an ambient or a control-tier one.
+- **It does not say the project's hypothesis is wrong.** It says *this labeller
+  on this cohort* cannot distinguish the hypothesis from a depth artefact. The
+  file describes itself as provisional and uncalibrated against real data; this
+  is what calibrating against real data found.
+- **It does say no decomposition from these labels should be quoted**, including
+  as preliminary, until either W1's depth matching is ported or the labels are
+  rebuilt with it. The number it would produce is large, clean-looking, and in
+  the direction everyone expects.
+- **W1's labeller has not been run on Lee.** `load_lee_cohort` calls W4's. That
+  comparison is the obvious next measurement and it should be run rather than
+  assumed.

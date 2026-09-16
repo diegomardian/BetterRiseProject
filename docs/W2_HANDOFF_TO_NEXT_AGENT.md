@@ -116,6 +116,39 @@ W4's review of #8 ended with a wish — *"W4 would rather it were an assertion t
 a note, but the assertion belongs on the consumer, which is W2's module."* That
 assertion now exists: `ReferenceSeamError`.
 
+### The data arrived, and §5 task 5 turned into something else
+
+**`data/raw/` was empty because nothing travels in git.** The manifest is the
+contract; the bytes are not in it. The four Lee files are public GEO URLs with
+sha256s already recorded — fetched and verified 4/4 in under a minute. If you are
+setting up a new machine, that is all it takes for Lee. **GSE178341 and ICBI have
+no manifest rows at all**, which is [#43](https://github.com/diegomardian/BetterRiseProject/issues/43).
+
+**SMC loads: 39,094 cells, 10 paired patients**, confirming the cohort size.
+
+**Task 5 did not produce an attenuation curve, and should not have.** The first
+real-data run found that the maturity labels on Lee are **not separable from
+sequencing depth** — [#44](https://github.com/diegomardian/BetterRiseProject/issues/44),
+gate memo §11. The axis is inverted, so a cell that sampled zero stem markers
+scores maximally mature; 32% of epithelial cells are in that state; they are 4.7x
+shallower than the rest; and normal epithelium is 4.3x shallower than tumour in 9
+of 10 patients. Result: normal reads 71% mature against tumour 25%, a 46-point
+apparent compositional loss in the hypothesised direction, from dropout.
+
+**Do not run a decomposition on these labels, even as preliminary.** The number
+would be large, clean-looking and in the direction everyone expects. W1's
+labeller already depth-matches and marks shallow cells `unresolved`; W4's does
+not. Either port it or rebuild the labels.
+
+`src/harness/depth_confound.py` makes this detectable without anyone looking. It
+is a **diagnostic, not a gate criterion** — G1-G4 are pre-registered and this is
+not among them.
+
+**Also worth knowing:** `cell_type_vector` in W1's `labels.py` cannot read W4's
+label columns at all (`label_{axis}_{rung}` categorical vs `mature__{axis}__{rung}`
+boolean). The helper whose docstring warns against hand-mapping is unusable
+across the seam, so every consumer hand-maps. That is decision #13, concretely.
+
 **Still blocked on PR #33** (open, W1's, needs a review): `bakeoff.py:79` and the
 #35 regression test cannot be written against `main`, because `alias_map` does
 not exist there yet.
