@@ -63,20 +63,33 @@ unadjusted difference             & $4.99$       & $4.99$       & $\mathbf{7\!\t
 \end{tabular}
 \end{table}
 
-\paragraph{Implications for learned patient generators.}
-The reference must be specified independently of the choice to test an
-estimator, but it need not be statistically independent of the generated
-sample. A learned generator does not by itself remove a closed-form empirical
-reference: standardisation remains the same function of observed strata and
-outcomes regardless of how those records were generated. The identities above
-therefore concern the analysis functional and assignment design, not whether
-the generator was learned or parametric.
+\paragraph{Tested on a learned generator: the equality does not degrade, and
+neither does the screen.} We fitted Gaussian-mixture and MLP generators to the
+simulator, drew synthetic cohorts, and re-fitted the outcome model on each ---
+the wiring a practitioner would build. Pre-registered with falsifiers before
+the run (Appendix~\ref{app:learned}; 7 generators, 10 estimators, 6 cohort
+sizes, 6 seeds). Saturated G-computation against the drawn reference returns
+$\max|\hat\theta - T(\tilde D)| = 0$ \emph{bitwise}, in all 30 learned-generator
+cells and all 12 parametric ones, unchanged across mixture capacity. That is the
+paragraph above, measured: the generator's learnedness is not in the comparison,
+so it cannot degrade it.
 
-If a chosen target instead requires numerical integration or a separately
-fitted outcome model, its approximation introduces another source of error.
-The audit would then need to record that computation and its random streams,
-and distinguish reference-approximation error from the estimator's departure.
-Small nonzero residuals warrant reporting their scale; neither a tolerance
-check nor $\rho$ establishes that two procedures are approximately equivalent
-in untested settings. We have not evaluated a learned patient generator here,
-and do not infer how often functional reuse occurs in deployed pipelines.
+\textbf{The consequence is for our own remedy.} Where the residual is
+identically zero, $\rho$ is zero for the same reason --- the residual is its
+numerator --- so the scale statistic we recommend is blind in exactly the case
+we recommend it for. Report $\rho$ as a descriptor of small \emph{nonzero}
+residuals, never as a second opinion on an exact one.
+
+\textbf{What does produce near-equality is penalisation, not learning.} Ridge
+outcome models place the residual where the penalty puts it: $8.6\times10^{-5}$,
+$8.6\times10^{-3}$ and $0.78$ at $\alpha = 10^{-5}, 10^{-3}, 10^{-1}$, on
+learned and parametric generators alike. This matters because
+\texttt{np.allclose} means two different things here:
+$\texttt{allclose}(r, 0)$ reduces to its absolute tolerance, $10^{-8}$, since
+the relative term multiplies zero, while $\texttt{allclose}(\hat\theta, T)$
+gives $\approx 3\times10^{-5}$ at $\theta = 3$. Of 420 cells, 41 sit strictly
+between the two, every one of them penalised. \textbf{And the gap widens with
+data}: these residuals fall like $n^{-1.75}$, so fourteen arms that both screens
+catch at $n = 100$ have slipped into the interval by $n = 5{,}000$. More
+patients move a regularised estimator further into the blind spot, which is the
+opposite of the usual reassurance.

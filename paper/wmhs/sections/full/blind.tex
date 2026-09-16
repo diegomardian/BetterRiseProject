@@ -60,7 +60,18 @@ validate interval coverage or an abstention threshold. Even a correctly
 implemented sample mean equals its empirical-mean reference. We use ``blind''
 only for redundancy relative to a specified reference, not as a verdict on
 statistical validity. Our oracle wiring is an observed feature of this
-pipeline, not evidence about its prevalence in virtual-control-arm practice.
+pipeline. To bound its prevalence we pre-registered a search and a
+three-way classification rule, then audited seven public repositories in
+trial simulation, target-trial emulation and plasmode simulation
+(Appendix~\ref{app:prevalence}). 	extbf{None reuses the functional: 0 of 7.}
+Six never reach the question, computing the reference from generating
+parameters --- the practice we recommend, already the norm. The seventh is
+instructive: its shipped residual of $4.0\times10^{-14}$ reads as reuse and is
+not, because its benchmark data are noiseless and exactly linear; adding
+outcome noise separates the two functionals at $0.125$. A tolerance screen
+alone would have misclassified it, which is why the audit resolves
+near-equalities algebraically. We therefore claim the failure is possible
+and cheap to exclude, not that it is widespread.
 
 \paragraph{A control separating equality from performance.}
 To test this distinction directly, a separate simulation fixes the reference

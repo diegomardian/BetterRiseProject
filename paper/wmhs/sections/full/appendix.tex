@@ -195,3 +195,99 @@ term explicit downstream. Storing \texttt{None} prevents substitution with zero
 but cannot prevent an undefined interval from entering a rate denominator.
 The benchmark supports conclusions about the tested gate implementations and
 regimes, not general robustness or clinical utility.
+
+\section{The learned-generator experiment}
+\label{app:learned}
+
+Pre-registered in \texttt{docs/prereg\_learned\_generator.md} with seven
+falsifiers, committed before the module; one amendment, timestamped, added
+penalised outcome models as a positive control after we established that the
+pre-registered estimator set could not reach the interval between the two
+tolerance screens and so could not have tested the prediction at all.
+
+Seven generators (Gaussian mixtures at $K \in \{1,2,4,8\}$, an MLP conditional
+Gaussian, and two parametric controls) $\times$ 10 estimators $\times$ 6 cohort
+sizes $\times$ 6 seeds $\times$ 30 replicates: 52{,}920 estimates, seed
+20260913. Non-finite outputs are counted per cell and excluded; no cell was left
+empty, since a vacuous \texttt{allclose} over an empty set is the failure this
+paper is about.
+
+\begin{table}[htbp]
+\small
+\centering
+\caption{Maximum $|\hat\theta - T(\tilde D)|$ against the drawn reference, over
+all cohort sizes. Generator capacity does not move any row. The zero row is
+bitwise, not rounded.}
+\label{tab:learned}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+estimator & mixture generators & MLP generator & parametric controls \\
+\midrule
+G-computation, saturated        & $0$        & $0$        & $0$ \\
+IPW, saturated                  & $1\!\times\!10^{-14}$ & $1\!\times\!10^{-14}$ & $1\!\times\!10^{-14}$ \\
+G-comp., mixture outcome        & $2\!\times\!10^{-14}$ & $2\!\times\!10^{-14}$ & $2\!\times\!10^{-14}$ \\
+G-comp., ridge $\alpha=10^{-5}$ & $8.6\!\times\!10^{-5}$ & $6.3\!\times\!10^{-5}$ & $8.7\!\times\!10^{-5}$ \\
+G-comp., ridge $\alpha=10^{-3}$ & $8.6\!\times\!10^{-3}$ & $6.3\!\times\!10^{-3}$ & $8.6\!\times\!10^{-3}$ \\
+OLS, stratum dummies            & $1.5$      & $1.4$      & $1.7$ \\
+unadjusted difference           & $10.2$     & $9.7$      & $11.3$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two mechanisms we proposed for a degraded equality are both wrong, and we record
+them because they are the two a reader will reach for. Sharing ``most but not
+all'' inputs describes a relationship the screen never evaluates: $T(\tilde D)$
+and $\hat\theta(\tilde D)$ are both functionals of the same synthetic cohort.
+And the mixture fit's convergence tolerance is not a floor --- the identity
+$\sum_k \pi_k \mu_k = \bar y$ holds after any M-step, giving
+$3.6\times10^{-15}$ at $\texttt{tol}=10^{-3}$ against $5.3\times10^{-15}$ at
+$10^{-10}$.
+
+The model-based reference is the weaker choice and we report why: its
+Monte-Carlo standard error is $0.020$--$0.027$ here, so it cannot resolve
+residuals below $\approx 2\times10^{-2}$, and it returns the same value for
+eight of ten estimators. Against it the screen measures the generator's bias
+rather than the estimator.
+
+\section{The prevalence audit}
+\label{app:prevalence}
+
+Pre-registration committed before the first search; one amendment, before any
+repository was opened, relaxing six queries that returned nothing because the
+search API indexes names and topics rather than READMEs. The classification rule
+was never amended. Verdicts and the screening queue are versioned tables.
+
+The rule locates the draw, the estimator and the comparison, then triages the
+reference: generating parameters only, or data the estimator never consumes,
+gives \textsc{no}; the same observed records proceeds to a functional
+comparison, checking input records, weighting, conditioning set, nuisance
+estimation and observation process in order and stopping at the first
+difference. \textsc{yes} requires affirmative evidence of identity.
+
+\begin{table}[htbp]
+\small
+\centering
+\caption{Seven repositories, walked in a pre-registered order from a queue of
+41. Nineteen were screened out against recorded criteria.}
+\label{tab:prevalence}
+\begin{tabular}{@{}llc@{}}
+\toprule
+repository & its reference & verdict \\
+\midrule
+Auto-Empirical-Research-Skills & full-sample OLS coefficient & \textsc{no} \\
+\texttt{causl}                 & generating coefficient      & \textsc{no} \\
+target-trial-emulation         & fixed effect constant       & \textsc{no} \\
+\texttt{ecasim}                & fixed effect constant       & \textsc{no} \\
+PlasmodeSimulation             & induced effect, held out    & \textsc{no} \\
+StatsPAI                       & specification table         & \textsc{no} \\
+\texttt{diff-diff}             & generating constants        & \textsc{no} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two coverage limits bound what this supports. The query aimed specifically at
+virtual control arms returned no public code at all, so the setting the claim
+most concerns is not represented. And only one repository reached the
+functional comparison, so a null over that branch rests on a single case. Every
+generator examined is closed-form, which by the argument above is the setting
+where the reference is easiest to specify correctly.

@@ -252,3 +252,61 @@ def test_per_count_candidates_and_unobserved_omission_boundary():
     assert joint.loc["KUL31", "omitted_candidate"] == 200
     assert joint.loc["KUL31", "omitted_status"] == "lower_bound_unobserved"
     _quotes(text, "KUL31 moves it to the lowest tested count, 200, with its lower boundary")
+
+
+def test_the_learned_generator_result_is_rederived():
+    """Bitwise zero, the ridge ladder, and the n^-1.75 trend."""
+    text = _full_text()
+    primary = pd.read_parquet(_pinned("trial_learned_generator_primary"))
+    draw = primary[primary["reference"] == "T_draw"]
+
+    # the headline: exact zero, and it must be exact, not rounded
+    sat = draw[draw["estimator"] == "gcomp-saturated"]
+    assert len(sat) == 42
+    assert (sat["max_residual"] == 0.0).all()
+    learned = sat[sat["is_learned"]]
+    assert len(learned) == 30 and (learned["max_residual"] == 0.0).all()
+    _quotes(text, "bitwise")
+    _quotes(text, "all 30 learned-generator")
+
+    # a zero over an empty set would be vacuous -- this is the paper's own defect
+    assert (draw["n_valid_pairs"] > 0).all()
+
+    # the ridge ladder, as quoted
+    ridge = draw[draw["estimator"].str.contains("ridge")]
+    top = ridge.groupby("estimator")["max_residual"].max()
+    assert round(top["gcomp-ridge-outcome-a1e-5"], 6) == 0.000086
+    assert round(top["gcomp-ridge-outcome-a1e-3"], 5) == 0.00864
+    assert round(top["gcomp-ridge-outcome-a1e-1"], 2) == 0.78
+    _quotes(text, "$8.6" + chr(92) + "times10^{-5}$")
+
+    # more data moves penalised arms INTO the blind band
+    trend = pd.read_parquet(_pinned("trial_learned_generator_trend"))
+    tr = trend[(trend["reference"] == "T_draw")
+               & trend["estimator"].str.contains("ridge")]
+    lo, hi = 1e-8, 3.0e-5
+    crossed = tr[(tr["max_residual_at_smallest_n"] >= hi)
+                 & (tr["max_residual_at_largest_n"] > lo)
+                 & (tr["max_residual_at_largest_n"] < hi)]
+    assert len(crossed) == 14, len(crossed)
+    _quotes(text, "fourteen arms")
+    slope = tr["log10_slope_vs_log10_n"].median()
+    assert round(abs(slope), 2) == 1.75, slope
+    _quotes(text, "fall like $n^{-1.75}$")
+
+
+def test_the_prevalence_audit_is_rederived():
+    """0 of 7, and the false positive the rule caught."""
+    text = _full_text()
+    verdicts = pd.read_parquet(_pinned("prevalence_audit_verdicts"))
+    assert len(verdicts) == 7
+    counts = verdicts["verdict"].value_counts().to_dict()
+    assert counts.get("YES", 0) == 0
+    assert counts.get("NO", 0) == 7
+    _quotes(text, "None reuses the functional: 0 of 7.")
+
+    # exactly one repository reached the functional comparison
+    executed = verdicts[verdicts["max_residual"].notna()]
+    assert len(executed) == 1
+    assert round(float(executed["max_residual"].iloc[0]) * 1e14, 1) == 4.0
+    _quotes(text, "$4.0" + chr(92) + "times10^{-14}$")
