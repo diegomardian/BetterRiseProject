@@ -1,0 +1,150 @@
+\appendix
+\input{sections/methods.tex}
+
+\section{Calibration details and limits}
+\label{app:gridcaveats}
+
+\paragraph{Historical grids.}\label{app:historical}
+Before the controlled run, the SMC reference-only sweeps returned binned joint
+candidates of 100, 90 and 70 on the committed, filled and dense grids, with
+500, 500 and 200 replicates per setting, respectively. Their adjacent crossing
+brackets were $(40,100]$, $(65,90]$ and $(42.5,70]$, describing evaluated bin
+summaries rather than confidence intervals. The 100-to-90 change occurred
+within the same bin, $(76,107]$: adding counts 80 and 90 to 100 changed both
+its median count and its aggregated outcomes. Random streams and bin boundaries
+also differed, so this comparison alone did not isolate a resolution effect.
+The controlled analysis in Section~\ref{sec:calibration} supersedes it for that
+question. Under pooled draws no joint cutpoint qualified in either cohort's
+historical grids. KUL3 reference-only candidates were 400 or 800; its largest
+setting sampled 800 mature cells per arm with replacement from 844 distinct
+mature source cells.
+
+\paragraph{Recovery accounting and unavailable contrasts.}\label{app:generator}
+The four diagnostic sweeps comprise 1{,}711{,}200 replicates: 1{,}283{,}400 with
+nonzero requested intrinsic reference and 427{,}800 with zero requested
+reference, for which ratios are undefined. The first 50-replicate sweep has
+119{,}600 draws, partitioned into 89{,}700 and 29{,}900, respectively. The
+maximum estimate--realised-reference residual is zero throughout. At a
+zero-cell setting the raw ratio is $1/(1-s)$ when the denominator is nonzero.
+These raw diagnostic values arise from the harness setting an empty-arm mean
+to zero; they do not define an effect in absent cells. The reporting gate
+abstains and the interval is undefined. Separately, undefined intervals were
+previously counted as failures through comparisons with \texttt{NaN}; corrected
+rates exclude them and report abstentions. An all-abstaining bin has no
+coverage estimate. One historical seed gives $ok=wide=45$, showing that a
+three-state specification need not yield three distinct fitted regions.
+
+\paragraph{Biological scope and patient uncertainty.}\label{app:guards}
+\label{app:modal}\label{app:limitations}
+The finest annotation resolution yields abstention in 28/28 patients under one
+population definition and 24/28 under the other; coarser definitions do not
+resolve identifiability. The coarsest definition labels every epithelial cell
+mature and forces the compositional term to zero. In a separate comparability
+analysis over three cohorts and 42 patients, 83 of 84 housekeeping-detection
+control rows pass a 0.10 tolerance despite expression changes of 1.19--1.64
+fold. Patient-bootstrap log$_2$ expression intervals cross the accepted
+$[-0.5,0.5]$ boundaries in every cohort, leaving the comparisons undecided.
+Depth matching discards roughly three quarters of the cells and pushes about
+half the remaining estimable rows below the count threshold. The two source
+pools also differ jointly in tissue mixture, dispersion and distinct mature-cell
+counts (662 versus 3{,}824); their comparison cannot isolate these factors.
+These observations restrict biological interpretation. Repeated cell draws and
+overlapping patient pairs do not supply independent patient replication.
+
+\section{Supporting trial and generator checks}
+\label{app:matrix}
+
+\paragraph{Reference dependence beyond the main comparison.}
+For logistic-propensity IPW, confounded-design maximum residuals against the
+standardised reference are 0.403, 0.045, 0.0103 and 0.010 at
+$C=0.1,1,100,10^6$; tightening solver tolerance to $10^{-8}$ reduces the last
+to $1.3\times10^{-6}$. Under increasing effect heterogeneity ($\tau=0$ to 16,
+fixed population ATE), OLS recovery grows from 1.003 to 1.132, while its residual
+against its own variance-weighted reference stays at numerical precision.
+Recovery can therefore reveal target mismatch even when functional equality
+persists. These results supplement Table~\ref{tab:matrix}.
+
+\paragraph{Residual scale.}\label{app:scale}
+The optional descriptor
+$\rho=\mathrm{med}|\hat\theta-T|/\mathrm{med}|T-\theta|$ compares typical
+departure with reference error when its denominator is positive. It is zero
+at exact equality and undefined when the denominator is zero. Because the two
+terms in $\hat\theta-\theta=(\hat\theta-T)+(T-\theta)$ can covary or cancel,
+$\rho$ neither decomposes total error nor ranks estimators. A zero median can
+also conceal nonzero residuals, so it cannot replace the maximum-residual check.
+
+\paragraph{Independent Cox implementation check.}\label{app:cox}
+Eight stratified and unadjusted Cox fits on one fixed 1{,}500-patient cohort at
+four censoring horizons agree with \texttt{lifelines.CoxPHFitter} to
+$1.4\times10^{-7}$, below the specified $10^{-5}$ tolerance. All eight pairs
+are finite. This checks the implemented coefficients on that cohort, not
+coverage or convergence over the simulation grid.
+
+\paragraph{Learned-generator design and exclusions.}\label{app:learned}
+The pre-registration preceded the module; a recorded amendment added penalised
+outcome models after the original estimator set could not test the proposed
+near-equality interval. Seven generators (mixtures at $K=1,2,4,8$, an MLP
+conditional Gaussian and two parametric controls), ten estimators, six cohort
+sizes, six seed streams and 30 replicates schedule 75{,}600 evaluations on
+7{,}560 synthetic cohorts (seed 20260913). After generator failures the saved
+table contains 75{,}580 evaluations on 7{,}558 cohorts. Against the drawn
+reference, 74{,}726 pairs are finite and 854 are excluded: 410 have nonfinite
+references and 731 nonfinite estimates, overlapping in 287 evaluations. All
+420 generator-by-estimator-by-size cells retain valid pairs. Table~\ref{tab:learned}
+uses maxima within each generator family, conditional on those pairs.
+
+\paragraph{Tolerance and the model-based target.}
+NumPy's default comparisons use $10^{-8}$ against a zero residual and
+$10^{-8}+10^{-5}|T|$ for estimate versus reference. Thirteen generator--estimator combinations
+fail both at $n=100$ but pass only the second at $n=5{,}000$; all use ridge
+penalties. In the saturated ridge model, fitted means are
+$\bar y_{ga}n_{ga}/(n_{ga}+\alpha)$, so a fixed penalty diminishes with cell
+count. This numerical transition does not imply declining statistical validity.
+The fitted generator's population effect $T_{\mathrm{model}}$ is a different
+reference from the empirical $T(\tilde D)$. Mixture references use 200{,}000
+Monte Carlo observations; saved median standard errors are 0.019--0.027.
+Parametric and MLP references are analytic. In
+$\hat\theta-\theta=(\hat\theta-T_{\mathrm{model}})+(T_{\mathrm{model}}-\theta)$,
+estimator departure and generator target discrepancy can covary. The finite
+Monte Carlo budget limits numerical resolution, not the target's intrinsic
+precision; neither reference validates a model for real patients.
+
+\section{External audit and research context}
+\label{app:prevalence}
+
+\paragraph{Search and classification.}
+A pre-registered queue contained 41 entries; 19 were screened out and seven
+classified within the 26 entries examined in order. An amendment before code
+inspection relaxed unsuccessful queries; the classification rule was unchanged.
+Generating-parameter references or quantities computed outside the estimator's
+observed records give \textsc{no}. Same-record references require examination
+of inputs, weights, conditioning, nuisance fitting and observation process;
+\textsc{yes} requires affirmative evidence of functional identity. All seven
+recorded verdicts are \textsc{no}: \texttt{causl}, target-trial-emulation,
+\texttt{ecasim}, PlasmodeSimulation, StatsPAI, \texttt{diff-diff}, and
+Auto-Empirical-Research-Skills. The first six use generating parameters or
+outside-sample quantities; the last compares cross-fitted partialling-out with
+full-sample OLS. Its $4.0\times10^{-14}$ residual on noiseless linear data
+becomes 0.125 after adding outcome noise. The functions agree on the restricted
+noiseless support but not on general noisy datasets; the \textsc{no} verdict
+concerns shared functional form. Classification used one reader, only this last
+repository was executed, and the sample is nonrandom. The virtual-control-arm
+query located no examinable code. These limits preclude a prevalence estimate.
+
+\paragraph{Related scope.}\label{app:relatedwork}
+Cell-count filters are established in pseudobulk analysis \citep{crowell2020};
+scCODA, Milo, propeller and DA-seq address composition
+\citep{buettner2021,dann2022,phipson2022,zhao2021}, while cacoa separates
+composition and expression changes \citep{petukhov2022}. Selective prediction
+motivates evaluating both answers and abstentions
+\citep{chow1970,elyaniv2010,geifman2017}. Conformal prediction coverage
+\citep{vovk2005,angelopoulos2023} does not define a missing conditional
+population or automatically provide intervals for this intrinsic parameter.
+
+\paragraph{Implementation and provenance.}\label{app:withdrawn}
+Corrections separated population definitions collapsed by de-duplication,
+derived fractions and means from one labelling call, tracked producing scripts,
+and repaired undefined-interval denominators. Saved tables retain commit hashes
+and seeds. These implementation checks support traceability, not statistical
+validity; the draw-dependent calibration target is stated in
+Equation~\ref{eq:requested}.

@@ -1,0 +1,162 @@
+\section{Reference dependence in trial-effect simulations}
+\label{sec:matrix}
+
+The case study concerns a biological decision rule; the following experiments
+examine the same distinction in stylised trial-effect estimation. Their targets
+are fixed generating parameters. These simulations establish possible
+identities, not their frequency in clinical practice.
+
+\paragraph{A stratified patient simulator.}
+For stratum counts $n_g$, total sample size $n$, and observed arm means
+$\bar Y_{ag}$, define
+\[
+T(D)=\sum_g\frac{n_g}{n}(\bar Y_{1g}-\bar Y_{0g}).
+\]
+Saturated G-computation \citep{robins1986} calculates this contrast directly.
+IPW with empirical propensities $\hat p_g=n_{1g}/n_g$ also equals it: each
+stratum's treated weighted sum divided by $n$ is
+$(n_g/n)\bar Y_{1g}$, and likewise for controls. This requires nonempty arms
+within each stratum and these specific weights. It is not an equivalence for
+arbitrary outcome or propensity models. The reference is an observed contrast,
+not the finite-sample mean of paired potential-outcome differences.
+
+Figure~\ref{fig:trial} evaluates five estimators in three covariate strata with
+stratum-dependent treatment probabilities, a homogeneous additive effect
+$\theta=3$, and cohorts of 100--5{,}000 patients. Four estimators recover the
+requested effect and tighten with cohort size. Two reproduce $T(D)$:
+G-computation has exactly zero residual and saturated IPW agrees to numerical
+precision. Cross-fitting the IPW propensity \citep{chernozhukov2018} breaks the
+equality in this design because each patient's weight is fitted on a different
+fold. It remains consistent here, but its nonzero residual establishes only
+departure from this reference. The unadjusted contrast is confounded, with a
+recovery ratio near 2.4; the recovery curve correctly reveals that error.
+
+Ordinary least squares (OLS) with treatment and additive stratum dummies also
+departs from $T(D)$, although it uses every record and is correctly specified
+for this homogeneous effect. Standardisation weights strata by prevalence;
+OLS uses normalised weights proportional to $n_g\hat p_g(1-\hat p_g)$.
+Its residual is smaller than cross-fitted IPW's at every tested cohort size.
+Thus the audit concerns a shared functional, not simply a shared sample.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{figures/trial_recovery.pdf}
+\caption{Patient simulation with confounded assignment and requested effect
+$\theta=3$. Left: median and IQR of recovery over 200 replicates (197 at the
+smallest cohort, after excluding three draws with an empty stratum-arm cell).
+Right: residual against the standardised observed-data reference on a log
+scale, with a band at machine precision. G-computation and saturated IPW
+reproduce the reference. OLS and cross-fitted IPW depart from it while
+recovering the requested effect. The unadjusted contrast is confounded.
+Departure is not a validity criterion.}
+\label{fig:trial}
+\end{figure}
+
+
+\paragraph{Assignment and the chosen reference change the equality.}
+The sweep crosses 14 estimators, three designs, two realised references, six
+cohort sizes and six seeds (settings in Appendix~\ref{app:methods}).
+Table~\ref{tab:matrix} shows nine of those estimators under two of the
+designs. Independent Bernoulli assignment is discussed below; the five
+logistic-propensity variants are reported in Appendix~\ref{app:matrix}. Under confounded
+assignment, OLS has maximum residual $0.0663$ against the standardised
+reference at $n=5{,}000$, but $3.5\times10^{-14}$ against the
+variance-weighted reference equal to OLS by the Frisch--Waugh identity.
+G-computation reverses the comparison: $0$ and $0.0663$, respectively.
+Both consistently estimate the requested homogeneous effect.
+
+With complete, stratified permuted blocks and 1:1 allocation, empirical
+propensities are $0.5$ in every stratum. The two references coincide, and
+OLS and even the unadjusted contrast reproduce them to numerical precision
+($1.6\times10^{-14}$ and $6.7\times10^{-15}$). Independent Bernoulli
+assignment at probability $0.5$ does not enforce this realised balance:
+at $n=5{,}000$, OLS and the unadjusted contrast have maximum residuals
+$9.51\times10^{-4}$ and $0.562$, respectively, against the standardised
+reference. Thus 1:1 randomisation in expectation is insufficient for the
+identity. Non-cross-fitted AIPW with
+saturated nuisances also equals standardisation: its within-stratum
+augmentation sums vanish (residual $4.4\times10^{-15}$ in the confounded
+design). Exact matching using all controls within each stratum agrees to
+$8.9\times10^{-16}$; using 20 or one control gives residuals of $0.052$ and
+$0.164$. These are properties of the implemented estimator, reference and
+design together. Appendix~\ref{app:matrix} also examines regularisation and
+effect heterogeneity.
+
+
+\input{sections/matrix_table.tex}
+
+\paragraph{Censoring changes the comparison.}
+We repeated the patient experiment with exponential event times, confounded
+assignment and administrative censoring: four censoring levels, seven cohort
+sizes, and 1{,}200 replicates pooled over 6 seeds per cell. Paired comparisons
+exclude non-finite outputs, including event-free cells and Cox fitting failures.
+Exclusions occur even at low censoring and remove $463$ of $1{,}200$ draws at
+$78\%$ censoring and $n=100$; reported residuals are conditional on valid pairs.
+
+The per-stratum exponential maximum-likelihood estimator uses rates equal to
+events divided by exposure, then averages log rate contrasts by stratum
+prevalence. Its observed-data reference is that same functional, giving maximum
+residual zero in all 28 cells. Against the corresponding latent-time reference,
+maximum residuals at $n=3{,}000$ are $0$, $0.061$, $0.144$ and $0.376$ at
+$0\%$, $12\%$, $49\%$ and $78\%$ censoring. The worst values across cohort
+sizes are $0$, $0.473$, $1.089$ and $1.586$. The estimator is unchanged;
+the latent comparison measures a different departure, associated with
+information hidden by censoring.
+
+At $49\%$ censoring, the exponential estimator's maximum latent-reference
+residual exceeds stratified Cox's in five of seven cohort sizes; at $78\%$, in
+six of seven ($0.376$ versus $0.293$ at $n=3{,}000$). Per-replicate inversion
+rates are $0.53$--$0.61$. Neither ordering is a quality criterion: a larger
+residual cannot be read as a more informative validation. Use an observed-data
+reference for the reuse audit, and retain requested parameters and latent
+targets for their separate error, coverage and information-loss evaluations.
+
+A restricted-mean survival time (RMST) comparison provides a control.
+Its horizon is fixed at $\tau=2$, below every administrative censoring time
+in the sweep. Standardised Kaplan--Meier RMST therefore reproduces the empirical
+latent truncated-mean contrast to numerical precision across all 28 cells
+(maximum residual $2.8\times10^{-15}$ on valid outputs). Censoring has hidden
+no information within this horizon. The observation process matters through
+its effect on the chosen functional, not simply through the fraction censored.
+
+An independent check of eight Cox fits agrees with
+\texttt{lifelines} to $1.4\times10^{-7}$, below the specified $10^{-5}$
+tolerance (Appendix~\ref{app:cox}). It checks implementation agreement on one
+cohort, not coverage or convergence across the sweep.
+
+\paragraph{Learned generators preserve the tested identities.}
+A further sweep fits Gaussian-mixture and MLP generators, samples synthetic
+cohorts, and refits estimators on each cohort. Saturated G-computation exactly
+reproduces the drawn reference in all 30 learned-generator and 12 parametric
+control settings. This is an estimator identity that holds regardless of how
+the cohort was generated; it does not establish generator fidelity. Penalised
+outcome models instead yield nonzero residuals. Of 420 estimator-by-generator-
+by-size settings, 41 pass a relative-plus-absolute numerical comparison but
+fail an absolute-only one; all 41 use ridge penalties. These are tolerance
+classifications, not evidence of worse statistical performance with more data.
+Appendix~\ref{app:learned} reports the full design and the distinct model-based
+reference; Appendix~\ref{app:scale} discusses residual scale.
+
+\input{sections/learned_table.tex}
+
+Table~\ref{tab:learned} reports every estimator in the expanded run, including
+the MLP outcome model whose maximum residual reaches 3.3 on mixture-generated
+data. Saturated and mixture-outcome identities therefore should not be
+extrapolated to arbitrary learned estimators. In a mixture M-step,
+$\pi_k=n_k/n$ and $\mu_k=\sum_i r_{ik}y_i/n_k$ imply
+$\sum_k\pi_k\mu_k=\bar y$; generator complexity cannot break this particular
+mean-preservation identity. By contrast, numerical closeness depends on the
+chosen tolerance: comparing residuals to zero uses absolute tolerance alone,
+whereas a relative tolerance additionally scales with the reference magnitude.
+The recorded run contains 75{,}580 estimator evaluations and 74{,}726 finite
+drawn-reference pairs; Appendix~\ref{app:learned} reconciles the exclusions.
+
+\paragraph{Evidence outside the constructed examples is limited.}
+A pre-registered search classified seven public repositories and found no
+functional reuse under its rule. Six compare with generating parameters or
+quantities computed outside the observed sample; the remaining case involves
+distinct functionals that agree on noiseless linear data. Adding outcome noise
+separates them, illustrating the need to state the domain of an identity.
+The search did not locate examinable code for its query specifically targeting
+virtual control arms. This is neither a representative prevalence estimate nor
+evidence that deployed systems are affected (Appendix~\ref{app:prevalence}).

@@ -1,0 +1,43 @@
+\section{Simulation settings}
+\label{app:methods}
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.19\linewidth}p{0.76\linewidth}@{}}
+\toprule
+\textbf{Experiment} & \textbf{Fixed settings and sampling units} \\
+\midrule
+Single-cell calibration &
+GSE132465 (SMC): 10 paired patients; GSE144735 (KUL3): 6.
+Target: GUCA2A; \texttt{stem\_pole} axis, \texttt{lineage} resolution,
+\texttt{differentiated} mature label; reference (\texttt{normal}) weighting.
+Each replicate holds out two patients and draws 2{,}000 cells per synthetic
+arm from their eligible pool; reference mature fraction $0.40$.
+Expression shifts are $1.0,0.8,0.5,0.25$; calibration uses $0.5$. \\
+Interval construction &
+A nominal 95\% percentile interval from 200 resamples of mature cells
+within each synthetic arm, holding cell fractions fixed. This assesses the
+conditional intrinsic contrast; it does not estimate population uncertainty
+across patients. Coverage and discrimination condition on defined intervals. Coverage uses
+$f_N(s-1)\bar Y_N$ with the drawn reference-arm mean, not a fixed pool mean. \\
+Patient outcomes &
+Stratum probabilities $(0.5,0.3,0.2)$, baseline means $(10,14,25)$ and
+$Y\mid(g,A)\sim\mathcal N(\mu_g+3A,4^2)$.
+Confounded treatment probabilities $(0.25,0.50,0.75)$; alternatives are
+independent Bernoulli assignment at $0.5$ and complete balanced blocks of size 4
+within strata. The five-method curve uses 200 replicates per size; the
+three-design sweep uses 200 per seed across six seeds. \\
+Survival outcomes &
+The same stratum and confounded-assignment probabilities; exponential event
+rate $\lambda_g\exp(\beta A)$, $\lambda=(0.10,0.16,0.30)$, $\exp(\beta)=0.6$.
+Administrative horizons $1000,20.065216,6.072920,2.028858$ target
+$0\%,12\%,49\%,78\%$ censoring. The same latent cohort is viewed through
+each horizon; RMST uses $\tau=2$. Each size has 200 replicates per seed over
+six seeds. \\
+\bottomrule
+\end{tabular}
+\end{center}
+Settings are recorded by \texttt{calibration\_gap}, \texttt{trial\_recovery}
+and \texttt{trial\_survival}; the dense calibration grid is specified by
+\texttt{cutpoint\_dense\_grid}. Historical grid budgets are reported in
+Appendix~\ref{app:historical}; Section~\ref{sec:calibration} specifies the
+controlled runs. These are existing simulations, not clinical-trial data.

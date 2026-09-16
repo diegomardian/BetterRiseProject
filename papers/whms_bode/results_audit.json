@@ -1,0 +1,160 @@
+{
+  "source_revision": "b503971",
+  "scope": "Saved-table verification and editorial revision; no simulations rerun.",
+  "single_cell_target": "f_N * (s - 1) * drawn_normal_mature_mean; draw-dependent reference, not fixed pool mean",
+  "learned_generator": {
+    "scheduled_estimator_evaluations": 75600,
+    "scheduled_cohorts": 7560,
+    "recorded_estimator_evaluations": 75580,
+    "generated_cohorts": 7558,
+    "valid_draw_reference_pairs": 74726,
+    "excluded_pairs": 854,
+    "nonfinite_reference": 410,
+    "nonfinite_estimate": 731,
+    "overlap": 287,
+    "settings": 420,
+    "minimum_valid_pairs_per_setting": 115,
+    "settings_passing_only_relative_plus_absolute_comparison": 41,
+    "actual_tolerance_switches_100_to_5000": 13,
+    "switching_generator_estimator_pairs": [
+      [
+        "gmm-joint-K1",
+        "gcomp-ridge-outcome-a1e-3"
+      ],
+      [
+        "gmm-joint-K2",
+        "gcomp-ridge-outcome-a1e-3"
+      ],
+      [
+        "gmm-joint-K2",
+        "gcomp-ridge-outcome-a1e-5"
+      ],
+      [
+        "gmm-joint-K4",
+        "gcomp-ridge-outcome-a1e-3"
+      ],
+      [
+        "gmm-joint-K4",
+        "gcomp-ridge-outcome-a1e-5"
+      ],
+      [
+        "gmm-joint-K8",
+        "gcomp-ridge-outcome-a1e-3"
+      ],
+      [
+        "gmm-joint-K8",
+        "gcomp-ridge-outcome-a1e-5"
+      ],
+      [
+        "mlp-conditional-gaussian",
+        "gcomp-ridge-outcome-a1e-3"
+      ],
+      [
+        "mlp-conditional-gaussian",
+        "gcomp-ridge-outcome-a1e-5"
+      ],
+      [
+        "parametric-oracle",
+        "gcomp-ridge-outcome-a1e-3"
+      ],
+      [
+        "parametric-oracle",
+        "gcomp-ridge-outcome-a1e-5"
+      ],
+      [
+        "parametric-plugin",
+        "gcomp-ridge-outcome-a1e-3"
+      ],
+      [
+        "parametric-plugin",
+        "gcomp-ridge-outcome-a1e-5"
+      ]
+    ]
+  },
+  "direct_reference_pool_performance_at_50": {
+    "kul3": {
+      "seeds": 8,
+      "coverage_range": [
+        0.845,
+        0.905
+      ],
+      "discrimination_range": [
+        0.45,
+        0.55
+      ],
+      "seeds_meeting_both": 0
+    },
+    "smc": {
+      "seeds": 8,
+      "coverage_range": [
+        0.895,
+        0.945
+      ],
+      "discrimination_range": [
+        0.755,
+        0.81
+      ],
+      "seeds_meeting_both": 2
+    }
+  },
+  "external_audit": {
+    "repositories": 7,
+    "verdicts": {
+      "NO": 7
+    }
+  },
+  "input_sha256": {
+    "calibration_gap_bins_kul3_r500": "eeecdd50b08b3c9ca46744e175a076970076468925e5bc454b124fe344164ce9",
+    "calibration_gap_bins_r500": "7d8d6ed0ada5042e989e7c5c52148af89780dacee729476fbc55ae4fe9480731",
+    "calibration_gap_cutpoints_kul3_r500": "c87b1657c960f3ac4f3df0a8d61c0e682fa17e0f905cdd4061eaf37fd7f9b0af",
+    "calibration_gap_cutpoints_r500": "1b93b2f92f339b95dd924d95107f3e4395f93b5f6b35a7f7000445fa1c437b33",
+    "calibration_gap_recovery": "672760b9401dc8706c49eb0c3037bd34098ac539162245df5dce1a76983873b8",
+    "calibration_gap_recovery_r500": "c70ed45d8321f0a02cc8ed2f036b03e2bc0a5069309e6089cd540163eca100ff",
+    "calibration_inner_budget_crossings_b200-1000-5000": "ced5947b93c562f7f8e466550c9f3adebb8c68e237d86189a6d9ec2d3b16b613",
+    "calibration_inner_budget_rates_b200-1000-5000": "5e0c4a53f3264354bbddc3744c963447c773dc106f7d4283447893e8301e874d",
+    "calibration_lopo_influence_b200-1000-5000": "8776b913550276d73d4e4eec349e48c42cc0bec2cec3350f41b0b510c78b66ac",
+    "calibration_lopo_rates_b200-1000-5000": "3f8971daf73ecbd348d4ea2a33eff7709cf02f36ae1fd00675032872338034bf",
+    "calibration_lopo_summary_b200-1000-5000": "c2a548aabd97f0282310ad9a1a2fddae6addba0c95299807c1f86d352c7d6528",
+    "coexpression_silencing": "96985b155c232a0c6e93a990b5921f38097ab4f7f4b4a230920cdaeb27638483",
+    "coexpression_silencing_summary": "69033e7f46f9d5d3cc73bbca098345cb3a049dcc39f715ba2ca86f895963655b",
+    "controlled_grid_crossings_r200_b200": "ba788b630c6d7c7d69105d456ed199c74ce30a77d225b8745e04f3a8aee2a1ba",
+    "controlled_grid_rates_r200_b200": "74470ac0c827a149ef26ba5fc8e2d607fb5f9df2aa0870401f626bda48c3a3e2",
+    "cutpoint_dense_grid_bins_kul3_r200": "da25d66e1ffa4d27740b1184d626bbd85ad59c4d356556782eb4173d4fb121f6",
+    "cutpoint_dense_grid_bins_smc_r200": "6b387bca075868c46fa26b93afde12a94223ed12ff76228ab1a092cc195933c5",
+    "cutpoint_dense_grid_cutpoints_kul3_r200": "6da3907fe92e03aeead01307c53b015664155331f6eb6130a49d21288955a681",
+    "cutpoint_dense_grid_cutpoints_smc_r200": "89044a7504d63d65af225034c647dfcd56413cb9699cf510137479c6a03c5e5b",
+    "decomposition_summary_matched": "471c84ec64f1bafafa54a0e744dbe9c24f7ebe8eb8566d57280bf82898d4455f",
+    "icbi_adenoma": "3b0c7c528ebabd5835c622b20cbffdf639f88773b7d9db276149987455751d97",
+    "interval_calibration": "e8bed9a9db362c098368d940e6d5f4fa3a9dd8682e70fe9d4c0dd0a0b2719cc0",
+    "misspecified_generator_refusals": "a4f8dd3b183864b96d64700aa02bbb94f7a5698ee770b7c6f4bb48fb2fbcab00",
+    "prevalence_audit_screening": "f751067d6ffd2a004a8f8a27f28c331246027fbe40c776510d87dd2772a469ac",
+    "prevalence_audit_verdicts": "3597759541eba715af2707bf5d544f49cb40156ca0a64840001e0f840ca52fb9",
+    "residual_performance_clean_control": "53dd300bfb161d1a9c42da0c0fd9f5ec000911a5458b116ceb149c1d9578d8fe",
+    "trial_blindness_heterogeneity": "d84b73ed1a9284e0a36430b34763c1c9d70ed93af0e0cce0fe55d96b467b07ba",
+    "trial_blindness_information_ratio": "0f8acf3027a424afcdc7a1a558117d7cc1e960b649616d6548837b0a607b8bec",
+    "trial_blindness_propensity_spread": "864dd7586c42f4f3824f01ef1f207c905eea877871c8a9d54a723f8fbcfff0c5",
+    "trial_blindness_residual_matrix": "e5d5a6e56ece3aeb1d2b394762453cdcfbb2b302ec40058362c192193b38a397",
+    "trial_learned_generator_capacity": "d9613cd8787e1387fff40c11f3b4db4c2187810604d7260fb074c78eeb83cc7f",
+    "trial_learned_generator_primary": "4e5749791725889ff6d81c91a67c2a97d0562cb2ba96e6f925088d9adc20642c",
+    "trial_learned_generator_trend": "11634f8657f45cd0fa55cfd85cb5cca750db368dbb1d48548eb010331d21725c",
+    "trial_recovery": "141e562b3114c5ac096949aebdb576f92366b47c796b72f7003129d348d5d3f5",
+    "trial_survival": "7cb5b7df8868f8716ca0817fd6a8918745e549e9284c7d0b61dfa6915ceb4bcf",
+    "trial_survival_headline": "1bcb885baa536c4a6b52636a7faf2445d7ee21ac4e69a0d372dc28c59a61c630",
+    "trial_survival_lifelines_check": "4121fe4aa83a6c1f094566ed29afa6294651a0d6a1bebc5eea56ebf92e4a3977",
+    "width_gate_step_location": "3198d38bf32ecfa9a7fc7d76251823d24cf4644fd0a86ce61b6cbe7a730c2f4a"
+  },
+  "review_environment": {
+    "python": "3.13.7",
+    "numpy": "2.5.3",
+    "pandas": "3.0.5",
+    "pyarrow": "25.0.1",
+    "matplotlib": "3.11.2",
+    "pypdf": "6.18.1",
+    "pytest": "9.1.1"
+  },
+  "verification": {
+    "dedicated_result_tests": 13,
+    "original_manuscript_result_tests": 55,
+    "learned_table_numeric_entries": 30
+  }
+}

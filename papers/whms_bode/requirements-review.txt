@@ -1,0 +1,8 @@
+# Python 3.13 environment used to read saved tables and render this revision.
+# Original simulation environments remain recorded in their result sidecars.
+numpy==2.5.3
+pandas==3.0.5
+pyarrow==25.0.1
+matplotlib==3.11.2
+pypdf==6.18.1
+pytest==9.1.1

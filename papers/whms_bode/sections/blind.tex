@@ -1,0 +1,100 @@
+\section{An equality audit of what recovery measures}
+\label{sec:blind}
+
+The earlier internal analysis compared estimated intrinsic effects with the
+requested reference in Equation~\ref{eq:requested}. Ratios were 1.00--1.07
+where the rule returned an estimate on reference-only draws and 0.86--1.18 on
+pooled draws, with shrinking dispersion at larger counts
+(Appendix~\ref{app:generator}). The oracle estimator applies
+Equation~\ref{eq:kitagawa} to the draw's own realised summaries. Its residual
+against that empirical decomposition is zero across 1{,}711{,}200 diagnostic
+replicates on two cohorts. The raw calculation also includes zero-cell cases;
+those arithmetic outputs do not define an intrinsic effect in an absent
+population (Appendix~\ref{app:generator}). On defined contrasts, the recovery
+ratio therefore describes realised over requested reference. It does not
+measure whether the reporting gate meets its interval requirements.
+
+\paragraph{The general form.}
+Let $D$ be a simulated draw requested at parameter $\theta$. Pre-specify an
+observed-data reference $T(D)=h(S(D))$, where $S$ denotes summaries of the draw.
+We call $T(D)$ the \emph{realised reference}; it need not be a realised causal
+effect. If the estimate uses the same functional,
+$\hat\theta(D)=h(S(D))$, then, for $\theta\ne0$,
+\[
+\frac{\hat\theta(D)}{\theta}=\frac{T(D)}{\theta},
+\qquad r(D)=\hat\theta(D)-T(D)\equiv0.
+\]
+\begin{center}
+\texttt{r = estimate[valid] - reference[valid]}\\
+\texttt{max\_residual = np.max(np.abs(r))}
+\end{center}
+Here \texttt{valid} marks paired finite outputs; report excluded draws and do
+not compute the maximum if none remain. A maximum below an explicitly chosen
+tolerance in outcome units flags numerical equality for investigation.
+Only an algebraic argument establishes an identity. Sharing summaries alone
+is insufficient: different functions of the same summaries need not agree.
+
+\paragraph{What the audit can establish.}
+The recovery curve still measures sampling performance against $\theta$.
+If estimate and reference are equivalent, their curves are redundant for
+comparing those implementations. That is compatible with an accurate estimator
+and a useful recovery experiment. The unsupported inference is from this
+point-estimate comparison to interval coverage or an abstention rule, neither
+of which the comparison evaluates. A zero residual therefore prompts inspection
+of the claimed evidence; it is not a rejection criterion for an estimator.
+
+\paragraph{A control separating equality from performance.}
+To test this distinction directly, a separate simulation fixes the reference
+before evaluating any estimator: for 200 independent observations
+$Y_i\sim\mathcal N(\theta,1)$, set $T(D)=\bar Y$. We evaluate four procedures
+at $\theta=0$ and $0.5$, with 2{,}000 replicates per effect. The baseline
+reports the full-sample mean with a normal 95\% interval using the sample
+standard deviation. A second procedure keeps that point estimate but quarters
+the interval half-width. A third adds a known bias of $0.5$ to the baseline
+point and interval. The fourth uses every other observation, selected before
+seeing outcomes, with its own mean and standard error. This half-sample
+estimate shares observations with the full-sample reference; it is not
+independent of $T(D)$.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Equality and statistical performance in the clean control. All
+2{,}000 outputs per row are finite. Residuals compare points with the
+pre-specified full-sample mean; bias, RMSE and coverage compare with the
+requested $\theta$. The nominal coverage is 95\%.}
+\label{tab:cleancontrol}
+\begin{tabular}{@{}clrrrr@{}}
+\toprule
+$\theta$ & procedure & $\max|r|$ & bias & RMSE & coverage \\
+\midrule
+$0$ & Full-sample mean & $0$ & $-0.0008$ & $0.0710$ & $94.60\%$ \\
+ & Same point, narrow interval & $0$ & $-0.0008$ & $0.0710$ & $35.95\%$ \\
+ & Mean plus $0.5$ & $0.5000$ & $0.4992$ & $0.5042$ & $0.00\%$ \\
+ & Half-sample mean & $0.2883$ & $0.0004$ & $0.0994$ & $95.00\%$ \\
+\midrule
+$0.5$ & Full-sample mean & $0$ & $0.0001$ & $0.0710$ & $95.40\%$ \\
+ & Same point, narrow interval & $0$ & $0.0001$ & $0.0710$ & $36.30\%$ \\
+ & Mean plus $0.5$ & $0.5000$ & $0.5001$ & $0.5052$ & $0.00\%$ \\
+ & Half-sample mean & $0.2686$ & $-0.0017$ & $0.1015$ & $94.20\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:cleancontrol} puts adequate and inadequate intervals in the same
+zero-residual class. Conversely, departure contains both the unbiased
+half-sample mean and the deliberately biased estimate. Coverage Monte Carlo
+standard errors are at most 1.08 percentage points. Neither residual class
+certifies performance, even with a reference declared in advance. At the
+null, differences remain well-defined although recovery ratios do not.
+
+
+\paragraph{Report performance and equivalence separately.}
+State the scientific target and whether it is fixed or draw-dependent, then
+report target error and interval performance. If a realised reference is also
+used, declare its functional and observation process before inspecting
+residuals. Report attempted and valid pairs, maximum absolute residual and an
+explicit absolute tolerance in outcome units. Establish identities algebraically
+on a stated class of datasets; agreement on a restricted, noiseless design need
+not extend beyond it. Evaluate abstention frequency and conditional interval
+performance separately, using independent evaluation draws for any selected
+rule. At null effects, report differences instead of undefined recovery ratios.

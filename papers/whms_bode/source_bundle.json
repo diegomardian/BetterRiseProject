@@ -1,0 +1,24 @@
+{
+  "archive": "source.zip",
+  "sha256": "11dd9511154037fe8e3916cad581d96eb90569c27ca22b3b05df00780d8f95d2",
+  "files": [
+    "figures/controlled_calibration.pdf",
+    "figures/trial_recovery.pdf",
+    "main.bbl",
+    "main.tex",
+    "neurips_2026.sty",
+    "refs.bib",
+    "sections/abstract.tex",
+    "sections/appendix.tex",
+    "sections/blind.tex",
+    "sections/calibration.tex",
+    "sections/conclusion.tex",
+    "sections/learned_table.tex",
+    "sections/llm.tex",
+    "sections/matrix_table.tex",
+    "sections/methods.tex",
+    "sections/refdesign.tex",
+    "sections/responsible.tex",
+    "sections/setup.tex"
+  ]
+}

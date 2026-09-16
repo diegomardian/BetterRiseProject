@@ -1,0 +1,54 @@
+{
+  "main_text_pages": 9,
+  "reference_start_page": 10,
+  "reference_pages": 2,
+  "appendix_start_page": 12,
+  "appendix_pages": 3,
+  "total_pages": 14,
+  "latex_errors": 0,
+  "undefined_references": 0,
+  "overfull_boxes": 0,
+  "anonymity": "passed",
+  "official_style_sha256": "c3fc2894e83d2517ca18b66741d6c595986d97957dc08ec08bb2125a7ec4555a",
+  "pdf_sha256": "500d467bb045c7ce16b9fec0c8115d4c7d5646b1a7e0cf70a1cbd2ebe2b80804",
+  "source_files": [
+    "main.tex",
+    "sections/abstract.tex",
+    "sections/setup.tex",
+    "sections/calibration.tex",
+    "sections/blind.tex",
+    "sections/refdesign.tex",
+    "sections/matrix_table.tex",
+    "sections/learned_table.tex",
+    "sections/conclusion.tex",
+    "sections/responsible.tex",
+    "sections/appendix.tex",
+    "sections/methods.tex",
+    "sections/llm.tex"
+  ],
+  "visual_review": {
+    "pages_inspected": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "render_dpi": 110,
+    "result": "passed; no clipping, overlap or unreadable tables"
+  },
+  "portable_source_build": {
+    "result": "passed",
+    "pages": 14,
+    "page_text_identical": true
+  }
+}
