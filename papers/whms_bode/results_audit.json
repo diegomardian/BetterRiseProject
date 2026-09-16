@@ -1,6 +1,6 @@
 {
   "source_revision": "b503971",
-  "scope": "Saved-table verification and editorial revision; no simulations rerun.",
+  "scope": "Saved-table verification plus a separately stored exploratory 6,400-draw low-count diagnostic.",
   "single_cell_target": "f_N * (s - 1) * drawn_normal_mature_mean; draw-dependent reference, not fixed pool mean",
   "learned_generator": {
     "scheduled_estimator_evaluations": 75600,
@@ -103,6 +103,26 @@
       "NO": 7
     }
   },
+  "additional_diagnostic": {
+    "purpose": "Exploratory response to low-count anomaly; not independent calibration",
+    "seed": 20260831,
+    "counts": [
+      5,
+      50,
+      100,
+      800
+    ],
+    "replicates": 200,
+    "inner_bootstrap": 200,
+    "original_alternative_settings_reproduced": 16,
+    "input_source_files": {
+      "src/harness/pseudobulk.py": "a1ac96538477ae2c3d3319c2646a88053172973f5a8ca5c9df02c5ad7d00166b",
+      "src/harness/interval.py": "4c976b93a8a8bc08265c19de97138e55032cbbc6c7a37391eae0589a38822a62",
+      "src/harness/attenuation.py": "86c340348d135a834522af08130cb6e1252c71087c40997932f5ecde98d841d8",
+      "papers/whms_bode/diagnose_low_counts.py": "9959fb0af5f901f276a3f2ed5bb2cdffe4dce55a9c25b72c93d42d26df218b02"
+    },
+    "output_sha256": "488d870b6745569ee93635b0d8569c724422c3a90f74a4230d93737694b11b39"
+  },
   "input_sha256": {
     "calibration_gap_bins_kul3_r500": "eeecdd50b08b3c9ca46744e175a076970076468925e5bc454b124fe344164ce9",
     "calibration_gap_bins_r500": "7d8d6ed0ada5042e989e7c5c52148af89780dacee729476fbc55ae4fe9480731",
@@ -153,7 +173,7 @@
     "pytest": "9.1.1"
   },
   "verification": {
-    "dedicated_result_tests": 13,
+    "dedicated_result_tests": 17,
     "original_manuscript_result_tests": 55,
     "learned_table_numeric_entries": 30
   }

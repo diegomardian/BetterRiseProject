@@ -1,4 +1,4 @@
-\section{An equality audit of what recovery measures}
+\section{Explaining the recovery curve and specifying its scope}
 \label{sec:blind}
 
 The earlier internal analysis compared estimated intrinsic effects with the
@@ -29,9 +29,11 @@ $\hat\theta(D)=h(S(D))$, then, for $\theta\ne0$,
 \texttt{max\_residual = np.max(np.abs(r))}
 \end{center}
 Here \texttt{valid} marks paired finite outputs; report excluded draws and do
-not compute the maximum if none remain. A maximum below an explicitly chosen
-tolerance in outcome units flags numerical equality for investigation.
-Only an algebraic argument establishes an identity. Sharing summaries alone
+not compute the maximum if none remain. This is a numerical discrepancy check, not a validity screen. Report the
+raw maximum and outcome units; if using a closeness label, state both absolute
+and relative tolerances and any sensitivity to that choice. No universal
+tolerance separates correct from incorrect estimators. Only an algebraic
+argument establishes an identity. Sharing summaries alone
 is insufficient: different functions of the same summaries need not agree.
 
 \paragraph{What the audit can establish.}
@@ -92,8 +94,10 @@ null, differences remain well-defined although recovery ratios do not.
 State the scientific target and whether it is fixed or draw-dependent, then
 report target error and interval performance. If a realised reference is also
 used, declare its functional and observation process before inspecting
-residuals. Report attempted and valid pairs, maximum absolute residual and an
-explicit absolute tolerance in outcome units. Establish identities algebraically
+residuals. Report attempted and valid pairs, maximum absolute residual in outcome units,
+and both tolerances used for a numerical classification. Classify the result
+as a proved identity on a stated domain, numerical agreement on the tested
+draws, or an observed departure; only the first supports an identity claim. Establish identities algebraically
 on a stated class of datasets; agreement on a restricted, noiseless design need
 not extend beyond it. Evaluate abstention frequency and conditional interval
 performance separately, using independent evaluation draws for any selected

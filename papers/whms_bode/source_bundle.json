@@ -1,9 +1,11 @@
 {
   "archive": "source.zip",
-  "sha256": "11dd9511154037fe8e3916cad581d96eb90569c27ca22b3b05df00780d8f95d2",
+  "sha256": "ac24aed4396f11fd8900e0bb07bea2a871a230d8b436298c5d7713da546e596e",
   "files": [
+    "diagnostics/candidate_reversals.json",
+    "diagnostics/low_count_diagnostic.csv",
+    "evidence/case_provenance.json",
     "figures/controlled_calibration.pdf",
-    "figures/trial_recovery.pdf",
     "main.bbl",
     "main.tex",
     "neurips_2026.sty",
@@ -15,10 +17,12 @@
     "sections/conclusion.tex",
     "sections/learned_table.tex",
     "sections/llm.tex",
+    "sections/low_count_table.tex",
     "sections/matrix_table.tex",
     "sections/methods.tex",
     "sections/refdesign.tex",
     "sections/responsible.tex",
-    "sections/setup.tex"
+    "sections/setup.tex",
+    "sections/validation.tex"
   ]
 }

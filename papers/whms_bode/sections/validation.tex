@@ -1,0 +1,35 @@
+\section{What a replacement validation would need to establish}
+\label{sec:validation}
+
+The case identifies three decisions that must precede another cutpoint claim.
+First, fix the inferential target. A conditional cell-sampling study can hold a
+source pool fixed and evaluate intervals against $f_N(s-1)\mu_{\mathrm{pool}}$.
+A patient-population study instead needs a patient-sampling model and a target
+averaged over that population. The current draw-dependent benchmark answers a
+third question. Results under one definition cannot be relabelled as coverage
+under another. The same distinction applies to a clinical simulator: requested
+population treatment effects, latent finite-cohort effects and empirical
+observed-data contrasts are separate validation targets.
+
+Second, assess the whole decision rule using the interval that would actually
+be reported. Record bias and error against the chosen target, null rejection,
+detection at the specified effect, and abstention frequency. Report both
+conditional interval performance among returned answers and how often a valid
+answer is returned. Our five-cell diagnostic concerns arithmetic before a gate
+that already abstains there; the 50-cell null results concern its reporting
+boundary directly. A successful effect-detection rate can accompany excessive
+null rejection, so the former alone cannot validate an interval. A fixed
+5\% null target is appropriate here because the reported interval is nominally
+95\%; other operating targets must follow the intended use.
+
+Third, separate selecting a rule from assessing it. If a scalar threshold is
+intended to guarantee performance above that threshold, qualification must
+address the evaluated upper range rather than only its first passing point.
+Reserve independent simulation draws for the final assessment, report rate
+uncertainty and the tested range, and distinguish this from transfer to new
+patients or cohorts. Increasing resamples from an empirical pool improves
+conditional numerical precision; it does not broaden that pool's biological
+support. For an external-control application, the additional question is
+comparability across data sources, which requires direct study-level validation
+such as the held-out comparisons of \citet{ventz2019}. The present experiments
+motivate these requirements but do not perform that replacement validation.

@@ -1,22 +1,20 @@
 \begin{abstract}
-Recovering a requested effect in simulation does not establish that an
-interval or an abstention rule meets its operating requirements. We examine
-an instance in which a single-cell recovery curve was used to justify a
-cell-count threshold. Direct evaluation on two small colorectal single-cell
-cohorts does not support that justification: the implemented pooled-cell
-simulation yields no qualifying cutpoint, while reference-only draws produce
-candidates sensitive to count aggregation and cohort composition. Reusing
-identical draws across grids isolates the contribution of count support and
-binning. An equality audit explains the narrower question answered by the
-original curve: its oracle estimate reproduces a realised empirical reference.
-This equality does not cause the calibration failure or imply an invalid
-estimator. A control gives the same zero-residual point estimate approximately
-95\% or 36\% coverage by changing only its interval. Stratified patient and
-survival simulations demonstrate how equivalent comparisons arise in
-trial-effect estimation and depend on the reference, assignment design and
-observation process. Learned generators preserve the identities in the tested
-saturated estimators; a limited search of seven public repositories finds no
-functional reuse under its classification rule. We propose reporting the
-reference and residual as an audit of what a comparison measures, alongside
-separate evaluation of target error, interval performance and abstention.
+We re-evaluate a single-cell reporting rule whose 50-cell cutpoint was declared
+validated from point-estimate recovery. The original memo and calibration
+criteria are reproduced in the paper. Direct evaluation on two colorectal
+single-cell cohorts yields no qualifying cutpoint under pooled-tissue draws;
+reference-only candidates change with cohort, count grid and aggregation.
+At 50 cells, discrimination is 75.5--81.0\% in one cohort and 45.0--55.0\% in
+the other, against an 80\% requirement. Controlled reuse of the same simulation
+draws separates grid effects from random-stream changes. The interval target
+is a draw-dependent benchmark, so these results test the recorded calibration
+specification rather than population coverage. A targeted diagnostic finds 37.5--67.0\% null rejection at five cells,
+explaining why high low-count exclusion rates cannot be read as reliable power.
+Biological controls also fail
+to establish the intended mechanistic separation. We explain the recovery
+curve using an elementary estimator identity and use established trial-estimator
+relationships as implementation checks. The contribution is a reproducible
+failed-calibration case study: threshold validation requires direct evaluation
+of intervals, null rejection and abstention, with the target and sampling
+unit declared in advance.
 \end{abstract}

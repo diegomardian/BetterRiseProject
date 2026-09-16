@@ -178,3 +178,47 @@ def test_external_audit_scope_and_count():
     assert len(table('prevalence_audit_screening'))==19
     assert 'neither a representative prevalence estimate' in prose('refdesign.tex')
     assert 'already the norm' not in '\n'.join(x.read_text() for x in (PAPER/'sections').glob('*.tex'))
+
+
+def test_low_count_diagnostic_reproduces_saved_alternative():
+    d=pd.read_csv(PAPER/'diagnostics/low_count_diagnostic.csv')
+    assert len(d)==32 and d.n_valid.sum()==6400
+    assert (d.n_valid==d.n_attempted).all()
+    original=table('controlled_grid_rates_r200_b200')
+    original=original[(original.binning=='per_count')&(original.seed==20260831)].drop_duplicates(['cohort','pool','n_cells_mature'])
+    paired=d[d['shift']==.5].merge(original,on=['cohort','pool','n_cells_mature'],suffixes=('_diagnostic','_original'))
+    assert len(paired)==16
+    for a,b in [('coverage_diagnostic','coverage_original'),('exclusion_rate','discrimination'),('median_ci_width_diagnostic','median_ci_width_original')]:
+        np.testing.assert_allclose(paired[a],paired[b],rtol=1e-12,atol=1e-12)
+
+
+def test_null_rejection_and_sparse_sample_claims():
+    from make_diagnostic_table import render as diagnostic_render
+    d=pd.read_csv(PAPER/'diagnostics/low_count_diagnostic.csv')
+    null=d[(d['shift']==1)&(d.n_cells_mature==5)]
+    assert sorted(null.n_excludes_zero)==[75,123,126,134]
+    assert (d.n_zero_width==0).all()
+    sparse=d[(d['shift']==.5)&(d.n_cells_mature==5)&(d.pool=='pooled')].set_index('cohort')
+    assert sparse.loc['smc','n_tumour_all_zero']==96
+    assert sparse.loc['kul3','n_tumour_all_zero']==85
+    assert (sparse.n_tumour_all_zero==sparse.n_excludes_zero_and_tumour_all_zero).all()
+    assert prose('low_count_table.tex')==diagnostic_render()
+
+
+def test_later_failures_restrict_first_crossing_interpretation():
+    from make_diagnostic_table import reversals
+    rows=reversals()
+    assert rows==json.loads((PAPER/'diagnostics/candidate_reversals.json').read_text())
+    failures=[r for r in rows if r['later_failures']]
+    assert len(failures)==3
+    assert all(r['cohort']=='smc' and r['pool']=='reference' for r in failures)
+    assert sorted((r['first_candidate'],r['all_subsequent_evaluated_candidate']) for r in failures)==[(45.,60.),(50.,70.),(50.,70.)]
+
+
+def test_documentary_claim_is_inspectable_and_matches_source():
+    import hashlib
+    for record in json.loads((PAPER/'evidence/case_provenance.json').read_text()):
+        source=PAPER.parents[1]/record['source']
+        assert hashlib.sha256(source.read_bytes()).hexdigest()==record['sha256']
+        assert record['excerpt'] in source.read_text()
+    assert 'The pre-committed cutpoint is\nvalidated on real cells.' in prose('calibration.tex')

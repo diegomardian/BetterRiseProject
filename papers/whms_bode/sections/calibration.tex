@@ -1,12 +1,22 @@
 \section{Direct evaluation does not justify the abstention rule}
 \label{sec:calibration}
 
+\paragraph{The claim being re-evaluated.}
+The project gate memo, Section 15, states: ``The pre-committed cutpoint is
+validated on real cells.'' Its evidence is recovery between 0.85 and 1.08
+above the 50-cell reporting boundary and 1.18 in the 20--49-cell band, based
+on six draws per setting at 1{,}200 cells per arm. That comparison is an
+observed/target point-estimate ratio. In contrast, the design specification,
+Section 4, requires at least 90\% interval inclusion and 80\% exclusion of zero
+at a halving of expression. These passages document the mismatch within this
+project; they do not establish a general practice. Appendix~\ref{app:provenance}
+provides the source locations and preserves their status as an internal claim.
+
 \paragraph{Target, interval and operating requirements.}
 The design document fixed a detectable halving of per-cell output ($s=0.5$),
 interval inclusion of the stored reference in at least $90\%$ of defined
 outputs, and discrimination of at least $80\%$, defined as the probability
-that the interval excludes zero at that effect. We retain the implementation's
-term ``coverage'' for the first rate, with its target made explicit below.
+that the interval excludes zero at that effect. We call the first rate benchmark inclusion (``coverage'' in the saved tables).
 The candidate $ok$ is the first evaluated count or bin meeting both criteria;
 $wide$ is the first meeting coverage alone. The committed values are 50 and 20.
 Candidates do not require every larger count to qualify and are not certified
@@ -33,11 +43,10 @@ i_{\mathrm{req}}(D_N;s)=f_N(s-1)\bar Y_N,
 where $\bar Y_N$ is the mature-cell mean of the \emph{drawn} reference arm.
 Thus the shift is fixed but this benchmark varies across draws; it is not the
 fixed source-pool parameter $f_N(s-1)\mu_{\mathrm{pool}}$.
-Coverage below means interval inclusion of Equation~\ref{eq:requested} under
-the existing calibration specification. Resampling both arms does not turn
-this into a conventional fixed-population coverage experiment. The results
-test the rule's recorded justification; they do not establish nominal coverage
-for a patient population or provide a replacement clinical cutpoint.
+Benchmark inclusion below uses Equation~\ref{eq:requested}. This is a legitimate
+draw-specific performance question, but it differs from fixed-population
+coverage. We preserve that specification to test the original claim; a
+population-coverage study requires a separately fixed target and sampling law.
 
 \paragraph{Controlled comparison of counts, bins and source pools.}
 Historical grids returned reference-only binned candidates of 100, 90 and 70,
@@ -57,7 +66,7 @@ crossing locations.
 \caption{Direct evaluation on the controlled union of counts, without binning.
 Rows show cohorts; columns show draw pools. Curves are median rates over eight
 seeds and bands span their minima and maxima, conditional on the observed
-cohorts. Dashed lines mark the 90\% coverage and 80\% discrimination targets;
+cohorts. Dashed lines mark the 90\% benchmark-inclusion and 80\% discrimination targets;
 the vertical line marks the committed count of 50. Rates condition on defined
 intervals and coverage uses the draw-dependent reference in
 Equation~\ref{eq:requested}. Zero-cell settings have no defined interval and
@@ -109,13 +118,41 @@ outcomes over several count settings, whereas a per-count rate addresses only
 that setting. Fixed bins hold the boundaries constant, but adding settings can
 still change both a bin's median count and its aggregate performance.
 
-These candidates select the first qualifying evaluated point, without fitting
-a monotone response or requiring all larger counts to qualify. Their adjacent
-crossing brackets describe grid support, not confidence intervals for a
-threshold. Conditional Monte Carlo errors quantify rate precision; they do not
-account for searching several counts and cannot certify a selected rule's
-out-of-sample coverage. The controlled comparison establishes sensitivity of the recorded calibration
-procedure; it does not independently validate the selected rule.
+\paragraph{Low-count rejection and nonmonotone qualification.}\label{sec:lowcounts}
+The high exclusion rate at very small counts in Figure~\ref{fig:calibration}
+is not evidence of reliable low-count power. We performed an exploratory
+diagnostic at counts 5, 50, 100 and 800: 200 replicates per cohort, pool and
+shift ($s=0.5$ and $1$), using the first controlled-run seed and the same
+200-resample interval. All 16 alternative-setting summaries reproduce their
+saved counterparts. Under the null ($s=1$), exclusion of zero is a false
+positive, and the target is exactly zero under both the draw-dependent and
+fixed-pool definitions. Table~\ref{tab:lowcounts} reports both shifts with the
+same method and valid-pair denominator; all 6{,}400 diagnostic outputs are finite.
+
+\input{sections/low_count_table.tex}
+
+At five cells, null rejection is 37.5--67.0\%, far above the nominal 5\%.
+For the pooled SMC and KUL3 alternatives, respectively 96 and 85 of 200 tumour
+samples have all-zero target expression; all of these exclude zero. Resampling
+such a tumour sample cannot recover its unobserved positive tail. The reference
+arm still varies, so none of the 6{,}400 full intervals has exactly zero width.
+The pooled five-cell median widths are 1.45 and 1.72, compared with 2.35 and
+2.01 at 50 cells. These checks support sparse-sample undercoverage, rather
+than a claim that the whole interval collapses to a point. Even at 50 cells,
+null rejection is 12.0--30.0\%. The original 90\% benchmark-inclusion criterion
+at $s=0.5$ therefore cannot substitute for checking the null.
+
+Nonmonotonicity also changes candidate interpretation. In the full saved
+union grid, three of eight SMC/reference seeds fail a criterion at a larger
+count after first qualifying. Requiring every subsequently evaluated count
+to qualify changes first candidates 45, 50 and 50 to 60, 70 and 70. No such
+reversal occurs in the eight KUL3/reference seeds; neither pooled condition
+has a qualifying candidate. This is a descriptive re-reading of the same
+simulations, not an independently validated replacement selection rule.
+Together, the null diagnostic and reversals make the candidates useful as
+sensitivity summaries, not operational cutpoints. The diagnostic uses one
+seed stream and fixed observed cohorts; its binomial Monte Carlo standard
+errors are at most 3.54 percentage points, excluding patient uncertainty.
 
 \paragraph{Simulation precision is not patient-level uncertainty.}
 Enumerating all 45 and 15 two-patient holdout pairs separates patient omission
@@ -162,7 +199,14 @@ those windows. Enumerating pairs improves transparency about source-patient
 influence, but overlapping pairs do not create additional independent patients.
 
 
-The empirical finding is that the existing evidence does not justify a
-universal count of 50 under the specified calibration procedure. This result
-is separate from the equality audit below: neither zero nor nonzero residuals
-would determine whether a decision rule meets its operating requirements.
+\paragraph{Biological controls fail to establish mechanism.}\label{sec:biocontrols}
+The pre-committed panel included compositional, intrinsic and retained-gene
+controls. In the primary cohort the retained-gene control changed by
+$-1.000$ to $-0.951$ relative to baseline, almost matching the compositional
+controls' $-1.000$ to $-0.952$. The intrinsic control had only 0.04 CP10K,
+compared with 19.4 and 24.9 for the abundant compositional controls (counts per
+10{,}000), making it uninformative for the intended test. A second cohort
+reproduced the pattern. Thus the application has two distinct unresolved
+problems: its interval rule lacks the recorded calibration support, and its
+control panel does not distinguish the proposed biological mechanisms.
+Improving one would not establish the other.

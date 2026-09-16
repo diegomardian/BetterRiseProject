@@ -17,7 +17,9 @@ The controlled analysis in Section~\ref{sec:calibration} supersedes it for that
 question. Under pooled draws no joint cutpoint qualified in either cohort's
 historical grids. KUL3 reference-only candidates were 400 or 800; its largest
 setting sampled 800 mature cells per arm with replacement from 844 distinct
-mature source cells.
+mature source cells. Sampling with replacement is a valid empirical-pool
+simulation, but an 800-draw arm is not 800 distinct cells or additional
+independent patients.
 
 \paragraph{Recovery accounting and unavailable contrasts.}\label{app:generator}
 The four diagnostic sweeps comprise 1{,}711{,}200 replicates: 1{,}283{,}400 with
@@ -74,7 +76,8 @@ $\rho$ neither decomposes total error nor ranks estimators. A zero median can
 also conceal nonzero residuals, so it cannot replace the maximum-residual check.
 
 \paragraph{Independent Cox implementation check.}\label{app:cox}
-Eight stratified and unadjusted Cox fits on one fixed 1{,}500-patient cohort at
+The survival sweep uses 1{,}200 paired draws per setting; at 78\% censoring
+and 100 patients, 463 have nonfinite fits and are excluded. Eight stratified and unadjusted Cox fits on one fixed 1{,}500-patient cohort at
 four censoring horizons agree with \texttt{lifelines.CoxPHFitter} to
 $1.4\times10^{-7}$, below the specified $10^{-5}$ tolerance. All eight pairs
 are finite. This checks the implemented coefficients on that cohort, not
@@ -140,6 +143,16 @@ motivates evaluating both answers and abstentions
 \citep{chow1970,elyaniv2010,geifman2017}. Conformal prediction coverage
 \citep{vovk2005,angelopoulos2023} does not define a missing conditional
 population or automatically provide intervals for this intrinsic parameter.
+
+\paragraph{Documentary source of the case.}\label{app:provenance}
+The quoted validation claim and its six-draw recovery table occur in
+\texttt{docs/gate\_memo\_w2.md}, Section 15. The interval requirements occur in
+\texttt{docs/harness\_design\_spec.md}, Section 4. The former declares the
+50-cell cutpoint validated; the latter requires 90\% inclusion and 80\%
+exclusion of zero at $s=0.5$. Section~\ref{sec:calibration} reproduces the
+relevant claim and numbers so this comparison can be inspected without access
+to an identified repository. These are internal documents, not a published
+clinical validation. Checksums and exact source excerpts accompany the revision.
 
 \paragraph{Implementation and provenance.}\label{app:withdrawn}
 Corrections separated population definitions collapsed by de-duplication,

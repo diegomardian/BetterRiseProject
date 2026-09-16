@@ -10,6 +10,9 @@ def main():
     graph=source_graph(ROOT/'main.tex')
     files=set(graph+[ROOT/'refs.bib',ROOT/'neurips_2026.sty',ROOT/'main.bbl'])
     for path in graph:files.update(ROOT/name for name in GRAPHICS.findall(path.read_text()))
+    files.update([ROOT/'diagnostics/low_count_diagnostic.csv',
+                  ROOT/'diagnostics/candidate_reversals.json',
+                  ROOT/'evidence/case_provenance.json'])
     target=ROOT/'source.zip'
     with ZipFile(target,'w',ZIP_DEFLATED) as z:
         for path in sorted(files):z.write(path,path.relative_to(ROOT))

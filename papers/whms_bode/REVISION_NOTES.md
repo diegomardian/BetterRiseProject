@@ -1,5 +1,11 @@
 # Revision notes
 
+The sections below document the first revision and its condensation. The latest
+critique-driven revision is described in `CRITIQUE_RESPONSE.md`; it supersedes
+the earlier title, Section 4 organization, figure count and no-new-simulations
+statement. It adds a separately recorded null/sparsity diagnostic while retaining
+the nine-page main text and three-page appendix.
+
 ## Scope
 
 The revised paper is an independent copy under `papers/whms_bode`. Its starting

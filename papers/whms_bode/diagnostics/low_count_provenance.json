@@ -1,0 +1,20 @@
+{
+  "purpose": "Exploratory response to low-count anomaly; not independent calibration",
+  "seed": 20260831,
+  "counts": [
+    5,
+    50,
+    100,
+    800
+  ],
+  "replicates": 200,
+  "inner_bootstrap": 200,
+  "original_alternative_settings_reproduced": 16,
+  "input_source_files": {
+    "src/harness/pseudobulk.py": "a1ac96538477ae2c3d3319c2646a88053172973f5a8ca5c9df02c5ad7d00166b",
+    "src/harness/interval.py": "4c976b93a8a8bc08265c19de97138e55032cbbc6c7a37391eae0589a38822a62",
+    "src/harness/attenuation.py": "86c340348d135a834522af08130cb6e1252c71087c40997932f5ecde98d841d8",
+    "papers/whms_bode/diagnose_low_counts.py": "9959fb0af5f901f276a3f2ed5bb2cdffe4dce55a9c25b72c93d42d26df218b02"
+  },
+  "output_sha256": "488d870b6745569ee93635b0d8569c724422c3a90f74a4230d93737694b11b39"
+}

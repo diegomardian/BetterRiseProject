@@ -10,16 +10,18 @@
   "overfull_boxes": 0,
   "anonymity": "passed",
   "official_style_sha256": "c3fc2894e83d2517ca18b66741d6c595986d97957dc08ec08bb2125a7ec4555a",
-  "pdf_sha256": "500d467bb045c7ce16b9fec0c8115d4c7d5646b1a7e0cf70a1cbd2ebe2b80804",
+  "pdf_sha256": "e89da520a7d1f2bbd340f775454a3242c6bb3ab3badfb707fbab1861f79589e4",
   "source_files": [
     "main.tex",
     "sections/abstract.tex",
     "sections/setup.tex",
     "sections/calibration.tex",
+    "sections/low_count_table.tex",
     "sections/blind.tex",
     "sections/refdesign.tex",
     "sections/matrix_table.tex",
     "sections/learned_table.tex",
+    "sections/validation.tex",
     "sections/conclusion.tex",
     "sections/responsible.tex",
     "sections/appendix.tex",
@@ -43,12 +45,13 @@
       13,
       14
     ],
-    "render_dpi": 110,
+    "render_dpi": 120,
     "result": "passed; no clipping, overlap or unreadable tables"
   },
   "portable_source_build": {
     "result": "passed",
     "pages": 14,
     "page_text_identical": true
-  }
+  },
+  "dedicated_claim_tests_passed": 17
 }
