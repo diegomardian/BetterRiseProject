@@ -67,6 +67,18 @@ class PseudobulkSample:
     #: distinguishes two granularity rungs, and what the permutation control
     #: needs to shuffle a mask.
     drawn_cell_type: dict[str, np.ndarray] = field(default_factory=dict)
+    #: Patient of origin of every drawn cell, per arm. Aligned with
+    #: ``drawn_expression``.
+    #:
+    #: Cells are drawn WITH REPLACEMENT from the held-out patients' cells, so a
+    #: drawn "cell" is a draw and several draws can share a patient -- which is
+    #: the point of recording this. Without it a patient-level or hierarchical
+    #: interval cannot be formed from a sample at all: the clusters are not
+    #: recoverable from ``drawn_expression``, and re-deriving them by replaying
+    #: the generator's RNG would couple the caller to the internal call order of
+    #: ``_draw_cells``. Empty on samples built before this field existed, so a
+    #: caller that needs clusters must check rather than assume.
+    drawn_patient_id: dict[str, np.ndarray] = field(default_factory=dict)
 
     @property
     def mature_expression(self) -> dict[str, dict[str, np.ndarray]]:
@@ -319,4 +331,5 @@ def generate_pseudobulk(
         },
         drawn_is_mature={"normal": mature_n, "tumour": mature_t},
         drawn_cell_type={"normal": cell_type[idx_n], "tumour": cell_type[idx_t]},
+        drawn_patient_id={"normal": patient_id[idx_n], "tumour": patient_id[idx_t]},
     )
