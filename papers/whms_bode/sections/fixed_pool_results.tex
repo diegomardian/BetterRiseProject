@@ -1,23 +1,24 @@
-\subsection{Fixed-pool coverage is lower at the reporting boundary}
-\label{sec:fixedpool}
-At 50 cells, fixed-pool coverage is 86.5\% and 91.0\% for SMC pooled and
-reference-only draws, and 87.0\% and 84.5\% for KUL3. The corresponding
-95\% Wilson intervals are [81.1,90.6], [86.2,94.2], [81.6,91.0] and
-[78.8,88.9]\%, respectively. The first three leave uncertainty about the
-90\% requirement; KUL3/reference is below it even at the upper endpoint.
-With discrimination of 52.5\%, 78.0\%, 54.0\% and 55.0\%, none of the four
-50-cell conditions meets both empirical criteria in this seed stream.
+\subsection{Fixed-pool coverage and false positives}
+\label{sec:fixedpool}\label{sec:lowcounts}
+The larger run resolves the 50-cell coverage comparison
+(Table~\ref{tab:precision}). Percentile coverage is below the recorded 90\%
+criterion in three conditions, whose Wilson upper endpoints are below 90\%.
+SMC/reference has 91.0\% coverage, with its lower endpoint above 90\%.
+Thus the rule does not fail coverage uniformly. It does fail the combined
+assessment: null rejection is 9.8--32.2\%, above the nominal 5\% in every
+condition, and detection is 47.5--76.2\%, below the required 80\%.
+All four detection upper endpoints are below 80\%; all four null-rejection
+lower endpoints exceed 5\%. These intervals measure simulation precision,
+not uncertainty over additional patients.
 
-\input{sections/fixed_pool_table.tex}
+\input{sections/precision_table.tex}
 
-Table~\ref{tab:fixedpool} separates target choice from changes in the estimator
-or interval. At 800 cells, drawn-reference inclusion is 99.0--100.0\%, but
-fixed-pool coverage is 90.5--94.0\%. The paired decreases are 6.0, 9.5, 8.0
-and 7.0 percentage points for SMC/pooled, SMC/reference, KUL3/pooled and
-KUL3/reference; their Monte Carlo standard errors are 1.68, 2.08, 1.92 and
-1.81 points. At five cells, switching targets can instead raise inclusion.
-Thus the target change has a measurable effect whose direction depends on
-sample size; neither score can substitute for the other.
+At 800 cells, evaluating the percentile intervals against the sampled
+reference gives 98.9--99.6\% inclusion, compared with 92.3--93.6\%
+coverage of the fixed-pool effect. The paired differences are 5.8--6.8
+percentage points with Monte Carlo standard errors of 0.33--0.36 points.
+Only the scoring target changes. At five cells the direction reverses;
+shared randomness need not inflate inclusion at every sample size.
 
 The increasing discrepancy at large tumour-arm counts has an analytic
 explanation. The estimate is $\hat\theta=f_N(\bar Y_T-\bar Y_N)$, whereas
@@ -37,6 +38,6 @@ continues resampling both arms. This explains why near-perfect benchmark
 inclusion can accompany lower coverage of the generating parameter. Skewed
 finite-sample errors still determine the actual percentile-interval rates.
 
-The fixed-pool analysis covers four counts and one seed stream. We therefore
-retain the eight-seed grid selections as benchmark-based results and do not
-reinterpret them as fixed-pool calibrated cutpoints.
+The new runs assess four specified counts, rather than selecting a
+replacement threshold. The eight-seed grid below remains scored against
+its original benchmark and cannot be reinterpreted as fixed-pool calibration.

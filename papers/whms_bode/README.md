@@ -1,6 +1,6 @@
 # Revised WMHS paper
 
-**Validating simulation-based reporting rules: coverage, false positives and unstable thresholds**
+**Auditing a single-cell reporting rule: coverage, false positives and target choice**
 
 This independent revision starts from repository commit `b503971` and addresses
 the review of `WHMS_BIO_PAPER.pdf`. After pulling through `a336594`, it adopts
@@ -11,6 +11,9 @@ does not modify the other manuscript, experiment implementations or saved result
 - `main.pdf`: revised anonymous manuscript.
 - `main.tex`, `sections/`, `refs.bib`, `figures/`: editable LaTeX sources and figures.
 - `source.zip`: portable LaTeX/Overleaf source bundle, with `main.tex` at its root.
+- `THIRD_CRITIQUE_RESPONSE.md`: current independent assessment and experimental follow-up.
+- `FOLLOWUP_DESIGN.md`: analysis settings fixed before the larger run.
+- `precision_followup.py`: 160,000-study precision and paired interval comparison.
 - `INCOMING_PAPER_REVIEW.md`: assessment of the pulled paper, adopted findings and corrected overclaims.
 - `SECOND_CRITIQUE_RESPONSE.md`: assessment of the preceding critique and fixed-pool revision.
 - `CRITIQUE_RESPONSE.md`: historical assessment of the first critique.
@@ -26,7 +29,8 @@ The condensed build has **8 pages of main text**, **2 pages of references**
 (starting on page 9), and **3 pages of appendix**, for **13 pages overall**.
 Earlier versions are preserved in `archive/expanded_18page_source.zip` and
 `archive/condensed_14page_source.zip`; the first critique revision is preserved
-in `archive/first_critique_source.zip`. These archives are historical local
+in `archive/first_critique_source.zip`. The pre-precision revision is in
+`archive/pre_precision_source.zip`. These archives are historical local
 artifacts and are excluded from the current anonymous source bundle. The required responsible-use statement is wholly
 within the main text. The official, unmodified NeurIPS 2026 style replaces the
 2024 compatibility shim. Its conference download URL and checksum are recorded
@@ -64,12 +68,14 @@ adds an explicitly exploratory 6,400-draw diagnostic of the original interval
 under the null and alternative. The latest revision replays the same draws,
 adds coverage against the fixed eligible-pool mean, and computes source-pool
 variance summaries. It does not select or validate a replacement
-threshold. The incoming-paper integration adds a synthetic external-control
+threshold. The latest follow-up adds 5,000 fresh studies per setting and a
+paired Welch interval comparator, with settings fixed in `FOLLOWUP_DESIGN.md`.
+The incoming-paper integration adds a synthetic external-control
 comparison: all 240 primary and nine balance summary rows were independently
 reproduced. Original experiment code and saved tables remain unchanged.
 
 ```sh
-python -m pytest papers/whms_bode/test_results.py -q
+PYTHONPATH=. python -m pytest papers/whms_bode/test_results.py papers/whms_bode/test_precision_followup.py tests/test_external_control_demo.py -q
 python papers/whms_bode/make_tables.py --check
 python papers/whms_bode/audit_results.py
 python papers/whms_bode/make_tables.py
@@ -77,19 +83,20 @@ python papers/whms_bode/make_diagnostic_table.py
 python papers/whms_bode/make_fixed_pool_tables.py
 python papers/whms_bode/make_external_control_table.py
 python papers/whms_bode/make_figures.py
+python papers/whms_bode/make_precision_results.py
 papers/whms_bode/build.sh
 python papers/whms_bode/package_source.py
 ```
 
 `make_figures.py` reads version-pinned tables and reproduces the retained controlled-calibration figure.
 The controlled calibration figure deduplicates grid views only after asserting
-that rates at shared counts are identical. The full learned-estimator numerical table remains available as an analysis
-artifact and is checked by `make_tables.py`; the manuscript now gives a concise
-appendix summary of these implementation checks.
+that rates at shared counts are identical. The learned-estimator table and extended estimator checks remain analytical
+artifacts, included as noncompiled source files in the bundle. The manuscript
+retains only the reference and interval-control examples needed for its argument.
 
 Verification completed for this revision:
 
-- 24 dedicated claim tests and 35 external-control harness tests passed,
+- 29 paper/precision tests and 35 external-control harness tests passed,
   including target-dependent rankings and the corrected comparison denominators.
 - All 30 numerical cells in the retained learned-estimator analysis table match
   the saved results.
@@ -131,3 +138,23 @@ It is fixed conditional on that pool. Pair selection changes the pool; this is
 not patient-population inference or coverage against an all-patient pooled mean.
 `make_fixed_pool_tables.py` regenerates the paired table, Wilson intervals,
 reversal table and descriptive source-pool signal-to-noise calculations.
+
+## Precision follow-up
+
+With local Lee data available, run:
+
+```sh
+PYTHONPATH=. python papers/whms_bode/precision_followup.py
+python papers/whms_bode/make_precision_results.py
+```
+
+The follow-up samples the exact marginal mature-count law of the original
+generator using five fresh seed streams; it does not reproduce the older
+seed-by-seed outputs. The 32 settings give 160,000 simulated studies and
+320,000 interval evaluations. All are finite. Exports contain aggregate
+coverage, null/effect rejection, seed rates and paired differences only.
+The maximum binomial Monte Carlo SE is 0.71 percentage points. The
+`precision_provenance.json` sidecar hashes the fixed design, implementation,
+source-pool summaries and result files. The three precision CSVs ship in the
+anonymous ZIP, alongside a second scientific figure showing null and effect
+curves together. The main text now contains three tables and two figures.

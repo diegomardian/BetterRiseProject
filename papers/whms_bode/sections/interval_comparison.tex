@@ -1,0 +1,46 @@
+\subsection{Changing the interval helps, but does not repair the rule}
+\label{sec:intervalcomparison}
+Welch intervals increase fixed-pool coverage at 50 cells by 1.5--5.0
+percentage points on the same draws (paired Monte Carlo standard errors
+0.23--0.32 points). They also reduce null rejection, but it remains
+8.9--30.8\% and every lower confidence endpoint exceeds 5\%.
+Detection remains below 80\% even at the upper confidence endpoints.
+Wider intervals improve some operating characteristics without satisfying
+the joint requirements. This rules out this particular substitution as a
+repair at 50 cells; it does not rule out other methods or validate a higher
+threshold. Null and alternative evaluation must accompany any proposed repair.
+
+\paragraph{Why detection can fall as cell count rises.}
+The apparent detection curve combines effect sensitivity with a changing
+false-positive rate. Figure~\ref{fig:precision} reproduces the pooled-draw
+trough with greater precision. For KUL3, percentile detection falls from
+49.0\% at 50 cells to 44.0\% at 100, then rises to 57.7\% at 800;
+null rejection falls from 32.2\% to 20.3\% to 6.5\%. At 50 and 100 cells,
+the median sample-based standard error is respectively 0.66 and 0.86 times
+the exact pool-conditional standard deviation. The fraction of draws with
+that ratio below one half falls from 29.1\% to 7.6\%. These diagnostics
+support a loss of spuriously confident rejections as the sampled variance
+becomes better represented, before increasing signal-to-noise dominates.
+They do not attribute every change to one mechanism. In particular, all-zero
+tumour samples occur in only 0.32\% of the 50-cell draws and none at 100:
+the trough is not explained by all-zero samples alone.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{figures/precision_rejection.pdf}
+\caption{Detection must be read alongside null rejection. Pooled-tissue
+simulations use 5{,}000 studies per point; bars are 95\% Wilson Monte Carlo
+intervals. Solid curves use a halving of expression and dashed curves the
+null. The horizontal line marks nominal 5\% rejection. Five-cell intervals
+are diagnostic calculations before the reporting gate, which abstains below
+20. Both methods use the same samples; their apparent sensitivity at sparse
+counts accompanies excessive false positives.}
+\label{fig:precision}
+\end{figure}
+
+The five-cell diagnostic makes the problem especially clear: pooled
+percentile null rejection is 66.1\% in SMC and 71.9\% in KUL3.
+Under the halving, 46.2\% and 41.9\% of tumour samples are all zero.
+Resampling cannot recover an unobserved positive tail, although the reference
+arm still contributes uncertainty. The original reporting gate already
+abstains here; the 50-cell failures concern returned answers directly.

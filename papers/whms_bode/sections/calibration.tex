@@ -53,15 +53,23 @@ question over the selected pairs. An all-patient pooled mean would use a
 different population from the generator's two-patient draw. Neither target
 supplies inference over new patients.
 
-The controlled eight-seed grid retains inclusion of Equation~\ref{eq:requested}.
-A paired follow-up scores the same intervals against both equations at counts
-5, 50, 100 and 800, with 200 replicates per cohort, pool and shift ($s=0.5,1$)
-and the first controlled-run seed. All 16 alternative settings reproduce the
-saved benchmark-inclusion, discrimination and width summaries; all 6{,}400
-outputs are finite. This is a target sensitivity analysis, not an independent
-assessment of a newly selected rule. The maximum binomial Monte Carlo standard
-error is 3.54 percentage points; intervals below quantify Monte Carlo precision
-conditional on the observed source data.
+Two complementary runs separate historical selection from direct evaluation.
+The controlled eight-seed grid retains inclusion of
+Equation~\ref{eq:requested}. An initial 200-replicate diagnostic reproduced
+its first-seed results and added fixed-pool coverage and null rejection.
+The precision follow-up uses 5{,}000 fresh studies per cohort, pool, count
+(5, 50, 100, 800) and shift ($s=0.5,1$), split across five seed streams:
+160{,}000 studies in total. It samples the exact marginal law of mature-cell
+counts in the original generator; non-mature cells do not enter this contrast.
+On each study we compare the original 200-resample percentile interval with a
+Welch--Satterthwaite interval \citep{nistwelch}. This standard unequal-variance
+$t$ approximation is a comparator, not an assumed solution for sparse counts.
+All 320{,}000 intervals are finite. The largest binomial Monte Carlo standard
+error is 0.71 percentage points, conditional on the empirical source pools.
+Appendix~\ref{app:precision} specifies the sampling and interval calculations.
+
+\input{sections/fixed_pool_results.tex}
+\input{sections/interval_comparison.tex}
 
 \subsection{Count grids change candidate cutpoints}
 Historical grids returned reference-only binned candidates of 100, 90 and 70,
@@ -132,37 +140,15 @@ outcomes over several count settings, whereas a per-count rate addresses only
 that setting. Fixed bins hold the boundaries constant, but adding settings can
 still change both a bin's median count and its aggregate performance.
 
-\input{sections/fixed_pool_results.tex}
-
-\subsection{Sparse cells inflate null rejection}\label{sec:lowcounts}
-At $s=1$, both targets are exactly zero, so exclusion of zero is a false
-positive. Table~\ref{tab:lowcounts} pairs null and effect rates for the same
-interval method. The five-cell entries inspect pre-gate arithmetic; the
-50-cell entries evaluate the reporting boundary.
-
-\input{sections/low_count_table.tex}
-
-At five cells, null rejection is 37.5--67.0\%, far above the nominal 5\%.
-For the pooled SMC and KUL3 alternatives, respectively 96 and 85 of 200 tumour
-samples have all-zero target expression; all of these exclude zero. Resampling
-such a tumour sample cannot recover its unobserved positive tail. The reference
-arm still varies, so none of the 6{,}400 full intervals has exactly zero width.
-The pooled five-cell median widths are 1.45 and 1.72, compared with 2.35 and
-2.01 at 50 cells. The diagnostic supports sparse-sample undercoverage with variation still
-contributed by the reference arm. Even at 50 cells,
-null rejection is 12.0--30.0\%. The original 90\% benchmark-inclusion criterion
-at $s=0.5$ therefore cannot substitute for checking the null.
-
 \subsection{First qualification can reverse at larger counts}\label{sec:reversals}
 Three of eight SMC/reference seeds in the complete saved union grid fail a
-criterion after first qualifying (Table~\ref{tab:reversals}). This matters for
+criterion after first qualifying. This matters for
 a rule that reports all counts above a scalar boundary: passing at its first
 point does not ensure performance over its reporting range. Requiring every
 subsequently evaluated point to qualify changes candidates 45, 50 and 50 to
 60, 70 and 70. No reversal occurs in the eight KUL3/reference seeds; no pooled
 candidate qualifies. These are descriptive selections on the recorded benchmark.
 
-\input{sections/reversal_table.tex}
 
 \subsection{Patient influence and the cohort gap}
 Enumerating all 45 and 15 two-patient holdout pairs separates patient omission
@@ -176,26 +162,7 @@ coverage-only candidate, the corresponding counts are five of ten and zero of
 six. These checks quantify influence within each observed cohort.
 Appendix~\ref{app:guards} gives the biological comparability limits.
 
-\begin{table}[htbp]
-\centering\small
-\caption{Reference-only sensitivity with every two-patient holdout pair
-represented once per count and effect. The three inner budgets reuse identical
-outer samples. Omission counts compare with the baseline at 200 inner draws;
-all pairs involving the omitted patient are removed and retained pairs are
-unchanged. These are sensitivity summaries within the observed cohorts.}
-\label{tab:sensitivity}
-\begin{tabular}{@{}lcrrrcc@{}}
-\toprule
- & pairs & \multicolumn{3}{c}{joint candidate, inner draws} &
- \multicolumn{2}{c}{omissions changing candidate} \\
-\cmidrule(lr){3-5}\cmidrule(lr){6-7}
-cohort & & $200$ & $1{,}000$ & $5{,}000$ & joint & coverage only \\
-\midrule
-SMC & $45$ & $70$ & $70$ & $70$ & $0/10$ & $5/10$ \\
-KUL3 & $15$ & $400$ & $300$ & $400$ & $3/6$ & $0/6$ \\
-\bottomrule
-\end{tabular}
-\end{table}
+
 
 The sensitivity windows cover counts $40,50,60,70,80,90,100,110$ in SMC and
 $200,300,400,600,800$ in KUL3. These per-count summaries use a fixed pair

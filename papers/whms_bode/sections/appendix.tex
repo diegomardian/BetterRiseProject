@@ -1,6 +1,30 @@
 \appendix
 \input{sections/methods.tex}
 
+\paragraph{Precision follow-up and comparator.}\label{app:precision}
+Five fresh seed streams (202609160--202609164), each with 1{,}000 studies
+per setting, provide 5{,}000 draws at each of four counts and two shifts in
+four cohort/pool combinations. Every draw uniformly chooses a two-patient
+pair, samples 800 reference and $n_T$ tumour mature-cell counts independently
+with replacement, and thins tumour counts binomially. This is the original
+generator's marginal law for this contrast, not a replay of its random stream.
+All 120 source-pair summaries match the earlier analysis. The vectorized
+percentile routine agrees with the original implementation on 32 actual-pool
+checks; the Welch implementation agrees with an independent library routine.
+
+Writing $v_a=S_a^2/n_a$ for arm $a$, the Welch interval is
+$\hat\theta\pm t_{0.975,\nu} f_N\sqrt{v_N+v_T}$, where
+$\nu=(v_N+v_T)^2/[v_N^2/(n_N-1)+v_T^2/(n_T-1)]$.
+Zero estimated total variance would give an unavailable comparator interval;
+none occurred. For the sparsity diagnostic, sample-based standard error is
+compared with $f_N\sqrt{\sigma_P^2/n_N+
+(s^2\sigma_P^2+s(1-s)\mu_P)/n_T}$. Aggregate outputs retain signed
+rejections, widths, seed-specific rates and paired differences. The settings
+and single comparator were fixed before this follow-up was run; it remains an
+exploratory study on previously examined source data. The earlier 200-draw
+target diagnostic is retained in the supporting summaries.
+
+
 \section{Calibration details and limits}
 \label{app:gridcaveats}
 
@@ -53,7 +77,7 @@ Section~\ref{sec:cohortgap} instead holds tissue eligibility fixed.
 These observations restrict biological interpretation. Repeated cell draws and
 overlapping patient pairs do not supply independent patient replication.
 
-\input{sections/refdesign.tex}
+\input{sections/supporting_check.tex}
 
 \section{Synthetic external-control design}
 \label{app:eca}

@@ -1,7 +1,7 @@
 {
   "source_revision": "b503971",
   "external_control_source_revision": "a336594",
-  "scope": "Saved-table verification plus paired fixed-pool coverage and null evaluation on the same 6,400 exploratory draws; source-pool variance summaries; adopted synthetic external-control study and independently reproduced primary and balance summaries.",
+  "scope": "Saved-table verification plus paired fixed-pool coverage and null evaluation on the same 6,400 exploratory draws; source-pool variance summaries; adopted synthetic external-control study; fresh 160,000-study precision and paired interval comparison.",
   "single_cell_target": "f_N * (s - 1) * drawn_normal_mature_mean; draw-dependent reference, not fixed pool mean",
   "learned_generator": {
     "scheduled_estimator_evaluations": 75600,
@@ -114,8 +114,59 @@
     "external_control_shift.csv": "affe4f3697d2e0cb19d73b6404a37223c0ec573d9f05087f5397ebc997196b21",
     "low_count_diagnostic.csv": "a7caafb0026799f9675c791488795c1d83c92e3a2c68e4e1b15f5bf6953d401f",
     "low_count_provenance.json": "0bebe61d8b77998f9173baf11225c27909a7a1c58716494feb8024d694e5579b",
+    "precision_followup.csv": "e7f881931021fdb59677fdf487d719d9a158b2dfa7b1faf3bba9abc68507549f",
+    "precision_paired.csv": "67a5bbaecb967a0d454b5f0caaf2783f8e582ef8e3d5b94ba1501fa58d9a4db2",
+    "precision_provenance.json": "db45e1d73bb969a3ebc81ebeebf576b7cb09385f45c18cf5cd2affab40ca605d",
+    "precision_seed_rates.csv": "a785d308c7550b6d95eb5a5241b3731ef4f07bffd04f102da432dcf49b2af099",
     "source_pool_properties.csv": "25c170f96a124aef0ca3f5996c91d5827454f07d116332e4584f83011fba66dc",
     "source_pool_summary.json": "f2c7654617434f555b912653e0276198f03065086531d9fe9fd33467d34e604a"
+  },
+  "precision_followup": {
+    "design_revision": "after ccb6264",
+    "purpose": "Exploratory precision and paired interval comparison on existing empirical pools",
+    "seed_streams": [
+      202609160,
+      202609161,
+      202609162,
+      202609163,
+      202609164
+    ],
+    "replicates_per_seed": 1000,
+    "outer_per_setting": 5000,
+    "counts": [
+      5,
+      50,
+      100,
+      800
+    ],
+    "shifts": [
+      0.5,
+      1.0
+    ],
+    "settings": 32,
+    "study_draws": 160000,
+    "interval_evaluations": 320000,
+    "inner_bootstrap": 200,
+    "original_interval_checks": 32,
+    "source_pair_checks": 120,
+    "sampling": "Exact marginal mature-count law; fresh draws, not bitwise replay",
+    "python": "3.13.7",
+    "numpy": "2.5.3",
+    "elapsed_seconds": 59.37840049999795,
+    "input_sha256": {
+      "papers/whms_bode/precision_followup.py": "194565423f5d613ea4716fc2b03c9d0fad1708b1ff7fe97910488b4c869a37bd",
+      "papers/whms_bode/FOLLOWUP_DESIGN.md": "6cad103e8c455915cc36774a3e9f33eb454bc5d5df85fe0e44045a2ea1cf4231",
+      "src/harness/pseudobulk.py": "a1ac96538477ae2c3d3319c2646a88053172973f5a8ca5c9df02c5ad7d00166b",
+      "src/harness/interval.py": "4c976b93a8a8bc08265c19de97138e55032cbbc6c7a37391eae0589a38822a62",
+      "src/harness/calibration_gap.py": "60ad80a3d82f62a1be48da08c0c89c96c45d16edf584a6476cb9cc6ede6f4746",
+      "src/reference/labels.py": "ccade4117346de47f9133ef2b105f95647d1205b3ef071ad8d8e4824aeea0831",
+      "papers/whms_bode/diagnostics/source_pool_properties.csv": "25c170f96a124aef0ca3f5996c91d5827454f07d116332e4584f83011fba66dc"
+    },
+    "output_sha256": {
+      "precision_followup.csv": "e7f881931021fdb59677fdf487d719d9a158b2dfa7b1faf3bba9abc68507549f",
+      "precision_paired.csv": "67a5bbaecb967a0d454b5f0caaf2783f8e582ef8e3d5b94ba1501fa58d9a4db2",
+      "precision_seed_rates.csv": "a785d308c7550b6d95eb5a5241b3731ef4f07bffd04f102da432dcf49b2af099"
+    }
   },
   "additional_diagnostic": {
     "purpose": "Exploratory paired evaluation of drawn-reference inclusion and fixed eligible-pool coverage; not independent threshold validation",
@@ -193,9 +244,9 @@
     "pytest": "9.1.1"
   },
   "verification": {
-    "dedicated_result_tests": 24,
+    "dedicated_result_tests": 29,
     "external_control_harness_tests": 35,
-    "original_manuscript_result_tests": 55,
+    "historical_original_manuscript_result_tests": 55,
     "learned_table_numeric_entries": 30
   }
 }

@@ -1,0 +1,24 @@
+\begin{table}[htbp]
+\centering\small
+\caption{At the 50-cell reporting boundary, changing intervals improves coverage
+but does not restore the required performance. Rates (\%) and 95\% Wilson
+Monte Carlo intervals use 5{,}000 studies per cohort, pool and effect. Methods
+share the same samples. Coverage targets the fixed-pool effect at $s=0.5$;
+null rejection uses $s=1$; detection uses $s=0.5$. Targets are at least 90\%
+coverage, nominal 5\% null rejection and at least 80\% detection.}
+\label{tab:precision}
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+Cohort / pool & Interval & Coverage & Null rejection & Detection \\
+\midrule
+SMC / pooled & Percentile & 87.1 [86.2, 88.0] & 25.4 [24.2, 26.6] & 51.1 [49.7, 52.4] \\
+SMC / pooled & Welch & 90.2 [89.3, 91.0] & 23.5 [22.3, 24.7] & 50.7 [49.3, 52.1] \\
+SMC / reference & Percentile & 91.0 [90.2, 91.8] & 9.8 [9.0, 10.7] & 76.2 [75.0, 77.3] \\
+SMC / reference & Welch & 92.5 [91.8, 93.2] & 8.9 [8.1, 9.7] & 77.6 [76.5, 78.8] \\
+KUL3 / pooled & Percentile & 84.7 [83.6, 85.6] & 32.2 [31.0, 33.5] & 49.0 [47.6, 50.4] \\
+KUL3 / pooled & Welch & 89.7 [88.8, 90.5] & 30.8 [29.5, 32.1] & 49.0 [47.6, 50.3] \\
+KUL3 / reference & Percentile & 86.3 [85.3, 87.2] & 19.0 [18.0, 20.1] & 47.5 [46.1, 48.8] \\
+KUL3 / reference & Welch & 88.1 [87.2, 89.0] & 18.8 [17.7, 19.9] & 48.2 [46.8, 49.6] \\
+\bottomrule
+\end{tabular}
+\end{table}

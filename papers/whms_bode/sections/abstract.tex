@@ -1,21 +1,16 @@
 \begin{abstract}
-A 50-cell reporting rule supported by point-estimate recovery fails direct
-interval evaluation in two colorectal single-cell cohorts. At its reporting
-boundary, a paired simulation study finds 84.5--91.0\% coverage of the fixed
-source-pool effect and 12.0--30.0\% false-positive rates for nominal 95\%
-intervals. Scoring the same intervals against a sampled reference instead of
-the generating-pool parameter changes the assessment: at 800 cells, inclusion
-falls from 99.0--100.0\% to 90.5--94.0\% when the target is fixed. An exact
-variance calculation explains how the sampled reference removes part of the
-error being evaluated. Controlled grid comparisons also identify three of
-eight seed streams that fail at a larger count after first qualifying.
-Greater relative expression variance helps explain weaker detection in the
-second cohort. This self-audit documents how target choice, sparse-sample
-interval behavior and threshold selection affected an intervention simulation.
-A synthetic external-control example further shows that a reference for the
-wrong population can favor an estimator whose median effect exceeds an
-illustrative decision threshold while the intended target falls below it.
-The resulting evaluation separates fixed-pool coverage, null rejection,
-effect detection and abstention, with explicit source populations and
-Monte Carlo uncertainty.
+A reporting rule should be evaluated against the quantity and uncertainty it
+claims to report. We audit a 50-cell rule in two colorectal single-cell cohorts
+that had been justified by point-estimate recovery. In 5{,}000 simulations per
+setting, its nominal 95\% percentile intervals reject a true null in
+9.8--32.2\% of studies at the reporting boundary. A paired comparison with
+Welch intervals improves effect coverage but leaves null rejection at
+8.9--30.8\%; changing the interval alone does not repair the rule. We also
+show how a sampled reference inflates apparent coverage, explain why sparse
+samples can produce misleadingly high detection, and document grid-dependent
+threshold selection. A synthetic external-control example illustrates a
+related mistake: a reference for the wrong population favors an estimator
+of the wrong effect. The practical lesson is to specify the target, test
+null and alternative performance together, and evaluate an interval and its
+reporting threshold as a combined rule.
 \end{abstract}
