@@ -1,0 +1,46 @@
+{
+  "date": "2026-09-13",
+  "utc_timestamp": "2026-09-14T01:40:09+00:00",
+  "git_sha": "5c888f7fe12315df07594f6a1f9e703f9836e6c1",
+  "git_sha_short": "5c888f7",
+  "git_branch": "wmhs/prevalence-audit",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 0,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "notes": "Queue entries walked but not examined, with the inclusion criterion each failed. Required by prereg \u00a72.4 step 3.",
+  "name": "prevalence_audit_screening",
+  "n_rows": 19,
+  "columns": [
+    "search_date",
+    "queue_position",
+    "query_id",
+    "name",
+    "url",
+    "criterion_failed",
+    "note",
+    "screening_verdict"
+  ],
+  "table_kind": "harness",
+  "audit_search_date": "2026-09-13",
+  "prereg": "docs/prereg_prevalence_audit.md",
+  "prereg_amendments": [
+    "A-1 (2026-09-13): relaxed six zero-yield query strings"
+  ],
+  "queue": "docs/prevalence_audit_queue.md",
+  "queue_length": 41,
+  "queue_walked_through_position": 26,
+  "n_examined": 7,
+  "n_screened_not_examined": 19,
+  "verdict_counts": {
+    "NO": 7
+  },
+  "n_reaching_step4": 1,
+  "single_rater": true,
+  "prevalence_rate_computed": false,
+  "table_role": "screening"
+}
