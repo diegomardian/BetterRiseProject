@@ -1,0 +1,155 @@
+{
+  "date": "2026-09-13",
+  "utc_timestamp": "2026-09-14T02:18:54+00:00",
+  "git_sha": "19e016b53759bcd10ea98823029e4cd550152e2d",
+  "git_sha_short": "19e016b",
+  "git_branch": "wmhs/learned-generator",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260913,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "name": "trial_learned_generator_trend",
+  "n_rows": 140,
+  "columns": [
+    "generator",
+    "estimator",
+    "reference",
+    "log10_slope_vs_log10_n",
+    "trend",
+    "max_residual_at_smallest_n",
+    "max_residual_at_largest_n",
+    "smallest_n",
+    "largest_n"
+  ],
+  "table_kind": "harness",
+  "sweep_seed": 20260913,
+  "n_seed_streams": 6,
+  "n_replicates_per_seed": 30,
+  "theta_requested": 3.0,
+  "cohort_sizes": [
+    100,
+    200,
+    500,
+    1000,
+    2000,
+    5000
+  ],
+  "is_quick_smoke_test_not_a_result": false,
+  "stratum_means": [
+    10.0,
+    14.0,
+    25.0
+  ],
+  "propensity": [
+    0.25,
+    0.5,
+    0.75
+  ],
+  "stratum_weights": [
+    0.5,
+    0.3,
+    0.2
+  ],
+  "outcome_sd": 4.0,
+  "generators": {
+    "parametric-oracle": {
+      "learned": false,
+      "capacity": NaN
+    },
+    "parametric-plugin": {
+      "learned": false,
+      "capacity": NaN
+    },
+    "gmm-joint-K1": {
+      "learned": true,
+      "capacity": 1.0
+    },
+    "gmm-joint-K2": {
+      "learned": true,
+      "capacity": 2.0
+    },
+    "gmm-joint-K4": {
+      "learned": true,
+      "capacity": 4.0
+    },
+    "gmm-joint-K8": {
+      "learned": true,
+      "capacity": 8.0
+    },
+    "mlp-conditional-gaussian": {
+      "learned": true,
+      "capacity": NaN
+    }
+  },
+  "estimators": [
+    "gcomp-saturated",
+    "ipw-saturated",
+    "gcomp-gmm-outcome-K1",
+    "gcomp-gmm-outcome-K4",
+    "gcomp-ridge-outcome-a1e-5",
+    "gcomp-ridge-outcome-a1e-3",
+    "gcomp-ridge-outcome-a1e-1",
+    "gcomp-mlp-outcome",
+    "ols-stratum-dummies",
+    "unadjusted"
+  ],
+  "references": {
+    "T_draw": "sum_g (n_g/n)(ybar_g1 - ybar_g0) on the SYNTHETIC cohort, via trial_recovery._standardised_effect -- the paper's observed-data reference, PRIMARY",
+    "T_model": "the fitted generator's own implied population standardised effect; closed form for parametric-* and mlp-conditional-gaussian, Monte-Carlo at n=200000 with a reported standard error for gmm-joint-*, SECONDARY"
+  },
+  "allclose_rtol": 1e-05,
+  "allclose_atol": 1e-08,
+  "allclose_semantics": "np.allclose(a,b) tests |a-b| <= atol + rtol*|b|. Screening the residual against 0.0 kills the rtol term and is a pure atol=1e-8 screen; screening the estimate against the reference allows atol + rtol*|T| ~ 3e-5 at theta=3. Both are reported.",
+  "saturated_below": 1e-09,
+  "degenerate_below": 1e-09,
+  "oracle_draw": 200000,
+  "seed_key_order": [
+    "seed",
+    "arm_code",
+    "seed_index",
+    "generator_index",
+    "n_patients",
+    "replicate",
+    "estimator_index"
+  ],
+  "control_estimator": "ols-stratum-dummies",
+  "control_must_exceed": 0.01,
+  "control_estimator_passed": true,
+  "prereg": "docs/prereg_learned_generator.md",
+  "pinned_env": {
+    "scikit-learn": "1.5.1",
+    "numpy": "1.26.4",
+    "pandas": "2.2.2",
+    "scipy": "1.13.1"
+  },
+  "live_env": {
+    "scikit-learn": "1.7.2",
+    "numpy": "2.3.5",
+    "pandas": "2.3.3",
+    "scipy": "1.16.3"
+  },
+  "env_version_gap": {
+    "scikit-learn": {
+      "pinned": "1.5.1",
+      "live": "1.7.2"
+    },
+    "numpy": {
+      "pinned": "1.26.4",
+      "live": "2.3.5"
+    },
+    "pandas": {
+      "pinned": "2.2.2",
+      "live": "2.3.3"
+    },
+    "scipy": {
+      "pinned": "1.13.1",
+      "live": "1.16.3"
+    }
+  },
+  "SYNTHETIC": "Simulated patients with an analytically known treatment effect. Nothing here is a result about any real trial.",
+  "what_this_answers": "Whether the residual shrinks, grows or is flat in cohort size, which decides whether the problem gets better or worse with more data."
+}
