@@ -32,7 +32,7 @@ def test_expanded_learned_design_denominators():
     assert 7*6*6*30==7560
     assert draw.groupby(['generator','n_patients']).n_draws.first().sum()==7558
     assert (draw.n_valid_pairs>0).all()
-    a=prose('appendix.tex')
+    a=prose('refdesign.tex')
     for literal in ['75{,}600','75{,}580','74{,}726','854','410','731','287','7{,}558']:
         assert literal in a
 
@@ -65,7 +65,7 @@ def test_tolerance_switch_uses_actual_comparisons_not_a_theta_approximation():
     b=d[d.n_patients==5000].set_index(['generator','estimator'])
     switched=(~a.allclose_residual_vs_zero)&(~a.allclose_estimate_vs_reference)&(~b.allclose_residual_vs_zero)&b.allclose_estimate_vs_reference
     assert switched.sum()==13
-    assert 'Thirteen generator--estimator combinations' in prose('appendix.tex')
+    assert 'Thirteen generator--estimator combinations' in prose('refdesign.tex')
 
 
 def test_model_reference_uncertainty_is_only_monte_carlo_for_mixtures():
@@ -75,7 +75,7 @@ def test_model_reference_uncertainty_is_only_monte_carlo_for_mixtures():
     assert round(mc.T_model_mc_se.min(),3)==.019
     assert round(mc.T_model_mc_se.max(),3)==.027
     assert (d[~d.T_model_is_monte_carlo].T_model_mc_se==0).all()
-    assert 'errors are 0.019--0.027' in prose('appendix.tex')
+    assert 'errors are 0.019--0.027' in prose('refdesign.tex')
 
 
 def test_common_count_figure_deduplicates_identical_grid_views():
@@ -327,3 +327,20 @@ def test_external_control_provenance_is_pinned_and_does_not_inflate_replication(
     for name in ['primary','shift','balance','falsifiers']:
         exported=pd.read_csv(PAPER/f'diagnostics/external_control_{name}.csv')
         pd.testing.assert_frame_equal(exported,table(f'external_control_{name}'),check_exact=False,rtol=1e-12,atol=1e-15)
+
+
+def test_merged_control_panel_claims_use_correct_strata():
+    d=table('retained_control_strata')
+    r=d[(d.gene=='MS4A12')&~d.degenerate_stratum]
+    primary=r[r.cohort=='GSE178341']
+    assert round(primary.rel_change_median.min(),3)==-.971
+    assert round(primary.rel_change_median.max(),3)==-.951
+    assert round(r.baseline_cp10k_normal.median(),2)==2.56
+    assert round(r.cp10k_tumour.median(),3)==.104
+    assert d[(d.gene=='MS4A12')&d.degenerate_stratum].n_tumour_mature_median.median()==1
+    epithelial=r[r.label_selects_nothing]
+    assert round(epithelial.rel_change_median.min(),3)==-1.000
+    assert round(epithelial.rel_change_median.max(),3)==-.967
+    bulk=table('retained_control_bulk').set_index('gene')
+    assert round(bulk.loc['MS4A12','log2_fold_change'],2)==-8.18
+    assert '-0.971' in prose('calibration.tex')

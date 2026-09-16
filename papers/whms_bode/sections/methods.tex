@@ -20,24 +20,10 @@ conditional intrinsic contrast; it does not estimate population uncertainty
 across patients. Coverage and discrimination condition on defined intervals. The historical inclusion score uses the drawn reference in
 Equation~\ref{eq:requested}; the paired follow-up also evaluates fixed-pool
 coverage using Equation~\ref{eq:fixedpool}. \\
-Patient outcomes &
-Stratum probabilities $(0.5,0.3,0.2)$, baseline means $(10,14,25)$ and
-$Y\mid(g,A)\sim\mathcal N(\mu_g+3A,4^2)$.
-Confounded treatment probabilities $(0.25,0.50,0.75)$; alternatives are
-independent Bernoulli assignment at $0.5$ and complete balanced blocks of size 4
-within strata. The three-design sweep uses 200 replicates per size and seed
-across six seeds. \\
-Survival outcomes &
-The same stratum and confounded-assignment probabilities; exponential event
-rate $\lambda_g\exp(\beta A)$, $\lambda=(0.10,0.16,0.30)$, $\exp(\beta)=0.6$.
-Administrative horizons $1000,20.065216,6.072920,2.028858$ target
-$0\%,12\%,49\%,78\%$ censoring. The same latent cohort is viewed through
-each horizon; RMST uses $\tau=2$. Each size has 200 replicates per seed over
-six seeds. \\
 \bottomrule
 \end{tabular}
 \end{center}
 Historical grid budgets are reported in Appendix~\ref{app:historical};
-Section~\ref{sec:calibration} specifies the controlled runs and paired target
-analysis. The source cells are observed data; the treatment and survival
-outcomes are simulated.
+Section~\ref{sec:calibration} specifies the controlled grid; the larger
+interval comparison is detailed next. The source cells are observed data; the external-control outcomes are
+simulated.

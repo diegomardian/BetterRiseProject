@@ -10,16 +10,15 @@
   "overfull_boxes": 0,
   "anonymity": "passed",
   "official_style_sha256": "c3fc2894e83d2517ca18b66741d6c595986d97957dc08ec08bb2125a7ec4555a",
-  "pdf_sha256": "b39abbdd0abea9bf2c7fed5359b466c5faf663207370a2c4aa60bb84c58a14ae",
+  "pdf_sha256": "0d9592f6525f8a8b0b05c0698b8ee98e160ce70519d15afcc2faf737adfa3490",
   "source_files": [
     "main.tex",
     "sections/abstract.tex",
     "sections/setup.tex",
     "sections/calibration.tex",
     "sections/fixed_pool_results.tex",
-    "sections/fixed_pool_table.tex",
-    "sections/low_count_table.tex",
-    "sections/reversal_table.tex",
+    "sections/precision_table.tex",
+    "sections/interval_comparison.tex",
     "sections/cohort_gap.tex",
     "sections/validation.tex",
     "sections/external_control_table.tex",
@@ -27,9 +26,10 @@
     "sections/responsible.tex",
     "sections/appendix.tex",
     "sections/methods.tex",
-    "sections/refdesign.tex",
+    "sections/supporting_check.tex",
     "sections/llm.tex"
   ],
+  "merged_remote_revision": "95e6dfb",
   "visual_review": {
     "pages": [
       1,
@@ -46,8 +46,8 @@
       12,
       13
     ],
-    "render_dpi": 120,
-    "result": "passed; full-document contact sheets and full-size inspection of the new table and final appendix page"
+    "render_dpi": 100,
+    "result": "passed; merged layout inspected and final affected pages reinspected"
   },
   "portable_source_compile": {
     "pages": 13,
@@ -57,15 +57,9 @@
     "overfull_boxes": 0
   },
   "tests": {
-    "paper_claims": 24,
-    "external_control_harness": 35
-  },
-  "external_control_reproduction": {
-    "primary_study_draws": 1200,
-    "primary_summary_rows": 240,
-    "balance_study_draws": 50,
-    "balance_summary_rows": 9,
-    "relative_tolerance": 1e-09,
-    "absolute_tolerance": 1e-11
+    "paper_claims": 25,
+    "precision_followup": 5,
+    "external_control_harness": 35,
+    "retained_control_harness": 21
   }
 }

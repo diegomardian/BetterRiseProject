@@ -1,7 +1,7 @@
 {
   "source_revision": "b503971",
   "external_control_source_revision": "a336594",
-  "scope": "Saved-table verification plus paired fixed-pool coverage and null evaluation on the same 6,400 exploratory draws; source-pool variance summaries; adopted synthetic external-control study and independently reproduced primary and balance summaries.",
+  "scope": "Saved-table verification plus paired fixed-pool coverage and null evaluation on the same 6,400 exploratory draws; source-pool variance summaries; adopted synthetic external-control study; fresh 160,000-study precision and paired interval comparison.",
   "single_cell_target": "f_N * (s - 1) * drawn_normal_mature_mean; draw-dependent reference, not fixed pool mean",
   "learned_generator": {
     "scheduled_estimator_evaluations": 75600,
@@ -114,8 +114,61 @@
     "external_control_shift.csv": "affe4f3697d2e0cb19d73b6404a37223c0ec573d9f05087f5397ebc997196b21",
     "low_count_diagnostic.csv": "a7caafb0026799f9675c791488795c1d83c92e3a2c68e4e1b15f5bf6953d401f",
     "low_count_provenance.json": "0bebe61d8b77998f9173baf11225c27909a7a1c58716494feb8024d694e5579b",
+    "precision_followup.csv": "e7f881931021fdb59677fdf487d719d9a158b2dfa7b1faf3bba9abc68507549f",
+    "precision_paired.csv": "67a5bbaecb967a0d454b5f0caaf2783f8e582ef8e3d5b94ba1501fa58d9a4db2",
+    "precision_provenance.json": "db45e1d73bb969a3ebc81ebeebf576b7cb09385f45c18cf5cd2affab40ca605d",
+    "precision_seed_rates.csv": "a785d308c7550b6d95eb5a5241b3731ef4f07bffd04f102da432dcf49b2af099",
+    "retained_control_bulk.csv": "90dd24a07bc30f1561a7350d0574dba999238fac771495738a32eccf2f696ac4",
+    "retained_control_strata.csv": "47ab7c8ab1b33e20504e2a67b7aee303fb223a868c4b1b8fa764be631c0b9795",
     "source_pool_properties.csv": "25c170f96a124aef0ca3f5996c91d5827454f07d116332e4584f83011fba66dc",
     "source_pool_summary.json": "f2c7654617434f555b912653e0276198f03065086531d9fe9fd33467d34e604a"
+  },
+  "precision_followup": {
+    "design_revision": "after ccb6264",
+    "purpose": "Exploratory precision and paired interval comparison on existing empirical pools",
+    "seed_streams": [
+      202609160,
+      202609161,
+      202609162,
+      202609163,
+      202609164
+    ],
+    "replicates_per_seed": 1000,
+    "outer_per_setting": 5000,
+    "counts": [
+      5,
+      50,
+      100,
+      800
+    ],
+    "shifts": [
+      0.5,
+      1.0
+    ],
+    "settings": 32,
+    "study_draws": 160000,
+    "interval_evaluations": 320000,
+    "inner_bootstrap": 200,
+    "original_interval_checks": 32,
+    "source_pair_checks": 120,
+    "sampling": "Exact marginal mature-count law; fresh draws, not bitwise replay",
+    "python": "3.13.7",
+    "numpy": "2.5.3",
+    "elapsed_seconds": 59.37840049999795,
+    "input_sha256": {
+      "papers/whms_bode/precision_followup.py": "194565423f5d613ea4716fc2b03c9d0fad1708b1ff7fe97910488b4c869a37bd",
+      "papers/whms_bode/FOLLOWUP_DESIGN.md": "6cad103e8c455915cc36774a3e9f33eb454bc5d5df85fe0e44045a2ea1cf4231",
+      "src/harness/pseudobulk.py": "a1ac96538477ae2c3d3319c2646a88053172973f5a8ca5c9df02c5ad7d00166b",
+      "src/harness/interval.py": "4c976b93a8a8bc08265c19de97138e55032cbbc6c7a37391eae0589a38822a62",
+      "src/harness/calibration_gap.py": "60ad80a3d82f62a1be48da08c0c89c96c45d16edf584a6476cb9cc6ede6f4746",
+      "src/reference/labels.py": "ccade4117346de47f9133ef2b105f95647d1205b3ef071ad8d8e4824aeea0831",
+      "papers/whms_bode/diagnostics/source_pool_properties.csv": "25c170f96a124aef0ca3f5996c91d5827454f07d116332e4584f83011fba66dc"
+    },
+    "output_sha256": {
+      "precision_followup.csv": "e7f881931021fdb59677fdf487d719d9a158b2dfa7b1faf3bba9abc68507549f",
+      "precision_paired.csv": "67a5bbaecb967a0d454b5f0caaf2783f8e582ef8e3d5b94ba1501fa58d9a4db2",
+      "precision_seed_rates.csv": "a785d308c7550b6d95eb5a5241b3731ef4f07bffd04f102da432dcf49b2af099"
+    }
   },
   "additional_diagnostic": {
     "purpose": "Exploratory paired evaluation of drawn-reference inclusion and fixed eligible-pool coverage; not independent threshold validation",
@@ -181,7 +234,12 @@
     "external_control_primary": "0c3078a4f4da9be1b4a3093a9d8b500a695c11768ebc89c787d46c2ecb35441c",
     "external_control_shift": "4b6339cc7d84cdfbfcd8f6f8d791a6fb53547ce9a544850015710e4674637843",
     "external_control_balance": "1e49c3f3a6e9483e7cad756c930c0b710197e46feacaad0a8454bedc32bc0ede",
-    "external_control_falsifiers": "fea9900c3b959dfbd0b165d799ed6c3ffe67fbeb6c521e609d61b3911d1a6df7"
+    "external_control_falsifiers": "fea9900c3b959dfbd0b165d799ed6c3ffe67fbeb6c521e609d61b3911d1a6df7",
+    "retained_control_strata": "f2ea12be25e49556c42b6ef3abcb37150dc8bdc46fdc5697284d5fc0a102d75d",
+    "retained_control_hypotheses": "6cc9b89f827cdbcad52a2c3565b20c8269981479b2cd69ca456630349e31d147",
+    "intrinsic_control_abundance": "167cbc8e779ace0e860827ad587b80d1bb7395a0d01f67e3f0dc0af0860f277e",
+    "intrinsic_control_precommitment": "f72f21456faff227d55a08e86d5009efe79f176a6fca3eee8d6c06d0c366c12e",
+    "retained_control_bulk": "a918b1e650457e9edaf86c55bf403960d9651d026dd7116a1216dc53e2911c42"
   },
   "review_environment": {
     "python": "3.13.7",
@@ -193,9 +251,10 @@
     "pytest": "9.1.1"
   },
   "verification": {
-    "dedicated_result_tests": 24,
+    "dedicated_result_tests": 30,
+    "retained_control_harness_tests": 21,
     "external_control_harness_tests": 35,
-    "original_manuscript_result_tests": 55,
+    "historical_original_manuscript_result_tests": 55,
     "learned_table_numeric_entries": 30
   }
 }

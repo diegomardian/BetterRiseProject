@@ -1,14 +1,14 @@
 \section{Motivation: recovery and decision-rule validation}
 \label{sec:intro}
 
-A reporting rule can withhold unreliable estimates only if its thresholds
-are calibrated to the uncertainty of the reported quantity. We examine a
-50-cell rule in colorectal single-cell analysis through three empirical tests:
-coverage against a fixed empirical source-pool target, rejection under the
-null, and stability of first-crossing candidates. The study is a self-audit
-of a previously overstated validation claim in an unpublished project. Its
-contribution is the measured behavior of this rule and the reproducible target
-comparison, rather than a new principle connecting point and interval accuracy.
+A cell-count threshold is useful only if the estimates it permits have
+adequate uncertainty. We audit a 50-cell reporting rule in colorectal
+single-cell analysis, testing coverage, false positives and threshold
+stability. We then change the interval method while holding the simulated
+samples fixed, to distinguish a failure of this implementation from a problem
+that a simple interval substitution resolves. The contribution is an empirical
+case study of a previously overstated validation claim in an unpublished
+project, with reproducible comparisons of targets and interval methods.
 
 Our motivating application separates two explanations for differentiation-marker
 loss in colorectal cancer: fewer marker-producing cells (a \emph{compositional}

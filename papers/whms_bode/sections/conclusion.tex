@@ -1,14 +1,13 @@
-The rule's reporting boundary has inadequate null behavior, and its fixed-pool
-coverage estimates are 84.5--91.0\% at that boundary in the paired diagnostic.
-Near-perfect inclusion of the sampled reference at larger counts overstates
-coverage of the generating-pool effect. The variance calculation identifies
-why changing the target changes this assessment. Separately, first-crossing
-candidates can fail at larger counts, and cohort differences in relative
-expression variance help explain the different detection curves.
+The audited 50-cell rule fails joint interval evaluation despite reassuring
+point-estimate recovery. A larger simulation budget distinguishes three
+coverage failures from one passing condition, while excess null rejection
+and insufficient detection occur in all four. Welch intervals improve coverage
+but do not repair the reporting boundary. The non-monotone detection curve
+also becomes interpretable only beside the changing false-positive rate.
 
-The evidence establishes a failure in this single-cell application. A
-replacement rule needs a specified target, joint assessment of null rejection,
-effect detection and abstention, and independent evaluation after selection.
-The synthetic external-control example shows why an independently constructed
-reference must also average over the intended target population. The broader
-patient-population question requires new patients and cohorts.
+A reporting threshold must be assessed with its actual interval, explicit
+target and null and alternative operating characteristics. The synthetic
+external-control example adds that the target must name the population over
+which effects are averaged. These results establish failures and delimit one
+attempted repair; they do not validate a replacement rule or a patient world
+model.
