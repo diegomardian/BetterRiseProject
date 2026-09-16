@@ -327,3 +327,20 @@ def test_external_control_provenance_is_pinned_and_does_not_inflate_replication(
     for name in ['primary','shift','balance','falsifiers']:
         exported=pd.read_csv(PAPER/f'diagnostics/external_control_{name}.csv')
         pd.testing.assert_frame_equal(exported,table(f'external_control_{name}'),check_exact=False,rtol=1e-12,atol=1e-15)
+
+
+def test_merged_control_panel_claims_use_correct_strata():
+    d=table('retained_control_strata')
+    r=d[(d.gene=='MS4A12')&~d.degenerate_stratum]
+    primary=r[r.cohort=='GSE178341']
+    assert round(primary.rel_change_median.min(),3)==-.971
+    assert round(primary.rel_change_median.max(),3)==-.951
+    assert round(r.baseline_cp10k_normal.median(),2)==2.56
+    assert round(r.cp10k_tumour.median(),3)==.104
+    assert d[(d.gene=='MS4A12')&d.degenerate_stratum].n_tumour_mature_median.median()==1
+    epithelial=r[r.label_selects_nothing]
+    assert round(epithelial.rel_change_median.min(),3)==-1.000
+    assert round(epithelial.rel_change_median.max(),3)==-.967
+    bulk=table('retained_control_bulk').set_index('gene')
+    assert round(bulk.loc['MS4A12','log2_fold_change'],2)==-8.18
+    assert '-0.971' in prose('calibration.tex')

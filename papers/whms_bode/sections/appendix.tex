@@ -112,6 +112,28 @@ its identical recovery curve may itself alert a careful analyst. It neither
 estimates a failure frequency nor requires a reference to disagree numerically
 with a correct estimator on every dataset.
 
+\section{The retained-gene control}
+\label{app:controls}
+The control-panel audit compares saved unmatched and depth-matched single-cell
+summaries with a separate bulk dataset. Where both mature fractions equal
+one (all epithelium, without marker-based subdivision), MS4A12 still changes
+by $-0.967$ to $-1.000$ across the tested cohort/matching strata; CDX2 on the
+same cells changes by $-0.396$ to $-0.293$. Depth-matched MS4A12 changes are
+$-0.971$ to $-0.960$. These observations weaken a uniform labelling or depth
+artifact explanation; they do not eliminate every measurement artifact.
+Across nondegenerate strata, the median baseline is 2.56 CP10K and tumour
+expression 0.104 CP10K. Strata classified as degenerate have a median of one
+relevant tumour cell and cannot establish a precise complete loss.
+
+In GSE39582 (585 bulk samples), the saved MS4A12 log$_2$ fold change is
+$-8.18$. This corroborates tissue-level depletion on a separate platform;
+it does not identify a within-cell mechanism. Lower-abundance genes retain
+more signal in the single-cell summaries, arguing against a simple universal
+abundance-floor explanation, not proving absence of gene-specific dropout.
+Repository chronology places panel freezing before dataset registration;
+it cannot establish what evidence was known outside the repository. The
+panel's prior expectation of retention therefore needs reassessment.
+
 \section{External audit and research context}
 \label{app:prevalence}
 

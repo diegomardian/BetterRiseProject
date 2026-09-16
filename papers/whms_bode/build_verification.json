@@ -10,7 +10,7 @@
   "overfull_boxes": 0,
   "anonymity": "passed",
   "official_style_sha256": "c3fc2894e83d2517ca18b66741d6c595986d97957dc08ec08bb2125a7ec4555a",
-  "pdf_sha256": "67a926a2e9506876fde908e681a3268cc9fdd876ba94364d4a2efe09a2d6f564",
+  "pdf_sha256": "0d9592f6525f8a8b0b05c0698b8ee98e160ce70519d15afcc2faf737adfa3490",
   "source_files": [
     "main.tex",
     "sections/abstract.tex",
@@ -29,7 +29,7 @@
     "sections/supporting_check.tex",
     "sections/llm.tex"
   ],
-  "source_base_revision": "ccb6264",
+  "merged_remote_revision": "95e6dfb",
   "visual_review": {
     "pages": [
       1,
@@ -46,8 +46,8 @@
       12,
       13
     ],
-    "render_dpi": 120,
-    "result": "passed; all pages inspected, new table and figure inspected at full resolution"
+    "render_dpi": 100,
+    "result": "passed; merged layout inspected and final affected pages reinspected"
   },
   "portable_source_compile": {
     "pages": 13,
@@ -57,16 +57,9 @@
     "overfull_boxes": 0
   },
   "tests": {
-    "paper_claims": 24,
+    "paper_claims": 25,
     "precision_followup": 5,
-    "external_control_harness": 35
-  },
-  "precision_run": {
-    "study_draws": 160000,
-    "interval_evaluations": 320000,
-    "outer_per_setting": 5000,
-    "seed_streams": 5,
-    "original_interval_comparisons": 32,
-    "source_pair_checks": 120
+    "external_control_harness": 35,
+    "retained_control_harness": 21
   }
 }

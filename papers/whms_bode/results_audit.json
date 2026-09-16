@@ -118,6 +118,8 @@
     "precision_paired.csv": "67a5bbaecb967a0d454b5f0caaf2783f8e582ef8e3d5b94ba1501fa58d9a4db2",
     "precision_provenance.json": "db45e1d73bb969a3ebc81ebeebf576b7cb09385f45c18cf5cd2affab40ca605d",
     "precision_seed_rates.csv": "a785d308c7550b6d95eb5a5241b3731ef4f07bffd04f102da432dcf49b2af099",
+    "retained_control_bulk.csv": "90dd24a07bc30f1561a7350d0574dba999238fac771495738a32eccf2f696ac4",
+    "retained_control_strata.csv": "47ab7c8ab1b33e20504e2a67b7aee303fb223a868c4b1b8fa764be631c0b9795",
     "source_pool_properties.csv": "25c170f96a124aef0ca3f5996c91d5827454f07d116332e4584f83011fba66dc",
     "source_pool_summary.json": "f2c7654617434f555b912653e0276198f03065086531d9fe9fd33467d34e604a"
   },
@@ -232,7 +234,12 @@
     "external_control_primary": "0c3078a4f4da9be1b4a3093a9d8b500a695c11768ebc89c787d46c2ecb35441c",
     "external_control_shift": "4b6339cc7d84cdfbfcd8f6f8d791a6fb53547ce9a544850015710e4674637843",
     "external_control_balance": "1e49c3f3a6e9483e7cad756c930c0b710197e46feacaad0a8454bedc32bc0ede",
-    "external_control_falsifiers": "fea9900c3b959dfbd0b165d799ed6c3ffe67fbeb6c521e609d61b3911d1a6df7"
+    "external_control_falsifiers": "fea9900c3b959dfbd0b165d799ed6c3ffe67fbeb6c521e609d61b3911d1a6df7",
+    "retained_control_strata": "f2ea12be25e49556c42b6ef3abcb37150dc8bdc46fdc5697284d5fc0a102d75d",
+    "retained_control_hypotheses": "6cc9b89f827cdbcad52a2c3565b20c8269981479b2cd69ca456630349e31d147",
+    "intrinsic_control_abundance": "167cbc8e779ace0e860827ad587b80d1bb7395a0d01f67e3f0dc0af0860f277e",
+    "intrinsic_control_precommitment": "f72f21456faff227d55a08e86d5009efe79f176a6fca3eee8d6c06d0c366c12e",
+    "retained_control_bulk": "a918b1e650457e9edaf86c55bf403960d9651d026dd7116a1216dc53e2911c42"
   },
   "review_environment": {
     "python": "3.13.7",
@@ -244,7 +251,8 @@
     "pytest": "9.1.1"
   },
   "verification": {
-    "dedicated_result_tests": 29,
+    "dedicated_result_tests": 30,
+    "retained_control_harness_tests": 21,
     "external_control_harness_tests": 35,
     "historical_original_manuscript_result_tests": 55,
     "learned_table_numeric_entries": 30

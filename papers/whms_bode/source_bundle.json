@@ -1,6 +1,6 @@
 {
   "archive": "source.zip",
-  "sha256": "2550ab9a182ff9ad46ff2b7f77b11a57a685f2f64cc079e11aa5677087d17bd8",
+  "sha256": "77fae1eaae54bd89d0af00c9f400f3895c058b445b749e86e1ae719fdc7acbb9",
   "files": [
     "diagnostics/candidate_reversals.json",
     "diagnostics/coverage_precision.json",
@@ -11,6 +11,8 @@
     "diagnostics/precision_followup.csv",
     "diagnostics/precision_paired.csv",
     "diagnostics/precision_seed_rates.csv",
+    "diagnostics/retained_control_bulk.csv",
+    "diagnostics/retained_control_strata.csv",
     "diagnostics/source_pool_properties.csv",
     "diagnostics/source_pool_summary.json",
     "evidence/review_record.json",

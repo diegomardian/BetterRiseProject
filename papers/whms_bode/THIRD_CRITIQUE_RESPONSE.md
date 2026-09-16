@@ -125,7 +125,8 @@ not clinical generalization, method optimality, or an acceptance prediction.
 
 ## Verification
 
-- 29 paper and follow-up tests plus 35 external-control harness tests pass.
+- 30 paper and follow-up tests, 35 external-control harness tests and
+  21 retained-control audit tests pass.
 - New checks cover the original percentile implementation, independent Welch
   calculations, all denominators and seed aggregation, paired comparisons,
   provenance, generated tables and the revised headline claims.
@@ -137,6 +138,9 @@ not clinical generalization, method optimality, or an acceptance prediction.
 - The portable source bundle independently compiles to 13 pages with identical
   extracted page text. Exact checks are recorded in `build_verification.json`.
 
-This revision is based on `ccb6264`. Additional remote control-panel audit
-commits arrived during this review and are not incorporated in this local
-revision; they are separate from the interval follow-up evaluated here.
+The precision revision starts from `ccb6264`. Before pushing, the remote
+control-panel audit through `95e6dfb` was merged and its numerical results
+checked. The paper retains that evidence with narrower interpretation: bulk
+depletion does not identify within-cell loss, the checks do not rule out all
+measurement artifacts, and repository chronology does not establish all prior
+author knowledge. The redundant sensitivity table remains summarized in prose.

@@ -40,5 +40,10 @@
   "external_control_primary": "results/2026-09-15_6b4a31a/external_control_primary.parquet",
   "external_control_shift": "results/2026-09-15_6b4a31a/external_control_shift.parquet",
   "external_control_balance": "results/2026-09-15_6b4a31a/external_control_balance.parquet",
-  "external_control_falsifiers": "results/2026-09-15_6b4a31a/external_control_falsifiers.parquet"
+  "external_control_falsifiers": "results/2026-09-15_6b4a31a/external_control_falsifiers.parquet",
+  "retained_control_strata": "results/2026-09-15_62ddcae/retained_control_strata.parquet",
+  "retained_control_hypotheses": "results/2026-09-15_62ddcae/retained_control_hypotheses.parquet",
+  "intrinsic_control_abundance": "results/2026-09-15_62ddcae/intrinsic_control_abundance.parquet",
+  "intrinsic_control_precommitment": "results/2026-09-15_62ddcae/intrinsic_control_precommitment.parquet",
+  "retained_control_bulk": "results/2026-09-04_e78e741/gse39582_fold_change.parquet"
 }

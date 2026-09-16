@@ -23,7 +23,8 @@ does not modify the other manuscript, experiment implementations or saved result
 - `REVISION_NOTES.md`: substantive corrections, supporting evidence and remaining limits.
 - `build_verification.json`: exact PDF checksum, pagination and build checks.
 - `results_audit.json`: independently recomputed counts and result-table checksums.
-- `results_manifest.json`: 38 original pinned input tables plus four external-control tables.
+- `results_manifest.json`: 38 original pinned input tables, four external-control tables and five
+  control-panel audit inputs.
 
 The condensed build has **8 pages of main text**, **2 pages of references**
 (starting on page 9), and **3 pages of appendix**, for **13 pages overall**.
@@ -96,7 +97,8 @@ retains only the reference and interval-control examples needed for its argument
 
 Verification completed for this revision:
 
-- 29 paper/precision tests and 35 external-control harness tests passed,
+- 30 paper/precision tests, 35 external-control harness tests and 21
+  retained-control audit tests passed,
   including target-dependent rankings and the corrected comparison denominators.
 - All 30 numerical cells in the retained learned-estimator analysis table match
   the saved results.

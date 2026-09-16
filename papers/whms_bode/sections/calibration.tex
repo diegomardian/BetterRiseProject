@@ -163,7 +163,6 @@ six. These checks quantify influence within each observed cohort.
 Appendix~\ref{app:guards} gives the biological comparability limits.
 
 
-
 The sensitivity windows cover counts $40,50,60,70,80,90,100,110$ in SMC and
 $200,300,400,600,800$ in KUL3. These per-count summaries use a fixed pair
 schedule, so they are a separate experiment from the eight-seed union grid.
@@ -178,12 +177,20 @@ those windows. Overlapping pairs do not add independent patients.
 
 \subsection{Biological controls fail to establish mechanism}\label{sec:biocontrols}
 The pre-committed panel included compositional, intrinsic and retained-gene
-controls. In the primary cohort the retained-gene control changed by
-$-1.000$ to $-0.951$ relative to baseline, almost matching the compositional
-controls' $-1.000$ to $-0.952$. The intrinsic control had only 0.04 CP10K,
-compared with 19.4 and 24.9 for the abundant compositional controls (counts per
-10{,}000), making it uninformative for the intended test. A second cohort
-reproduced the pattern. Thus the application has two distinct unresolved
-problems: its interval rule lacks the recorded calibration support, and its
-control panel does not distinguish the proposed biological mechanisms.
-Improving one would not establish the other.
+controls. In the primary cohort the retained-gene control, MS4A12, changed by
+$-0.971$ to $-0.951$ relative to baseline after excluding sparse strata,
+nearly matching the compositional controls. The $-1.000$ endpoint occurs in
+strata with very few relevant tumour cells and is not evidence of a precisely
+measured complete loss. The intrinsic control had only 0.04 CP10K, compared
+with 19.4 and 24.9 for the abundant compositional controls (counts per
+10{,}000), limiting its usefulness for the intended test.
+
+A follow-up audit finds that the retained-control drop persists when all
+epithelial cells are included and after depth matching; another gene measured
+on the same cells retains substantially more expression. A separate bulk
+analysis also finds depletion of MS4A12 (Appendix~\ref{app:controls}). These
+checks argue against marker-based selection or measured depth differences
+being the sole explanation, and undermine this gene's assumed retained status.
+Bulk depletion does not itself separate composition from within-cell change.
+Thus interval calibration and control-panel suitability remain distinct
+problems; improving either one would not establish the other.
