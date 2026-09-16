@@ -1,0 +1,49 @@
+{
+  "date": "2026-09-15",
+  "utc_timestamp": "2026-09-16T03:34:59+00:00",
+  "git_sha": "62ddcaec3dff00dc535b7b5b866fd3905070ff1e",
+  "git_sha_short": "62ddcae",
+  "git_branch": "wmhs/control-panel-audit",
+  "git_dirty": false,
+  "git_untracked": [],
+  "seed": 20260101,
+  "python": "3.13.9",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.3.3",
+  "anndata_version": "0.13.2",
+  "name": "intrinsic_control_precommitment",
+  "n_rows": 5,
+  "columns": [
+    "event",
+    "git_sha",
+    "when",
+    "subject",
+    "evidence"
+  ],
+  "table_kind": "harness",
+  "what_this_is": "audit of the reviewer's charge that the labelling axis drives the retained-gene control's -0.95 to -1.00 move",
+  "reported_quantity": "patient-median of mean_tumour/mean_normal - 1, on CP10K per-cell means within the mature compartment of each arm",
+  "inputs": [
+    "results/2026-08-28_6f81018/decomposition_summary.parquet",
+    "results/2026-08-29_4c2a3a9/decomposition_summary_matched.parquet",
+    "results/2026-08-28_033cd51/summary_lee_smc.parquet",
+    "results/2026-09-04_e78e741/gse39582_fold_change.parquet"
+  ],
+  "retained_gene": "MS4A12",
+  "axis_control_gene": "CDX2",
+  "degenerate_mature_cell_floor": 10,
+  "abundance_rank_correlation": -0.389886514581966,
+  "abundance_inversions": [
+    "MLH1",
+    "CDX2"
+  ],
+  "measurable_cp10k_floor": 0.1,
+  "verdict": {
+    "verdict": "THE LABELLING AXIS IS NOT DRIVING THE CONTROL",
+    "detail": "the retained-gene control falls because MS4A12 is not retained in colorectal carcinoma. The drop survives the rung where the label selects nothing, survives depth matching, does not track abundance, and reproduces in bulk tissue that has no labelling axis. The -1.000 endpoint of the published range is separately a degenerate-stratum floor and should not be quoted as a measurement."
+  },
+  "frozen_config_touched": false,
+  "exploratory": false,
+  "pre_registered": false
+}
