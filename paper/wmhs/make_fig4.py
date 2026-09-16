@@ -61,7 +61,7 @@ def main() -> int:
     left.set_xscale("log")
     left.set_ylim(0.3, 2.9)
     left.set_ylabel("recovered / requested")
-    left.set_title("the recovery curve\nfour of the five look fine",
+    left.set_title("recovered / requested effect\nfour of five estimators sit near 1",
                    fontsize=8.5, linespacing=1.5)
 
     right.set_xscale("log")
@@ -69,7 +69,7 @@ def main() -> int:
     right.set_ylim(FLOOR / 5, 1e2)
     right.axhspan(FLOOR / 5, 1e-12, color="#ececec", zorder=0)
     right.set_ylabel(r"max $|\hat\theta - \theta_{\mathrm{realised}}|$")
-    right.set_title("the one-line check\nzero means reference reproduced",
+    right.set_title("residual against the realised reference\nzero indicates functional reuse",
                     fontsize=8.5, linespacing=1.5)
     right.text(120, 2e-15, "numerical zero", fontsize=7, color="#555555")
 

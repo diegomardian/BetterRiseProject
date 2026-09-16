@@ -1,0 +1,81 @@
+\documentclass{article}
+
+% Official NeurIPS 2026 workshop style, unmodified. No geometry, spacing or
+% float overrides live in this file. The style file says tweaking it risks desk
+% rejection, so the page budget gets met by writing less.
+\usepackage[dblblindworkshop]{neurips_2026}
+
+\workshoptitle{World Models for High-Stakes Health: Reliable Clinical Trial
+Simulation and Intervention-Aware Reasoning}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath,amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{mdframed}
+\usepackage{caption}
+
+\captionsetup{font=small,labelfont=bf}
+
+% Build switch. main.tex is the nine-page full paper; main_short.tex sets this
+% false for the four-page extended abstract. BOTH read the same sections/ files,
+% so the short version is a strict subset of the same prose rather than a
+% rewrite — a number cannot say one thing in one build and something else in the
+% other, which given what this paper is about would be an embarrassing way to be
+% wrong. What the short build drops from the main text, its appendix carries.
+\newif\iffull
+\fullfalse
+
+\newcommand{\notest}{\textsc{not estimable}}
+
+
+\title{When the recovery curve reproduces the simulator:\\
+a validation blind spot in virtual control arms}
+
+\author{%
+  Anonymous Author(s) \\
+  Affiliation \\
+  Address \\
+  \texttt{email} \\
+}
+
+\begin{document}
+\maketitle
+
+\input{sections/abstract.tex}
+
+
+% Section order follows the abstract: the blind statistic first, then what a
+% correct calibration returns. The competitor benchmark is Appendix A in BOTH
+% builds --- it was the ninth page the full build did not have, and it is the
+% one section neither build's argument depends on. Labels are stable, so \ref
+% works regardless of order --- but the prose cross-references do not, and they
+% were checked when this was moved.
+\input{sections/setup.tex}
+\input{sections/blind.tex}
+\input{sections/calibration.tex}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+\input{sections/conclusion.tex}
+
+\section{Responsible use, limitations and impact}
+\label{sec:responsible}
+
+\input{sections/responsible.tex}
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\clearpage
+\input{sections/appendix.tex}
+\input{sections/llm.tex}
+
+\end{document}

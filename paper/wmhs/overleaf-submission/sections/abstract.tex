@@ -1,0 +1,24 @@
+\begin{abstract}
+Recovery curves compare estimated effects with a simulator's requested truth.
+They can conceal that an estimator reproduces a reference statistic of the draw.
+If both compute the same functional of the realised summaries, their difference
+is identically zero and recovery reduces to realised over requested truth.
+This equality does not invalidate sampling-performance evaluation; it prevents
+that curve alone from establishing additional calibration claims.
+We propose an audit column: compare the estimate with a specified realised
+reference and investigate a uniformly zero residual. Our single-cell oracle
+arm reproduced its reference across 1.7M runs, yet the abstention rule its curve
+had certified did not survive recalibration. A patient simulator demonstrates
+the same equality for saturated G-computation, IPW and non-cross-fitted AIPW.
+Cross-fitted IPW breaks it in the tested design; exact balance within strata
+makes even the unadjusted difference reproduce the reference.
+\iffull
+A residual-to-generator-error ratio quantifies departures from equality without
+attributing fractions of total error. Under censoring, the exponential MLE
+reproduces the observed-data reference but differs from the latent-time
+reference. These comparisons diagnose functional reuse, not estimator quality.
+\else
+The audit complements interval coverage and decision-rule calibration; it does
+not certify either.
+\fi
+\end{abstract}

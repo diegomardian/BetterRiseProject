@@ -1,0 +1,74 @@
+\documentclass{article}
+
+% The tracked neurips_2026 compatibility shim uses NeurIPS 2024 geometry.
+% Supply the official workshop style and recheck pagination before submission.
+% No geometry or spacing overrides live in this file.
+\usepackage[dblblindworkshop]{neurips_2026}
+
+\workshoptitle{World Models for High-Stakes Health: Reliable Clinical Trial
+Simulation and Intervention-Aware Reasoning}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath,amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{mdframed}
+\usepackage{caption}
+
+\captionsetup{font=small,labelfont=bf}
+
+% Full-paper revisions live in sections/full/; the extended abstract keeps
+% its original sections/ sources. Table values and figure assets are unchanged.
+\newif\iffull
+\fulltrue
+
+\newcommand{\notest}{\textsc{not estimable}}
+
+
+\title{When the recovery curve reproduces the simulator:\\
+an equality audit for virtual control arms}
+
+\author{%
+  Anonymous Author(s) \\
+  Affiliation \\
+  Address \\
+  \texttt{email} \\
+}
+
+\begin{document}
+\maketitle
+
+\input{sections/full/abstract.tex}
+
+
+% Full-paper revisions, including the condensed appendix.
+% The extended abstract retains its original sections/ sources.
+\input{sections/full/setup.tex}
+\input{sections/full/blind.tex}
+\input{sections/full/refdesign.tex}
+\input{sections/full/calibration.tex}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+\input{sections/full/conclusion.tex}
+
+\section{Responsible use, limitations and impact}
+\label{sec:responsible}
+
+\input{sections/full/responsible.tex}
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\clearpage
+\input{sections/full/appendix.tex}
+\input{sections/full/llm.tex}
+
+\end{document}

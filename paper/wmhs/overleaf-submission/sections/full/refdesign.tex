@@ -70,9 +70,9 @@ the wiring a practitioner would build. Pre-registered with falsifiers before
 the run (Appendix~\ref{app:learned}; 7 generators, 10 estimators, 6 cohort
 sizes, 6 seeds). Saturated G-computation against the drawn reference returns
 $\max|\hat\theta - T(\tilde D)| = 0$ \emph{bitwise}, in all 30 learned-generator
-cells and all 12 parametric ones, unchanged across mixture capacity. This is the preceding
-argument measured rather than asserted: the generator's learnedness is not a
-term in the comparison, so it cannot degrade it.
+cells and all 12 parametric ones, unchanged across mixture capacity. That is the
+paragraph above, measured: the generator's learnedness is not in the comparison,
+so it cannot degrade it.
 
 \textbf{The consequence is for our own remedy.} Where the residual is
 identically zero, $\rho$ is zero for the same reason --- the residual is its
@@ -89,11 +89,7 @@ $\texttt{allclose}(r, 0)$ reduces to its absolute tolerance, $10^{-8}$, since
 the relative term multiplies zero, while $\texttt{allclose}(\hat\theta, T)$
 gives $\approx 3\times10^{-5}$ at $\theta = 3$. Of 420 cells, 41 sit strictly
 between the two, every one of them penalised. \textbf{And the gap widens with
-data}: these residuals fall steeply in $n$ --- fitted slopes of $-1.52$ to
-$-1.87$ on $\log_{10}$ residual against $\log_{10} n$, median $-1.75$ ---
-so fourteen arms that both screens catch at $n = 100$ have slipped into the
-interval by $n = 5{,}000$. \emph{We report this rate and do not derive it};
-a fixed penalty would naively suggest $n^{-1}$, the exponent varies across
-generators, and it should not be extrapolated beyond the range measured. More
+data}: these residuals fall like $n^{-1.75}$, so fourteen arms that both screens
+catch at $n = 100$ have slipped into the interval by $n = 5{,}000$. More
 patients move a regularised estimator further into the blind spot, which is the
 opposite of the usual reassurance.

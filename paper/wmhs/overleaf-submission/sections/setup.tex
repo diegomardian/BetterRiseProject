@@ -1,0 +1,83 @@
+\section{Setup: a decomposition that answers when it should not}
+\label{sec:intro}
+
+A virtual-control-arm validation must distinguish recovery of a requested effect
+from reproduction of a statistic computed on the simulated patients. We audit
+that distinction in a stratified patient simulator, including randomisation and
+censoring, then examine the failed calibration that motivated the audit.
+
+A tissue model reports a differentiation marker down 90\% between a patient's
+healthy and diseased sample. Two mechanisms produce that observation and they
+imply different interventions. Either the cells making the marker have left, a
+\emph{compositional} change, or those cells remain and produce less, an
+\emph{intrinsic} change.
+\iffull
+Bulk measurement cannot separate them. Single-cell
+measurement can, but only where enough of the relevant cells survive in both
+arms.
+\else
+Separating them needs single-cell measurement, and only works where enough of
+the relevant cells survive in both arms.
+\fi
+The separating estimator is Kitagawa's demographic standardisation
+\citep{kitagawa1955}. Write $f$ for the fraction of cells of the type in
+question and $m$ for their mean per-cell output:
+\begin{equation}
+\underbrace{(f_T - f_N)\, m_N}_{\text{compositional}} \;+\;
+\underbrace{f_N\, (m_T - m_N)}_{\text{intrinsic}} \;+\;
+\underbrace{(f_T - f_N)(m_T - m_N)}_{\text{interaction}}
+\;=\; f_T m_T - f_N m_N .
+\label{eq:kitagawa}
+\end{equation}
+Economists know this as Oaxaca--Blinder \citep{oaxaca1973,blinder1973},
+epidemiologists as standardisation \citep{kline2011}. Related weighting ideas appear in synthetic controls \citep{abadie2010} and
+target trial emulation \citep{hernan2016}; neither method is generally identical
+to this decomposition. Group-resolved contrasts require a defined group mean.
+
+The problem is that Equation~\ref{eq:kitagawa} returns a number for any input.
+The intrinsic term is a difference of two means over cells of one type. When the
+diseased arm holds none of those cells, ``mean output per surviving cell of this
+type'' has no referent, and the estimator still returns a number. So our
+estimator returns one of three verdicts: an estimate, a wide-interval estimate,
+or \notest{}, where the term is \texttt{None} and never $0.0$. Zero and ``we did
+not ask'' are values a downstream average cannot tell apart. The rule gating
+those verdicts is a cutpoint on $n$, the count of relevant cells in the diseased
+arm: answer at $n \geq 50$, flag a wide interval from 20 to 49, abstain below 20.
+
+\iffull
+\paragraph{Related work.} Simulation-study methodology (ADEMP and its
+forerunners), the differential-abundance methods that never face this
+estimand, and the selective-prediction literature the abstention rule belongs
+to are surveyed in Appendix~\ref{app:relatedwork}.
+
+\paragraph{Relation to known circularity.} Generator--analysis alignment is
+well known: Meng's congeniality concerns compatibility of imputation and
+analysis models \citep{meng1994}; plasmode and semi-synthetic benchmarks can
+favour methods sharing modelling choices \citep{franklin2014,curth2021};
+interventional evaluation offers another comparison \citep{gentzel2019}; and
+generators can also disadvantage good estimators \citep{shaw2026}. The inverse
+crime explicitly includes identical forward and inverse ingredients
+\citep{wirgin2004,kaipio2007}. Exact reuse is therefore not a new phenomenon.
+Our contribution is an operational audit of a chosen recovery statistic,
+examples showing its dependence on reference functional and trial design, and
+a calibration conclusion that fails when tested directly.
+
+Simulation-based calibration (SBC) \citep{talts2018} checks posterior ranks under
+prior-predictive simulation. These point-estimator arms supply no posterior
+samples, so SBC is not directly applicable. A correct posterior can pass SBC
+while its point estimate reproduces our reference; that is not a computational
+error. Conversely, SBC can expose posterior errors that our residual cannot.
+Modr\'ak et al.~\citep{modrak2025} already show structural blind spots from the
+choice of test quantity and develop more sensitive quantities. We complement
+that work rather than claim that existing diagnostics detect only approximate
+bias. Exact functional equality permits an algebraic audit; a good-looking
+curve alone establishes neither that equality nor its absence.
+
+\else
+\paragraph{Related work.} Exact reuse is related to the inverse crime
+\citep{wirgin2004}; diagnostic sensitivity also depends on test quantities in
+SBC \citep{modrak2025}. Our contribution is the reference-reuse audit and failed
+calibration, not a new circularity phenomenon or cell-count filter
+(Appendix~\ref{app:relatedwork}).
+\fi
+

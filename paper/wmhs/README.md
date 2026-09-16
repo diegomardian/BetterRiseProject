@@ -67,6 +67,12 @@ Simulation and Intervention-Aware Reasoning](https://wmhs-neurips.github.io/WMHS
 NeurIPS 2026, Atlanta.
 **Deadline:** 15 September 2026, AoE. **Non-archival, double-blind.**
 **Limits:** 9 pages of main text (full paper) or 4 (extended abstract).
+References and appendices do not count. Verified against the CFP's own text
+on 2026-08-31: *"Full Papers: at most 9 pages of main text. Extended
+Abstracts: at most 4 pages of main text. References and appendices do not
+count toward the page limit, but the main text must be self-contained."*
+A reviewer could not locate this limit and raised over-length as a risk, so
+the source is quoted here rather than paraphrased.
 References and appendices do not count. Both versions are built and both fit.
 
 A **responsible-use statement covering limitations and impact is mandatory** —

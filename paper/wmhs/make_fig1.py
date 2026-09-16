@@ -93,7 +93,7 @@ def main(*, out: Path = OUT, annotation: str = "calibrated") -> int:
     panel(
         axes[1],
         ref,
-        title="a second reading: reference tissue only",
+        title="draw pool: reference tissue only",
         subtitle="$ok = 90$ (7 of 8 seeds), not the committed 50",
     )
     axes[1].axvline(90, color="#111111", ls=":", lw=1.2, zorder=3)

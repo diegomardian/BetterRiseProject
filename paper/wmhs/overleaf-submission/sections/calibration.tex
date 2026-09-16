@@ -1,0 +1,169 @@
+\section{What the blind curve hid}
+\label{sec:calibration}
+
+Three acceptance criteria were fixed in a design document before any sweep ran:
+a detectable halving of per-cell output, $s = 0.5$; interval coverage of 90\%;
+and discrimination of 80\%, the probability the interval excludes zero at that
+effect.\iffull{} The cutpoints follow mechanically --- the smallest $n$ meeting
+both criteria, and the smallest meeting coverage alone.\fi The pre-registration is
+mechanical rather than documentary: the panel, the labelling axes and the
+falsification rule are frozen in a configuration file
+\iffull
+with a \texttt{frozen\_on} stamp and mirrored by an exact-value assertion in the
+test suite, so continuous integration fails if anyone edits one without the
+other.
+\else
+and asserted in the test suite, so continuous integration fails if anyone edits
+one without the other.
+\fi
+
+Run properly on real held-out cells, the committed cutpoint of 50 does not come
+back\iffull{} (Figure~\ref{fig:calibration})\fi. The generator filters eligibility on
+patient alone, so both synthetic arms draw from the held-out patients' cells of
+\emph{both} tissues pooled.
+\iffull
+The design document lists what stays fixed and never
+mentions tissue. Nobody made that choice; an implementation detail made it, and
+it changes the answer.
+\else
+The design document never mentions tissue: nobody made
+that choice, an implementation detail made it, and it changes the answer.
+\fi
+So we report both readings rather than the one that
+yields a cutpoint. Pooled, the routine returns no cutpoint at all: discrimination
+never reaches the 0.80 target in any count bin, topping out at 0.78 across 13
+seeds at 50 replicates and at 0.75 across 8 seeds at 500.\iffull{} Restricted to
+the reference tissue it does return one, and that is where the second lesson of
+this paper repeats itself.\else{} Restricted to the reference tissue it does
+return one, and that is where this paper's second lesson repeats itself.\fi
+
+\iffull
+\begin{figure}[t]
+\centering
+\iffull
+\includegraphics[width=\linewidth]{figures/fig1_calibration.pdf}
+\else
+\includegraphics[width=0.88\linewidth]{figures/fig1_calibration.pdf}
+\fi
+\iffull
+\caption{\textbf{The committed cutpoint is not what the pre-registered procedure
+returns, under either reading of an unspecified design choice.} Dashed lines mark
+the targets fixed before the sweep. Shading marks the committed rule's three
+states. \emph{Left:} with the draw pool our sweep code implements, the routine
+returns no cutpoint at any tested count. \emph{Right:} under a second reading of
+the same unspecified choice it does return one --- but the value is the grid's,
+not the cohort's: $100$, $90$ and $70$ on three grids of increasing resolution,
+against a committed 50 that none of them returns.}
+\else
+\caption{\textbf{The committed cutpoint is not what the pre-registered procedure
+returns, under either reading of an unspecified design choice.} Dashed lines are
+the targets fixed before the sweep; shading marks the committed rule's three
+states; the committed value is 50 in both panels.}
+\fi
+\label{fig:calibration}
+\end{figure}
+\fi
+
+
+\iffull\else
+\paragraph{The grid was reporting its own resolution.} The committed grid varies
+a mature \emph{fraction} against a fixed 2{,}000 cells, so it can reach no count
+between 40 and 100, and returns $ok = 100$ on every seed. Adding nine fractions
+inside that gap and changing nothing else moves the answer to 90, against a
+committed 50: the crossing it was hiding runs $0.728$ at 45 mature cells,
+$0.789$ at 65 and $0.858$ at 90. A grid that cannot resolve a crossing still
+returns a stable number, which is \S\ref{sec:blind}'s failure in a second
+statistic.
+\fi
+\iffull
+\paragraph{The grid was reporting its own resolution.} Our committed grid varies
+a mature \emph{fraction} against a fixed 2{,}000 cells, so the counts it can
+reach are $\{0, 20, 40, 100, 200, 400, 800\}$ --- nothing between 40 and 100. On
+the reference pool it returns $ok = 100$ on every one of the eight seeds at 500
+replicates\iffull{}, and on twelve of thirteen at 50,\fi{} and that stability is
+what made the number look like a measurement.
+
+\iffull
+The superseded internal report gave 120, and we cannot reproduce it: 120 is not
+a count the committed grid can reach. Whatever produced it was not the committed
+configuration, and the run is the uncommitted one of
+the artifact's defect log item~3, so there is nothing left to re-derive it
+from. We report that rather than reconcile it.
+\fi
+
+\textbf{And the reported cutpoint is not a count. It is a bin label.} Counts are
+binned into twelve log-spaced intervals before coverage and discrimination are
+computed, and the value reported for a bin is the \emph{median of the counts
+that landed in it}. Over $20$--$800$ the edges are $\{0, 20, 28, 39, 55, 76,
+107, 150, 209, 293, 409, 572, 800\}$, and they are identical for every grid
+because they are derived from the same span. Nothing in the output says so, and
+we did not know it while writing the paragraph above.
+
+We added nine fractions inside the gap, reaching 50, 60, 70, 80, 90, 110, 120,
+130 and 150, and changed nothing else. The answer moves to 90 --- and it moves
+\emph{within one bin}. Both grids return the interval $(76, 107]$; the committed
+grid held only $\{100\}$ there and the filled grid holds $\{80, 90, 100\}$, so
+the median fell from 100 to 90 while the bin boundaries stayed put; the added counts change the evidence
+aggregated within that bin. \textbf{At the resolution of the statistic that produced it, the answer did
+not move at all.} What the filled grid did buy is a genuinely new bin at
+$(55, 76]$, where discrimination reads $0.789$ --- under target, so the crossing
+lies above it.
+
+\textbf{A third grid, and the number keeps falling.} A denser grid reaching
+below 20 --- attainable counts $\{2.5, 10, 17.5, 27.5, 42.5, 70, 105, 150, 400,
+800\}$ --- returns $ok = 70$ on eight of eight seeds. Discrimination against
+count is smooth, and the three grids agree on it wherever they overlap
+(medians over eight seeds of $0.712$, $0.728$ and $0.726$ near 40, and $0.880$,
+$0.858$ and $0.878$ near 100). What
+differs is only which point each grid happens to carry first above the $0.80$
+line:
+
+\begin{center}\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+ & \textbf{committed} & \textbf{filled} & \textbf{dense} \\
+\midrule
+crossing bracketed to & $(40, 100]$ & $(65, 90]$ & $(42.5, 70]$ \\
+reported $ok$ & $100$ & $90$ & $\mathbf{70}$ \\
+reported $wide$ & $40$ & $45$ & $42$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{The reported cutpoint decreases across these independently run grids;
+this does not establish monotonicity or non-convergence under further
+refinement. None of these historical runs returned the committed 50.} Each value is the first point above a crossing, reported as
+though it were the crossing. Within any one grid $wide$ has \emph{exactly zero}
+seed-to-seed variance --- one value on all eight seeds, in all six
+cohort-by-grid cells we ran ($40$, $45$, $42$ here; $100$, $65$, $70$ on the
+second cohort) --- so the quantity that looks most like a measurement is the one
+whose stability comes entirely from having nowhere else to land. The pooled draw
+returns no cutpoint under any of the three grids, on any seed of either cohort,
+discrimination topping out at $0.750$ and $0.795$ against the $0.80$ target, so
+the non-identifiability there is not a resolution artefact.
+
+\textbf{We do not endorse a calibrated cutpoint: the procedure returns
+grid-dependent candidates without patient-level uncertainty.} It returns its own grid, and it did so with a stability that
+survived three grids, thirteen seeds and two cohorts without once warning us.
+On the real cohort, rather than on the sweep, abstention is the modal outcome
+under both population definitions at the resolution the compositional question
+is defined on, and the coarse resolutions return \emph{not identifiable}
+rather than a number.
+\fi
+
+\iffull
+A second cohort agrees on the verdict and not the number: its pooled draw
+returns no cutpoint on any seed, and its reference draw returns $400$ or
+$800$, the top two counts its grid can express. Eight to sixteen times the
+committed 50, by the same mechanism.
+
+\paragraph{Three further statistics, and where they are.} The same failure
+recurs three more times in this pipeline --- a confound diagnostic whose
+tolerance sat above its own attainable bound, a pre-registered criterion that
+could not pass when the hypothesis held, and a premise check whose sensitivity
+was a property of the gene it controlled. Each survives correct code and each
+is recorded in Appendix~\ref{app:guards} rather than argued here; none of this
+paper's claims rests on them. The fourth is not a guard at all.
+
+\input{sections/interval.tex}
+\fi

@@ -1,15 +1,9 @@
 \section{Motivation: recovery and decision-rule validation}
 \label{sec:intro}
 
-External and synthetic control arms are now used as pivotal evidence under
-regulatory guidance \citep{fda2023external,ema2024singlearm}, and
-prognostic covariate adjustment deploys the same machinery inside randomised
-trials \citep{schuler2022prognostic}. Each is validated by simulation before
-use, and simulation-study practice has a written protocol for that
-\citep{burton2006,morris2019}. Validation of a virtual control arm must
-distinguish recovery of a requested effect from reproduction of a statistic
-computed on the simulated patients. These comparisons can coincide even for
-correctly implemented estimators.
+Validation of a virtual control arm must distinguish recovery of a requested
+effect from reproduction of a statistic computed on the simulated patients.
+These comparisons can coincide even for correctly implemented estimators.
 We examine this equality in a stratified patient simulator, including
 randomisation and censoring, and revisit the failed calibration that motivated
 the audit.

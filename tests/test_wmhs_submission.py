@@ -290,9 +290,14 @@ def test_the_learned_generator_result_is_rederived():
                  & (tr["max_residual_at_largest_n"] < hi)]
     assert len(crossed) == 14, len(crossed)
     _quotes(text, "fourteen arms")
-    slope = tr["log10_slope_vs_log10_n"].median()
-    assert round(abs(slope), 2) == 1.75, slope
-    _quotes(text, "fall like $n^{-1.75}$")
+    # the paper now reports the fitted spread, not a single exponent, and
+    # explicitly declines to derive it -- so pin the bounds it quotes
+    slopes = tr["log10_slope_vs_log10_n"]
+    assert round(abs(slopes.median()), 2) == 1.75, slopes.median()
+    assert round(slopes.min(), 2) == -1.87 and round(slopes.max(), 2) == -1.52
+    _quotes(text, "fitted slopes of $-1.52$ to")
+    _quotes(text, "median $-1.75$")
+    _quotes(text, "do not derive it")
 
 
 def test_the_prevalence_audit_is_rederived():
@@ -310,3 +315,39 @@ def test_the_prevalence_audit_is_rederived():
     assert len(executed) == 1
     assert round(float(executed["max_residual"].iloc[0]) * 1e14, 1) == 4.0
     _quotes(text, "$4.0" + chr(92) + "times10^{-14}$")
+
+
+#: A mangled control sequence leaves one of these behind. LaTeX raises no error
+#: for any of them -- it typesets the fragment as body text -- so a build log is
+#: not a check. One reached a reviewer's PDF as literal "extbf{None reuses...".
+_ORPHANS = ("extbf{", "extit{", "exttt{", "ef{", "imes", "elax", "aragraph{")
+
+
+def test_no_mangled_control_sequences_in_the_submitted_sources():
+    """No stray control byte, and no macro that lost its backslash.
+
+    Read as BYTES. Python's universal-newline text mode silently converts a
+    lone carriage return to a newline, which hides exactly the damage this
+    looks for -- the defect and its concealment in the same call.
+    """
+    import re as _re
+    bs, tab, cr, ff = chr(92), chr(9), chr(13), chr(12)
+    offenders = []
+    for path in latex_input_graph(PAPER / "main.tex"):
+        raw = path.read_bytes().decode("utf-8")
+        name = path.name
+        if tab in raw:
+            offenders.append(f"{name}: literal TAB")
+        if raw.replace(cr + chr(10), "").count(cr):
+            offenders.append(f"{name}: lone CR")
+        if ff in raw:
+            offenders.append(f"{name}: form feed")
+        for frag in _ORPHANS:
+            # a fragment not preceded by a backslash or a letter is orphaned
+            pattern = "(?<![A-Za-z" + _re.escape(bs) + "])" + _re.escape(frag)
+            for m in _re.finditer(pattern, raw):
+                offenders.append(f"{name}: orphaned {frag!r} at {m.start()}")
+    assert not offenders, (
+        "mangled control sequences in the submitted sources: "
+        + "; ".join(offenders[:8])
+    )

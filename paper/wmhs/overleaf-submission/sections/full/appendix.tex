@@ -205,30 +205,6 @@ penalised outcome models as a positive control after we established that the
 pre-registered estimator set could not reach the interval between the two
 tolerance screens and so could not have tested the prediction at all.
 
-\paragraph{The falsifiers, and which fired.} Fixed before the module existed and
-not weakened afterwards. \textsc{fired} means the pre-registered condition was
-met and the corresponding claim is withdrawn.
-
-\begin{center}\small
-\begin{tabular}{@{}llp{0.42\linewidth}@{}}
-\toprule
- & & outcome \\
-\midrule
-F1 & nothing degraded & \textsc{fired} --- exact zero, not approximate \\
-F2 & the boolean screen suffices & did not fire; it returns \texttt{True}, but because the equality is exact \\
-F3 & the stated mechanism is false & \textsc{fired} --- residual identical for learned and parametric \\
-F4 & capacity is irrelevant & \textsc{fired} --- flat in $K$ under the drawn reference \\
-F5 & the learned generator is the parametric one & did not fire; no mixture reproduced its training means \\
-F6 & the control estimator collapses & did not fire; OLS held at $\geq 0.033$, so the screen discriminates \\
-F7 & $\rho$ adds nothing & \textsc{fired} --- $\rho$ is zero wherever the residual is \\
-F8 & the band is unreachable & did not fire; penalised arms reach it, so (b) is tested, not untested \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent Four fired. The prediction this experiment was built to confirm is
-false as stated, and F7 withdraws the remedy we had proposed alongside it.
-
 Seven generators (Gaussian mixtures at $K \in \{1,2,4,8\}$, an MLP conditional
 Gaussian, and two parametric controls) $\times$ 10 estimators $\times$ 6 cohort
 sizes $\times$ 6 seeds $\times$ 30 replicates: 52{,}920 estimates, seed
