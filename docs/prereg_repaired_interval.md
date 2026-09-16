@@ -38,11 +38,21 @@ stated once, here, and every table produced under this registration carries an
 `expected_false_positive_rate`) is an **arithmetic** statement about a
 percentile bootstrap of a mean of `n` exchangeable values. It therefore also
 applies, as a floor, to the cell-level bootstrap at cell count `n`. But that
-floor is **0.8 percentage points at n = 50** (`width_ratio(50) = 0.966`,
-`expected_false_positive_rate(50) = 5.8%`) and **essentially nothing at
-n = 800** (`width_ratio(800) = 0.9993`). It cannot be the explanation for
+floor is **0.8 percentage points at n = 50** (`width_ratio(50) = 0.9655`,
+`expected_false_positive_rate(50) = 5.81%`) and **0.05 percentage points at
+n = 800** (`width_ratio(800) = 0.99786`,
+`expected_false_positive_rate(800) = 5.05%`). It cannot be the explanation for
 12–30% at 50 cells or 9.5% at 800, and this registration does not offer it as
-one. It is entered as the measured floor `P3` below, precisely so that the gap
+one.
+
+> **Correction, 2026-09-15, before any result.** As first registered this
+> paragraph said `width_ratio(800) = 0.9993` and "essentially nothing". The
+> true value is 0.99786, and the floor at n = 800 is 0.05 pp rather than the
+> 0.02 pp that figure implies. The correction makes the floor slightly
+> *larger*, i.e. it works marginally against the argument being made here, and
+> it changes no conclusion: 0.05 pp is still two orders of magnitude short of
+> the 4.5 pp excess at 800 cells. Recorded rather than silently edited, and
+> caught by `tests/test_interval_diagnosis.py::test_normal_quantile_shortfall_is_a_floor_not_an_explanation`. It is entered as the measured floor `P3` below, precisely so that the gap
 between it and the observed rate is visible as a number.
 
 ## 1. The object, stated as algebra
@@ -164,8 +174,9 @@ differences between them are differences between methods and nothing else.
 `n_held_out = 2`. Both are therefore run at **`n_held_out ∈ {2, 5}`**, so that
 "this method fails" is separated from "two clusters is not a sample". A
 patient-level interval built on 2 or 5 patients inherits exactly the small-sample
-problem `interval_calibration.py` quantifies (`width_ratio(2) = 0.11`,
-`width_ratio(5) = 0.62`). **If that is why `R4` and `R5` fail, it is the more
+problem `interval_calibration.py` quantifies (`width_ratio(2) = 0.109`,
+`width_ratio(5) = 0.631`, i.e. closed-form false-positive floors of 39.8% and
+15.4% before any data is involved). **If that is why `R4` and `R5` fail, it is the more
 interesting answer and will be reported as the finding, not as a footnote.**
 
 **The list is frozen here.** Any candidate added after a result table is seen
