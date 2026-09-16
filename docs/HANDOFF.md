@@ -1449,6 +1449,64 @@ sidecars point at specific shas and a rebase orphans them.
 
 ---
 
+## WMHS · does an observed-data reference ever cause HARM? — RAN 2026-09-15. IT DOES.
+
+`docs/prereg_external_control_demo.md` RESULT; tables
+`results/2026-09-15_6b4a31a/`; module `src/harness/external_control_demo.py`.
+**Do not queue it — it is done.** Answers the reviewer objection that the
+equality audit *"only protects against something when a study uses an
+observed-data reference in place of theta as ground truth. The paper never
+shows that happening"*, against which `docs/prevalence_audit_result.md` found
+**0 of 7**.
+
+**The lead was that the objection assumes `theta` is available.** In plasmode
+and resampling designs it is not: the cohort is built from real records, so the
+marginal estimand is a functional of the realised sample. Our own audit's
+`PamelaShaw/PlasmodeSimulation` was classified NO only on criteria 3a and 3b —
+a variant that does not hold the reference out would be YES.
+
+**The workflow** is a single-arm trial with an external control arm from a
+registry, validated by plasmode resampling: enrolment enriched for refractory
+patients, an effect-modified benefit induced on each record's own outcome, an
+external control arm three times the trial. **The defect** is that the estimator
+targets the pooled analysis population when the estimand is the effect in the
+enrolled one — the ATE/ATT weight slip, and equally the plain "average the
+stratum contrasts over my analysis file".
+
+**The validation passes, and it passes BEST for the defective arm.** Against
+`obs-pooled` — "the average effect in my cohort", bit-identical to
+`trial_recovery._standardised_effect` — `ate-standardisation` has
+`max|r| = 0.0` **bitwise** at every cohort size, recovery ratio `1.000000` with
+zero IQR, and the smallest RMSE of all seven primary estimators at every n.
+The **correct** estimator looks 48% attenuated and looks not to improve with n.
+The bake-off tells the analyst to discard the right estimator and ship the
+broken one, at **1.89 months against an MCID of 1.5** when the enrolled patients
+received **1.00**. Overstatement ×1.89. Positivity is clean, and the
+post-weighting balance table is immaculate (worst between-arm SMD 5.6e−16) while
+the pseudo-population sits 0.964 SMD from the patients enrolled.
+
+**The counterfactual.** Swap the reference to `po-trial` — realised individual
+causal effects among the enrolled, reading both arms of the same record, so no
+estimator can be it — and the ranking inverts: `ate-ipw` carries `+0.885` flat
+in n while `att-standardisation` converges to zero at `n^-1/2`.
+
+**Two pre-registered controls correct our own remedy rather than confirming it.**
+P4: `po-pooled` breaks the equality and hides the defect just as well, so "use a
+reference the estimator does not reproduce" is **insufficient** — the reference
+must also **name the target population**. F4: at zero case-mix shift the equality
+persists and the harm does not, so equality flags a validation that could not
+have failed, never a wrong answer.
+
+**What it does not establish.** Prevalence stays **0 of 7**. This is a
+constructed workflow, not an observed one, on a synthetic pool. Its realism
+rests on one load-bearing assumption — that the analyst's target population is
+wrong in the estimator and in the reference *because it is one belief expressed
+twice* — and RESULT §10 says so rather than claiming more. F5 cleared by only
+0.0098 months, so the strongest reading of "theta does not exist here" is not
+supported; RESULT §13 states the narrower claim that is.
+
+---
+
 ## WMHS · the learned-generator prediction — RAN 2026-09-13. A CLEAN NEGATIVE.
 
 `docs/prereg_learned_generator.md` RESULT; tables `results/2026-09-13_19e016b/`.
