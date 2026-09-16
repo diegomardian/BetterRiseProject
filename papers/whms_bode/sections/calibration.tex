@@ -69,8 +69,11 @@ but changed random streams, bin boundaries and replicate budgets together
 (Appendix~\ref{app:historical}). To isolate these choices, we simulated the
 union of counts once per cohort, pool and each of eight seeds, with 200 outer
 replicates and 200 inner bootstrap draws. Every grid summary reuses the same
-outputs at shared counts. The committed grid reaches
-$\{0,20,40,100,200,400,800\}$; filled and dense grids add count support.
+outputs at shared counts. A \emph{grid} is the set of mature-cell counts a
+sweep can evaluate, fixed by which mature-cell fractions it varies. The
+committed grid is the pre-registered one and reaches
+$\{0,20,40,100,200,400,800\}$; the filled and dense grids add support between
+and below those counts, and differ from it in nothing else.
 Fixed bins share boundaries across grids; adaptive bins recalculate them.
 Binned candidates are median counts within the selected bin, not estimated
 crossing locations.

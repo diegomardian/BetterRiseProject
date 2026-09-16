@@ -2,8 +2,9 @@
 \label{app:matrix}\label{sec:matrix}
 
 \paragraph{Reference dependence.}
-With nonempty stratum arms, saturated G-computation \citep{robins1986}, IPW
-using empirical stratum propensities, non-cross-fitted saturated AIPW and
+With nonempty stratum arms, saturated G-computation \citep{robins1986}, inverse
+probability weighting (IPW) using empirical stratum propensities,
+non-cross-fitted saturated augmented IPW (AIPW) and
 matching using every control all reproduce
 $T(D)=\sum_g(n_g/n)(\bar Y_{1g}-\bar Y_{0g})$. The IPW weights recover each
 stratum mean; the AIPW augmentation sums to zero within stratum. OLS with
@@ -26,14 +27,15 @@ intervals.\label{tab:cleancontrol}
 \paragraph{Censoring and implementation checks.}\label{app:cox}
 The standardized exponential estimator equals its events/exposure reference.
 At 3{,}000 patients its maximum departure from the latent-time reference grows
-from zero without censoring to 0.376 at 78\% censoring. RMST at $\tau=2$, below
+from zero without censoring to 0.376 at 78\% censoring. Restricted mean survival time (RMST) at $\tau=2$, below
 every censoring horizon, agrees with the empirical latent truncated-mean
 contrast to $2.8\times10^{-15}$. The most affected setting excludes 463 of
 1{,}200 pairs with nonfinite fits. Eight independent Cox comparisons agree
 with \texttt{lifelines} to $1.4\times10^{-7}$ against a $10^{-5}$ tolerance.
 
 \paragraph{Learned-generator design and exclusions.}\label{app:learned}
-Seven generators (four Gaussian mixtures, an MLP conditional Gaussian and two
+Seven generators (four Gaussian mixtures, a multilayer-perceptron (MLP)
+conditional Gaussian and two
 parametric controls), ten estimators, six sizes, six seed streams and 30
 replicates schedule 75{,}600 evaluations on 7{,}560 cohorts. Generator failures
 leave 75{,}580 evaluations on 7{,}558 cohorts; 74{,}726 drawn-reference pairs
