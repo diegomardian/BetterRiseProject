@@ -13,6 +13,8 @@ not uncertainty over additional patients.
 
 \input{sections/precision_table.tex}
 
+\subsection{Shared-reference scoring removes part of the estimation error}
+\label{sec:sharedreference}
 At 800 cells, evaluating the percentile intervals against the sampled
 reference gives 98.9--99.6\% inclusion, compared with 92.3--93.6\%
 coverage of the fixed-pool effect. The paired differences are 5.8--6.8
@@ -20,7 +22,7 @@ percentage points with Monte Carlo standard errors of 0.33--0.36 points.
 Only the scoring target changes. At five cells the direction reverses;
 shared randomness need not inflate inclusion at every sample size.
 
-The increasing discrepancy at large tumour-arm counts has an analytic
+The increasing discrepancy at large tumor-arm counts has an analytic
 explanation. The estimate is $\hat\theta=f_N(\bar Y_T-\bar Y_N)$, whereas
 its error against the drawn benchmark is
 $\hat\theta-i_{\mathrm{req}}=f_N(\bar Y_T-s\bar Y_N)$.

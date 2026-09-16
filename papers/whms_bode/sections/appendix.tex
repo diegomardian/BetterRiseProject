@@ -5,8 +5,8 @@
 Five fresh seed streams (202609160--202609164), each with 1{,}000 studies
 per setting, provide 5{,}000 draws at each of four counts and two shifts in
 four cohort/pool combinations. Every draw uniformly chooses a two-patient
-pair, samples 800 reference and $n_T$ tumour mature-cell counts independently
-with replacement, and thins tumour counts binomially. This is the original
+pair, samples 800 reference and $n_T$ tumor mature-cell counts independently
+with replacement, and thins tumor counts binomially. This is the original
 generator's marginal law for this contrast, not a replay of its random stream.
 All 120 source-pair summaries match the earlier analysis. The vectorized
 percentile routine agrees with the original implementation on 32 actual-pool
@@ -29,28 +29,20 @@ target diagnostic is retained in the supporting summaries.
 \label{app:gridcaveats}
 
 \paragraph{Historical grids.}\label{app:historical}
-Before the controlled run, the SMC reference-only sweeps returned binned joint
-candidates of 100, 90 and 70 on the committed, filled and dense grids, with
-500, 500 and 200 replicates per setting, respectively. Their adjacent crossing
-brackets were $(40,100]$, $(65,90]$ and $(42.5,70]$, describing evaluated bin
-summaries rather than confidence intervals. The 100-to-90 change occurred
-within the same bin, $(76,107]$: adding counts 80 and 90 to 100 changed both
-its median count and its aggregated outcomes. Random streams and bin boundaries
-also differed, so this comparison alone did not isolate a resolution effect.
-The controlled analysis in Section~\ref{sec:calibration} supersedes it for that
-question. Under pooled draws no joint cutpoint qualified in either cohort's
-historical grids. KUL3 reference-only candidates were 400 or 800; its largest
-setting sampled 800 mature cells per arm with replacement from 844 distinct
-mature source cells. Sampling with replacement is a valid empirical-pool
-simulation, but an 800-draw arm is not 800 distinct cells or additional
-independent patients.
+Before the controlled run, SMC reference-only binned candidates were 100,
+90 and 70 on the committed, filled and dense grids, with 500, 500 and 200
+replicates per setting. These runs changed random streams and bin boundaries
+as well as evaluated counts; Section~\ref{sec:calibration} separates those
+choices. KUL3 reference-only candidates were 400 or 800, and no pooled-draw
+candidate qualified. Its largest setting sampled 800 mature cells per arm
+with replacement from 844 distinct source cells, not additional patients.
 
 \paragraph{Recovery accounting and unavailable contrasts.}\label{app:generator}
 The four diagnostic sweeps comprise 1{,}711{,}200 replicates: 1{,}283{,}400 with
 nonzero requested intrinsic reference and 427{,}800 with zero requested
 reference, for which ratios are undefined. The first 50-replicate sweep has
 119{,}600 draws, partitioned into 89{,}700 and 29{,}900, respectively. The
-maximum estimate--realised-reference residual is zero throughout. At a
+maximum estimate--realized-reference residual is zero throughout. At a
 zero-cell setting the raw ratio is $1/(1-s)$ when the denominator is nonzero.
 These raw diagnostic values arise from the harness setting an empty-arm mean
 to zero; they do not define an effect in absent cells. The reporting gate
@@ -87,7 +79,7 @@ $(0.55,0.30,0.15)$, baseline outcomes $Y_0\mid g\sim
 \mathcal N(\mu_g,3^2)$, $\mu=(12,8,4)$, and effects
 $Y_1-Y_0=\delta_g r$, $\delta=(3,1.5,0.25)$,
 $r\sim\mathrm{Gamma}(4,0.25)$ (shape, scale). Responsiveness is fixed per record
-and hidden from estimators. Enrolment weights favor shares $(0.15,0.25,0.60)$;
+and hidden from estimators. Enrollment weights favor shares $(0.15,0.25,0.60)$;
 both arms sample without replacement and are disjoint. The pooled target is a
 mixture of enrolled and control records, not the registry population itself.
 Normal outcomes can be negative: this is an abstract continuous-outcome
@@ -103,14 +95,9 @@ simulator, not to estimators observing one outcome per record. Five case-mix
 shifts and 50 balance draws at $n=1600$ provide controls. Threshold crossings
 in the saved shift table compare medians, not replicate-level decisions.
 
-For enrolled standardization, RMSE against enrolled truth falls from 0.608
-at $n=50$ to 0.105 at $n=1600$; pooled standardization falls from 1.082 to
-0.892. The nine prespecified falsification checks did not fire, but this
-shows consistency with those checks, not clinical realism. The example
-assumes the same target-population mistake in estimator and reference;
-its identical recovery curve may itself alert a careful analyst. It neither
-estimates a failure frequency nor requires a reference to disagree numerically
-with a correct estimator on every dataset.
+The nine prespecified falsification checks did not fire. They verify the
+constructed comparison, not clinical realism or the frequency of the
+validation mistake.
 
 \section{The retained-gene control}
 \label{app:controls}
@@ -119,11 +106,11 @@ summaries with a separate bulk dataset. Where both mature fractions equal
 one (all epithelium, without marker-based subdivision), MS4A12 still changes
 by $-0.967$ to $-1.000$ across the tested cohort/matching strata; CDX2 on the
 same cells changes by $-0.396$ to $-0.293$. Depth-matched MS4A12 changes are
-$-0.971$ to $-0.960$. These observations weaken a uniform labelling or depth
+$-0.971$ to $-0.960$. These observations weaken a uniform labeling or depth
 artifact explanation; they do not eliminate every measurement artifact.
-Across nondegenerate strata, the median baseline is 2.56 CP10K and tumour
+Across nondegenerate strata, the median baseline is 2.56 CP10K and tumor
 expression 0.104 CP10K. Strata classified as degenerate have a median of one
-relevant tumour cell and cannot establish a precise complete loss.
+relevant tumor cell and cannot establish a precise complete loss.
 
 In GSE39582 (585 bulk samples), the saved MS4A12 log$_2$ fold change is
 $-8.18$. This corroborates tissue-level depletion on a separate platform;
@@ -173,7 +160,7 @@ source mapping and checksums remain outside the review bundle. This records
 one internal validation error; the external search found no positive case.
 
 \paragraph{Implementation and provenance.}\label{app:withdrawn}
-Corrections separated collapsed population definitions, aligned labelling,
+Corrections separated collapsed population definitions, aligned labeling,
 tracked producing scripts, and repaired undefined-interval denominators.
 Saved tables retain commit hashes and seeds; these establish traceability,
 not statistical validity.

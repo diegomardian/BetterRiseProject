@@ -1,5 +1,6 @@
+% Extended local analysis; not part of the submission source graph.
 \section{Supporting estimator and trial checks}
-\label{app:matrix}\label{sec:matrix}
+\label{analysis:app:matrix}\label{analysis:sec:matrix}
 
 \paragraph{Reference dependence.}
 With nonempty stratum arms, saturated G-computation \citep{robins1986}, inverse
@@ -22,9 +23,9 @@ effect, the full-sample mean has 94.60\% and 95.40\% coverage at
 $\theta=0,0.5$. Quartering the interval half-width leaves the estimate and its
 zero residual against the empirical mean unchanged, but reduces coverage to
 35.95\% and 36.30\%. The control illustrates why residuals cannot certify
-intervals.\label{tab:cleancontrol}
+intervals.
 
-\paragraph{Censoring and implementation checks.}\label{app:cox}
+\paragraph{Censoring and implementation checks.}\label{analysis:app:cox}
 The standardized exponential estimator equals its events/exposure reference.
 At 3{,}000 patients its maximum departure from the latent-time reference grows
 from zero without censoring to 0.376 at 78\% censoring. Restricted mean survival time (RMST) at $\tau=2$, below
@@ -33,7 +34,7 @@ contrast to $2.8\times10^{-15}$. The most affected setting excludes 463 of
 1{,}200 pairs with nonfinite fits. Eight independent Cox comparisons agree
 with \texttt{lifelines} to $1.4\times10^{-7}$ against a $10^{-5}$ tolerance.
 
-\paragraph{Learned-generator design and exclusions.}\label{app:learned}
+\paragraph{Learned-generator design and exclusions.}\label{analysis:app:learned}
 Seven generators (four Gaussian mixtures, a multilayer-perceptron (MLP)
 conditional Gaussian and two
 parametric controls), ten estimators, six sizes, six seed streams and 30
@@ -46,7 +47,7 @@ dataset. Ridge and MLP outcome fits can depart; the largest mixture-generated
 MLP residual is 3.3. Generator complexity by itself does not test an estimator
 identity or establish fidelity to patients.
 
-\paragraph{Tolerance and reference choice.}\label{app:scale}
+\paragraph{Tolerance and reference choice.}\label{analysis:app:scale}
 Of 420 settings, 41 ridge settings pass only a relative-plus-absolute comparison.
 Thirteen generator--estimator combinations switch into this category between
 $n=100$ and $5{,}000$. The comparisons use $10^{-8}$ against zero and

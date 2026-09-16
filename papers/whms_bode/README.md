@@ -9,12 +9,16 @@ preserving the later fixed-pool and false-positive analyses. This integration
 does not modify the other manuscript, experiment implementations or saved results.
 The latest structural revision pulls through `7c3c818`, leads with the clinical
 simulation example, narrows the interval-comparator conclusion, and consolidates
-the general limitations. The empirical evidence and numerical results are unchanged.
+the general limitations. The empirical evidence and numerical results are unchanged. The subsequent
+precision critique revision demotes unresolved local crossings, adds bootstrap
+and SBC context, and restores a compact learned-generator check.
 
 - `main.pdf`: revised anonymous manuscript.
 - `main.tex`, `sections/`, `refs.bib`, `figures/`: editable LaTeX sources and figures.
 - `source.zip`: portable LaTeX/Overleaf source bundle, with `main.tex` at its root.
-- `STRUCTURE_REVIEW.md`: current assessment of venue fit, structure, novelty and bootstrap claims.
+- `PRECISION_CRITIQUE_REVIEW.md`: current assessment of Monte Carlo reversals, interval scope and supporting evidence.
+- `ANALYTICAL_ARTIFACTS.md`: inventory of local diagnostic sources excluded from the submission.
+- `STRUCTURE_REVIEW.md`: preceding assessment of venue fit, structure, novelty and bootstrap claims.
 - `THIRD_CRITIQUE_RESPONSE.md`: preceding independent assessment and experimental follow-up.
 - `FOLLOWUP_DESIGN.md`: analysis settings fixed before the larger run.
 - `precision_followup.py`: 160,000-study precision and paired interval comparison.
@@ -95,9 +99,11 @@ python papers/whms_bode/package_source.py
 
 `make_figures.py` reads version-pinned tables and reproduces the retained controlled-calibration figure.
 The controlled calibration figure deduplicates grid views only after asserting
-that rates at shared counts are identical. The learned-estimator table and extended estimator checks remain analytical
-artifacts, included as noncompiled source files in the bundle. The manuscript
-retains only the reference and interval-control examples needed for its argument.
+that rates at shared counts are identical. The learned-estimator table and extended estimator checks remain local
+analytical artifacts, excluded from the submission bundle; their purposes are
+listed in `ANALYTICAL_ARTIFACTS.md`. The manuscript includes a compressed
+learned-generator check, with actual denominators and synthetic training provenance.
+The redundant normal-mean interval-width demonstration is no longer compiled.
 
 Verification completed for this revision:
 

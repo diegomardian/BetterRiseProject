@@ -9,10 +9,11 @@ point-estimate recovery. In 5{,}000 simulations per
 setting, its nominal 95\% percentile intervals reject a true null in
 9.8--32.2\% of studies at the reporting boundary. A paired comparison with
 Welch intervals improves effect coverage but leaves null rejection at
-8.9--30.8\%; this interval substitution does not repair the rule. We also
-show how a sampled reference inflates apparent coverage, explain why sparse
-samples can produce misleadingly high detection, and document grid-dependent
-threshold selection. The practical lesson is to specify the target, test
+8.9--30.8\%; substituting a Welch interval does not repair the rule. An exact variance calculation shows that, under a halving of expression,
+the sampled reference removes three quarters of the reference-arm variance
+contribution from the error being assessed; at 800 cells, apparent coverage
+exceeds fixed-pool coverage by 5.8--6.8 percentage points. We also document
+grid-dependent threshold selection. The practical lesson is to specify the target, test
 null and alternative performance together, and evaluate an interval and its
 reporting threshold as a combined rule.
 \end{abstract}

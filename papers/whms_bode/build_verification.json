@@ -10,7 +10,7 @@
   "overfull_boxes": 0,
   "anonymity": "passed",
   "official_style_sha256": "c3fc2894e83d2517ca18b66741d6c595986d97957dc08ec08bb2125a7ec4555a",
-  "pdf_sha256": "01d70d515bf360c05515e22fba354bd3917e5c75d4a694c062fbb7c83c75df03",
+  "pdf_sha256": "c23412a3f9551f6fad876ceb946b7dd9caa6fd56917c06e6c07c2ed09083ac1f",
   "source_files": [
     "main.tex",
     "sections/abstract.tex",
@@ -30,7 +30,7 @@
     "sections/supporting_check.tex",
     "sections/llm.tex"
   ],
-  "merged_remote_revision": "7c3c818",
+  "merged_remote_revision": "02c7405",
   "visual_review": {
     "pages": [
       1,
@@ -49,7 +49,7 @@
       14
     ],
     "render_dpi": 120,
-    "result": "passed; all pages inspected at 100 dpi, final affected appendix pages and clinical table reinspected at 120 dpi"
+    "result": "passed; all final pages inspected"
   },
   "portable_source_compile": {
     "pages": 14,

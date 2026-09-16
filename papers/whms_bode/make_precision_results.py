@@ -18,7 +18,7 @@ def render_table(d):
             rows.append(f'{cohort.upper()} / {pool} & {label} & {rate(a,"coverage")} & {rate(n,"rejection")} & {rate(a,"rejection")}' + r' \\')
     return r'''\begin{table}[htbp]
 \centering\small
-\caption{At the 50-cell reporting boundary, changing intervals improves coverage
+\caption{At the 50-cell reporting boundary, substituting Welch intervals improves coverage
 but does not restore the required performance. Rates (\%) and 95\% Wilson
 Monte Carlo intervals use 5{,}000 studies per cohort, pool and effect. Methods
 share the same samples. Coverage targets the fixed-pool effect at $s=0.5$;

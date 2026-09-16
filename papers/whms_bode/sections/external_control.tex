@@ -4,9 +4,11 @@
 Consider validating an estimator for a single-arm trial using an external
 control arm (ECA). This constructed experiment isolates a mismatch between
 the population named by the clinical question and the population used in
-validation.
+validation. The estimator and its observed-data reference deliberately
+share the same population mistake; exact recovery may itself alert an analyst.
+This is a pedagogical stress test, not a claim that the mistake is common.
 A fixed synthetic registry supplies a single-arm trial and three external
-controls per enrolled patient. Enrolment favors heavily pretreated strata;
+controls per enrolled patient. Enrollment favors heavily pretreated strata;
 induced benefits vary by stratum and latent individual responsiveness.
 The intended target is the finite-cohort mean treatment effect among enrolled
 records $E$, available to the simulator through both potential outcomes:
@@ -19,7 +21,7 @@ Here $g$ indexes treatment-history strata, and the observed means use treated
 enrollees and untreated external controls. Enrolled standardization uses
 $w_g=n_{Eg}/|E|$; pooled standardization uses
 $w_g=(n_{Eg}+n_{Cg})/(|E|+|C|)$ for controls $C$. Both use the same stratum
-contrasts. Because effects vary across strata and enrolment changes their
+contrasts. Because effects vary across strata and enrollment changes their
 mix, these weights answer different questions. Pooled standardization is
 inappropriate for the stated enrolled target, not intrinsically invalid.
 
@@ -50,9 +52,9 @@ not establish that an estimate is wrong. Under the full shift, pooled
 weighting balances the measured strata between arms to numerical precision
 while their weighted distribution differs from the enrolled distribution
 (maximum standardized difference 0.964). Between-arm balance does not establish
-target-population alignment. Across trial sizes, root mean squared error against $\tau_E$ falls from
-0.608 to 0.105 for enrolled standardization, compared with 1.082 to 0.892
-for pooled standardization. Increasing sample size therefore does not remove
+target-population alignment. At the smallest and largest trial sizes, root mean squared error against
+$\tau_E$ is respectively 0.608 and 0.105 for enrolled standardization,
+and 1.082 and 0.892 for pooled standardization. Increasing sample size therefore does not remove
 the population mismatch in this experiment.
 
 For clinical-simulation validation, the actionable check is to compare the

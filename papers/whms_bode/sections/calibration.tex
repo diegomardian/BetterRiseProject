@@ -9,7 +9,7 @@ change). These explanations suggest different biological interpretations.
 An empirical comparison of per-cell means requires the relevant population
 to be observed in both tissues. Let $f_N,f_T$ denote the relevant cell fractions
 in reference and diseased tissue, and $m_N,m_T$ their mean per-cell output.
-A reference-based decomposition, related to demographic standardisation and
+A reference-based decomposition, related to demographic standardization and
 Oaxaca--Blinder decompositions \citep{kitagawa1955,oaxaca1973,blinder1973}, is
 \begin{equation}
 \underbrace{(f_T-f_N)m_N}_{\text{compositional}} +
@@ -50,8 +50,8 @@ The first-crossing definition does not require larger counts to qualify.
 
 The calibration uses paired subsets of the published colorectal atlas
 \citep{lee2020}: ten patients from GSE132465 (SMC) and six from
-GSE144735 (KUL3). We analyse GUCA2A in the differentiated population under fixed
-lineage labelling. Each draw samples, with replacement, 2{,}000 cells per arm
+GSE144735 (KUL3). We analyze GUCA2A in the differentiated population under fixed
+lineage labeling. Each draw samples, with replacement, 2{,}000 cells per arm
 from an eligible two-patient pool; the reference mature fraction is $f_N=0.40$.
 The implemented pool combines cells from both tissues before drawing either
 synthetic arm. Because the design document did not specify tissue eligibility,
@@ -119,7 +119,9 @@ crossing locations.
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{figures/controlled_calibration.pdf}
-\caption{Direct evaluation on the controlled union of counts, without binning.
+\caption{Historical selection diagnostic on the controlled union of counts.
+Benchmark inclusion is not fixed-pool coverage; Figure~\ref{fig:precision}
+and Table~\ref{tab:precision} provide the direct interval assessment.
 Rows show cohorts; columns show draw pools. Curves are median rates over eight
 seeds and bands span their minima and maxima, conditional on the observed
 cohorts. Dashed lines mark the 90\% benchmark-inclusion and 80\% discrimination targets;
@@ -161,8 +163,11 @@ Both / pooled & all three & None & None & None \\
 At the committed count of 50, SMC reference-only discrimination ranges
 from 75.5\% to 81.0\% across seeds, with both criteria met on two of eight
 seeds. KUL3 reference-only discrimination is only 45.0--55.0\% at that count.
-The reporting boundary therefore misses the discrimination requirement in
-six of eight SMC seeds and every KUL3 seed.
+These are noisy selections: three SMC/reference seeds cross the criterion
+and fall below it at a later count. With only 200 replicates per setting,
+these local crossings do not establish non-monotonicity of the underlying
+performance curve. The 5{,}000-study follow-up does not evaluate counts
+45, 60 or 70 and cannot resolve those crossings.
 
 The per-count summaries in Table~\ref{tab:controlledgrid} supply a useful
 check on the bin medians. In SMC, the filled grid's first qualifying actual
@@ -172,16 +177,6 @@ evidence that 70 is a uniquely determined biological threshold. A bin pools
 outcomes over several count settings, whereas a per-count rate addresses only
 that setting. Fixed bins hold the boundaries constant, but adding settings can
 still change both a bin's median count and its aggregate performance.
-
-\subsection{First qualification can reverse at larger counts}\label{sec:reversals}
-Three of eight SMC/reference seeds in the complete saved union grid fail a
-criterion after first qualifying. This matters for
-a rule that reports all counts above a scalar boundary: passing at its first
-point does not ensure performance over its reporting range. Requiring every
-subsequently evaluated point to qualify changes candidates 45, 50 and 50 to
-60, 70 and 70. No reversal occurs in the eight KUL3/reference seeds; no pooled
-candidate qualifies. These are descriptive selections on the recorded benchmark.
-
 
 \subsection{Patient influence and the cohort gap}
 Enumerating all 45 and 15 two-patient holdout pairs separates patient omission

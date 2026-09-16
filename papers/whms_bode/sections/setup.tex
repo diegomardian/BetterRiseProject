@@ -23,8 +23,8 @@ colorectal single-cell project (Section~\ref{sec:calibration}). Point-estimate
 recovery had justified a 50-cell reporting boundary. Direct evaluation finds
 excessive false positives with both percentile and Welch intervals, and
 changing the scoring target exposes misleading apparent coverage. Controlled
-grid comparisons then show why a first passing count does not certify all
-larger counts. Together, these analyses trace how a reassuring recovery result
+grid comparisons document how the selected count depends on grid and binning
+choices. Together, these analyses trace how a reassuring recovery result
 can fail to justify the rule used downstream.
 
 \paragraph{Contribution and prior work.}
@@ -38,9 +38,17 @@ Generator--analysis alignment is studied through congeniality
 and the inverse crime \citep{wirgin2004,kaipio2007}; generators can also
 disadvantage good estimators \citep{shaw2026}. Clinical external-control
 validation already uses held-out studies to assess bias and type-I error
-\citep{ventz2019}. Prognostic adjustment retains trial randomisation
+\citep{ventz2019}. Prognostic adjustment retains trial randomization
 \citep{schuler2022}, and target-trial emulation makes the causal question and
 design explicit \citep{hernan2016}. We apply these established distinctions
 to an inspectable reporting-rule decision and a controlled population mismatch.
+Simulation-based calibration (SBC) checks Bayesian computation using ranks
+under prior-predictive simulation \citep{talts2018}; its sensitivity depends
+on the test quantities \citep{modrak2025}. Our frequentist audit instead
+measures coverage and rejection at specified effects and empirical source
+pools, documenting where recovery was used to justify a reporting rule.
+A supporting learned-generator check isolates why increasing generator
+complexity does not break an estimator--reference identity
+(Appendix~\ref{app:learned}).
 Section~\ref{sec:validation} draws out the resulting checks for clinical
 simulation; Appendix~\ref{app:relatedwork} provides further context.

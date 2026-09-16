@@ -1,6 +1,6 @@
 {
   "archive": "source.zip",
-  "sha256": "7240f8e71a3feffb3ec1bc94d5972e2e9a6b850fd8df0d6e55b477c7ce42918b",
+  "sha256": "f91479d16d75dff85c8fe11e163960cfb11daa14c98ec8452da39ec74c94f7ea",
   "files": [
     "diagnostics/candidate_reversals.json",
     "diagnostics/coverage_precision.json",
@@ -31,12 +31,9 @@
     "sections/external_control_table.tex",
     "sections/fixed_pool_results.tex",
     "sections/interval_comparison.tex",
-    "sections/learned_table.tex",
     "sections/llm.tex",
-    "sections/matrix_table.tex",
     "sections/methods.tex",
     "sections/precision_table.tex",
-    "sections/refdesign.tex",
     "sections/responsible.tex",
     "sections/setup.tex",
     "sections/supporting_check.tex",
