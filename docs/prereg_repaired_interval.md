@@ -122,12 +122,48 @@ Each cause is tested by **substituting the resampling population `F`**, or by
 |---|---|---|---|
 | `P0` | `empirical` — `F` itself | nothing (baseline) | everything |
 | `P1` | `zeros_removed_mean_matched` — `F` restricted to strictly positive values, rescaled by a constant so its mean equals `mean(F)` | the zero atom | the mean, the positive-part shape |
-| `P2` | `skew_matched_no_zeros` — continuous strictly-positive distribution matched to `mean(F)`, `var(F)`, `skew(F)` | the zero atom **and** discreteness | mean, variance, skewness |
+| `P2` | `skew_matched_no_zeros` — continuous strictly-positive distribution matched to `mean(F)` and `skew(F)` | the zero atom **and** discreteness | mean, skewness |
 | `P3` | `gaussian_matched` — `Normal(mean(F), var(F))` | zeros, discreteness **and** skew | mean, variance |
 
-`P3` is the floor: what survives there is the `z`-vs-`t` and plug-in-sd term of
-§0, and it is checked against `expected_false_positive_rate` at the effective n
-as a consistency check on the whole apparatus (falsifier F5).
+`P3` is the floor: what survives there is the plug-in-variance and `z`-vs-`t`
+term of §0, and it is checked against the closed form as a consistency check on
+the whole apparatus (falsifier F5).
+
+> **Amendment 1, 2026-09-15, before any result table existed.** `P2` was
+> registered as matching **three** moments — mean, variance and skewness — via
+> a three-parameter shifted gamma. That family cannot be built on these pools.
+> Its shift is `mean − 2·sd/skew`, which is negative whenever the pool is *less*
+> skewed than a gamma of the same mean and variance, and a negative shift puts
+> mass below zero — so the family would stop being the strictly positive thing
+> it is named for. Measured on the real cohorts, the shift is negative in
+> **200 of 200** SMC/pooled holdout draws, 199/200 SMC/reference, 161/200
+> KUL3/pooled and 189/200 KUL3/reference. The implementation as first written
+> silently degraded to matching **mean and variance only**, i.e. to a family
+> called `skew_matched` that did not match the skew — which would have made the
+> `pp_skew_given_no_zeros` bucket a number about the wrong moment.
+>
+> `P2` is now a two-parameter gamma matching the mean and the **skew** exactly,
+> with the variance falling where it must. This costs nothing, and the reason
+> is a property of the estimand rather than a convenience: the estimate is
+> `f_n·(mean_t − mean_n)` and the interval is built from the same draws, so
+> **null rejection is invariant to any affine transformation of the pool** —
+> it depends on the pool's shape and on nothing else. Asserted as an exact
+> identity in
+> `tests/test_interval_diagnosis.py::test_null_rejection_is_invariant_to_affine_rescaling`.
+> The same invariance means the mean-matching in `P1` is cosmetic, kept only so
+> the reported widths stay on a readable scale.
+>
+> One bound is imposed: past gamma shape 0.02 — a skew above 14.1 — the draws
+> underflow to exactly `0.0` in double precision often enough to matter (1 in
+> 1,760 at shape 0.01), and a family promising no zeros must not quietly
+> produce them. Where that clip binds, the row records `skew_matched = False`
+> and the skew bucket for that replicate is a **lower** bound on what skew is
+> worth. The observed pool skews are 3.0–10.7 at the median with a maximum of
+> 19.8, so the clip binds only in the upper tail.
+>
+> This amendment was made after inspecting the *pool moments* and the family's
+> own `skew_matched` flag, and before any null-rejection result was read: the
+> first full run was stopped and discarded on discovering it.
 
 ### 3.2 Design factor (the reviewer's third candidate)
 

@@ -52,23 +52,51 @@ def test_zeros_removed_keeps_the_mean_and_drops_the_zeros():
     assert drawn.mean() == pytest.approx(values.mean(), rel=0.03)
 
 
-def test_skew_matched_family_matches_all_three_moments_or_says_it_did_not():
+def test_skew_matched_family_matches_the_skew_and_says_when_it_cannot():
+    """The family is named for the skew, so the skew is what must match.
+
+    Not the variance. Null rejection is invariant to affine rescaling of the
+    pool (asserted below), so a two-parameter family should spend its second
+    degree of freedom on the skew and let the variance fall where it must.
+    Matching the variance and missing the skew -- which is what the
+    three-parameter shifted gamma degraded to on these pools -- would have
+    named the family for the moment it did not control.
+    """
     rng = np.random.default_rng(3)
     values = _zero_inflated(rng)
+    target = float(np.mean((values - values.mean()) ** 3) / values.var() ** 1.5)
     sampler = build_pool(values, "skew_matched_no_zeros")
-    drawn = sampler.draw(400_000, np.random.default_rng(4))
+    drawn = sampler.draw(500_000, np.random.default_rng(4))
+
     assert (drawn > 0).all(), "a strictly positive family produced non-positive draws"
+    assert sampler.moments.skew_matched, sampler.moments.form
+    assert sampler.moments.form == "gamma_mean_skew"
+    assert sampler.moments.skew == pytest.approx(target, rel=1e-12)
+    realised = float(np.mean((drawn - drawn.mean()) ** 3) / drawn.var() ** 1.5)
+    assert realised == pytest.approx(target, rel=0.10)
     assert drawn.mean() == pytest.approx(values.mean(), rel=0.05)
-    assert drawn.var() == pytest.approx(values.var(), rel=0.20)
-    if sampler.moments.skew_matched:
-        target = float(
-            np.mean((values - values.mean()) ** 3) / values.var() ** 1.5
-        )
-        realised = float(np.mean((drawn - drawn.mean()) ** 3) / drawn.var() ** 1.5)
-        assert realised == pytest.approx(target, rel=0.25)
-    else:
-        # the honest fallback: it must SAY it only matched mean and variance
-        assert sampler.moments.form == "gamma_mean_var_only"
+
+
+def test_an_unrepresentable_skew_is_clipped_and_declared():
+    """Past shape 0.02 the gamma underflows to exactly 0.0 in double precision.
+
+    A family whose name promises no zeros must not quietly produce them, so the
+    shape is floored and the row says the skew was NOT matched. The clipped
+    skew is lower than the pool's, so the skew bucket becomes a lower bound --
+    the conservative direction, and the one worth having by default.
+    """
+    from src.harness.interval_diagnosis import MIN_GAMMA_SHAPE
+
+    rng = np.random.default_rng(11)
+    # a pool far beyond the representable skew: one huge value in many zeros
+    values = np.zeros(20_000)
+    values[0] = 1e6
+    sampler = build_pool(values, "skew_matched_no_zeros")
+    assert sampler.moments.form == "gamma_skew_clipped"
+    assert sampler.moments.skew_matched is False
+    assert sampler.moments.skew == pytest.approx(2 / np.sqrt(MIN_GAMMA_SHAPE))
+    drawn = sampler.draw(200_000, rng)
+    assert (drawn > 0).all(), "the clip exists precisely to prevent exact zeros"
 
 
 def test_gaussian_family_has_no_skew_and_no_atom():
@@ -166,6 +194,34 @@ def test_gaussian_floor_lands_near_its_closed_form():
     assert row["n_scored"] == 400
     assert row["null_rejection"] < 0.10, row["null_rejection"]
     check_gaussian_floor_matches_its_arithmetic([row], tolerance_mcse=6.0)
+
+
+def test_null_rejection_is_invariant_to_affine_rescaling():
+    """The claim the whole P2 design rests on, measured rather than asserted.
+
+    The estimate is ``f_n * (mean_t - mean_n)`` and the interval is built from
+    the same draws, so a constant added to the pool cancels in the difference
+    and a constant multiplied through scales the estimate and both bounds
+    alike. Null rejection therefore depends on the pool's SHAPE and on nothing
+    else -- which is why a two-parameter family matching the mean and the skew
+    is a complete stand-in, and why not matching the variance costs nothing.
+
+    Same seeds on both sides, so this is an exact identity and not a
+    statistical comparison: any difference at all is a bug.
+    """
+    rng = np.random.default_rng(17)
+    pools = [_zero_inflated(rng, n=600) for _ in range(120)]
+    seeds = list(range(120))
+    kwargs = dict(count=40, family="empirical", design="fixed_fraction",
+                  n_boot=250, seeds=seeds)
+    base = null_rejection(pools, **kwargs)
+    scaled = null_rejection([137.0 * p for p in pools], **kwargs)
+    shifted = null_rejection([p + 1000.0 for p in pools], **kwargs)
+    both = null_rejection([0.017 * p - 5.0 for p in pools], **kwargs)
+
+    assert base["n_scored"] == 120
+    for other, name in ((scaled, "scale"), (shifted, "location"), (both, "both")):
+        assert other["null_rejection"] == base["null_rejection"], name
 
 
 def test_null_rejection_refuses_mismatched_pools_and_seeds():

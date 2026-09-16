@@ -41,6 +41,25 @@ family below replaces ``F`` and changes nothing else.
     Gaussian floor does not match its own arithmetic, nothing else in this
     module can be trusted.
 
+ONLY THE SHAPE OF THE POOL MATTERS, AND THAT IS WHY P2 LOOKS ODD
+----------------------------------------------------------------
+The estimate is ``f_n * (mean_t - mean_n)`` and the interval is built from the
+same draws, so adding a constant to every value in the pool leaves the
+difference unchanged, and multiplying by a constant multiplies the estimate and
+both bounds alike. **Null rejection is therefore invariant to any affine
+transformation of the pool**: it depends on the pool's shape -- its standardised
+moments -- and on nothing else. This is asserted, not assumed, in
+``tests/test_interval_diagnosis.py::test_null_rejection_is_invariant_to_affine_rescaling``.
+
+Two consequences run through the design below. The mean-matching in
+``zeros_removed_mean_matched`` is cosmetic, kept only so the reported interval
+widths stay on a readable scale. And ``skew_matched_no_zeros`` matches the mean
+and the **skew** while letting the variance fall where it must -- a
+two-parameter gamma has only two degrees of freedom, and given the invariance
+the skew is the one worth spending them on. A family that matched the variance
+instead, and missed the skew, would have been named for the moment it did not
+control.
+
 THE DESIGN FACTOR
 -----------------
 The committed sweep varies a mature *fraction* against a fixed 2,000 cells, so
@@ -82,6 +101,15 @@ N_REFERENCE_FIXED: Final[int] = 800
 
 #: The scale factor on the intrinsic term. Constant across the whole sweep.
 FRAC_MATURE_NORMAL: Final[float] = 0.40
+
+#: Smallest gamma shape the substituted pools will use, i.e. a largest matched
+#: skew of ``2/sqrt(0.02) = 14.1``. Below this, ``rng.gamma`` underflows to
+#: exactly 0.0 often enough that a family promising no zeros would produce
+#: them: at shape 0.01 it is 1 draw in 1,760, at 0.005 one in 42. Where the
+#: clip binds it is recorded as ``skew_matched = False`` and the skew bucket
+#: for that replicate is a LOWER bound on what skew is worth, which is the
+#: conservative direction.
+MIN_GAMMA_SHAPE: Final[float] = 0.02
 
 
 class MomentMatch:
@@ -192,32 +220,40 @@ def build_pool(values: np.ndarray, family: str) -> PoolSampler | None:
     if family == "skew_matched_no_zeros":
         if skew <= 0:
             return None
-        # Three-parameter gamma: mean = shift + k*theta, var = k*theta^2,
-        # skew = 2/sqrt(k). Exact on all three moments when the shift lands at
-        # or above zero, which is what keeps the support strictly positive.
+        # A two-parameter gamma: shape = 4/skew^2 matches the skew EXACTLY and
+        # the scale is then chosen for the mean. The variance is not matched,
+        # and does not need to be -- see the module docstring on invariance.
+        #
+        # The three-parameter (shifted) gamma this started as could not be
+        # used, and the reason is a measured property of these pools rather
+        # than a preference. Its shift is ``mean - 2*sd/skew``, which is
+        # negative whenever the pool is LESS skewed than a gamma of the same
+        # mean and variance -- true for the Lee mature-cell counts in 200 of
+        # 200 SMC/pooled holdout draws. A negative shift puts mass below zero,
+        # so the family would no longer be the thing it is named, and matching
+        # the third moment would have been bought by breaking the first
+        # requirement. Recorded in docs/prereg_repaired_interval.md as a dated
+        # amendment, made before any result existed.
         shape = 4.0 / skew**2
-        scale = float(np.sqrt(var / shape))
-        shift = mean - shape * scale
-        if shift >= 0.0:
+        if shape < MIN_GAMMA_SHAPE:
+            # Below this the draws underflow to exactly 0.0 in double
+            # precision often enough to matter, and a family whose name
+            # promises no zeros must not quietly produce them. Match the
+            # largest representable skew instead and SAY the skew was not
+            # matched.
+            shape = MIN_GAMMA_SHAPE
+            realised_skew = 2.0 / float(np.sqrt(shape))
             return PoolSampler(
                 "gamma",
-                MomentMatch(family, mean, var, skew, "shifted_gamma", True, shift),
-                args=(shift, shape, scale),
+                MomentMatch(family, mean, mean**2 / shape, realised_skew,
+                            "gamma_skew_clipped", False, 0.0),
+                args=(0.0, shape, mean / shape),
             )
-        # The shift would be negative, so matching all three moments would put
-        # mass below zero and the family would no longer be what it is named.
-        # Match mean and variance instead, and SAY SO on the row rather than
-        # reporting a skew match that did not happen.
-        shape = mean**2 / var
-        scale = var / mean
-        if not (shape > 0 and scale > 0):
-            return None
-        realised_skew = 2.0 / float(np.sqrt(shape))
         return PoolSampler(
             "gamma",
-            MomentMatch(family, mean, var, realised_skew, "gamma_mean_var_only",
-                        False, 0.0),
-            args=(0.0, shape, scale),
+            MomentMatch(family, mean, mean**2 / shape, skew,
+                        "gamma_mean_skew", True, 0.0),
+            args=(0.0, shape, mean / shape),
         )
 
     # gaussian_matched
